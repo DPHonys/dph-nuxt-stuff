@@ -4,8 +4,7 @@ import prettier from 'eslint-config-prettier'
 export default antfu(
   {
     type: 'lib',
-    stylistic: false,
-    ignores: ['FINDINGS.md'],
+    stylistic: false
   },
   prettier
 )
