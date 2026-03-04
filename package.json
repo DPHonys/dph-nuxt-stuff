@@ -23,7 +23,7 @@
     "changelogen": "^0.6.2",
     "commitlint": "^20.4.3",
     "eslint": "^10.0.2",
-    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
     "husky": "^9.1.7",
     "jiti": "^2.6.1",
     "knip": "^5.85.0",

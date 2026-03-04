@@ -1,10 +1,10 @@
 import antfu from '@antfu/eslint-config'
-import prettier from 'eslint-config-prettier'
+import prettierRecommended from 'eslint-plugin-prettier/recommended'
 
 export default antfu(
   {
     type: 'lib',
     stylistic: false,
   },
-  prettier
+  prettierRecommended
 )
