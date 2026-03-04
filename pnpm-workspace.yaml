@@ -1,2 +1,8 @@
+shellEmulator: true
+
+trustPolicy: no-downgrade
+
 packages:
   - 'packages/*'
+onlyBuiltDependencies:
+  - unrs-resolver

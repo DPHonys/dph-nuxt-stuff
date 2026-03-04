@@ -1,6 +1,11 @@
 import antfu from '@antfu/eslint-config'
+import prettier from 'eslint-config-prettier'
 
-export default antfu({
-  type: 'lib',
-  ignores: ['FINDINGS.md'],
-})
+export default antfu(
+  {
+    type: 'lib',
+    stylistic: false,
+    ignores: ['FINDINGS.md'],
+  },
+  prettier
+)
