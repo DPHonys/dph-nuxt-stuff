@@ -1,0 +1,14 @@
+name: Semantic Pull Requests
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+jobs:
+  semantic-pull-request:
+    uses: amannn/action-semantic-pull-request@v5
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
