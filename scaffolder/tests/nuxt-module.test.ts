@@ -28,9 +28,11 @@ const expectedFiles = [
   'playground/app.vue',
   'playground/nuxt.config.ts',
   'playground/package.json',
+  'playground/server/tsconfig.json',
   'playground/tsconfig.json',
   'src/module.ts',
   'src/runtime/plugin.ts',
+  'src/runtime/server/tsconfig.json',
   'test/basic.test.ts',
   'test/fixtures/basic/app.vue',
   'test/fixtures/basic/nuxt.config.ts',
@@ -248,6 +250,16 @@ describe('nuxt module Template contract', () => {
       name: '@dphonys/api-2-client-test-fixture',
       type: 'module',
       private: true,
+    })
+    await expect(
+      readJson(join(destination, 'playground/server/tsconfig.json'))
+    ).resolves.toEqual({
+      extends: '../.nuxt/tsconfig.server.json',
+    })
+    await expect(
+      readJson(join(destination, 'src/runtime/server/tsconfig.json'))
+    ).resolves.toEqual({
+      extends: '../../../.nuxt/tsconfig.server.json',
     })
 
     const contents = await readGeneratedContents(destination)
