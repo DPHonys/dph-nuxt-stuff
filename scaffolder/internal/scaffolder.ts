@@ -5,14 +5,23 @@ import { resolve } from 'pathe'
 import { prepareTemplate, resolveWithin } from './registry'
 import { renderPreparedTemplate } from './render'
 import type {
+  OwnedScaffoldArtifact,
   PostCommitContext,
   ScaffoldDependencies,
   ScaffoldOutcome,
+  ScaffoldTransactionOperations,
   Scaffolder,
 } from './types'
 
 class DestinationCollisionError extends Error {
   override name = 'DestinationCollisionError'
+
+  constructor(
+    message: string,
+    readonly reason: 'destination-exists' | 'lock-held'
+  ) {
+    super(message)
+  }
 }
 
 type Phase =
@@ -30,6 +39,12 @@ type Phase =
 export function createScaffolder(
   dependencies: ScaffoldDependencies
 ): Scaffolder {
+  const transaction: ScaffoldTransactionOperations = {
+    render: renderPreparedTemplate,
+    removeOwnedArtifact,
+    ...dependencies.transaction,
+  }
+
   return Object.freeze({
     async run(options: {
       repositoryRoot: string
@@ -45,6 +60,7 @@ export function createScaffolder(
       let destinationPath = ''
       let packageName = ''
       let destination = ''
+      let confirmed = false
 
       try {
         throwIfAborted(options.signal)
@@ -65,6 +81,7 @@ export function createScaffolder(
           return { status: 'cancelled', exitCode: 0 }
         }
 
+        confirmed = true
         throwIfAborted(options.signal)
         phase = 'prepare'
         const definition = dependencies.registry.get(
@@ -95,7 +112,12 @@ export function createScaffolder(
         const packagesPath = resolveWithin(repositoryRoot, 'packages')
         await requireDirectory(packagesPath, 'packages')
         if (await pathExists(destinationPath)) {
-          return { status: 'collision', exitCode: 1, destination }
+          return {
+            status: 'collision',
+            exitCode: 1,
+            destination,
+            reason: 'destination-exists',
+          }
         }
 
         throwIfAborted(options.signal)
@@ -115,7 +137,8 @@ export function createScaffolder(
         } catch (error) {
           if (isAlreadyExists(error)) {
             throw new DestinationCollisionError(
-              `Another Scaffolder owns ${destination}`
+              `Another Scaffolder owns ${destination}`,
+              'lock-held'
             )
           }
           throw error
@@ -140,7 +163,7 @@ export function createScaffolder(
           phase: 'render',
           message: 'Rendering and validating package',
         })
-        await renderPreparedTemplate({
+        await transaction.render({
           repositoryRoot,
           stagingRoot: stagingPath,
           plan,
@@ -150,15 +173,19 @@ export function createScaffolder(
         phase = 'commit'
         if (await pathExists(destinationPath)) {
           throw new DestinationCollisionError(
-            `Destination appeared before commit: ${destination}`
+            `Destination appeared before commit: ${destination}`,
+            'destination-exists'
           )
         }
+        // An unrelated writer that ignores the cooperative lock can still act
+        // between this check and rename; portable no-clobber directory rename
+        // is outside the Scaffolder's stated concurrency guarantee.
         await rename(stagingPath, destinationPath)
         stagingOwned = false
         committed = true
 
         phase = 'release-lock'
-        await rm(lockPath)
+        await transaction.removeOwnedArtifact({ kind: 'lock', path: lockPath })
         lockOwned = false
 
         throwIfAborted(options.signal)
@@ -197,6 +224,7 @@ export function createScaffolder(
 
         if (!committed) {
           const cleanup = await cleanupOwnedArtifacts({
+            removeOwnedArtifact: transaction.removeOwnedArtifact,
             lockOwned,
             lockPath,
             stagingOwned,
@@ -212,9 +240,17 @@ export function createScaffolder(
             }
           }
           if (caught instanceof DestinationCollisionError) {
-            return { status: 'collision', exitCode: 1, destination }
+            return {
+              status: 'collision',
+              exitCode: 1,
+              destination,
+              reason: caught.reason,
+            }
           }
           if (options.signal?.aborted) {
+            if (!confirmed) {
+              return { status: 'cancelled', exitCode: 0 }
+            }
             return {
               status: 'interrupted-before-commit',
               exitCode: 130,
@@ -224,16 +260,6 @@ export function createScaffolder(
           return { status: 'generation-failed', exitCode: 1, error }
         }
 
-        if (lockOwned) {
-          try {
-            await rm(lockPath)
-            lockOwned = false
-          } catch {
-            // A post-commit outcome must retain the Generated package. Ticket
-            // 11 adds the richer retained-lock recovery report.
-          }
-        }
-
         if (options.signal?.aborted) {
           return {
             status: 'interrupted-after-commit',
@@ -241,6 +267,16 @@ export function createScaffolder(
             error,
             packageName,
             destination,
+          }
+        }
+        if (phase === 'release-lock') {
+          return {
+            status: 'lock-release-failed',
+            exitCode: 1,
+            error,
+            packageName,
+            destination,
+            retainedArtifact: lockPath,
           }
         }
         if (phase === 'format') {
@@ -267,6 +303,7 @@ export function createScaffolder(
 export const productionNonce = (): string => randomUUID()
 
 async function cleanupOwnedArtifacts(options: {
+  removeOwnedArtifact: (artifact: OwnedScaffoldArtifact) => Promise<void>
   lockOwned: boolean
   lockPath: string
   stagingOwned: boolean
@@ -276,20 +313,36 @@ async function cleanupOwnedArtifacts(options: {
 
   if (options.stagingOwned) {
     try {
-      await rm(options.stagingPath, { recursive: true, force: true })
+      await options.removeOwnedArtifact({
+        kind: 'staging',
+        path: options.stagingPath,
+      })
     } catch (error) {
       failure = { error: asError(error), artifact: options.stagingPath }
     }
   }
   if (options.lockOwned) {
     try {
-      await rm(options.lockPath, { force: true })
+      await options.removeOwnedArtifact({
+        kind: 'lock',
+        path: options.lockPath,
+      })
     } catch (error) {
       failure ??= { error: asError(error), artifact: options.lockPath }
     }
   }
 
   return failure
+}
+
+async function removeOwnedArtifact(
+  artifact: OwnedScaffoldArtifact
+): Promise<void> {
+  if (artifact.kind === 'staging') {
+    await rm(artifact.path, { recursive: true, force: true })
+    return
+  }
+  await rm(artifact.path, { force: true })
 }
 
 async function requireDirectory(

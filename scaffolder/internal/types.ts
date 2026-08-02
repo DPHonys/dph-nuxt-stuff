@@ -128,6 +128,19 @@ export interface FormatterAdapter {
   format: (context: PostCommitContext) => Promise<void>
 }
 
+export type OwnedScaffoldArtifact =
+  | { kind: 'lock'; path: string }
+  | { kind: 'staging'; path: string }
+
+export interface ScaffoldTransactionOperations {
+  render: (options: {
+    repositoryRoot: string
+    stagingRoot: string
+    plan: PreparedTemplate
+  }) => Promise<void>
+  removeOwnedArtifact: (artifact: OwnedScaffoldArtifact) => Promise<void>
+}
+
 export interface ScaffoldDependencies {
   interaction: InteractionAdapter
   registry: TemplateRegistry
@@ -135,6 +148,8 @@ export interface ScaffoldDependencies {
   formatter: FormatterAdapter
   now: () => Date
   nonce: () => string
+  /** Internal fault-injection seam; production uses the real operations. */
+  transaction?: Partial<ScaffoldTransactionOperations>
 }
 
 export interface TemplateRegistry {
@@ -158,6 +173,7 @@ export type ScaffoldOutcome =
       status: 'collision'
       exitCode: 1
       destination: string
+      reason: 'destination-exists' | 'lock-held'
     })
   | (OutcomeBase & {
       status: 'generation-failed'
@@ -169,6 +185,14 @@ export type ScaffoldOutcome =
       exitCode: 1 | 130
       error: Error
       cleanupError: Error
+      retainedArtifact: string
+    })
+  | (OutcomeBase & {
+      status: 'lock-release-failed'
+      exitCode: 1
+      error: Error
+      packageName: string
+      destination: string
       retainedArtifact: string
     })
   | (OutcomeBase & {

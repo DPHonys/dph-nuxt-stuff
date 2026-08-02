@@ -211,6 +211,133 @@ describe('interactive happy path', () => {
       },
     ])
   })
+
+  it('renders exact failure and recovery copy for every operational outcome', () => {
+    const messages: string[] = []
+    const reporter: OutcomeReporter = {
+      success: (message) => messages.push(message),
+      cancel: (message) => messages.push(message),
+      error: (message) => messages.push(message),
+    }
+
+    renderScaffoldOutcome(
+      {
+        status: 'collision',
+        exitCode: 1,
+        destination: 'packages/image-tools',
+        reason: 'destination-exists',
+      },
+      reporter
+    )
+    renderScaffoldOutcome(
+      {
+        status: 'collision',
+        exitCode: 1,
+        destination: 'packages/image-tools',
+        reason: 'lock-held',
+      },
+      reporter
+    )
+    renderScaffoldOutcome(
+      {
+        status: 'generation-failed',
+        exitCode: 1,
+        error: new Error('Template validation failed.'),
+      },
+      reporter
+    )
+    renderScaffoldOutcome(
+      {
+        status: 'cleanup-failed',
+        exitCode: 1,
+        error: new Error('Template validation failed.'),
+        cleanupError: new Error('Permission denied.'),
+        retainedArtifact: '/repo/packages/.scaffold-image-tools-fixed',
+      },
+      reporter
+    )
+    renderScaffoldOutcome(
+      {
+        status: 'lock-release-failed',
+        exitCode: 1,
+        error: new Error('Permission denied.'),
+        packageName: '@dphonys/image-tools',
+        destination: 'packages/image-tools',
+        retainedArtifact: '/repo/packages/.scaffold-image-tools.lock',
+      },
+      reporter
+    )
+    renderScaffoldOutcome(
+      {
+        status: 'install-failed',
+        exitCode: 1,
+        error: new Error('pnpm exited with code 1.'),
+        packageName: '@dphonys/image-tools',
+        destination: 'packages/image-tools',
+      },
+      reporter
+    )
+    renderScaffoldOutcome(
+      {
+        status: 'format-failed',
+        exitCode: 1,
+        error: new Error('Oxfmt exited with code 1.'),
+        packageName: '@dphonys/image-tools',
+        destination: 'packages/image-tools',
+      },
+      reporter
+    )
+    renderScaffoldOutcome(
+      {
+        status: 'interrupted-before-commit',
+        exitCode: 130,
+        error: new Error('Scaffolding interrupted.'),
+      },
+      reporter
+    )
+    renderScaffoldOutcome(
+      {
+        status: 'interrupted-after-commit',
+        exitCode: 130,
+        error: new Error('Scaffolding interrupted.'),
+        packageName: '@dphonys/image-tools',
+        destination: 'packages/image-tools',
+      },
+      reporter
+    )
+
+    expect(messages).toEqual([
+      'packages/image-tools already exists. No files were changed.',
+      'Another Scaffolder is already creating packages/image-tools. No files were changed.',
+      'Could not create the package: Template validation failed.\n' +
+        'No files were changed.',
+      'Could not create the package: Template validation failed.\n' +
+        'Cleanup also failed: Permission denied.\n' +
+        'The Scaffolder retained an owned artifact at /repo/packages/.scaffold-image-tools-fixed.\n' +
+        'Inspect and remove that exact artifact manually before retrying.',
+      'Created @dphonys/image-tools at packages/image-tools, but releasing its Scaffolder lock failed: Permission denied.\n' +
+        'The generated package was retained. Inspect and remove the lock at /repo/packages/.scaffold-image-tools.lock manually.\n\n' +
+        'Resume from the repository root:\n' +
+        '  pnpm install\n' +
+        '  pnpm exec oxfmt packages/image-tools',
+      'Created @dphonys/image-tools at packages/image-tools, but installing workspace dependencies failed: pnpm exited with code 1.\n' +
+        'The generated package was retained.\n\n' +
+        'Resume from the repository root:\n' +
+        '  pnpm install\n' +
+        '  pnpm exec oxfmt packages/image-tools',
+      'Created @dphonys/image-tools at packages/image-tools and installed workspace dependencies, but formatting failed: Oxfmt exited with code 1.\n' +
+        'The generated package was retained.\n\n' +
+        'Resume from the repository root:\n' +
+        '  pnpm exec oxfmt packages/image-tools\n' +
+        '  pnpm --filter @dphonys/image-tools test',
+      'Scaffolding interrupted. No files were changed.',
+      'Scaffolding was interrupted after @dphonys/image-tools was created at packages/image-tools.\n' +
+        'The generated package was retained.\n\n' +
+        'Resume from the repository root:\n' +
+        '  pnpm install\n' +
+        '  pnpm exec oxfmt packages/image-tools',
+    ])
+  })
 })
 
 describe('production post-commit adapters', () => {
