@@ -16,7 +16,7 @@ export default defineNuxtModule<ModuleOptions>({
   setup(options, nuxt) {
     // TODO: Replace this Starter option and setup with package-specific behavior.
     nuxt.options.runtimeConfig.public.SCAFFOLD_CONFIG_KEY_TOKEN = {
-      message: options.message,
+      message: options.message ?? 'SCAFFOLD_DEFAULT_MESSAGE_TOKEN',
     }
 
     const resolver = createResolver(import.meta.url)

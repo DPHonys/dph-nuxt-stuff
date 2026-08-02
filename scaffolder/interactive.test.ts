@@ -358,6 +358,7 @@ describe('production post-commit adapters', () => {
     })
     expect(install).toHaveBeenCalledWith({
       cwd: '/repository',
+      frozenLockFile: false,
       packageManager,
       silent: false,
     })

@@ -41,6 +41,7 @@ export function createProductionInstaller(
 
       await operations.install({
         cwd: repositoryRoot,
+        frozenLockFile: false,
         packageManager,
         silent: false,
       })
