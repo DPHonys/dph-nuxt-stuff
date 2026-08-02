@@ -30,7 +30,16 @@ export interface InteractionAdapter {
     signal?: AbortSignal
     templates: readonly TemplateSummary[]
   }) => Promise<InteractionResult>
+  progress: (event: ScaffoldProgressEvent) => void
 }
+
+export type ScaffoldProgressEvent =
+  | { phase: 'render'; message: 'Rendering and validating package' }
+  | {
+      phase: 'install'
+      message: 'Installing workspace dependencies with pnpm'
+    }
+  | { phase: 'format'; message: `Formatting ${string}` }
 
 export interface TemplateSummary {
   id: string

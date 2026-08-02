@@ -136,6 +136,10 @@ export function createScaffolder(
 
         throwIfAborted(options.signal)
         phase = 'render'
+        dependencies.interaction.progress({
+          phase: 'render',
+          message: 'Rendering and validating package',
+        })
         await renderPreparedTemplate({
           repositoryRoot,
           stagingRoot: stagingPath,
@@ -167,10 +171,18 @@ export function createScaffolder(
           : { repositoryRoot, destination }
 
         phase = 'install'
+        dependencies.interaction.progress({
+          phase: 'install',
+          message: 'Installing workspace dependencies with pnpm',
+        })
         await dependencies.installer.install(postCommitContext)
         throwIfAborted(options.signal)
 
         phase = 'format'
+        dependencies.interaction.progress({
+          phase: 'format',
+          message: `Formatting ${destination}`,
+        })
         await dependencies.formatter.format(postCommitContext)
         throwIfAborted(options.signal)
 

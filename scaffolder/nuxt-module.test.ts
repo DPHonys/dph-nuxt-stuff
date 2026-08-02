@@ -341,6 +341,7 @@ function createNuxtScaffolder(description: string) {
           },
         }
       },
+      progress() {},
     },
     installer: { async install() {} },
     formatter: { async format() {} },

@@ -19,6 +19,7 @@ import {
 import { createScaffolder } from './internal/scaffolder'
 import type {
   PostCommitContext,
+  ScaffoldProgressEvent,
   TemplateDefinition,
   TemplatePreparation,
 } from './internal/types'
@@ -120,7 +121,8 @@ describe('scaffolder transaction seam', () => {
   it('renders, validates, atomically commits, installs, then formats', async () => {
     const repositoryRoot = await createRepository()
     const calls: Array<{ effect: string; context: PostCommitContext }> = []
-    const scaffold = createTestScaffolder(calls)
+    const progress: ScaffoldProgressEvent[] = []
+    const scaffold = createTestScaffolder(calls, createTestTemplate(), progress)
 
     const outcome = await scaffold.run({ repositoryRoot })
 
@@ -144,6 +146,17 @@ describe('scaffolder transaction seam', () => {
           repositoryRoot,
           destination: 'packages/api-2-client',
         },
+      },
+    ])
+    expect(progress).toEqual([
+      { phase: 'render', message: 'Rendering and validating package' },
+      {
+        phase: 'install',
+        message: 'Installing workspace dependencies with pnpm',
+      },
+      {
+        phase: 'format',
+        message: 'Formatting packages/api-2-client',
       },
     ])
 
@@ -238,7 +251,8 @@ describe('scaffolder transaction seam', () => {
 
 function createTestScaffolder(
   calls: Array<{ effect: string; context: PostCommitContext }>,
-  definition = createTestTemplate()
+  definition = createTestTemplate(),
+  progress: ScaffoldProgressEvent[] = []
 ) {
   return createScaffolder({
     registry: createTemplateRegistry([definition]),
@@ -252,6 +266,9 @@ function createTestScaffolder(
             description: '  A consumer-safe test package  ',
           },
         }
+      },
+      progress(event) {
+        progress.push(event)
       },
     },
     installer: {
