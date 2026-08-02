@@ -5,6 +5,7 @@ import oxlintConfig from './oxlint.config'
 export default antfuConfig(
   {
     type: 'lib',
+    vue: true,
     // Oxfmt owns formatting.
     stylistic: false,
     formatters: false,

@@ -3,9 +3,22 @@ import type { ScaffoldNaming } from './types'
 
 const SCAFFOLD_NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 
+export function validateScaffoldName(scaffoldName: string): string | undefined {
+  if (scaffoldName.length === 0 || scaffoldName.trim().length === 0) {
+    return 'Enter a scaffold name.'
+  }
+  if (scaffoldName.length > 80) {
+    return 'Use 80 characters or fewer.'
+  }
+  if (!SCAFFOLD_NAME_PATTERN.test(scaffoldName)) {
+    return 'Use lowercase letters, numbers, and single hyphens; start with a letter (for example, image-tools).'
+  }
+}
+
 export function createNaming(scaffoldName: string): ScaffoldNaming {
-  if (scaffoldName.length > 80 || !SCAFFOLD_NAME_PATTERN.test(scaffoldName)) {
-    throw new Error(`Invalid scaffold name: ${scaffoldName}`)
+  const validationMessage = validateScaffoldName(scaffoldName)
+  if (validationMessage) {
+    throw new Error(validationMessage)
   }
 
   const configKey = camelCase(scaffoldName, { normalize: true })

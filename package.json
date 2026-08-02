@@ -11,7 +11,7 @@
     "format": "oxfmt --check",
     "format:fix": "oxfmt",
     "test": "pnpm test:scaffolder && turbo run test",
-    "test:scaffolder": "vitest run scaffolder",
+    "test:scaffolder": "vitest run scaffolder/scaffolder.test.ts scaffolder/nuxt-module.test.ts",
     "publint": "turbo run publint",
     "check": "pnpm typecheck && pnpm format && pnpm lint && pnpm test && pnpm build && pnpm publint",
     "fix": "pnpm lint:fix && pnpm format:fix",

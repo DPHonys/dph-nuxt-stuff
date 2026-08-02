@@ -1,14 +1,13 @@
-import { createTemplateRegistry } from './registry'
+import { createProductionTemplateRegistry } from './nuxt-module'
 import { createScaffolder, productionNonce } from './scaffolder'
 import type { Scaffolder } from './types'
 
 /**
- * Ticket 08 establishes the transaction seam. The production Nuxt Template
- * and Clack interaction are connected by tickets 09 and 10 respectively.
+ * Ticket 10 connects the production interaction and post-commit adapters.
  */
 export function createProductionScaffolder(): Scaffolder {
   return createScaffolder({
-    registry: createTemplateRegistry([]),
+    registry: createProductionTemplateRegistry(),
     interaction: {
       async request() {
         return { status: 'cancelled' }
