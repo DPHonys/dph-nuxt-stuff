@@ -234,6 +234,9 @@ describe('nuxt module Template contract', () => {
       name: '@dphonys/api-2-client-playground',
       type: 'module',
       private: true,
+      scripts: {
+        build: 'nuxt build',
+      },
       dependencies: {
         '@dphonys/api-2-client': 'workspace:*',
         nuxt: 'catalog:',

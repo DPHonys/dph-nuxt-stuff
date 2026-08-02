@@ -2,6 +2,9 @@
   "name": "@dphonys/nuxt-module-template-playground",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build": "nuxt build"
+  },
   "dependencies": {
     "@dphonys/nuxt-module-template": "workspace:*",
     "nuxt": "catalog:"

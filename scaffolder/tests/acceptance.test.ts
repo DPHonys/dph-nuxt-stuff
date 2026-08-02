@@ -160,11 +160,12 @@ describe('disposable Acceptance fixture', () => {
     ) as Array<{ devDependencies?: { nuxt?: { version: string } } }>
     expect(nuxtPackages[0]?.devDependencies?.nuxt?.version).toBe('4.5.1')
 
-    for (const script of ['lint', 'test', 'typecheck', 'build', 'dev:build']) {
+    for (const script of ['lint', 'test', 'typecheck']) {
       await run('pnpm', ['--filter', '@dphonys/api-2-client', 'run', script], {
         cwd: repositoryRoot,
       })
     }
+    await run('pnpm', ['run', 'build'], { cwd: repositoryRoot })
     await run('pnpm', ['--filter', '@dphonys/api-2-client', 'run', 'publint'], {
       cwd: repositoryRoot,
     })
@@ -253,6 +254,9 @@ async function assertPreInstallContract(
     name: '@dphonys/api-2-client-playground',
     type: 'module',
     private: true,
+    scripts: {
+      build: 'nuxt build',
+    },
     dependencies: {
       '@dphonys/api-2-client': 'workspace:*',
       nuxt: 'catalog:',
