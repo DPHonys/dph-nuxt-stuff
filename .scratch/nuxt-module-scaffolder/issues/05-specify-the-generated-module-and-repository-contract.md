@@ -44,17 +44,17 @@ Do not generate package-local lint, formatting, or Vitest configuration; Playwri
 
 Derive one immutable naming context from the validated scaffold name and reuse it everywhere. Do not infer acronyms or prompt for another title. For `api-2-client`, the exact derivations are:
 
-| Meaning | Derived value |
-| --- | --- |
-| Destination | `packages/api-2-client` |
-| Published package | `@dphonys/api-2-client` |
-| Nuxt `meta.name` | `api-2-client` |
-| Nuxt `configKey` | `api2Client` |
-| Runtime injection | `$api2Client` |
-| Display name | `Api 2 Client` |
-| Playground package | `@dphonys/api-2-client-playground` |
-| Fixture package | `@dphonys/api-2-client-test-fixture` |
-| Default starter message | `Hello from Api 2 Client` |
+| Meaning                 | Derived value                        |
+| ----------------------- | ------------------------------------ |
+| Destination             | `packages/api-2-client`              |
+| Published package       | `@dphonys/api-2-client`              |
+| Nuxt `meta.name`        | `api-2-client`                       |
+| Nuxt `configKey`        | `api2Client`                         |
+| Runtime injection       | `$api2Client`                        |
+| Display name            | `Api 2 Client`                       |
+| Playground package      | `@dphonys/api-2-client-playground`   |
+| Fixture package         | `@dphonys/api-2-client-test-fixture` |
+| Default starter message | `Hello from Api 2 Client`            |
 
 The manifest starts at version `0.0.1` and contains:
 

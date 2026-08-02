@@ -19,7 +19,7 @@ Resolve collision policy, temporary staging, partial-failure cleanup, process ex
 
 Use one deep Scaffolder module whose production interface is:
 
-```ts
+```text
 runScaffolder({ repositoryRoot, signal? }): Promise<ScaffoldOutcome>
 ```
 

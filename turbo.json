@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", ".nuxt/**", ".output/**"]
     },
     "dev": {
       "dependsOn": ["^build"],
@@ -15,6 +15,14 @@
       "dependsOn": ["^build"]
     },
     "lint": {
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "publint": {
+      "dependsOn": ["build"],
       "outputs": []
     }
   }

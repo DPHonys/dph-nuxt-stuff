@@ -41,7 +41,7 @@ The root-level `app.vue` files deliberately follow the current official module s
 
 `defineNuxtModule` should use object syntax with `meta`, `defaults`, and `setup`. This gives option merging, install-once identity, compatibility checks, hook registration, type inference, and Module Builder integration. `meta.compatibility.nuxt` is the supported-version contract ([module anatomy](https://nuxt.com/docs/4.x/guide/modules/module-anatomy)). For this effort:
 
-```ts
+```text
 meta: {
   name: '<scaffold-name>',
   configKey: '<camelName>',
@@ -80,19 +80,19 @@ The export shape is Module Builder's documented minimum ([Module Builder](https:
 
 The current official starter dependency snapshot is visible in its [`package.json`](https://github.com/nuxt/starter/blob/58f2338da48bbc68e11fa10163a72e2d1a70ac0a/package.json). Use these as the initial catalog ranges, allowing Renovate to own future refreshes:
 
-| Role | Package | Baseline |
-| --- | --- | --- |
-| runtime dependency | `@nuxt/kit` | `^4.5.1` |
-| development | `@nuxt/devtools` | `^3.3.1` |
-| development | `@nuxt/module-builder` | `^1.0.3` |
-| development | `@nuxt/schema` | `^4.5.1` |
-| development | `@nuxt/test-utils` | `^4.1.0` |
-| development | `@types/node` | `latest` (official starter policy) |
-| development | `nuxt` | `^4.5.1` |
-| development | `typescript` | repo's existing native-bridge override/catalog entry |
-| development | `vitest` | `^4.1.10` |
-| development | `vue-tsc` | `^3.3.8` |
-| production-readiness addition | `publint` | `^0.3.22` |
+| Role                          | Package                | Baseline                                             |
+| ----------------------------- | ---------------------- | ---------------------------------------------------- |
+| runtime dependency            | `@nuxt/kit`            | `^4.5.1`                                             |
+| development                   | `@nuxt/devtools`       | `^3.3.1`                                             |
+| development                   | `@nuxt/module-builder` | `^1.0.3`                                             |
+| development                   | `@nuxt/schema`         | `^4.5.1`                                             |
+| development                   | `@nuxt/test-utils`     | `^4.1.0`                                             |
+| development                   | `@types/node`          | `latest` (official starter policy)                   |
+| development                   | `nuxt`                 | `^4.5.1`                                             |
+| development                   | `typescript`           | repo's existing native-bridge override/catalog entry |
+| development                   | `vitest`               | `^4.1.10`                                            |
+| development                   | `vue-tsc`              | `^3.3.8`                                             |
+| production-readiness addition | `publint`              | `^0.3.22`                                            |
 
 The starter also carries its standalone ESLint stack and `changelogen`. This monorepo already owns ESLint/Oxlint/Oxfmt and release tooling at the root, so generated packages should inherit those rather than install competing package-local configs or release scripts. `publint` is an intentional addition not present in the starter; it validates the built package files and export map ([publint](https://publint.dev/docs/)). Nuxt 4's current installation baseline is Node 22 or newer, so any generated `engines.node` should be `>=22.0.0` if the repo chooses to emit it ([Nuxt installation requirements](https://nuxt.com/docs/4.x/getting-started/installation)).
 
@@ -127,20 +127,20 @@ The neutral example should prove more than installation: one typed option should
 
 ## `module-template` disposition
 
-| Area | Decision | Reason |
-| --- | --- | --- |
-| `src/module.ts`, `src/runtime/plugin.ts` | Retain shape; replace behavior | Matches the starter and Module Builder. Add `compatibility.nuxt` and a tested neutral example. |
-| ESM exports, `main`, `typesVersions`, `files` | Retain | Matches Module Builder output exactly. |
-| Playground and fixture | Retain, simplify, rename | They are official authoring/testing patterns. Keep a separate playground manifest with `workspace:*`; flatten `test/unit/basic.test.ts` to `test/basic.test.ts`. |
-| `dev`, `dev:build`, `dev:prepare`, build/prepack | Retain with pnpm/repo naming | Matches current starter behavior. |
-| Dependencies | Update | Replace the branch's Nuxt 4.3-era catalog with the table above; add `vue-tsc`; keep the repository TypeScript override coherent. |
-| `compatibilityDate: '2024-04-03'` | Update to `'latest'` in the playground | This is what the current official starter uses; fixtures need no date unless their behavior depends on one. |
-| README | Replace | Render package/display/config names and a real usage/options example; remove starter placeholders and scroll-restorer language. |
-| Playwright config/dependency and empty `test/e2e` | Remove | The official baseline uses Test Utils plus Vitest; empty browser tooling proves nothing. Add browser tests later when a module has browser-only behavior. |
-| Coverage config and `@vitest/coverage-v8` | Remove from baseline | Not present in the current starter and no coverage threshold was requested. |
-| Manual `server/tsconfig.json` files | Remove | Nuxt 4 generates context-specific configs. |
-| Package-local Prettier formatting | Remove | The current repo standard is root Oxfmt. |
-| Package release script | Remove | Automated release/versioning is explicitly outside this effort. |
+| Area                                              | Decision                               | Reason                                                                                                                                                           |
+| ------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/module.ts`, `src/runtime/plugin.ts`          | Retain shape; replace behavior         | Matches the starter and Module Builder. Add `compatibility.nuxt` and a tested neutral example.                                                                   |
+| ESM exports, `main`, `typesVersions`, `files`     | Retain                                 | Matches Module Builder output exactly.                                                                                                                           |
+| Playground and fixture                            | Retain, simplify, rename               | They are official authoring/testing patterns. Keep a separate playground manifest with `workspace:*`; flatten `test/unit/basic.test.ts` to `test/basic.test.ts`. |
+| `dev`, `dev:build`, `dev:prepare`, build/prepack  | Retain with pnpm/repo naming           | Matches current starter behavior.                                                                                                                                |
+| Dependencies                                      | Update                                 | Replace the branch's Nuxt 4.3-era catalog with the table above; add `vue-tsc`; keep the repository TypeScript override coherent.                                 |
+| `compatibilityDate: '2024-04-03'`                 | Update to `'latest'` in the playground | This is what the current official starter uses; fixtures need no date unless their behavior depends on one.                                                      |
+| README                                            | Replace                                | Render package/display/config names and a real usage/options example; remove starter placeholders and scroll-restorer language.                                  |
+| Playwright config/dependency and empty `test/e2e` | Remove                                 | The official baseline uses Test Utils plus Vitest; empty browser tooling proves nothing. Add browser tests later when a module has browser-only behavior.        |
+| Coverage config and `@vitest/coverage-v8`         | Remove from baseline                   | Not present in the current starter and no coverage threshold was requested.                                                                                      |
+| Manual `server/tsconfig.json` files               | Remove                                 | Nuxt 4 generates context-specific configs.                                                                                                                       |
+| Package-local Prettier formatting                 | Remove                                 | The current repo standard is root Oxfmt.                                                                                                                         |
+| Package release script                            | Remove                                 | Automated release/versioning is explicitly outside this effort.                                                                                                  |
 
 ## Current `main` integration gaps
 

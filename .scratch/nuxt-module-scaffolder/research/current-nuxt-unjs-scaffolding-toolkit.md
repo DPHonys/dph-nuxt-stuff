@@ -6,18 +6,18 @@ Researched 2026-08-02 against official documentation and first-party source repo
 
 Use a deliberately small stack:
 
-| Concern | Recommended API | Role and boundary |
-| --- | --- | --- |
-| Command shell | `citty`: `defineCommand`, `runMain` | Own the root command, generated help, future arguments, and top-level error handling. Do not put prompts or generation logic in the command definition. |
-| Interactive flow | `@clack/prompts`: `intro`, `select`, `text`, `confirm`, `spinner`, `log`, `outro`, `isCancel`, `cancel` | Own the TUI, inline name validation, confirmation, progress, and explicit cancellation. |
-| Naming | `scule`: `kebabCase`, `camelCase`, `pascalCase`, `titleCase` | Derive all names once from the validated canonical kebab-case package name. |
-| Paths | `pathe`: `resolve`, `join`, `relative`, `basename` | Produce consistent slash-normalized paths across platforms. |
-| Local files | `node:fs/promises`: `cp`, `mkdir`, `readFile`, `writeFile`, `rename`, `rm` | Copy a repository-local template and manage a staging directory. No additional copying package is needed on the Nuxt 4 Node baseline. |
-| `package.json` / `tsconfig.json` | `pkg-types`: `readPackageJSON`, `writePackageJSON`, `sortPackage`; `readTSConfig`, `writeTSConfig` | Parse, type, mutate, and write JSON-shaped project metadata. |
-| JavaScript/TypeScript config | `magicast`: `loadFile`, `writeFile`, proxied default export/function arguments | Structurally set the generated module's static `defineNuxtModule({...})` metadata. It is not the general template renderer and should not edit JSON. |
-| Install | `nypm`: `detectPackageManager`, `installDependencies` | Detect the repository manager from `packageManager`/lockfiles and run the root install. For this repository, verify the result is `pnpm` and run at repository root. |
-| General logging | Clack `log` and `spinner` inside this short guided flow | Keeps one coherent TUI. Add `consola` only if the tool later needs reusable non-interactive/scoped/reportable logging. |
-| Abortable child process, if needed | `tinyexec`: `x(command, args, { signal, nodeOptions })` | Optional escape hatch when install output streaming or managed `AbortSignal` cancellation is required; `nypm`'s public operation options do not expose either. |
+| Concern                            | Recommended API                                                                                         | Role and boundary                                                                                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command shell                      | `citty`: `defineCommand`, `runMain`                                                                     | Own the root command, generated help, future arguments, and top-level error handling. Do not put prompts or generation logic in the command definition.              |
+| Interactive flow                   | `@clack/prompts`: `intro`, `select`, `text`, `confirm`, `spinner`, `log`, `outro`, `isCancel`, `cancel` | Own the TUI, inline name validation, confirmation, progress, and explicit cancellation.                                                                              |
+| Naming                             | `scule`: `kebabCase`, `camelCase`, `pascalCase`, `titleCase`                                            | Derive all names once from the validated canonical kebab-case package name.                                                                                          |
+| Paths                              | `pathe`: `resolve`, `join`, `relative`, `basename`                                                      | Produce consistent slash-normalized paths across platforms.                                                                                                          |
+| Local files                        | `node:fs/promises`: `cp`, `mkdir`, `readFile`, `writeFile`, `rename`, `rm`                              | Copy a repository-local template and manage a staging directory. No additional copying package is needed on the Nuxt 4 Node baseline.                                |
+| `package.json` / `tsconfig.json`   | `pkg-types`: `readPackageJSON`, `writePackageJSON`, `sortPackage`; `readTSConfig`, `writeTSConfig`      | Parse, type, mutate, and write JSON-shaped project metadata.                                                                                                         |
+| JavaScript/TypeScript config       | `magicast`: `loadFile`, `writeFile`, proxied default export/function arguments                          | Structurally set the generated module's static `defineNuxtModule({...})` metadata. It is not the general template renderer and should not edit JSON.                 |
+| Install                            | `nypm`: `detectPackageManager`, `installDependencies`                                                   | Detect the repository manager from `packageManager`/lockfiles and run the root install. For this repository, verify the result is `pnpm` and run at repository root. |
+| General logging                    | Clack `log` and `spinner` inside this short guided flow                                                 | Keeps one coherent TUI. Add `consola` only if the tool later needs reusable non-interactive/scoped/reportable logging.                                               |
+| Abortable child process, if needed | `tinyexec`: `x(command, args, { signal, nodeOptions })`                                                 | Optional escape hatch when install output streaming or managed `AbortSignal` cancellation is required; `nypm`'s public operation options do not expose either.       |
 
 This closely follows the current first-party `create-nuxt` stack: its package metadata includes Clack, Citty, Giget, nypm, Pathe, pkg-types, std-env, and tinyexec, while its implementation composes Citty with direct Clack prompts, explicit `isCancel` checks, nypm detection/command generation, and filesystem operations. ([create-nuxt package](https://github.com/nuxt/cli/blob/main/packages/create-nuxt/package.json), [create-nuxt implementation](https://github.com/nuxt/cli/blob/main/packages/create-nuxt/src/init.ts))
 
@@ -41,7 +41,7 @@ Consola remains a good UnJS logger and offers `info`, `warn`, `success`, tagged 
 
 After validating that input is canonical kebab case, build one immutable naming context, for example:
 
-```ts
+```text
 {
   slug: kebabCase(input),
   packageName: `@dphonys/${kebabCase(input)}`,

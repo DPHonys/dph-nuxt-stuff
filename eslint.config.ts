@@ -29,6 +29,28 @@ export default antfuConfig(
     },
   },
 
+  // Repository support predeclares package catalog entries before the first
+  // generated package consumes them. Keep existing root dependency ownership
+  // unchanged while still enforcing catalog use in generated packages.
+  // TODO: Migrate the existing root dependency versions into the central pnpm
+  // catalog, switch the root manifest to `catalog:`, and remove this exception.
+  // Remove the unused-item exception once generated packages consume every
+  // predeclared Nuxt catalog entry.
+  {
+    name: 'project/root-catalog-policy',
+    files: ['package.json'],
+    rules: {
+      'pnpm/json-enforce-catalog': 'off',
+    },
+  },
+  {
+    name: 'project/predeclared-catalog-policy',
+    files: ['pnpm-workspace.yaml'],
+    rules: {
+      'pnpm/yaml-no-unused-catalog-item': 'off',
+    },
+  },
+
   // Oxlint cannot see Vue template usage, so ESLint owns unused variables.
   {
     name: 'project/unused-vars',

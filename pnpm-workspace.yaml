@@ -4,12 +4,26 @@ trustPolicy: no-downgrade
 
 packages:
   - packages/*
+  - packages/*/playground
 
 allowBuilds:
   unrs-resolver: true
 
 # Give tsc and TypeScript-powered tooling the native checker through one
-# compatible package identity. Keep this exact prerelease in sync with
-# package.json; prereleases do not advance through caret ranges.
+# compatible package identity. Keep this exact prerelease in sync with the
+# catalog and package.json; prereleases do not advance through caret ranges.
 overrides:
   typescript: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+
+catalog:
+  '@nuxt/devtools': ^3.3.1
+  '@nuxt/kit': ^4.5.1
+  '@nuxt/module-builder': ^1.0.3
+  '@nuxt/schema': ^4.5.1
+  '@nuxt/test-utils': ^4.1.0
+  '@types/node': latest
+  nuxt: ^4.5.1
+  publint: ^0.3.22
+  typescript: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+  vitest: ^4.1.10
+  vue-tsc: ^3.3.8
