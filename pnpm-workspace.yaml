@@ -3,6 +3,13 @@ shellEmulator: true
 trustPolicy: no-downgrade
 
 packages:
-  - 'packages/*'
-onlyBuiltDependencies:
-  - unrs-resolver
+  - packages/*
+
+allowBuilds:
+  unrs-resolver: true
+
+# Give tsc and TypeScript-powered tooling the native checker through one
+# compatible package identity. Keep this exact prerelease in sync with
+# package.json; prereleases do not advance through caret ranges.
+overrides:
+  typescript: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2

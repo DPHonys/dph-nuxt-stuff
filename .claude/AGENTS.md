@@ -12,28 +12,28 @@ dph-nuxt-stuff/
 ├── turbo.json         # Turborepo task pipeline
 ├── package.json       # Root workspace (pnpm)
 ├── tsconfig.json      # Base TypeScript config (strictest)
-├── eslint.config.mjs  # @antfu/eslint-config (lib mode)
-├── knip.config.ts     # Unused exports/deps detection
+├── eslint.config.ts   # Oxlint compatibility + Antfu conventions
 ├── commitlint.config.ts
 └── renovate.json
 ```
 
 ## Tech Stack
 
-| Tool                                    | Purpose                                   |
-| --------------------------------------- | ----------------------------------------- |
-| **pnpm**                                | Package manager                           |
-| **Turborepo**                           | Monorepo task orchestration               |
-| **@antfu/eslint-config**                | Lint + format (no Prettier)               |
-| **changelogen**                         | Changelog + release automation            |
-| **Husky + commitlint**                  | Enforce conventional commits              |
-| **Vitest**                              | Per-package (each package owns its tests) |
-| **tsgo** (`@typescript/native-preview`) | Type checking (Go-based, fast)            |
-| **TypeScript**                          | Peer dep for tooling (ESLint parser etc.) |
-| **Renovate**                            | Automated dependency PRs                  |
-| **publint**                             | Validate package exports before publish   |
-| **pkg-pr-new**                          | Preview releases on PRs                   |
-| **knip**                                | Dead code / unused dep detection          |
+| Tool                         | Purpose                                                  |
+| ---------------------------- | -------------------------------------------------------- |
+| **pnpm**                     | Package manager                                          |
+| **Turborepo**                | Monorepo task orchestration                              |
+| **Oxlint**                   | Fast correctness linting                                 |
+| **@antfu/eslint-config**     | Project conventions                                      |
+| **Oxfmt**                    | Formatting and import order                              |
+| **changelogen**              | Changelog + release automation                           |
+| **Husky + commitlint**       | Enforce conventional commits                             |
+| **Vitest**                   | Per-package (each package owns its tests)                |
+| **typescript-native-bridge** | TypeScript 7 native checking with TS 6 API compatibility |
+| **Renovate**                 | Automated dependency PRs                                 |
+| **publint**                  | Validate package exports before publish                  |
+| **pkg-pr-new**               | Preview releases on PRs                                  |
+| **knip**                     | Dead code / unused dep detection                         |
 
 ## Dev Commands
 
@@ -50,8 +50,15 @@ pnpm run lint
 # Lint and auto-fix
 pnpm run lint:fix
 
+# Check or fix formatting
+pnpm run format
+pnpm run format:fix
+
 # Type check
 pnpm run typecheck
+
+# Run all code-quality checks
+pnpm run check
 
 # Detect unused exports/deps
 pnpm run knip
@@ -96,7 +103,6 @@ You need an `NPM_TOKEN` secret in GitHub for the CI release workflow.
 
 ## CI
 
-- **ci.yml** — lint + typecheck + preview releases (pkg-pr-new) on push/PR
-- **autofix.yml** — auto-fixes lint issues and commits back
+- **ci.yml** — typecheck + format + lint + preview releases (pkg-pr-new) on push/PR
 - **release.yml** — triggered manually or on `v*` tag push
 - **semantic-pull-requests.yml** — validates PR title follows conventional commits
