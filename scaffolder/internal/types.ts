@@ -1,0 +1,190 @@
+import type { PackageJson } from 'pkg-types'
+
+export interface ScaffoldNaming {
+  scaffoldName: string
+  destination: string
+  packageName: string
+  moduleName: string
+  configKey: string
+  runtimeInjection: string
+  displayName: string
+  defaultMessage: string
+  playgroundPackageName: string
+  fixturePackageName: string
+}
+
+export interface ScaffoldRequest {
+  templateKind: string
+  scaffoldName: string
+  description?: string
+}
+
+export type InteractionResult =
+  | { status: 'confirmed'; request: ScaffoldRequest }
+  | { status: 'declined' }
+  | { status: 'cancelled' }
+
+export interface InteractionAdapter {
+  request: (options: {
+    repositoryRoot: string
+    signal?: AbortSignal
+    templates: readonly TemplateSummary[]
+  }) => Promise<InteractionResult>
+}
+
+export interface TemplateSummary {
+  id: string
+  label: string
+}
+
+export interface TemplatePreparationInput {
+  scaffoldName: string
+  description?: string
+  year: number
+}
+
+export interface TemplatePreparationContext extends TemplatePreparationInput {
+  naming: ScaffoldNaming
+}
+
+export interface TemplatePreparation {
+  operations: readonly RenderOperation[]
+  validations?: readonly ValidationRule[]
+}
+
+export interface TemplateDefinition {
+  id: string
+  label: string
+  sourceDirectory: string
+  requiredFiles: readonly string[]
+  allowedTextTokens: readonly string[]
+  prepare: (context: TemplatePreparationContext) => TemplatePreparation
+}
+
+export interface PreparedTemplate {
+  template: TemplateSummary
+  sourceDirectory: string
+  destination: string
+  requiredFiles: readonly string[]
+  allowedTextTokens: readonly string[]
+  naming: ScaffoldNaming
+  operations: readonly RenderOperation[]
+  validations: readonly ValidationRule[]
+}
+
+export type RenderOperation =
+  | {
+      kind: 'replace-text'
+      file: string
+      replacements: Readonly<Record<string, string>>
+    }
+  | {
+      kind: 'write-package-json'
+      file: string
+      updates: Readonly<PackageJson>
+    }
+  | {
+      kind: 'mutate-typescript'
+      file: string
+      recipe: NuxtModuleIdentityRecipe
+    }
+
+export interface NuxtModuleIdentityRecipe {
+  name: 'set-nuxt-module-identities'
+  moduleName: string
+  configKey: string
+}
+
+export type ValidationRule =
+  | { kind: 'required-files'; files: readonly string[] }
+  | { kind: 'no-unresolved-tokens'; tokens: readonly string[] }
+  | {
+      kind: 'package-json-fields'
+      file: string
+      expected: Readonly<PackageJson>
+    }
+  | { kind: 'text-contains'; file: string; values: readonly string[] }
+
+export interface PostCommitContext {
+  repositoryRoot: string
+  destination: string
+  signal?: AbortSignal
+}
+
+export interface InstallerAdapter {
+  install: (context: PostCommitContext) => Promise<void>
+}
+
+export interface FormatterAdapter {
+  format: (context: PostCommitContext) => Promise<void>
+}
+
+export interface ScaffoldDependencies {
+  interaction: InteractionAdapter
+  registry: TemplateRegistry
+  installer: InstallerAdapter
+  formatter: FormatterAdapter
+  now: () => Date
+  nonce: () => string
+}
+
+export interface TemplateRegistry {
+  list: () => readonly TemplateSummary[]
+  get: (id: string) => TemplateDefinition | undefined
+}
+
+interface OutcomeBase {
+  exitCode: 0 | 1 | 130
+}
+
+export type ScaffoldOutcome =
+  | (OutcomeBase & {
+      status: 'created'
+      exitCode: 0
+      packageName: string
+      destination: string
+    })
+  | (OutcomeBase & { status: 'declined' | 'cancelled'; exitCode: 0 })
+  | (OutcomeBase & {
+      status: 'collision'
+      exitCode: 1
+      destination: string
+    })
+  | (OutcomeBase & {
+      status: 'generation-failed'
+      exitCode: 1
+      error: Error
+    })
+  | (OutcomeBase & {
+      status: 'cleanup-failed'
+      exitCode: 1 | 130
+      error: Error
+      cleanupError: Error
+      retainedArtifact: string
+    })
+  | (OutcomeBase & {
+      status: 'install-failed' | 'format-failed'
+      exitCode: 1
+      error: Error
+      packageName: string
+      destination: string
+    })
+  | (OutcomeBase & {
+      status: 'interrupted-before-commit'
+      exitCode: 130
+      error: Error
+    })
+  | (OutcomeBase & {
+      status: 'interrupted-after-commit'
+      exitCode: 130
+      error: Error
+      packageName: string
+      destination: string
+    })
+
+export interface Scaffolder {
+  run: (options: {
+    repositoryRoot: string
+    signal?: AbortSignal
+  }) => Promise<ScaffoldOutcome>
+}
