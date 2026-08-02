@@ -54,7 +54,13 @@ describe('interactive happy path', () => {
 
     const result = await createInteractiveAdapter(prompts).request({
       repositoryRoot,
-      templates: [{ id: 'nuxt-module', label: 'Nuxt module' }],
+      templates: [
+        {
+          id: 'nuxt-module',
+          label: 'Nuxt module',
+          scaffoldNameInitialValue: 'nuxt-',
+        },
+      ],
     })
 
     expect(result).toEqual({
@@ -77,6 +83,7 @@ describe('interactive happy path', () => {
         type: 'text',
         message: 'Scaffold name',
         hasDefault: false,
+        initialValue: 'nuxt-',
       },
       { type: 'validation', message: 'Enter a scaffold name.' },
       { type: 'validation', message: 'Use 80 characters or fewer.' },
@@ -142,6 +149,35 @@ describe('interactive happy path', () => {
         'Nuxt module     image-tools\n' +
         'Config key      imageTools\n' +
         'Display name    Image Tools\n' +
+        'Description     (none)',
+    })
+  })
+
+  it('reviews a Nuxt-prefixed package with consumer-facing identifiers', async () => {
+    const repositoryRoot = await createTemporaryRoot()
+    const events: unknown[] = []
+    const prompts = createScriptedPrompts({
+      events,
+      nameInputs: ['nuxt-image-tools'],
+      description: '',
+      confirmed: false,
+    })
+
+    await createInteractiveAdapter(prompts).request({
+      repositoryRoot,
+      templates: [{ id: 'nuxt-module', label: 'Nuxt module' }],
+    })
+
+    expect(events).toContainEqual({
+      type: 'note',
+      title: 'Review',
+      message:
+        'Template kind   Nuxt module\n' +
+        'Directory       packages/nuxt-image-tools\n' +
+        'Package         @dphonys/nuxt-image-tools\n' +
+        'Nuxt module     nuxt-image-tools\n' +
+        'Config key      imageTools\n' +
+        'Display name    Nuxt Image Tools\n' +
         'Description     (none)',
     })
   })
@@ -423,6 +459,9 @@ function createScriptedPrompts(options: {
         type: 'text',
         message: prompt.message,
         hasDefault: 'defaultValue' in prompt,
+        ...('initialValue' in prompt
+          ? { initialValue: prompt.initialValue }
+          : {}),
         ...('defaultValue' in prompt
           ? { defaultValue: prompt.defaultValue }
           : {}),

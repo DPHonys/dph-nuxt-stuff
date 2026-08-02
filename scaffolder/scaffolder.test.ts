@@ -60,6 +60,28 @@ describe('scaffolder preparation', () => {
     expect(Object.isFrozen(naming)).toBe(true)
   })
 
+  it('omits a conventional Nuxt package prefix from consumer-facing identities', () => {
+    expect(createNaming('nuxt-image-tools')).toMatchObject({
+      scaffoldName: 'nuxt-image-tools',
+      destination: 'packages/nuxt-image-tools',
+      packageName: '@dphonys/nuxt-image-tools',
+      moduleName: 'nuxt-image-tools',
+      configKey: 'imageTools',
+      runtimeInjection: '$imageTools',
+      displayName: 'Nuxt Image Tools',
+    })
+  })
+
+  it.each([
+    ['nuxt', 'nuxt'],
+    ['nuxt-2fa', 'nuxt2fa'],
+  ])(
+    'retains the Nuxt prefix in %s when stripping it would not leave a valid identifier',
+    (scaffoldName, configKey) => {
+      expect(createNaming(scaffoldName).configKey).toBe(configKey)
+    }
+  )
+
   it('returns a recursively immutable declarative plan', () => {
     const plan = prepareTemplate(createTestTemplate(), {
       scaffoldName: 'image-tools',

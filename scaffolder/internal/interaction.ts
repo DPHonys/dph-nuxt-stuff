@@ -28,6 +28,7 @@ export interface SelectPromptOptions {
 export interface TextPromptOptions {
   message: string
   defaultValue?: string
+  initialValue?: string
   signal?: AbortSignal
   validate?: (value: string | undefined) => string | undefined
 }
@@ -67,9 +68,13 @@ export function createInteractiveAdapter(
         ...(signal ? { signal } : {}),
       })
       if (prompts.isCancel(templateKind)) return { status: 'cancelled' }
+      const template = findTemplate(templates, templateKind)
 
       const scaffoldName = await prompts.text({
         message: 'Scaffold name',
+        ...(template.scaffoldNameInitialValue
+          ? { initialValue: template.scaffoldNameInitialValue }
+          : {}),
         validate(value) {
           const name = value ?? ''
           const invalidName = validateScaffoldName(name)
@@ -91,7 +96,6 @@ export function createInteractiveAdapter(
       })
       if (prompts.isCancel(descriptionInput)) return { status: 'cancelled' }
 
-      const template = findTemplate(templates, templateKind)
       const naming = createNaming(scaffoldName)
       const description = descriptionInput.trim()
       prompts.note(

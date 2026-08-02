@@ -117,7 +117,11 @@ describe('nuxt module Template contract', () => {
     })
 
     expect(registry.list()).toEqual([
-      { id: 'nuxt-module', label: 'Nuxt module' },
+      {
+        id: 'nuxt-module',
+        label: 'Nuxt module',
+        scaffoldNameInitialValue: 'nuxt-',
+      },
     ])
     expect(registry.get('nuxt-module')).toBe(nuxtModuleTemplate)
     expect(plan.naming).toEqual({
@@ -305,6 +309,40 @@ describe('nuxt module Template contract', () => {
     expect(readme).not.toContain('undefined')
   })
 
+  it('uses the prefix-free consumer identities throughout a Nuxt-prefixed package', async () => {
+    const repositoryRoot = await createRepository()
+    const outcome = await createNuxtScaffolder(
+      'Nuxt image tools',
+      'nuxt-image-tools'
+    ).run({ repositoryRoot })
+    const destination = join(repositoryRoot, 'packages/nuxt-image-tools')
+
+    expect(outcome).toMatchObject({
+      status: 'created',
+      packageName: '@dphonys/nuxt-image-tools',
+      destination: 'packages/nuxt-image-tools',
+    })
+
+    const contents = await readGeneratedContents(destination)
+    expect(contents.get('src/module.ts')).toMatch(
+      /configKey: ["']imageTools["']/
+    )
+    expect(contents.get('src/module.ts')).toContain(
+      'runtimeConfig.public.imageTools'
+    )
+    expect(contents.get('src/runtime/plugin.ts')).toContain(
+      'imageTools: { message: starter.message }'
+    )
+    expect(contents.get('test/fixtures/basic/nuxt.config.ts')).toContain(
+      'imageTools: {'
+    )
+    expect(contents.get('playground/app.vue')).toContain(
+      '{{ $imageTools.message }}'
+    )
+    expect(contents.get('README.md')).toContain('$imageTools')
+    expect([...contents.values()].join('\n')).not.toContain('nuxtImageTools')
+  })
+
   it('rejects a Template that violates the Nuxt compatibility contract', async () => {
     const repositoryRoot = await createRepository()
     const moduleFile = join(
@@ -328,7 +366,10 @@ describe('nuxt module Template contract', () => {
   })
 })
 
-function createNuxtScaffolder(description: string) {
+function createNuxtScaffolder(
+  description: string,
+  scaffoldName = 'api-2-client'
+) {
   return createScaffolder({
     registry: createProductionTemplateRegistry(),
     interaction: {
@@ -337,7 +378,7 @@ function createNuxtScaffolder(description: string) {
           status: 'confirmed',
           request: {
             templateKind: 'nuxt-module',
-            scaffoldName: 'api-2-client',
+            scaffoldName,
             description,
           },
         }

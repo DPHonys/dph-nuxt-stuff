@@ -38,6 +38,7 @@ const allowedTextTokens = [
 export const nuxtModuleTemplate: TemplateDefinition = Object.freeze({
   id: 'nuxt-module',
   label: 'Nuxt module',
+  scaffoldNameInitialValue: 'nuxt-',
   sourceDirectory: 'scaffolder/templates/nuxt-module',
   requiredFiles,
   allowedTextTokens,

@@ -25,7 +25,13 @@ export function createTemplateRegistry(
   }
 
   const summaries = Object.freeze(
-    definitions.map(({ id, label }) => Object.freeze({ id, label }))
+    definitions.map(({ id, label, scaffoldNameInitialValue }) =>
+      Object.freeze({
+        id,
+        label,
+        ...(scaffoldNameInitialValue ? { scaffoldNameInitialValue } : {}),
+      })
+    )
   )
 
   return Object.freeze({
@@ -81,7 +87,13 @@ export function prepareTemplate(
   }
 
   const plan: PreparedTemplate = {
-    template: { id: definition.id, label: definition.label },
+    template: {
+      id: definition.id,
+      label: definition.label,
+      ...(definition.scaffoldNameInitialValue
+        ? { scaffoldNameInitialValue: definition.scaffoldNameInitialValue }
+        : {}),
+    },
     sourceDirectory: definition.sourceDirectory,
     destination: naming.destination,
     requiredFiles: [...definition.requiredFiles],

@@ -44,6 +44,7 @@ export type ScaffoldProgressEvent =
 export interface TemplateSummary {
   id: string
   label: string
+  scaffoldNameInitialValue?: string
 }
 
 export interface TemplatePreparationInput {
@@ -64,6 +65,7 @@ export interface TemplatePreparation {
 export interface TemplateDefinition {
   id: string
   label: string
+  scaffoldNameInitialValue?: string
   sourceDirectory: string
   requiredFiles: readonly string[]
   allowedTextTokens: readonly string[]

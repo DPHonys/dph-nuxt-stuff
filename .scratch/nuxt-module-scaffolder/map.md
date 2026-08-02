@@ -10,7 +10,7 @@ An implementation-ready specification for a repository-owned, interactive Nuxt m
 - Treat the `module-template` branch only as a source of proven Nuxt module structure. Target a clean future implementation on the current `main` architecture; do not merge the branch wholesale.
 - The developer-facing tool is the **scaffolder**. Its root command is `pnpm scaffold`.
 - Version one is interactive-only. It ships one real template kind, **Nuxt module**, behind an extensible internal registry.
-- A single kebab-case scaffold name derives `packages/<name>`, `@dphonys/<name>`, the Nuxt module name, the camel-case config key, and the display name. Description is a separate optional input.
+- A single kebab-case scaffold name derives `packages/<name>`, `@dphonys/<name>`, the Nuxt module name, the config key, and the display name. A conventional leading `nuxt-` is omitted from the consumer-facing config key and runtime injection when the remainder begins with a letter. Description is a separate optional input.
 - The generated module targets Nuxt 4+, uses the fixed `@dphonys` npm scope, and includes a small working example exercised by its playground and tests.
 - Production-ready means build, development, lint, type checking, meaningful unit/e2e tests, `publint`, correct npm metadata, and root CI coverage. Automated release/version orchestration is not included.
 - The default completion flow refuses an existing destination, renders and validates the package, runs `pnpm install`, formats generated files, and prints development/test next steps without running the full suite.

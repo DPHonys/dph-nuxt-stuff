@@ -21,7 +21,7 @@ Adopt the approved interactive contract below.
 
 1. Open with `Scaffold a workspace package`.
 2. Prompt for **Template kind** first. Version one presents **Nuxt module** as the single, preselected registry entry; keeping the selection visible establishes the extensible concept without adding a choice that does not yet exist.
-3. Prompt for the required **Scaffold name**. Production has no meaningful name default (the prototype's `image-tools`/`scroll-restorer` values are scenario fixtures). Validate without silently normalizing:
+3. Prompt for the required **Scaffold name**. For the Nuxt module Template kind, prefill the editable input with the conventional `nuxt-` prefix. The developer may complete that name or erase the prefix and enter a different canonical name. Validate without silently normalizing:
    - Empty: `Enter a scaffold name.`
    - More than 80 characters: `Use 80 characters or fewer.`
    - Anything outside canonical kebab case or beginning with a non-letter: `Use lowercase letters, numbers, and single hyphens; start with a letter (for example, image-tools).`

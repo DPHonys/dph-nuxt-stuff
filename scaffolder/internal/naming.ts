@@ -2,6 +2,7 @@ import { camelCase, titleCase } from 'scule'
 import type { ScaffoldNaming } from './types'
 
 const SCAFFOLD_NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+const CONVENTIONAL_NUXT_PREFIX = /^nuxt-(?=[a-z])/
 
 export function validateScaffoldName(scaffoldName: string): string | undefined {
   if (scaffoldName.length === 0 || scaffoldName.trim().length === 0) {
@@ -21,7 +22,8 @@ export function createNaming(scaffoldName: string): ScaffoldNaming {
     throw new Error(validationMessage)
   }
 
-  const configKey = camelCase(scaffoldName, { normalize: true })
+  const consumerName = scaffoldName.replace(CONVENTIONAL_NUXT_PREFIX, '')
+  const configKey = camelCase(consumerName, { normalize: true })
   const displayName = titleCase(scaffoldName, { normalize: true })
 
   return Object.freeze({
