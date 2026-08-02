@@ -160,7 +160,7 @@ describe('disposable Acceptance fixture', () => {
     ) as Array<{ devDependencies?: { nuxt?: { version: string } } }>
     expect(nuxtPackages[0]?.devDependencies?.nuxt?.version).toBe('4.5.1')
 
-    for (const script of ['lint', 'typecheck', 'test', 'build', 'dev:build']) {
+    for (const script of ['lint', 'test', 'typecheck', 'build', 'dev:build']) {
       await run('pnpm', ['--filter', '@dphonys/api-2-client', 'run', script], {
         cwd: repositoryRoot,
       })
@@ -226,6 +226,7 @@ async function assertPreInstallContract(
       'dev:prepare':
         'nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground',
       lint: 'eslint .',
+      pretest: 'nuxt-module-build prepare',
       typecheck:
         'pnpm run dev:prepare && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json',
       test: 'vitest run',

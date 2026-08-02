@@ -98,6 +98,7 @@ Use the standard Module Builder ESM scripts, adapted to this repository:
   "dev:build": "nuxt build playground",
   "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
   "lint": "eslint .",
+  "pretest": "nuxt-module-build prepare",
   "typecheck": "pnpm run dev:prepare && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json",
   "test": "vitest run",
   "test:watch": "vitest watch",
@@ -105,7 +106,7 @@ Use the standard Module Builder ESM scripts, adapted to this repository:
 }
 ```
 
-Self-preparation makes a filtered package typecheck work after a fresh install rather than relying on hidden prior state. Package `tsconfig.json` inherits both the generated Nuxt aliases and the root's strict TypeScript policy while excluding the independently checked playground:
+Self-preparation makes filtered package typecheck and test commands work after a fresh install rather than relying on hidden prior state. Package `tsconfig.json` inherits both the generated Nuxt aliases and the root's strict TypeScript policy while excluding the independently checked playground:
 
 ```json
 {
