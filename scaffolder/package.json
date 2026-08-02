@@ -1,0 +1,20 @@
+{
+  "name": "@dphonys/scaffolder",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run tests"
+  },
+  "dependencies": {
+    "@clack/prompts": "catalog:",
+    "citty": "catalog:",
+    "magicast": "catalog:",
+    "nypm": "catalog:",
+    "pathe": "catalog:",
+    "pkg-types": "catalog:",
+    "scule": "catalog:"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
+  }
+}

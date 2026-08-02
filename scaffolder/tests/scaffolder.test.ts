@@ -12,14 +12,14 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'pathe'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createNaming } from './internal/naming'
+import { createNaming } from '../internal/naming'
 import {
   createTemplateRegistry,
   prepareTemplate,
   TemplatePlanError,
-} from './internal/registry'
-import { renderPreparedTemplate } from './internal/render'
-import { createScaffolder } from './internal/scaffolder'
+} from '../internal/registry'
+import { renderPreparedTemplate } from '../internal/render'
+import { createScaffolder } from '../internal/scaffolder'
 import type {
   InteractionAdapter,
   OwnedScaffoldArtifact,
@@ -28,9 +28,9 @@ import type {
   ScaffoldTransactionOperations,
   TemplateDefinition,
   TemplatePreparation,
-} from './internal/types'
+} from '../internal/types'
 
-const fixtureRoot = resolve(import.meta.dirname, 'test/fixtures/test-template')
+const fixtureRoot = resolve(import.meta.dirname, 'fixtures/test-template')
 const temporaryRoots: string[] = []
 
 afterEach(async () => {

@@ -13,15 +13,15 @@ import {
   createInteractiveAdapter,
   type InteractionPrompts,
   type TextPromptOptions,
-} from './internal/interaction'
-import { renderScaffoldOutcome } from './internal/outcome'
-import type { OutcomeReporter } from './internal/outcome'
+} from '../internal/interaction'
+import { renderScaffoldOutcome } from '../internal/outcome'
+import type { OutcomeReporter } from '../internal/outcome'
 import {
   createProductionFormatter,
   createProductionInstaller,
-} from './internal/production'
-import { createTemplateRegistry } from './internal/registry'
-import { createScaffolder } from './internal/scaffolder'
+} from '../internal/production'
+import { createTemplateRegistry } from '../internal/registry'
+import { createScaffolder } from '../internal/scaffolder'
 
 const temporaryRoots: string[] = []
 

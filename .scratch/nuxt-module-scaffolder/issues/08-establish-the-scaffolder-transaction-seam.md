@@ -16,5 +16,5 @@
 - [x] An unexpected structured-source shape or unresolved known token fails safely rather than falling back to regex rewriting.
 - [x] A confirmed scripted request acquires an exclusive destination lock, renders and validates in an owned same-filesystem staging sibling, commits by rename, releases the lock, and invokes install before formatting.
 - [x] A small test-only Template proves the complete success path against a real temporary repository, including destination contents, adapter arguments, repository-root working directory, and call order.
-- [x] The root test command runs the focused Scaffolder suite exactly once before Turbo package tests, and the canonical root gate remains green.
+- [x] The Scaffolder is a private workspace package whose suite runs exactly once as a cacheable Turbo `test` task, and the canonical root gate remains green.
 - [x] Neither the Scaffolder nor its dependencies call `process.exit()`; the executable shell remains outside this ticket.

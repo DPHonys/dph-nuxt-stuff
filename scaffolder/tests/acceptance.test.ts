@@ -12,15 +12,15 @@ import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
 import { join, relative, resolve } from 'pathe'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createProductionTemplateRegistry } from './internal/nuxt-module'
+import { createProductionTemplateRegistry } from '../internal/nuxt-module'
 import {
   createProductionFormatter,
   createProductionInstaller,
-} from './internal/production'
-import { createScaffolder } from './internal/scaffolder'
+} from '../internal/production'
+import { createScaffolder } from '../internal/scaffolder'
 
 const executeFile = promisify(execFile)
-const workspaceRoot = resolve(import.meta.dirname, '..')
+const workspaceRoot = resolve(import.meta.dirname, '../..')
 const temporaryRoots: string[] = []
 const generatedFiles = [
   'LICENSE',
@@ -333,7 +333,7 @@ async function createDisposableRepository(): Promise<string> {
   const repositoryRoot = await mkdtemp(join(tmpdir(), 'scaffolder-acceptance-'))
   temporaryRoots.push(repositoryRoot)
   await mkdir(join(repositoryRoot, 'packages'))
-  await mkdir(join(repositoryRoot, 'scaffolder/templates'), { recursive: true })
+  await mkdir(join(repositoryRoot, 'templates'), { recursive: true })
 
   for (const file of [
     'eslint.config.ts',
@@ -347,8 +347,8 @@ async function createDisposableRepository(): Promise<string> {
     await cp(join(workspaceRoot, file), join(repositoryRoot, file))
   }
   await cp(
-    join(workspaceRoot, 'scaffolder/templates/nuxt-module'),
-    join(repositoryRoot, 'scaffolder/templates/nuxt-module'),
+    join(workspaceRoot, 'templates/nuxt-module'),
+    join(repositoryRoot, 'templates/nuxt-module'),
     { recursive: true }
   )
 

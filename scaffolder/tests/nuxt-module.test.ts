@@ -10,15 +10,15 @@ import {
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'pathe'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createNaming, validateScaffoldName } from './internal/naming'
+import { createNaming, validateScaffoldName } from '../internal/naming'
 import {
   createProductionTemplateRegistry,
   nuxtModuleTemplate,
-} from './internal/nuxt-module'
-import { prepareTemplate } from './internal/registry'
-import { createScaffolder } from './internal/scaffolder'
+} from '../internal/nuxt-module'
+import { prepareTemplate } from '../internal/registry'
+import { createScaffolder } from '../internal/scaffolder'
 
-const templateRoot = resolve(import.meta.dirname, 'templates/nuxt-module')
+const templateRoot = resolve(import.meta.dirname, '../../templates/nuxt-module')
 const temporaryRoots: string[] = []
 
 const expectedFiles = [
@@ -347,7 +347,7 @@ describe('nuxt module Template contract', () => {
     const repositoryRoot = await createRepository()
     const moduleFile = join(
       repositoryRoot,
-      'scaffolder/templates/nuxt-module/src/module.ts'
+      'templates/nuxt-module/src/module.ts'
     )
     const source = await readFile(moduleFile, 'utf8')
     await writeFile(moduleFile, source.replace('>=4.0.0', '>=3.0.0'), 'utf8')
@@ -396,14 +396,10 @@ async function createRepository(): Promise<string> {
   const repositoryRoot = await mkdtemp(join(tmpdir(), 'scaffolder-ticket-09-'))
   temporaryRoots.push(repositoryRoot)
   await mkdir(join(repositoryRoot, 'packages'))
-  await mkdir(join(repositoryRoot, 'scaffolder/templates'), { recursive: true })
-  await cp(
-    templateRoot,
-    join(repositoryRoot, 'scaffolder/templates/nuxt-module'),
-    {
-      recursive: true,
-    }
-  )
+  await mkdir(join(repositoryRoot, 'templates'), { recursive: true })
+  await cp(templateRoot, join(repositoryRoot, 'templates/nuxt-module'), {
+    recursive: true,
+  })
   return repositoryRoot
 }
 

@@ -18,6 +18,6 @@
 - [ ] pnpm and Turbo discover both the generated package and its nested playground through actual Repository support rather than direct unregistered-directory tool calls.
 - [ ] Acceptance uses the catalog-pinned current Nuxt 4 release and separately asserts the exact `>=4.0.0` compatibility declaration without adding a Nuxt 4.0.0 install matrix.
 - [ ] Teardown removes the disposable repository after success or failure, and no golden generated package is committed.
-- [ ] The focused Scaffolder tests run once before Turbo package tests, and the complete acceptance remains mandatory inside `pnpm check` rather than an optional or nightly command.
+- [ ] The complete Scaffolder suite, including disposable acceptance, runs once as a cacheable Turbo package task and remains mandatory inside `pnpm check` rather than an optional or nightly command.
 - [ ] CI preview and release remain gated by the same successful Node 26 root check.
 - [ ] The suite introduces no numeric coverage target or ANSI terminal snapshots.

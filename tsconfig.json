@@ -16,7 +16,7 @@
     "node_modules",
     "dist",
     "packages",
-    "scaffolder/templates",
+    "templates",
     "**/node_modules",
     "**/dist"
   ]
