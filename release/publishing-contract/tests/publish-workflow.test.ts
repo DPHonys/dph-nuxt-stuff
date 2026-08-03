@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
-const repositoryRoot = resolve(import.meta.dirname, '../..')
+const repositoryRoot = resolve(import.meta.dirname, '../../..')
 const workflowPath = join(repositoryRoot, '.github', 'workflows', 'publish.yml')
 
 interface WorkflowStep {

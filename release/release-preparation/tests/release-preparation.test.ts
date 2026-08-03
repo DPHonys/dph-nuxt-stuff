@@ -15,7 +15,7 @@ import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const execFileAsync = promisify(execFile)
-const repositoryRoot = resolve(import.meta.dirname, '../..')
+const repositoryRoot = resolve(import.meta.dirname, '../../..')
 const rootManifest = JSON.parse(
   await readFile(join(repositoryRoot, 'package.json'), 'utf8')
 ) as { packageManager: string }

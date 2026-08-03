@@ -9,8 +9,7 @@ trustPolicyExclude:
 
 packages:
   - scaffolder
-  - publishing-contract
-  - release-preparation
+  - release/*
   - packages/*
   - packages/*/playground
 

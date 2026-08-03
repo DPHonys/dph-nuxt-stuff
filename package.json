@@ -12,7 +12,7 @@
     "format:fix": "oxfmt",
     "test": "turbo run test",
     "publint": "turbo run publint",
-    "publishing-contract": "node publishing-contract/cli.ts",
+    "publishing-contract": "node release/publishing-contract/cli.ts",
     "check": "pnpm publishing-contract && pnpm typecheck && pnpm format && pnpm lint && pnpm test && pnpm build && pnpm publint",
     "fix": "pnpm lint:fix && pnpm format:fix",
     "knip": "knip",

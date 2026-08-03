@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const repositoryRoot = resolve(import.meta.dirname, '../..')
+const repositoryRoot = resolve(import.meta.dirname, '../../..')
 const bootstrapPath = join(repositoryRoot, 'docs', 'first-release-bootstrap.md')
 
 describe('first-release bootstrap contract', () => {
