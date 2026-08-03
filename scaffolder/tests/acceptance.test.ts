@@ -200,6 +200,7 @@ async function assertPreInstallContract(
   expect(manifest).toEqual({
     name: '@dphonys/api-2-client',
     version: '0.0.1',
+    private: true,
     description: 'A typed API client for Nuxt',
     type: 'module',
     license: 'MIT',
