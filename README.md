@@ -77,5 +77,4 @@ procedure lives in [docs/release-preparation.md](docs/release-preparation.md).
 
 ## License
 
-The repository itself is private tooling; published `@dphonys/*` packages
-declare their own license (MIT) in their manifests.
+[MIT](LICENSE)
