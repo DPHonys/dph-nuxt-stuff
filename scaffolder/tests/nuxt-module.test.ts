@@ -189,7 +189,7 @@ describe('nuxt module Template contract', () => {
       keywords: ['nuxt', 'nuxt-module', 'api-2-client'],
       repository: {
         type: 'git',
-        url: 'https://github.com/DPHonys/dph-nuxt-stuff.git',
+        url: 'git+https://github.com/DPHonys/dph-nuxt-stuff.git',
         directory: 'packages/api-2-client',
       },
       exports: {

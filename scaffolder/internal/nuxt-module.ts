@@ -70,7 +70,7 @@ function prepareNuxtModule(
     keywords: ['nuxt', 'nuxt-module', naming.scaffoldName],
     repository: {
       type: 'git',
-      url: 'https://github.com/DPHonys/dph-nuxt-stuff.git',
+      url: 'git+https://github.com/DPHonys/dph-nuxt-stuff.git',
       directory: naming.destination,
     },
     ...descriptionUpdates,
