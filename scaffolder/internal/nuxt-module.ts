@@ -20,6 +20,7 @@ const requiredFiles = [
   'playground/package.json',
   'playground/server/tsconfig.json',
   'playground/tsconfig.json',
+  'playground/turbo.json',
   'test/basic.test.ts',
   'test/fixtures/basic/app.vue',
   'test/fixtures/basic/nuxt.config.ts',

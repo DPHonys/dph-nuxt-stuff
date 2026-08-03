@@ -31,6 +31,7 @@ const generatedFiles = [
   'playground/package.json',
   'playground/server/tsconfig.json',
   'playground/tsconfig.json',
+  'playground/turbo.json',
   'src/module.ts',
   'src/runtime/plugin.ts',
   'src/runtime/server/tsconfig.json',
@@ -161,15 +162,12 @@ describe('disposable Acceptance fixture', () => {
     ) as Array<{ devDependencies?: { nuxt?: { version: string } } }>
     expect(nuxtPackages[0]?.devDependencies?.nuxt?.version).toBe('4.5.1')
 
-    for (const script of ['lint', 'test', 'typecheck']) {
+    await run('pnpm', ['run', 'build'], { cwd: repositoryRoot })
+    for (const script of ['lint', 'test', 'typecheck', 'publint']) {
       await run('pnpm', ['--filter', '@dphonys/api-2-client', 'run', script], {
         cwd: repositoryRoot,
       })
     }
-    await run('pnpm', ['run', 'build'], { cwd: repositoryRoot })
-    await run('pnpm', ['--filter', '@dphonys/api-2-client', 'run', 'publint'], {
-      cwd: repositoryRoot,
-    })
 
     const playgroundOutput = join(destination, 'playground/.output')
     await expect(treeContains(playgroundOutput, 'Api 2 Client')).resolves.toBe(
@@ -232,7 +230,7 @@ async function assertPreInstallContract(
       lint: 'eslint .',
       pretest: 'nuxt-module-build prepare',
       typecheck:
-        'pnpm run dev:prepare && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json',
+        'nuxt-module-build prepare && nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json',
       test: 'vitest run',
       'test:watch': 'vitest watch',
       publint: 'publint',
