@@ -26,7 +26,7 @@ dph-nuxt-stuff/
 | **Oxlint**                   | Fast correctness linting                                 |
 | **@antfu/eslint-config**     | Project conventions                                      |
 | **Oxfmt**                    | Formatting and import order                              |
-| **changelogen**              | Changelog + release automation                           |
+| **pnpm release management**  | Independent Release intents, versions, and changelogs    |
 | **Husky + commitlint**       | Enforce conventional commits                             |
 | **Vitest**                   | Per-package (each package owns its tests)                |
 | **typescript-native-bridge** | TypeScript 7 native checking with TS 6 API compatibility |
@@ -63,8 +63,12 @@ pnpm run check
 # Detect unused exports/deps
 pnpm run knip
 
-# Release (bumps version, generates changelog, tags, pushes, publishes)
-pnpm run release
+# Record consumer-visible Release intent
+pnpm change
+
+# Inspect and preview all pending Independent package releases
+pnpm change status
+pnpm version -r --dry-run
 ```
 
 ## Commit Convention
@@ -93,13 +97,16 @@ Examples:
 
 ## Release Process
 
-Releases are handled by `changelogen`. It parses conventional commits, bumps the version, generates `CHANGELOG.md`, creates a git tag, pushes, and publishes to npm.
+Consumer-visible package changes carry a pnpm Release intent. Maintainers
+preview and apply every pending intent together, run the canonical check, and
+review the resulting package versions, package changelogs, and consumed-intent
+ledger before committing the result. See
+[`docs/release-preparation.md`](../docs/release-preparation.md) for the complete
+Release commit procedure.
 
-```bash
-pnpm run release
-```
-
-You need an `NPM_TOKEN` secret in GitHub for the CI release workflow.
+After the reviewed Release commit reaches `main`, manually dispatch the
+`publish.yml` workflow from `main`. It reruns the Canonical publication gate
+before publishing missing package versions through npm trusted publishing.
 
 ## CI
 

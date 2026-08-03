@@ -43,3 +43,35 @@ _Avoid_: Module name, package slug
 **Acceptance fixture**:
 A deterministic generated package created in a disposable repository to prove that the Scaffolder, repository support, and package-local contract work together without retaining a second golden copy of the Template.
 _Avoid_: Golden package, example package
+
+**Independent package release**:
+A release that versions and publishes only the generated packages selected by their own changes, leaving every unaffected package at its existing version.
+_Avoid_: Monorepo release, synchronized release
+
+**Publishable package**:
+A generated package intentionally admitted to publication by removing `private: true` after its Starter behavior and documentation are replaced.
+_Avoid_: Publication candidate, ready package
+
+**Publication boundary**:
+The repository rule that only non-private direct children of `packages/*` may be versioned and published, provided they satisfy the Package-local contract.
+_Avoid_: Package allowlist, publish list
+
+**Release intent**:
+A pnpm change-intent file committed with a consumer-visible change that names the affected packages, their semantic version increments, and their release notes.
+_Avoid_: Version commit, conventional commit
+
+**Dependency-only release**:
+A downstream patch release created only because an internal dependency's new version falls outside the downstream package's declared range.
+_Avoid_: Cascading release, synchronized bump
+
+**Release commit**:
+A maintainer-reviewed commit produced by `pnpm version -r` that records the exact package versions and changelogs authorized for publication.
+_Avoid_: Release PR, version bump
+
+**Canonical publication gate**:
+The repository's complete validation rerun against a Release commit before publication.
+_Avoid_: Prior CI result, release smoke test
+
+**First-release bootstrap**:
+The one-time authenticated publication that creates a new npm package name so its per-package trusted publisher can be registered for later OIDC releases.
+_Avoid_: Normal release, package admission

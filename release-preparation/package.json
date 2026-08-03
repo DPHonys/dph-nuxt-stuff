@@ -1,0 +1,11 @@
+{
+  "name": "@dphonys/release-preparation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run tests"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
+  }
+}

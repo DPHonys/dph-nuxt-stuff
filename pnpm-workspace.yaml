@@ -9,8 +9,14 @@ trustPolicyExclude:
 
 packages:
   - scaffolder
+  - publishing-contract
+  - release-preparation
   - packages/*
   - packages/*/playground
+
+versioning:
+  changelog:
+    storage: repository
 
 allowBuilds:
   esbuild@0.25.12 || 0.28.1: true
@@ -41,3 +47,4 @@ catalog:
   typescript: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
   vitest: ^4.1.10
   vue-tsc: ^3.3.8
+  yaml: ^2.9.0
