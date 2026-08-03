@@ -202,6 +202,7 @@ describe('nuxt module Template contract', () => {
       files: ['dist'],
       publishConfig: { access: 'public' },
       scripts: {
+        prebuild: 'nuxt-module-build prepare',
         build: 'nuxt-module-build build',
         prepack: 'pnpm run build',
         dev: 'pnpm run dev:prepare && nuxt dev playground',
