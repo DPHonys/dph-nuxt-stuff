@@ -313,6 +313,43 @@ export interface TypedEventHandler<
 }
 
 /**
+ * Recover a route's declared union from its handler type (SPEC.md §4.3).
+ *
+ * This is the lock the whole design rests on: the union travels on the handler
+ * **type** and never appears in the handler's return type, so the emitted map
+ * can read it out per route while vanilla `useFetch` never sees it.
+ *
+ * Three behaviours, and each is a separate mandate:
+ *
+ * - **A branded handler yields its union exactly.** `Exclude<…, undefined>`
+ *   keeps an `undefined` arm out of the answer whatever put one in the slot.
+ *   Measured: `infer` on an *optional* property yields the declared type on its
+ *   own, with or without `exactOptionalPropertyTypes`, so this only bites a
+ *   hand-written brand — which is exactly the case a handler arriving from a
+ *   Nuxt layer or a published package is.
+ * - **An unbranded handler yields `never`, with no special case.** A plain
+ *   `EventHandler` has no property in common with a target whose only member is
+ *   optional, so the relation fails and the false branch — `never` — is taken.
+ *   The fallback is `never` rather than `unknown` because an unbranded route is
+ *   an *undeclared* route, which is the documented silent default (§6.1).
+ * - **`any` yields `never`, and the guard is required** (SPEC.md §4.3 mandate
+ *   1). Without it a `.js` or untyped route matches the true branch with
+ *   `E = unknown`, and `unknown` destroys narrowing at every call site that
+ *   touches it — the failure is silent and it spreads. It is also what makes
+ *   §6.6's mutual-recursion case degrade safely, so it is not politeness.
+ *
+ * The `Safe` in the name is that guard. There is deliberately no unguarded
+ * `ExtractErrors` beside it: a second spelling of this would only ever be the
+ * wrong one to reach for.
+ */
+export type ExtractErrorsSafe<T> =
+  IsAny<T> extends true
+    ? never
+    : T extends { __declaredErrors__?: infer E }
+      ? Exclude<E, undefined>
+      : never
+
+/**
  * Scoped to exactly the declared union, and returns `never`.
  *
  * It throws at runtime. `return fail(…)` is idiomatic rather than required, but
@@ -384,6 +421,36 @@ export interface DefineTypedEventHandler {
     handler: TypedHandlerFn<Request, Response, UnionOfCatalogues<C>>
   ): TypedEventHandler<Request, Response, UnionOfCatalogues<C>>
 }
+
+// ---------------------------------------------------------------------------
+// Hover legibility
+// ---------------------------------------------------------------------------
+
+/**
+ * A distributive identity mapped type that forces evaluation (SPEC.md §8.3(a)).
+ *
+ * Structurally lossless in both directions and distributive, so a union stays a
+ * union of flat members rather than collapsing into one merged object. What it
+ * changes is the *shape of the type object*: a variant is declared as
+ * `{ tag; status } & P` — an intersection — and mapping over it produces a
+ * single object type, which is what a hover and a diagnostic then render.
+ *
+ * `T extends unknown` is the distributivity trigger.
+ *
+ * **What it was mandated for, and what it was measured to do.** §8.3(a) records
+ * that a union forwarded on as a *type argument* — which is what every
+ * `DeclaredErrorBody<…>` and `NuxtError<…>` declaration does — leaves
+ * `Simplify<Serialize<…>>` unevaluated and renders the wrapper's `Serialize`
+ * residue, and that this alias is the fix. Re-measured through the compile-time
+ * harness on the pinned `typescript-native-bridge`, **that fix does not
+ * reproduce**: `Simplify<Serialize<…>>` is already evaluated, and a type
+ * argument renders as its alias chain either way, so wrapping it makes the
+ * render one name *longer*. The intersection collapse above is the one
+ * rendering effect that does reproduce. The full measurement, and what ticket
+ * 10 has to re-take against the real playground, is in the implementation
+ * effort's SPEC-AMENDMENTS record.
+ */
+export type Flatten<T> = T extends unknown ? { [K in keyof T]: T[K] } : never
 
 // ---------------------------------------------------------------------------
 // The generated map, and the wire
