@@ -239,6 +239,13 @@ describe.each(COMPILERS)('the extractor, on %s', (_label, compiler) => {
       expect(rendered).toContain('"user-suspended"')
       expect(rendered).toContain('"quota-exceeded"')
       expect(rendered).toContain('userId: string')
-    })
+      // Two whole TypeScript programs — a declaration emit and a compile of the
+      // generated consumer — so Vitest's 5 s default is a measure of how busy
+      // the box is rather than of anything this test claims. Alone it runs in
+      // ~3 s; with the file suite saturating eight workers it reached ~7 s once
+      // SPEC.md §3.3's types joined the graph the emit walks. Explicit, in the
+      // style `test/generated-map.test.ts` already uses for its `nuxt prepare`
+      // builds.
+    }, 60_000)
   })
 })

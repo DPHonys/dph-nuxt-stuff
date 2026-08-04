@@ -103,9 +103,13 @@ describe.each(COMPILERS)('declaring and raising, on %s', (_label, compiler) => {
     })
 
     it('rejects an explicit type argument by arity, never with a silent any', () => {
+      // `2-6`, not SPEC.md §3.1's `2-3`: SPEC.md §3.3's three schema
+      // parameters are appended after `Request`, each defaulted. What the
+      // mandate is about — `Response` having no default, so one explicit
+      // argument cannot silently collapse the success type — is untouched.
       assertDiagnostic(harness.compileAlone('neg/explicit-type-argument.ts'), {
         code: 2558,
-        message: 'Expected 2-3 type arguments, but got 1',
+        message: 'Expected 2-6 type arguments, but got 1',
       })
     })
 

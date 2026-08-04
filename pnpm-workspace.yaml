@@ -59,3 +59,10 @@ catalog:
   vue: ^3.5.40
   vue-tsc: ^3.3.8
   yaml: ^2.9.0
+  # A real Standard Schema implementation, for the validation surface's tests
+  # and playground routes only — the module itself inlines the ~50 spec lines
+  # and depends on no validator (SPEC.md §3.3). Ranged with a major ceiling and
+  # no pin, per SPEC.md §7.2: the rule is the same one `h3` and `vue` carry,
+  # and a schema value crossing from a consumer's code into this module is one
+  # more identity that must stay single.
+  zod: ^4.4.3
