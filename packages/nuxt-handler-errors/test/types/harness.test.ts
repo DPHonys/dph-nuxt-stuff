@@ -29,6 +29,11 @@ const COMPILERS = [['typescript-native-bridge (the pinned gate)', ts]] as const
 
 const TYPE_SUITE = fileURLToPath(new URL('.', import.meta.url))
 
+/** The published runtime surface, scanned by the same never-check rule. */
+const RUNTIME_SOURCE = fileURLToPath(
+  new URL('../../src/runtime/', import.meta.url)
+)
+
 /**
  * One budget for two structurally unrelated declarations, so the self-test
  * proves the budget can fail as well as pass.
@@ -246,10 +251,22 @@ describe('the never-check scan', () => {
     ).toEqual([])
   })
 
-  it('holds over the whole type suite', () => {
-    const files = globSync('**/*.ts', { cwd: TYPE_SUITE }).map(
-      (file) => `${TYPE_SUITE}${file}`
-    )
+  it('holds over the whole type suite, and over the source it tests', () => {
+    // `src/runtime/**` is scanned for the reason SPEC.md §9.5 rule 2 gives for
+    // the suite: the code must not use a weaker form than the assertions about
+    // it. The stakes are higher there — SPEC.md §6.1 mandates an explicit
+    // `[Declared] extends [never]` collapse wherever an undeclared route's
+    // `never` enters a generic position, and the unwrapped form is shorter,
+    // reads correctly and *passes*, so a bare one in the published surface is a
+    // silent bug rather than a weak test.
+    const files = [
+      ...globSync('**/*.ts', { cwd: TYPE_SUITE }).map(
+        (file) => `${TYPE_SUITE}${file}`
+      ),
+      ...globSync('**/*.ts', { cwd: RUNTIME_SOURCE }).map(
+        (file) => `${RUNTIME_SOURCE}${file}`
+      ),
+    ]
 
     expect(files.length).toBeGreaterThan(0)
     assertNoBareNeverChecks(files)
