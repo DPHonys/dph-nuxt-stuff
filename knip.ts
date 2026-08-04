@@ -90,20 +90,18 @@ export default {
       ignoreDependencies: [
         ...nuxtModuleWorkspace.ignoreDependencies,
 
-        // Deliberate runtime dependencies with no source consumer *yet*: the
-        // `h3` augmentation behind `event.$typedFetch`, the Nitro `InternalApi`
-        // keys the generated map is written against, and the path handling the
-        // emitter needs. They are declared now because what their ranges
-        // protect is instance identity, which is a packaging decision rather
-        // than a consequence of the first import (SPEC.md §7.2).
+        // A deliberate runtime dependency with no source consumer *yet*: the
+        // path handling the emitter needs. It is declared now because what its
+        // range protects is instance identity, which is a packaging decision
+        // rather than a consequence of the first import (SPEC.md §7.2). `h3`
+        // and `nitropack` left this list the moment `src/runtime/` imported
+        // them.
         //
         // Package-scoped for the same reason as the fixtures: the template
-        // declares none of the three, so globbing them would hand every future
-        // package a free pass on dependencies it never declared. Each entry
+        // declares none of these, so globbing them would hand every future
+        // package a free pass on dependencies it never declared. This entry
         // comes out the moment a source file imports it — the hint promotion
         // above makes leaving it in a failure.
-        'h3',
-        'nitropack',
         'pathe',
       ],
     },

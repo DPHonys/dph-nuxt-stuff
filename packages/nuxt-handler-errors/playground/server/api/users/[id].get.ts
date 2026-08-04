@@ -1,0 +1,65 @@
+import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
+import type { EventHandler } from 'h3'
+import type { InternalApi } from 'nitropack/types'
+import { authErrors } from '#shared/errors/auth'
+import { userErrors } from '#shared/errors/user'
+// The one place the playground reaches into the module package's own suite.
+// `Equal` and `Expect` are fixed vocabulary (SPEC.md §9.5) and a second copy
+// here could drift from the one every other assertion uses; the path is ugly,
+// and that is the cheaper cost.
+import type { Equal, Expect } from '../../../../test/types/vocabulary'
+
+/**
+ * The demoable route: two catalogues composed, one of them narrowed with
+ * `.pick()`, three declared failures and a success type that infers from the
+ * body with no annotation anywhere.
+ */
+const handler = defineTypedEventHandler(
+  { errors: [userErrors, authErrors.pick('forbidden')] },
+  async (event, { fail }) => {
+    const id = getRouterParam(event, 'id')!
+
+    if (id === 'missing') return fail('user-not-found', { userId: id })
+    if (id === 'suspended')
+      return fail('user-suspended', { until: '2026-12-31' })
+    if (id === 'private') return fail('forbidden', { requiredRole: 'owner' })
+
+    return { id, name: `User ${id}`, email: `${id}@example.com` }
+  }
+)
+
+export default handler
+
+// ---------------------------------------------------------------------------
+// Layer 3 (SPEC.md §9.1)
+//
+// These two assertions run against the **actually generated**
+// `.nuxt/types/nitro-routes.d.ts`, so what they check is Nitro's real opinion
+// of a branded route rather than a hand-written stand-in. They compile under
+// `vue-tsc --project playground/tsconfig.json`, which is part of the package's
+// `typecheck` script and therefore part of `pnpm check`. Layer 1 cannot make
+// either claim: it has no generated file to read.
+// ---------------------------------------------------------------------------
+
+/**
+ * **Nitro's own `InternalApi` entry for this route is untouched** (SPEC.md §1,
+ * §3.1). Nitro computes it as `Simplify<Serialize<Awaited<ReturnType<…>>>>`
+ * over the handler's *call signature*, while the declared union rides a sibling
+ * property — disjoint positions, so nothing leaks. Vanilla
+ * `useFetch('/api/users/1')` therefore still types `data` as exactly this.
+ *
+ * This is the spelling SPEC.md §3.1 records the claim as having been measured
+ * in, made against the generated file rather than reproduced from it.
+ */
+type _routeStaysVanilla = Expect<
+  Equal<
+    InternalApi['/api/users/:id']['get'],
+    { id: string; name: string; email: string }
+  >
+>
+
+/**
+ * The route is still an ordinary event handler, so Nitro, the router and every
+ * h3 utility keep treating it as one (SPEC.md §4.1).
+ */
+const _routeIsAPlainEventHandler: EventHandler = handler
