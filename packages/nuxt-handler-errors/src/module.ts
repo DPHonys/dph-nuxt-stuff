@@ -176,12 +176,30 @@ export default defineNuxtModule<ModuleOptions>({
     //
     // Deliberately **not** `event.$typedFetch` (SPEC.md §3.6), which is a
     // different type, forwards the request's cookies and context, and is
-    // installed per request from a `request` hook.
+    // installed per request from a `request` hook — the plugin below.
     addPlugin({
       src: resolver.resolve('./runtime/app/typed-fetch.plugin'),
       mode: 'client',
     })
     addServerPlugin(resolver.resolve('./runtime/server/typed-fetch.plugin'))
+
+    // `event.$typedFetch` (SPEC.md §3.6), installed per request.
+    //
+    // A second Nitro plugin rather than a second assignment inside the first,
+    // because the two are different things installed at different times: the
+    // global is one property write at plugin time over `globalThis.$fetch`,
+    // and this one is a `request`-hook closure over the **event's own**
+    // `$fetch` — which is what forwards the incoming request's cookies,
+    // headers and context. Splitting them is also what makes each deletable on
+    // its own, so each has a mutation that reddens its own tests and nothing
+    // else.
+    //
+    // Server-side only, and there is no client half: `event` is a Nitro
+    // concept, and the surface is typed onto h3's `H3Event` rather than onto
+    // `globalThis`.
+    addServerPlugin(
+      resolver.resolve('./runtime/server/event-typed-fetch.plugin')
+    )
 
     // Captured here and read by `getContents` (SPEC.md §4.2). Deliberately not
     // `useNitro()` / `nuxt._nitro` at render time: those answer whatever

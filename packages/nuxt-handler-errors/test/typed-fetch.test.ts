@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { DECLARED_ERROR_KEY } from '../src/runtime/shared'
 import { createTypedFetch } from '../src/runtime/typed-fetch'
+import { declaredFailure, settled } from './failure-channel'
 
 /**
  * The run-time half of `$typedFetch` (SPEC.md §3.5, §3.8).
@@ -106,22 +107,6 @@ function sentHeaders(): Record<string, string> {
   if (last === undefined) throw new Error('nothing reached the fetcher')
 
   return Object.fromEntries(last.sent)
-}
-
-/** An error body carrying a well-formed declared marker, as the wire has it. */
-function declaredFailure(variant: unknown): unknown {
-  return { data: { data: { [DECLARED_ERROR_KEY]: variant } } }
-}
-
-/** Run something and report whether it threw, and with what. */
-async function settled(
-  run: () => Promise<unknown>
-): Promise<{ threw: boolean; value: unknown }> {
-  try {
-    return { threw: false, value: await run() }
-  } catch (error) {
-    return { threw: true, value: error }
-  }
 }
 
 beforeEach(() => {

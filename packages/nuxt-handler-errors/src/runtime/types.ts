@@ -990,6 +990,128 @@ export interface $TypedFetch<
   ) => $TypedFetch<T, R>
 }
 
+// ---------------------------------------------------------------------------
+// The server-to-server surface (SPEC.md §3.6)
+// ---------------------------------------------------------------------------
+
+/**
+ * `event.$typedFetch` — the typed surface over the **event's own** fetch
+ * (SPEC.md §3.6).
+ *
+ * ```ts
+ * export default defineTypedEventHandler(
+ *   { errors: [orderErrors] },
+ *   async (event, { fail }): Promise<Order> => {
+ *     const r = await event.$typedFetch.safe('/api/users/1')  // cookies + headers forwarded
+ *     if (!r.ok) {
+ *       switch (r.error.tag) {                                // the callee's union
+ *         case 'user-not-found': return fail('order-orphaned', { userId: r.error.userId })
+ *         case 'user-suspended': return fail('order-blocked', {})
+ *       }
+ *     }
+ *     return load(r.data.id)
+ *   },
+ * )
+ * ```
+ *
+ * ## It is {@link Base$TypedFetch} plus `.safe`, and **not** a copy of {@link $TypedFetch}
+ *
+ * `raw` and `create` are absent because the thing underneath has neither.
+ * Nitro types `event.$fetch` as `Base$Fetch<unknown, NitroFetchRequest>`
+ * (`nitropack/dist/types/index.d.ts:230-236`) — a bare call signature — because
+ * it is not an ofetch instance at all: it is a closure over h3's
+ * `fetchWithEvent`. Adding either member would be the inverse of SPEC.md §6.1's
+ * degradation lock: a completion list *longer* than vanilla's, offering two
+ * calls that cannot be made.
+ *
+ * The type parameters are gone for the same reason. `event.$fetch` is declared
+ * with its two arguments already fixed, so there is no instance to re-default
+ * and nothing for a caller to pass.
+ *
+ * ## Why `.safe` is the same {@link TypedFetchSafe} the global uses
+ *
+ * One declaration of a signature is better than two that can disagree
+ * — and the *rule* about what may reach the false arm is identical on both
+ * surfaces (a declared failure and nothing else). What genuinely differs
+ * between them is the header merge, which is run time and lives in
+ * `./server/event-typed-fetch`; SPEC.md §3.8's title says a shared helper for
+ * *that* would be a defect, and it says nothing of the kind about this.
+ *
+ * ## What this surface is *for*
+ *
+ * Context. The global `$typedFetch` already works verbatim inside a Nitro
+ * handler (SPEC.md §3.5, and `server/api/typed-fetch-probe.get.ts` runs it), so
+ * this member exists for exactly one thing: `fetchWithEvent` forwards the
+ * incoming request's headers and cookies, the caller's platform bindings and
+ * its `waitUntil`, and the global forwards none of it.
+ *
+ * *Forwards* is deliberately precise there. h3 hands the callee the caller's
+ * whole `event.context` object, but Nitro reads exactly two things out of it —
+ * `_platform`, which it merges into the callee's own context, and `waitUntil`
+ * (`nitropack@2.13.4 dist/runtime/internal/app.mjs:48-59`). An arbitrary key
+ * set on the caller's `event.context` does **not** appear on the callee's;
+ * measured both ways against a real build in
+ * `playground/server/api/context-echo.get.ts`. A callee that genuinely wants
+ * the caller's context object finds it at `event.node.req.__unenv__`.
+ *
+ * ## Prefer `.safe` here, and what it costs not to
+ *
+ * Guidance rather than mechanism, and it is stronger on this surface than
+ * anywhere else. An `ok: false` a caller ignores is a **compile-visible**
+ * omission; an escaped throw is not — and an escaped callee failure is marked
+ * `unhandled`, so Nitro's production serializer wipes its `data` and masks its
+ * `message`. That is the safe direction and it is free (the envelope cannot
+ * leak, and the caller's own client sees an undeclared 500). But
+ * `statusMessage` is **not** gated by that check and it carries the callee's
+ * tag, so the callee's internal tag reaches the caller's client as the HTTP
+ * reason phrase. SPEC.md §6.5: this is byte-for-byte what a plain `$fetch`
+ * between handlers already does, the module did not introduce it, and
+ * normalising it would break the typings-only lock on the server surface alone.
+ *
+ * ## Forwarding a callee's failure is always an explicit act of publication
+ *
+ * No propagation mechanism ships and none is needed. A caller writes
+ * `if (!r.ok) return fail(…)` and raises its **own** variant; to forward a
+ * callee's variant verbatim it imports the same catalogue and declares it in
+ * its own `errors: [...]`, which already works with zero new API. The rule is
+ * one line:
+ *
+ * > A route's declared union is exactly what it wrote in `errors: [...]`. Where
+ * > a variant is *produced* — in the handler body, in a helper, or forwarded
+ * > from a callee — is invisible to the client and is not a design question.
+ *
+ * Accidental leakage is unrepresentable rather than merely discouraged:
+ * {@link Fail} is scoped to the route's own union, so raising an undeclared tag
+ * is `TS2345`.
+ */
+export interface Event$TypedFetch extends Base$TypedFetch<
+  unknown,
+  NitroFetchRequest
+> {
+  safe: TypedFetchSafe
+}
+
+declare module 'h3' {
+  /**
+   * The per-request member (SPEC.md §3.6), declared where Nitro declares its
+   * own four.
+   *
+   * **This augmentation is why SPEC.md §7.2 forbids pinning `h3`.** A module
+   * augmentation binds to a *resolved path*, so a second physical h3 directory
+   * lands this declaration on the copy the consumer is not using — a `TS2339`
+   * with no explanation, or silence. Caret ranges overlapping Nuxt's own are
+   * what keep pnpm collapsing to one directory; an exact pin *causes* the
+   * duplicate the moment Nuxt ships a patch that moves h3.
+   *
+   * Required rather than optional, mirroring Nitro's own `$fetch` — which is
+   * likewise assigned per request and likewise absent from an event
+   * constructed outside a Nitro app.
+   */
+  interface H3Event {
+    $typedFetch: Event$TypedFetch
+  }
+}
+
 declare global {
   /**
    * The global, declared the way Nitro declares its own — which is what makes

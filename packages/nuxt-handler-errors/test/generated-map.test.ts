@@ -115,6 +115,11 @@ const CONTEXT_REFERENCES = [
 /** Every `/api` route the playground serves, keyed as Nitro keys it. */
 const EXPECTED_ROUTE_KEYS = [
   "'/api/boom': {",
+  "'/api/chain/a': {",
+  "'/api/chain/b': {",
+  "'/api/chain/c': {",
+  "'/api/context-echo': {",
+  "'/api/event-typed-fetch-probe': {",
   "'/api/method-fallback': {",
   "'/api/rogue-status': {",
   "'/api/specifier-probe': {",
@@ -370,6 +375,7 @@ function probeSource(): string {
  */
 const SUITE_IMPORTERS = [
   ['app.vue', '../test/types/vocabulary'],
+  ['server/api/chain/a.get.ts', '../../../../test/types/vocabulary'],
   ['server/api/users/[id].get.ts', '../../../../test/types/vocabulary'],
   ['server/api/method-fallback.ts', '../../../test/types/vocabulary'],
   ['shared/lookup-probe.ts', '../../test/types/vocabulary'],

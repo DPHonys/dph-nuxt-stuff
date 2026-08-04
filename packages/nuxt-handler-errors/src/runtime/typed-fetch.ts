@@ -45,7 +45,7 @@ interface RawFetch {
 }
 
 /** What {@link toTypedResult} answers, before the declared union is asserted on. */
-type RawTypedResult =
+export type RawTypedResult =
   | { ok: true; data: unknown }
   | { ok: false; error: AnyVariant }
 
@@ -174,13 +174,14 @@ function nextInstanceHeaders(current: Headers, defaults: RawOptions): Headers {
  * direction is the throwing one.
  *
  * Kept as one function rather than inlined into `.safe` because SPEC.md §3.6's
- * `event.$typedFetch` will need exactly this and must not grow a second copy:
- * the header merges on the two surfaces genuinely differ, but the rule about
- * what may reach the false arm does not. It stays **unexported** until that
- * surface exists — an export with no consumer is a public name bought on
- * speculation (SPEC.md §8.1).
+ * `event.$typedFetch` needs exactly this and must not grow a second copy: the
+ * header merges on the two surfaces genuinely differ, but the rule about what
+ * may reach the false arm does not. `./server/event-typed-fetch` is that second
+ * consumer, which is what the export is for — the 15-row rethrow suite in
+ * `test/typed-fetch.test.ts` is therefore a claim about both surfaces at once,
+ * rather than one surface with the other taken on trust.
  */
-async function toTypedResult(
+export async function toTypedResult(
   call: () => Promise<unknown>
 ): Promise<RawTypedResult> {
   try {
