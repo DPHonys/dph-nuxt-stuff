@@ -12,7 +12,10 @@ import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
 import { join, relative, resolve } from 'pathe'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createProductionTemplateRegistry } from '../internal/nuxt-module'
+import {
+  createProductionTemplateRegistry,
+  nuxtCompatibilityRange,
+} from '../internal/nuxt-module'
 import {
   createProductionFormatter,
   createProductionInstaller,
@@ -278,7 +281,7 @@ async function assertPreInstallContract(
   expect(contents.get('src/module.ts')).toMatch(/name: ['"]api-2-client['"]/)
   expect(contents.get('src/module.ts')).toMatch(/configKey: ['"]api2Client['"]/)
   expect(contents.get('src/module.ts')).toContain(
-    "compatibility: { nuxt: '>=4.0.0' }"
+    `compatibility: { nuxt: '${nuxtCompatibilityRange}' }`
   )
   expect(contents.get('src/module.ts')).toContain(
     "message: 'Hello from Api 2 Client'"

@@ -38,6 +38,12 @@ const allowedTextTokens = [
   'SCAFFOLD_YEAR_TOKEN',
 ] as const
 
+// A Generated package must not claim Nuxt versions nothing in this workspace
+// has run it on, so the floor is the minimum of the catalog's `nuxt` and the
+// ceiling is the major above it. `nuxt-module.test.ts` holds this value and the
+// Template's copy of it to that derivation.
+export const nuxtCompatibilityRange = '>=4.5.1 <5.0.0'
+
 export const nuxtModuleTemplate: TemplateDefinition = Object.freeze({
   id: 'nuxt-module',
   label: 'Nuxt module',
@@ -184,7 +190,7 @@ function prepareNuxtModule(
           naming.moduleName,
           naming.configKey,
           naming.defaultMessage,
-          '>=4.0.0',
+          nuxtCompatibilityRange,
         ],
       },
       {
