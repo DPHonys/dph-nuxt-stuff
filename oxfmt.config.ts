@@ -35,5 +35,8 @@ export default defineConfig({
       'unknown',
     ],
   },
-  ignorePatterns: [],
+  // A package's SPEC.md is a design document, and its `ts` fences carry
+  // illustrative signatures rather than source. Reflowing them would rewrite the
+  // document the implementation is measured against.
+  ignorePatterns: ['**/SPEC.md'],
 })

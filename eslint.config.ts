@@ -11,6 +11,15 @@ export default antfuConfig(
     formatters: false,
   },
 
+  // A package's SPEC.md is a design document. Its `ts` fences carry illustrative
+  // signatures with elisions and shorthand that no parser accepts, and reflowing
+  // them would rewrite the document the implementation is measured against. Only
+  // the fenced code is exempt; the Markdown itself is still linted.
+  {
+    name: 'project/design-spec-code-fences',
+    ignores: ['**/SPEC.md/**'],
+  },
+
   {
     name: 'project/overrides',
     rules: {
