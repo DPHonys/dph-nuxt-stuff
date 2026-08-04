@@ -9,6 +9,10 @@ import type { NuxtError } from '#app'
 import { describeUserFailure } from '#shared/lookup-probe'
 import { describeReadFailure } from '#shared/reader-probe'
 import { SHARED_CONTEXT_PROBE } from '#shared/specifier-probe'
+// The same reach into the module package's own suite the route files make:
+// `Equal` and `Expect` are fixed vocabulary (SPEC.md §9.5) and a second copy
+// here could drift from the one every other assertion uses.
+import type { Equal, Expect } from '../test/types/vocabulary'
 
 /** Context 1 of 3: the Vue client. `<script setup>` cannot export, so the
  * augmentation target is proven reachable through a local alias. */
@@ -125,6 +129,145 @@ const fromShared = describeReadFailure(
   vanillaError.value as Parameters<typeof describeReadFailure>[0]
 )
 
+// ---------------------------------------------------------------------------
+// The composable (SPEC.md §3.4), in `<script setup>` — its primary call site,
+// and the one context nothing hermetic can stand in for.
+//
+// **Neither `useTypedFetch` nor `useLazyTypedFetch` is imported.** Both arrive
+// through the module's `addImports` registration, which for these two names is
+// the *whole* contract rather than sugar on top of a hand-writable specifier:
+// the composable calls `useFetch`, which lives behind `#app`, and none of
+// SPEC.md §3's three published specifiers may carry that import
+// (SPEC-AMENDMENTS item 29).
+// ---------------------------------------------------------------------------
+
+/**
+ * **The narrowing is the assertion, and it runs through four generic levels.**
+ *
+ * `error` is declared as `NuxtError<DeclaredErrorBody<DeclaredErrorsOf<…>>>`,
+ * where the innermost type is named from the route path alone. Handing
+ * `current` to `describeUserFailure` — whose parameter is
+ * `DeclaredErrorsOf<'/api/users/:id'>` and whose `switch` is exhaustive — is
+ * what claims that the whole chain survived: the composable's return type, the
+ * reader's first overload, and the `.value` read onto a local `const`
+ * (SPEC.md §3.7 consequence 1).
+ *
+ * This is also the line that would go red if the composable's error type
+ * degraded to vanilla's `NuxtError<unknown>`: the reader would fall to its
+ * second overload and `AnyVariant` is not assignable to that parameter.
+ */
+const { data: _user, error: userError } =
+  await useTypedFetch('/api/users/private')
+const userFailure = useDeclaredError(userError)
+const currentUserFailure = userFailure.value
+const typedFetchRead =
+  currentUserFailure === undefined
+    ? 'none'
+    : describeUserFailure(currentUserFailure)
+
+/**
+ * **`data` is what it always was** (SPEC.md §3.4). Nitro's own success type,
+ * untouched — the declared union rides a sibling property on the handler type
+ * and never enters `ReturnType`, so nothing about the error channel reaches
+ * this one. Its absent member is `undefined` and **not** `null`, which is what
+ * mirroring vanilla's overloads verbatim preserves, and which no route in
+ * `test/types/pos/use-typed-fetch.ts`'s empty-`InternalApi` program can show.
+ */
+type _dataStaysVanilla = Expect<
+  Equal<
+    typeof _user.value,
+    { id: string; name: string; email: string } | undefined
+  >
+>
+
+/**
+ * **The error ref really carries the envelope**, with the union named from the
+ * route path alone and nothing else in the way (SPEC.md §3.4).
+ *
+ * This lives here rather than in `test/generated-map.test.ts`'s probe on
+ * purpose: measured, it goes **red** against that file's broken-specifier
+ * fork, which would quietly convert its central demonstration — that structural
+ * assertions are blind to a map that has stopped meaning anything — into a file
+ * that no longer demonstrates it. The rendering assertions stay there; this
+ * one belongs where the app really compiles.
+ */
+type _errorIsTheEnvelope = Expect<
+  Equal<
+    typeof userError.value,
+    | NuxtError<DeclaredErrorBody<DeclaredErrorsOf<'/api/users/private'>>>
+    | undefined
+  >
+>
+
+/**
+ * SPEC.md §4.3's method table, reached through the composable's own `Method`
+ * type parameter rather than through the lookup — the only thing that proves
+ * the method reaches the lookup at all.
+ *
+ * Row 2: `post` is present on `/api/method-fallback` and unbranded, so the
+ * error collapses back to vanilla's envelope — SPEC.md §6.1's degradation lock,
+ * in the app program, against a route this app really serves. Row 1 — `get`
+ * absent, so the `default` handler's union — is rendered in
+ * `test/generated-map.test.ts`, which is where a union that had stopped meaning
+ * anything would show.
+ *
+ * `immediate: false` on both: the claim is the type, and neither call needs to
+ * cost a request on every render. The undeclared route's *whole* channel is
+ * asserted byte-identical to vanilla in `test/generated-map.test.ts` and again
+ * hermetically in `test/types/pos/use-typed-fetch.ts`, so it is not restated
+ * here.
+ */
+const _typedPost = useTypedFetch('/api/method-fallback', {
+  method: 'POST',
+  immediate: false,
+})
+const _vanillaUndeclared = useFetch('/api/boom', { immediate: false })
+
+type _presentMethodKeyCollapses = Expect<
+  Equal<typeof _typedPost.error, typeof _vanillaUndeclared.error>
+>
+
+/**
+ * **SPEC.md §3.8's header merge, run rather than reasoned about.**
+ *
+ * `/status` echoes back the `accept` and `x-probe` headers it was called with,
+ * so what this renders is the merge's actual output on the SSR path — the path
+ * SPEC.md §3.8 exists for.
+ *
+ * The caller's header is passed as a **`Headers` instance** on purpose. It is a
+ * legal, common form and it is the one that breaks silently: it has no own
+ * enumerable properties, so a naive `{ accept, ...opts.headers }` drops it
+ * whole, and h3's `fetchWithEvent` — which `useFetch` swaps in for same-origin
+ * SSR requests — drops it whole too, because it merges headers by object
+ * spread. Both failures render `none` here.
+ *
+ * Asserted in `test/specifiers.test.ts` against a real built server, which is
+ * the only place either half is observable.
+ */
+const { error: statusError } = await useTypedFetch('/status', {
+  headers: new Headers({ 'x-probe': 'kept' }),
+})
+const statusFailure = useDeclaredError(statusError)
+const currentStatusFailure = statusFailure.value
+const statusRead =
+  currentStatusFailure === undefined
+    ? 'none'
+    : `${currentStatusFailure.tag}/${currentStatusFailure.accept}/${currentStatusFailure.probe}`
+
+/**
+ * The lazy sibling — the same interface, so the same union comes back out
+ * (SPEC.md §3.4). `immediate: false` keeps it from adding a third request to
+ * every page render; the claim here is the type, and the runtime half is
+ * covered by the two calls above.
+ */
+const { error: _lazyError } = useLazyTypedFetch('/api/users/private', {
+  immediate: false,
+})
+
+type _lazySiblingCarriesTheSameUnion = Expect<
+  Equal<typeof _lazyError, typeof userError>
+>
+
 const client = `client:${DECLARED_ERROR_KEY}`
 const { data: server } = await useFetch('/api/specifier-probe')
 </script>
@@ -139,5 +282,7 @@ const { data: server } = await useFetch('/api/specifier-probe')
     <p id="looked-up-failure">{{ looked }}</p>
     <p id="read-failure">{{ read }}</p>
     <p id="typed-read">{{ typedRead }}/{{ owner }}/{{ fromShared }}</p>
+    <p id="typed-fetch-read">{{ typedFetchRead }}</p>
+    <p id="outside-api-read">{{ statusRead }}</p>
   </main>
 </template>

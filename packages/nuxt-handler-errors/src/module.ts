@@ -100,12 +100,53 @@ export default defineNuxtModule<ModuleOptions>({
     // `useDeclaredError`, a Vue composable, into the Nitro auto-import scope
     // where it has no business being suggested, and a server call site is
     // already one hand-written import away from the value form.
-    const shared = createResolver(import.meta.url).resolve('./runtime/shared')
+    const resolver = createResolver(import.meta.url)
+    const shared = resolver.resolve('./runtime/shared')
 
     addImports([
       { name: 'declaredError', from: shared },
       { name: 'useDeclaredError', from: shared },
     ])
+
+    // The composable pair (SPEC.md §3.4), app-side only — it calls `useFetch`,
+    // which lives behind `#app`, an alias the Nitro build does not have.
+    //
+    // **This registration is the whole contract for these two names**, which is
+    // the one place SPEC.md §3.7's *"the hand-writable specifier is the
+    // contract, auto-imports are sugar"* rule cannot be honoured: SPEC.md §3
+    // publishes three specifiers, and none of them may carry an `#app` import.
+    // A call site that wants the import written out reaches for Nuxt's own
+    // `#imports`. See SPEC-AMENDMENTS item 29 and the file's own header.
+    const composables = resolver.resolve('./runtime/app/use-typed-fetch')
+
+    addImports([
+      { name: 'useTypedFetch', from: composables },
+      { name: 'useLazyTypedFetch', from: composables },
+    ])
+
+    // Vanilla `useFetch` gets a per-call-site key injected by Nuxt's compiler,
+    // and that key is what keeps two components fetching the same URL from
+    // sharing one `useAsyncData` entry. A wrapper is invisible to that
+    // transform unless it says so here, so without these two lines
+    // `useTypedFetch` would be *behaviourally* narrower than the composable it
+    // mirrors — which is exactly what SPEC.md §6.1's degradation lock forbids,
+    // one layer below the type level where the rest of it is enforced.
+    //
+    // `argumentLength: 3` is vanilla's own (`request`, `opts`-or-key, key), so
+    // the key is appended only to calls that did not already name one.
+    //
+    // **Measured, against a real production build of the playground.** With a
+    // second `useTypedFetch('/api/boom')` added beside the first, the SSR
+    // payload carries **9** distinct `$f…` data keys with these two lines and
+    // **7** without: the duplicate pair collapses onto one key, and so does the
+    // `useTypedFetch`/`useLazyTypedFetch` pair on the same route, because
+    // `useFetch`'s fallback key is hashed from the request and the option
+    // segments alone. Not kept as a test — the observation is a count of keys
+    // in Nuxt's payload format, which is not this module's contract.
+    nuxt.options.optimization.keyedComposables.push(
+      { name: 'useTypedFetch', source: composables, argumentLength: 3 },
+      { name: 'useLazyTypedFetch', source: composables, argumentLength: 3 }
+    )
 
     // Captured here and read by `getContents` (SPEC.md §4.2). Deliberately not
     // `useNitro()` / `nuxt._nitro` at render time: those answer whatever

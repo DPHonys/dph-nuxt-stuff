@@ -54,6 +54,53 @@ describe('the published specifiers', async () => {
     expect(html).toContain('user-not-found: missing')
   })
 
+  it('carry the composable to a call site that never imported it', async () => {
+    // SPEC.md §3.4's composable, and the *only* contract it has: it calls
+    // `useFetch`, which lives behind `#app`, so it cannot sit on any of
+    // SPEC.md §3's three published specifiers and `addImports` is the whole
+    // registration (SPEC-AMENDMENTS item 29). `app.vue` writes no import for it.
+    //
+    // What is rendered is the union narrowed exhaustively in a `shared/` helper
+    // — so this one line covers the composable running under SSR, its error ref
+    // really carrying the envelope, and the reader recovering the variant out
+    // of it.
+    const html = await $fetch<string>('/')
+
+    expect(html).toContain('forbidden, needs owner')
+  })
+
+  it('carry the merged headers to a route outside /api/**', async () => {
+    // **SPEC.md §3.8, run rather than reasoned about.** `/status` echoes the
+    // two headers it was called with back inside its declared payload, so this
+    // is the merge's real output on the SSR path — the path §3.8 exists for,
+    // and the one that reaches h3's `fetchWithEvent`.
+    //
+    // Three mutations were measured against this one line, and each renders a
+    // different failure:
+    //
+    // | mutation | renders |
+    // | --- | --- |
+    // | the merged `Headers` handed on **unflattened** | `none/none` |
+    // | a naive `{ accept, ...opts.headers }` spread | `application/json/none` |
+    // | `accept` not set at all | `none/kept` |
+    //
+    // Row 1 is SPEC-AMENDMENTS item 30: `fetchWithEvent` merges by object
+    // spread, and a `Headers` instance has no own enumerable properties, so it
+    // discards the caller's headers *and* this module's own `accept`. Row 2 is
+    // the shipped-defect-class bug SPEC.md §3.8 names, with the caller passing
+    // the legal `Headers` form. Row 3 is the header genuinely not arriving by
+    // any other route.
+    //
+    // The assertion is on the header the server **received**, not on whether
+    // the response was JSON: measured, `@nuxt/test-utils`' own client forwards
+    // `sec-fetch-mode: cors` through `getProxyRequestHeaders`, which satisfies
+    // `isJsonRequest` on its own and makes the JSON/HTML consequence
+    // unobservable from here (SPEC-AMENDMENTS item 31).
+    const html = await $fetch<string>('/')
+
+    expect(html).toContain('payment-required/application/json/kept')
+  })
+
   it('resolve from the Nitro server', async () => {
     const body = await $fetch<{
       server: string

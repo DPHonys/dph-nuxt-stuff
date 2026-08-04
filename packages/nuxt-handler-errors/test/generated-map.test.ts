@@ -135,6 +135,18 @@ const DECLARED_TAGS = ['user-not-found', 'user-suspended', 'forbidden']
 const READER_VARIANT_BUDGET = 275
 
 /**
+ * SPEC.md §9.3's `H_error`, which ticket 05 deferred to the first surface where
+ * the union arrives through an *instantiated generic* (SPEC.md §8.3(a)).
+ *
+ * **The number is §9.3's own, unchanged.** measured 212 with SPEC.md §8.3(a)'s
+ * `Flatten` inside `TypedErrorRef`'s body / 371 as the `SerializeObject`
+ * residue without it — see the assertion for why the *position* `Flatten` is
+ * written in is the whole of the mandate, and SPEC-AMENDMENTS item 32 for what
+ * that corrects in items 4 and 23.
+ */
+const H_ERROR_BUDGET = 260
+
+/**
  * The tags `/api/method-fallback`'s `default` handler declares, which a `GET`
  * reaches only through SPEC.md §4.3's presence-based fallback.
  */
@@ -174,6 +186,9 @@ function probeSource(): string {
 
   return [
     `import type { MatchedRoutes } from 'nitropack/types'`,
+    `import { useFetch } from '#app'`,
+    `import type { NuxtError } from '#app'`,
+    `import { useTypedFetch } from '#imports'`,
     `import { declaredError } from '${SHARED_SPECIFIER}'`,
     `import type { DeclaredErrorBody, DeclaredErrorsOf, TypedApiErrors } from '${TYPES_SPECIFIER}'`,
     `import type { Equal, Expect, IsAny, IsNever } from '${vocabulary}'`,
@@ -249,6 +264,56 @@ function probeSource(): string {
     // The render below is the primary guard; this is the cheap second one.
     `type _readerVariantIsNotAny = Expect<Equal<IsAny<ReaderVariant>, false>>`,
     ``,
+    // ---- ticket 10, the composable ---------------------------------------
+    //
+    // Reached through `#imports`, which is what a consumer's own call site
+    // resolves: the composable imports `useFetch` from `#app`, so it cannot sit
+    // on any of SPEC.md §3's three published specifiers and its `addImports`
+    // registration is the whole contract (SPEC-AMENDMENTS item 29). This is
+    // therefore also the assertion that the registration happened at all.
+    // **The two framework names are imported for the render's sake**, not for
+    // an assertion: a name the fixture does not import renders as
+    // `import("…").Name`, and SPEC.md §9.3's budgets were taken in an editor,
+    // where a call site's own file has them in scope. The alias below is what
+    // keeps the imports used, and it names no route so a broken map cannot
+    // reach it.
+    `type _Envelope = NuxtError<DeclaredErrorBody<{ tag: string; status: 1 }>>`,
+    ``,
+    // **Rendering targets only.** Every structural claim about the composable
+    // lives in `playground/app.vue`, deliberately: measured, an
+    // `Expect<Equal<typeof typed.error.value, NuxtError<DeclaredErrorBody<…>>>>`
+    // written here goes **red** against the broken-specifier fork below, which
+    // would quietly convert this file's central demonstration — that structural
+    // assertions are blind to a map that has stopped meaning anything — into a
+    // file that no longer demonstrates it.
+    `const typed = await useTypedFetch('/api/users/42')`,
+    // SPEC.md §8.3's ⚠️ row, the envelope-shaped hover, and its ✅ row reached
+    // through this composable rather than through a hand-declared carrier.
+    `export type TypedErrorValue = NonNullable<typeof typed.error.value>`,
+    `export const TypedReaderReturn = declaredError(typed.error.value)`,
+    `export type TypedReaderVariant = NonNullable<typeof TypedReaderReturn>`,
+    ``,
+    // SPEC.md §6.1's degradation lock against the app's **real** `InternalApi`,
+    // where `MatchedRoutes` has this app's seven keys to score rather than
+    // none. `/api/boom` is a plain `defineEventHandler`.
+    `const typedUndeclared = await useTypedFetch('/api/boom')`,
+    `const vanillaUndeclared = await useFetch('/api/boom')`,
+    `export const TypedUndeclaredError = typedUndeclared.error`,
+    `export const VanillaUndeclaredError = vanillaUndeclared.error`,
+    ``,
+    // SPEC.md §4.3's presence-based method fallback, reached through the
+    // composable's own `Method` type parameter rather than through the lookup
+    // directly — which is the only thing that proves the composable forwards
+    // the method at all. Row 2: `post` is present and unbranded, so the error
+    // collapses back to vanilla's. Row 1: no method named, `get` absent, so the
+    // `default` handler's union.
+    `const typedPost = await useTypedFetch('/api/method-fallback',`,
+    `  { method: 'POST' })`,
+    `export const TypedPostError = typedPost.error`,
+    `const typedFallback = await useTypedFetch('/api/method-fallback')`,
+    `export const TypedFallbackReturn = declaredError(typedFallback.error.value)`,
+    `export type TypedFallbackVariant = NonNullable<typeof TypedFallbackReturn>`,
+    ``,
   ].join('\n')
 }
 
@@ -260,6 +325,7 @@ function probeSource(): string {
  * failure here instead of a silently skipped rewrite.
  */
 const SUITE_IMPORTERS = [
+  ['app.vue', '../test/types/vocabulary'],
   ['server/api/users/[id].get.ts', '../../../../test/types/vocabulary'],
   ['server/api/method-fallback.ts', '../../../test/types/vocabulary'],
   ['shared/lookup-probe.ts', '../../test/types/vocabulary'],
@@ -559,6 +625,90 @@ describe('the generated map, in a real Nuxt app', () => {
     // Length alone would pass a residue that happened to be short; this is the
     // regression SPEC.md §8.3(a) names, by name.
     expect(rendered).not.toContain('SerializeObject')
+  })
+
+  it('renders the composable’s error ref flat, in SPEC.md §9.3’s budget', () => {
+    // **SPEC.md §9.3's `H_error`, written at last** — ticket 05 deferred this
+    // measurement to the first surface where the union arrives through an
+    // *instantiated generic* rather than a hand-written annotation, and this is
+    // it. Measured against the real playground map, in the fixture's own
+    // spelling (the two framework names imported, as an editor's file has
+    // them):
+    //
+    // | spelling | chars | shape |
+    // | --- | --- | --- |
+    // | `Flatten` inside `TypedErrorRef`'s body — shipped | **212** | flat |
+    // | no `Flatten` | **371** | `Simplify<SerializeObject<…>>` residue |
+    // | `Flatten` passed in as `TypedErrorRef`'s third argument | 380 | residue |
+    //
+    // §8.3(a)'s mandate reproduces exactly, and row 3 is why SPEC-AMENDMENTS
+    // items 4 and 23 concluded it did not: `Flatten` written where the printer
+    // can still see its alias — as a type argument, or by hand in the
+    // annotation being rendered — echoes `Flatten<Simplify<…>>` and is one name
+    // *longer* than doing nothing. Written inside the alias body it is resolved
+    // during instantiation and there is nothing left to echo. See
+    // SPEC-AMENDMENTS item 32.
+    //
+    // The budget is §9.3's own number, untouched; the render here is longer
+    // than 212 only by the `import("…")` prefixes the harness emits for names
+    // this probe does not import. **The length is the weaker half of the
+    // assertion** — a 1.75× spread is thin by §9.3's 2–20× standard — so the
+    // categorical half is checked too: `SerializeObject` present or absent.
+    const rendered = assertHoverBudget(app.compilation, {
+      name: 'TypedErrorValue',
+      max: H_ERROR_BUDGET,
+    })
+
+    expect(rendered).toContain('NuxtError')
+    expect(rendered).toContain('DeclaredErrorBody')
+    expect(rendered).not.toContain('SerializeObject')
+    // And it is this route's real union rather than TypeScript's error type,
+    // which is the claim an `Expect<Equal<…>>` cannot make (items 8 and 9).
+    for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
+    expect(rendered).toContain('requiredRole')
+  })
+
+  it('renders the composable’s variant flat, in budget, through the reader', () => {
+    // SPEC.md §8.3's ✅ row — *"the reader's return | the flat variant union |
+    // this is what callers read"* — reached the way a caller reaches it: out of
+    // `useTypedFetch`'s own error ref rather than out of a hand-declared
+    // carrier. The pair is **182 flat / 431 as the envelope-shaped hover
+    // above**, a 2.4× spread, which is what makes this position budgetable
+    // where the envelope itself is not.
+    const rendered = assertHoverBudget(app.compilation, {
+      name: 'TypedReaderVariant',
+      max: READER_VARIANT_BUDGET,
+    })
+
+    for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
+    expect(rendered).toContain('requiredRole')
+    expect(rendered).not.toContain('SerializeObject')
+  })
+
+  it('leaves an undeclared route byte-identical to vanilla, in a real app', () => {
+    // SPEC.md §6.1's degradation lock where `MatchedRoutes` has this app's
+    // seven real keys to score rather than none — which is the half
+    // `test/types/use-typed-fetch.ts` cannot reach, and the half where a
+    // route-matching mistake would show.
+    const typed = app.compilation.renderHover('TypedUndeclaredError')
+
+    expect(typed).toBe(app.compilation.renderHover('VanillaUndeclaredError'))
+    expect(typed).toContain('NuxtError<unknown>')
+    expect(typed).not.toContain('DeclaredErrorBody')
+
+    // Row 2 of SPEC.md §4.3's method table, through the composable: `post` is
+    // present on this route and unbranded, so it collapses back to vanilla's
+    // envelope rather than inheriting the `default` handler's union.
+    expect(app.compilation.renderHover('TypedPostError')).toBe(typed)
+  })
+
+  it('resolves: a GET through the composable reaches the fallback union', () => {
+    // Row 1 of the same table, and the control for the row above — without it
+    // "the method reached the lookup" would be indistinguishable from "the
+    // lookup answered `never` for both".
+    const rendered = app.compilation.renderHover('TypedFallbackVariant')
+
+    for (const tag of FALLBACK_TAGS) expect(rendered).toContain(`"${tag}"`)
   })
 
   it('answers `never` for a key the map holds and Nitro’s does not', () => {
