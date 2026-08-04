@@ -9,6 +9,8 @@
 
 import {
   addImports,
+  addPlugin,
+  addServerPlugin,
   addTypeTemplate,
   createResolver,
   defineNuxtModule,
@@ -147,6 +149,39 @@ export default defineNuxtModule<ModuleOptions>({
       { name: 'useTypedFetch', source: composables, argumentLength: 3 },
       { name: 'useLazyTypedFetch', source: composables, argumentLength: 3 }
     )
+
+    // `$typedFetch` (SPEC.md §3.5), installed on `globalThis` on both sides.
+    //
+    // **Not an auto-import, and that is the design.** SPEC.md §3.5 declares it
+    // the way Nitro declares its own — `declare var $typedFetch: $TypedFetch`,
+    // in `./runtime/types` — so a Nitro route file, a `<script setup>` block
+    // and a consumer's `shared/` module all reach it with no import and **no
+    // new entry point**, which is one of the ticket's criteria rather than a
+    // convenience. The type reaches every program through the emitted map,
+    // which imports `./runtime/types` and is referenced from all three
+    // contexts; these two lines are what makes the value be there as well.
+    //
+    // Two plugins rather than one because there are two `globalThis`es to
+    // attach to, and **the app half is `client`-only on purpose**: on the
+    // server there is exactly one global and it is Nitro's, so an
+    // all-modes app plugin would rewrite the same property on every SSR request
+    // *and* mask the Nitro plugin's absence — with it, deleting
+    // `addServerPlugin` below is a red test rather than an order-dependent
+    // pass. The browser is the one place Nitro's plugin cannot reach, and that
+    // is exactly what the client plugin is for.
+    //
+    // The wrapper reads `globalThis.$fetch` at *call* time, so neither plugin
+    // depends on running after the thing it wraps — each is a single property
+    // write.
+    //
+    // Deliberately **not** `event.$typedFetch` (SPEC.md §3.6), which is a
+    // different type, forwards the request's cookies and context, and is
+    // installed per request from a `request` hook.
+    addPlugin({
+      src: resolver.resolve('./runtime/app/typed-fetch.plugin'),
+      mode: 'client',
+    })
+    addServerPlugin(resolver.resolve('./runtime/server/typed-fetch.plugin'))
 
     // Captured here and read by `getContents` (SPEC.md §4.2). Deliberately not
     // `useNitro()` / `nuxt._nitro` at render time: those answer whatever

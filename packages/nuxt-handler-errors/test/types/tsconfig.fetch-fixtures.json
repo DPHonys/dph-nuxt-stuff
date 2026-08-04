@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+
+  // `./tsconfig.fixtures.json` plus the one library every fetch surface needs,
+  // and nothing else.
+  //
+  // **Measured, and it is SPEC.md §9.9 trap 4 wearing a new hat.** ofetch's
+  // `FetchRequest` is `RequestInfo | URL`, both of which live in `lib.dom`. With
+  // the base config's `lib: ["ESNext"]` they resolve to nothing, `skipLibCheck`
+  // swallows the diagnostic, and `NitroFetchRequest` — which every `$fetch` and
+  // `$typedFetch` signature constrains its request to — renders as `any`. A
+  // route literal then infers as `any` instead of as itself, so
+  // `await $fetch('/api/users/123')` comes back `unknown` and *every* claim a
+  // fixture makes about a call is vacuously about `unknown`. The lookup
+  // fixtures do not notice, because `MatchedRoutes` and `TypedInternalResponse`
+  // touch no ofetch type at all.
+  //
+  // A second config rather than adding `DOM` to the base one: the base is the
+  // world nine other fixtures were written against, and widening it silently
+  // changes what they prove.
+  "extends": "./tsconfig.fixtures.json",
+
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"]
+  }
+}

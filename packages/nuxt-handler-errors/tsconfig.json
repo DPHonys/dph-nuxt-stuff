@@ -4,7 +4,8 @@
   // produce specific diagnostics, which the harness reads back through its own
   // program. Left in this one they would fail `typecheck` (SPEC.md §9.9 trap 1).
   //
-  // `test/types/pos/unreachable-map-key.ts` and `test/types/pos/lookup.ts` are
+  // `test/types/pos/unreachable-map-key.ts`, `test/types/pos/lookup.ts` and
+  // `test/types/pos/typed-fetch.ts` are
   // excluded for the opposite reason: they compile fine, but they augment
   // `nitropack/types`' `InternalApi`, and a module augmentation is **global to
   // whatever program contains it**. Measured: with one extra route key in
@@ -18,6 +19,7 @@
     "playground",
     "test/types/neg",
     "test/types/pos/lookup.ts",
+    "test/types/pos/typed-fetch.ts",
     "test/types/pos/unreachable-map-key.ts"
   ]
 }

@@ -101,6 +101,69 @@ describe('the published specifiers', async () => {
     expect(html).toContain('payment-required/application/json/kept')
   })
 
+  it('carry the global $typedFetch to a client call site', async () => {
+    // SPEC.md §3.5's global, in `<script setup>` with **no import and no
+    // auto-import**: `app.vue` writes `$typedFetch.safe(…)` the way it would
+    // write `$fetch`. The type comes from the `declare global` in `/types`,
+    // which the emitted map pulls into every program; the value comes from the
+    // app plugin the module registers. Delete the plugin and this line renders
+    // an error page instead.
+    //
+    // What is rendered is `.safe`'s false arm narrowed exhaustively in a
+    // `shared/` helper, so this one string covers the global being installed,
+    // the reader having run inside the wrapper, and the variant arriving flat.
+    const html = await $fetch<string>('/')
+
+    expect(html).toContain('global:forbidden, needs owner')
+
+    // And the other half of `.safe`'s one sentence: a route that declared
+    // nothing throws, exactly as vanilla does. Its result type has already
+    // collapsed to the one-arm form, so the `ok: false` branch a caller would
+    // need is not even expressible — which is SPEC.md §6.1's degradation lock
+    // and the reason the collapse is mandatory on this surface.
+    expect(html).toContain('/threw')
+  })
+
+  it('carry the global $typedFetch into a Nitro handler', async () => {
+    // SPEC.md §3.5's *"callable inside a Nitro handler with no new entry
+    // point"*, which is the criterion the whole global-versus-auto-import
+    // decision exists to satisfy. `server/api/typed-fetch-probe.get.ts` imports
+    // no fetch of any kind.
+    const body = await $fetch<{
+      declared: string
+      undeclared: string
+      headers: string
+      instance: string
+    }>('/api/typed-fetch-probe')
+
+    expect(body).toEqual({
+      // `.safe` answered the false arm with the callee's flat variant, which a
+      // `shared/` helper then narrowed exhaustively — SPEC.md §3.6's blessed
+      // server-to-server shape, one ticket early and with no new API.
+      declared: 'user-suspended until 2026-12-31',
+
+      // A hand-rolled 403 with `data` of its own and no marker. It **threw**,
+      // and what it threw was not a declared failure — both halves, because a
+      // `.safe` that reported every failure as declared would satisfy neither.
+      undeclared: 'threw undeclared',
+
+      // SPEC.md §3.8's global merge, on the wire, on a route outside `/api/**`
+      // — the only place `accept` decides whether a declared failure comes back
+      // as JSON at all. `/status` echoes back what it received.
+      //
+      // Two mutations were measured against this line and each renders
+      // differently: dropping the `accept` set gives `none/kept`, and a naive
+      // `{ accept, ...opts.headers }` spread over the `Headers` instance the
+      // caller passed gives `application/json/none`.
+      headers: 'application/json/kept',
+
+      // `create`'s defaults combine losslessly with the module's own header:
+      // the instance's `x-probe` reached the wire and `accept` was still added
+      // on top (SPEC.md §3.8).
+      instance: 'application/json/from-instance',
+    })
+  })
+
   it('resolve from the Nitro server', async () => {
     const body = await $fetch<{
       server: string

@@ -147,6 +147,19 @@ const READER_VARIANT_BUDGET = 275
 const H_ERROR_BUDGET = 260
 
 /**
+ * `$typedFetch.safe`'s **whole result** — the hover a caller lands on first on
+ * this surface, since the discriminant lives inside the object rather than
+ * beside it (SPEC.md §8.3(a), §9.3).
+ *
+ * measured 273 with SPEC.md §8.3(a)'s `Flatten` inside `TypedResult`'s body /
+ * 432 as the `SerializeObject` residue without it. Set at ~1.25× the good
+ * value, which is the ratio SPEC.md §9.3's `H_error` also lands on: a 1.58×
+ * spread is thin by its 2–20× standard, so the categorical half of the
+ * assertion carries the weight.
+ */
+const SAFE_RESULT_BUDGET = 340
+
+/**
  * The tags `/api/method-fallback`'s `default` handler declares, which a `GET`
  * reaches only through SPEC.md §4.3's presence-based fallback.
  */
@@ -313,6 +326,37 @@ function probeSource(): string {
     `const typedFallback = await useTypedFetch('/api/method-fallback')`,
     `export const TypedFallbackReturn = declaredError(typedFallback.error.value)`,
     `export type TypedFallbackVariant = NonNullable<typeof TypedFallbackReturn>`,
+    ``,
+    // ---- ticket 11, the imperative surface -------------------------------
+    //
+    // **No import.** `$typedFetch` is a global, declared the way Nitro declares
+    // its own `$fetch` — the type arrives with the emitted map, which imports
+    // `/types` and its `declare global` block. That this line resolves at all
+    // is therefore also the assertion that the declaration reaches a real app
+    // program.
+    `const safe = await $typedFetch.safe('/api/users/42')`,
+    // The union as a caller reaches it: *inside* the `if (!safe.ok)` guard,
+    // which is where a `switch` gets written. There is no `| undefined` on this
+    // surface to keep the printer from expanding the alias — the discriminant
+    // does that job — so the narrowed form is the only form.
+    // What a caller hovers on the result, and what they hover once they are
+    // inside `if (!safe.ok)` and writing the `switch`.
+    `export type SafeResult = typeof safe`,
+    `export type SafeError = Extract<typeof safe, { ok: false }>['error']`,
+    // SPEC.md §6.1's collapse against the app's real `InternalApi`: an
+    // undeclared route's result has one arm, so `ok` is the literal `true`.
+    // **Rendered, not asserted structurally** — an `Expect<Equal<…, true>>`
+    // here goes red against the broken-specifier fork below, where `/api/boom`
+    // resolves to TypeScript's error type, which would convert this file's
+    // central demonstration into a file that no longer demonstrates it.
+    `const safeUndeclared = $typedFetch.safe('/api/boom')`,
+    `export type UndeclaredSafeOk = Awaited<typeof safeUndeclared>['ok']`,
+    // The throwing form is vanilla's, byte for byte, in a program where
+    // `MatchedRoutes` has this app's real keys to score.
+    `const typedThrown = await $typedFetch('/api/users/42')`,
+    `const vanillaThrown = await $fetch('/api/users/42')`,
+    `export type TypedThrown = typeof typedThrown`,
+    `export type VanillaThrown = typeof vanillaThrown`,
     ``,
   ].join('\n')
 }
@@ -709,6 +753,66 @@ describe('the generated map, in a real Nuxt app', () => {
     const rendered = app.compilation.renderHover('TypedFallbackVariant')
 
     for (const tag of FALLBACK_TAGS) expect(rendered).toContain(`"${tag}"`)
+  })
+
+  it('renders `.safe`’s result flat, in budget, against the real map', () => {
+    // SPEC.md §8.3(a) on the imperative surface. Measured against the real
+    // playground map, on the hover a caller lands on first:
+    //
+    // | spelling | chars | shape |
+    // | --- | --- | --- |
+    // | `Flatten<D>` inside `TypedResult`'s body — shipped | **273** | flat |
+    // | no `Flatten` anywhere | **432** | `Simplify<SerializeObject<…>>` |
+    // | SPEC.md §3.5's own `TypedResult<…, Flatten<…>>` argument | 333 | flat |
+    //
+    // Row 3 is SPEC-AMENDMENTS item 32 from a third position, and it costs an
+    // extra name here because `D`'s constraint then has to be met by the
+    // argument (`Flatten<…> & AnyVariant`). Written in the body the checker
+    // resolves it during instantiation and there is no alias left to echo.
+    //
+    // **The length is the weaker half**: 1.58× is thin by SPEC.md §9.3's 2–20×
+    // standard, so the categorical half is checked too.
+    const rendered = assertHoverBudget(app.compilation, {
+      name: 'SafeResult',
+      max: SAFE_RESULT_BUDGET,
+    })
+
+    for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
+    expect(rendered).toContain('requiredRole')
+    expect(rendered).not.toContain('SerializeObject')
+    // And the success arm is Nitro's own success type beside it, untouched.
+    expect(rendered).toContain('ok: true')
+    expect(rendered).toContain('email: string')
+  })
+
+  it('renders `.safe`’s false arm as the flat variant union', () => {
+    // The hover a caller consults while writing the `switch`. SPEC.md §8.3's ✅
+    // row, reached through `.safe` rather than through the reader — which is
+    // the point of the false arm carrying the variant rather than the envelope:
+    // there is nothing to unwrap and no `| undefined` in the way.
+    const rendered = app.compilation.renderHover('SafeError')
+
+    for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
+    expect(rendered).toContain('requiredRole')
+    expect(rendered).not.toContain('SerializeObject')
+    expect(rendered).not.toContain('undefined')
+  })
+
+  it('collapses an undeclared route’s `.safe` result to one arm', () => {
+    // SPEC.md §6.1 on this surface, and the reason the collapse is mandatory
+    // for a *different* reason than the composable needed it: a union member
+    // whose property is `never` is not itself `never`, so without it `ok` stays
+    // `boolean` and `data` is unreachable without a branch that can never be
+    // taken. `/api/boom` is a plain `defineEventHandler` in this real app.
+    expect(app.compilation.renderHover('UndeclaredSafeOk')).toBe('true')
+  })
+
+  it('leaves the throwing form byte-identical to vanilla, in a real app', () => {
+    // The default entry point adds typings only, where `MatchedRoutes` has this
+    // app's real keys to score rather than none.
+    expect(app.compilation.renderHover('TypedThrown')).toBe(
+      app.compilation.renderHover('VanillaThrown')
+    )
   })
 
   it('answers `never` for a key the map holds and Nitro’s does not', () => {

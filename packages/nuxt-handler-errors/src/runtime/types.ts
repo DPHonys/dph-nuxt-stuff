@@ -20,7 +20,16 @@ import type {
   H3Event,
   RouterMethod,
 } from 'h3'
-import type { MatchedRoutes, Serialize } from 'nitropack/types'
+import type {
+  $Fetch,
+  Base$Fetch,
+  ExtractedRouteMethod,
+  MatchedRoutes,
+  NitroFetchOptions,
+  NitroFetchRequest,
+  Serialize,
+  TypedInternalResponse,
+} from 'nitropack/types'
 import type { ComputedRef, Ref } from 'vue'
 
 // ---------------------------------------------------------------------------
@@ -733,4 +742,267 @@ export interface UseDeclaredError {
     error: Ref<DeclaredErrorCarrier<E> | null | undefined>
   ): ComputedRef<E | undefined>
   (error: Ref<unknown>): ComputedRef<AnyVariant | undefined>
+}
+
+// ---------------------------------------------------------------------------
+// The imperative fetch surface (SPEC.md §3.5)
+// ---------------------------------------------------------------------------
+
+/**
+ * ofetch's `FetchOptions`, reached through Nitro's own `create` signature
+ * rather than through a fifth runtime dependency.
+ *
+ * `ofetch` is not a dependency of this package and SPEC.md §7.2's rule is that
+ * one is added only when instance identity demands it — which is a runtime
+ * property, and nothing here has a runtime. Indexing Nitro's own declaration is
+ * exact by construction: whatever `$fetch.create` accepts is what
+ * {@link $TypedFetch.create} accepts, on the day Nitro changes it as well as
+ * today.
+ */
+type FetchDefaults = Parameters<$Fetch['create']>[0]
+
+/**
+ * The declared union for one call, computed from the request and the method
+ * alone (SPEC.md §4.3).
+ *
+ * The `R extends string` guard is not decoration: `NitroFetchRequest` also
+ * admits a `Request` object, which no route path can be read out of, so a
+ * non-string request is an undeclared route by construction.
+ *
+ * `M` is already constrained to `RouterMethod`, which is a subset of
+ * {@link DeclaredErrorsOf}'s own `RouterMethod | Uppercase<RouterMethod>`, so
+ * no second guard is needed on this surface — unlike the composable's, whose
+ * `Method` parameter is vanilla's own either-case set.
+ *
+ * A twin of this lives in `src/runtime/app/use-typed-fetch.ts` and the two are
+ * deliberately not shared: making it common would mean exporting it from this
+ * file, and SPEC.md §8.1 makes every name here public API for good. Six lines
+ * of duplication is the cheaper of the two costs.
+ */
+type DeclaredErrorsForCall<R, M extends RouterMethod> = R extends string
+  ? DeclaredErrorsOf<R, M>
+  : never
+
+/**
+ * What `$typedFetch.safe` resolves to (SPEC.md §3.5).
+ *
+ * ```ts
+ * const r = await $typedFetch.safe('/api/users/123')
+ * if (!r.ok) {
+ *   switch (r.error.tag) { … }   // the route's declared union, narrowed
+ * }
+ * ```
+ *
+ * ## The `[Declared] extends [never]` collapse is mandatory
+ *
+ * And for a reason that is *not* the one the composable needed it for. **A
+ * union member whose *property* is `never` is not itself `never`**, so the
+ * naive two-arm declaration leaves `{ ok: false, error: never }` standing on an
+ * undeclared route: `ok` stays `boolean`, and `data` is unreachable without
+ * writing a branch that can never be taken. With the collapse an undeclared
+ * route's result is one object type, `ok` narrows to the literal `true`, and
+ * SPEC.md §6.1's degradation lock holds on this surface too — including after
+ * destructuring, which is how call sites are actually written.
+ *
+ * The check is tuple-wrapped, as SPEC.md §9.5 rule 2 requires of every
+ * never-check in this repo; `test/types/harness.test.ts` scans `src/runtime/**`
+ * for the bare form.
+ *
+ * ## Why the envelope is not surfaced
+ *
+ * `error` is the **flat variant**, because the wrapper has already run the
+ * reader (SPEC.md §3.7) internally. The `NuxtError` envelope carries nothing a
+ * caller needs: the status is on the variant, and both `message` and
+ * `statusMessage` are the tag (SPEC.md §5.1).
+ *
+ * ## Why `Flatten` is written *here* rather than at the call site
+ *
+ * SPEC.md §8.3(a)'s mandate reproduces on this surface: the union arrives out
+ * of the generated map as `Simplify<Serialize<…>>`, and forwarded unflattened
+ * the printer renders the wrapper's `SerializeObject` residue rather than the
+ * variants. Measured against the real playground map, on the hover a caller
+ * lands on first (`const r = await $typedFetch.safe('/api/users/42')`):
+ *
+ * | spelling | rendered |
+ * | --- | --- |
+ * | `Flatten<D>` in this body — shipped | **273**, flat |
+ * | `D`, no `Flatten` anywhere | **432**, `SerializeObject` residue |
+ * | SPEC.md §3.5's own `TypedResult<…, Flatten<…>>` argument | 333, flat |
+ *
+ * Row 3 is SPEC-AMENDMENTS item 32 again, from a third position: `Flatten`
+ * written where the printer can still see its own alias costs a name. It costs
+ * an extra one here, because `D`'s constraint then has to be met by the
+ * argument — `Flatten<…> & AnyVariant`, since a mapped type over a constrained
+ * parameter is no longer known to satisfy it. Writing it in the body keeps the
+ * constraint SPEC.md §3.5 asks for *and* the flat render, and it makes a
+ * hand-written `TypedResult<T, DeclaredErrorsOf<'/api/x'>>` legible with no
+ * ceremony at the call site. Budgeted in `test/generated-map.test.ts`.
+ */
+export type TypedResult<T, D extends AnyVariant> = [D] extends [never]
+  ? { ok: true; data: T }
+  : { ok: true; data: T } | { ok: false; error: Flatten<D> }
+
+/**
+ * One `.safe` call's result, with the method computed **once** and both halves
+ * of the answer derived from it.
+ *
+ * ## Why the method is a defaulted type parameter of this alias
+ *
+ * SPEC.md §10.3's Option 1: `M`'s default is Nitro's own expression from
+ * `Base$Fetch`, verbatim, so the success type and the error type share one
+ * traversal of `MatchedRoutes`' scoring conditional rather than taking one
+ * each.
+ *
+ * ## Why it is a defaulted parameter of an *alias* and not of the call signature
+ *
+ * **Measured, and it is SPEC-AMENDMENTS item 33's trap under a new name.**
+ * Written as a fourth type parameter of {@link TypedFetchSafe} with the
+ * constraint the two use sites need — `M extends RouterMethod = …` — the
+ * checker verifies the default against that constraint **eagerly, at the
+ * declaration**, with `R` and `O` still unresolved. That walks
+ * `NitroFetchOptions<R>`'s `Uppercase<AvailableRouterMethod<R>>` into
+ * `MatchedRoutes` and gives one `TS2321 Excessive stack depth` per
+ * `InternalApi` key — in `src/runtime/types.ts` itself, in any program whose
+ * route interface is populated, and it takes the whole signature down with it:
+ * `data` collapses to `unknown` and the declared union to `never`. A type
+ * alias's parameters carry no constraint here, so nothing is checked until a
+ * call site instantiates it with a resolved request. `Extract<M, RouterMethod>`
+ * is what then satisfies the two constraints, at that point rather than this
+ * one.
+ */
+type SafeResultFor<
+  R extends NitroFetchRequest,
+  T,
+  O extends NitroFetchOptions<R>,
+  M = NitroFetchOptions<R> extends O ? 'get' : ExtractedRouteMethod<R, O>,
+> = TypedResult<
+  TypedInternalResponse<R, T, Extract<M, RouterMethod>>,
+  DeclaredErrorsForCall<R, Extract<M, RouterMethod>>
+>
+
+/**
+ * The throwing call signature — **a pure typings mirror of vanilla**
+ * (SPEC.md §3.5).
+ *
+ * It is Nitro's own `Base$Fetch` under a name of ours rather than a
+ * re-spelling of it, and that is the strongest available statement of
+ * SPEC.md §6.1's degradation lock on this surface: the default entry point
+ * cannot drift from vanilla, because it *is* vanilla, and a Nitro release that
+ * changes the signature moves both at once.
+ *
+ * Named because SPEC.md §3.5 and §3.6 both name it: `event.$typedFetch` is this
+ * plus `.safe` and nothing else, and is deliberately **not** a copy of
+ * {@link $TypedFetch}.
+ */
+export type Base$TypedFetch<
+  DefaultT = unknown,
+  DefaultR extends NitroFetchRequest = NitroFetchRequest,
+> = Base$Fetch<DefaultT, DefaultR>
+
+/**
+ * The sibling that returns instead of throwing (SPEC.md §3.5).
+ *
+ * ## Why both behaviours ship
+ *
+ * They cannot live in one function. `declaredError(err)` **does not work in a
+ * `catch`**: under `--strict` a catch variable is `unknown`, so overload
+ * resolution has nothing to infer from and falls to SPEC.md §5.3's shape floor
+ * — a missing-property error on every payload, and a typo'd tag comparing
+ * silently as a string. TypeScript does not type exceptions, so **a return type
+ * is the only position that can carry the union**. That is a language limit,
+ * not an implementation gap.
+ *
+ * The returning form could not be the only one either: it would put a permanent
+ * `.data` shape tax on every undeclared route and external URL, breaking the
+ * degradation lock; a return-shape change is not a typing change; and
+ * SPEC.md §3.4's documented `useAsyncData(() => $typedFetch(…))` composition
+ * depends on the throwing form.
+ *
+ * ## `ok: false` means one thing only
+ *
+ * It means *"a declared failure the route promised"*. Nothing else can produce
+ * it — a
+ * 500, a timeout, a network drop and a route that declares nothing all leave
+ * through `throw`, exactly as they do through vanilla `$fetch`. So `.safe`
+ * reads as one sentence: **it returns what the route declared; everything else
+ * throws, as it always did.**
+ *
+ * Separate from {@link $TypedFetch} because `event.$typedFetch` is
+ * {@link Base$TypedFetch} plus exactly this member (SPEC.md §3.6), and one
+ * declaration of a signature is better than two that can disagree.
+ */
+export interface TypedFetchSafe<
+  DefaultT = unknown,
+  DefaultR extends NitroFetchRequest = NitroFetchRequest,
+> {
+  <
+    T = DefaultT,
+    R extends NitroFetchRequest = DefaultR,
+    O extends NitroFetchOptions<R> = NitroFetchOptions<R>,
+  >(
+    request: R,
+    opts?: O
+  ): Promise<SafeResultFor<R, T, O>>
+}
+
+/**
+ * The imperative surface (SPEC.md §3.5) — for event handlers, stores, and
+ * anywhere the composable is unusable.
+ *
+ * ```ts
+ * const user = await $typedFetch('/api/users/123')        // throws, as $fetch does
+ * const r    = await $typedFetch.safe('/api/users/123')   // returns the declared union
+ * ```
+ *
+ * ## A full mirror of vanilla's namespace, verified against the real declaration
+ *
+ * Nitro's `$Fetch` is a **single** call signature plus exactly `raw` and
+ * `create` — there is no `native` (that member is on ofetch's own interface,
+ * not on the one the global is typed as) and no overload set, so this is far
+ * cheaper than SPEC.md §3.4's five-overload job. Not mirroring the two members
+ * was rejected: `$typedFetch.` showing a shorter completion list than `$fetch.`
+ * is a visible way to fail SPEC.md §6.1's degradation lock, and it would force
+ * a call site needing both typed errors and the raw response to pick one.
+ *
+ * **Neither member gets its own `.safe`.** `raw`'s value is the response
+ * object, which is orthogonal to the declared channel — ofetch throws on
+ * `!response.ok` there too — and a created instance's `.safe` is the same
+ * `.safe`. `raw` is therefore vanilla's own member, indexed out of Nitro's
+ * declaration rather than restated, because a pure passthrough that is spelled
+ * a second time is free to drift from what it passes through.
+ *
+ * **`create` returns the *typed* interface.** Returning a vanilla `$Fetch`
+ * would be a silent typing cliff: the call compiles and `.safe` vanishes one
+ * level later with no signal at all.
+ *
+ * Declared as a named `interface` with the value a `const` of that type, which
+ * is SPEC.md §8.3(b) and exactly how Nitro declares its own global
+ * (`declare var $fetch: $Fetch`). The hover is the interface's name.
+ */
+export interface $TypedFetch<
+  DefaultT = unknown,
+  DefaultR extends NitroFetchRequest = NitroFetchRequest,
+> extends Base$TypedFetch<DefaultT, DefaultR> {
+  safe: TypedFetchSafe<DefaultT, DefaultR>
+  raw: $Fetch<DefaultT, DefaultR>['raw']
+  create: <T = DefaultT, R extends NitroFetchRequest = DefaultR>(
+    defaults: FetchDefaults
+  ) => $TypedFetch<T, R>
+}
+
+declare global {
+  /**
+   * The global, declared the way Nitro declares its own — which is what makes
+   * `$typedFetch` callable inside a Nitro handler, in `<script setup>` and in a
+   * consumer's `shared/` directory with **no new entry point** (SPEC.md §3.5).
+   *
+   * The value is installed by the two plugins the module registers, over
+   * `globalThis.$fetch` on whichever side is running.
+   *
+   * `var` rather than `const` because that is the only form that declares a
+   * property on `globalThis`, and it is Nitro's own spelling
+   * (`nitropack/dist/types/index.d.ts:127`).
+   */
+  // eslint-disable-next-line vars-on-top
+  var $typedFetch: $TypedFetch
 }

@@ -268,6 +268,53 @@ type _lazySiblingCarriesTheSameUnion = Expect<
   Equal<typeof _lazyError, typeof userError>
 >
 
+// ---------------------------------------------------------------------------
+// `$typedFetch` (SPEC.md §3.5), in `<script setup>` — **with no import**, and
+// not through an auto-import either.
+//
+// It is a genuine global, declared the way Nitro declares its own `$fetch`:
+// the type arrives with the emitted map, which imports `/types` and its
+// `declare global` block, and the value arrives from the app plugin the module
+// registers. Delete either and this block stops compiling or stops running,
+// and the two failures look different.
+// ---------------------------------------------------------------------------
+
+/**
+ * **The hand-off is the assertion**, exactly as it is for the reader: `.safe`'s
+ * false arm is handed to `describeUserFailure`, whose parameter is
+ * `DeclaredErrorsOf<'/api/users/:id'>` and whose `switch` is exhaustive. The
+ * shape floor is not assignable to that parameter, so a union that had degraded
+ * is a compile error rather than a silent pass — and `error` is the **flat
+ * variant**, because the wrapper already ran the reader internally.
+ */
+const globalSafe = await $typedFetch.safe('/api/users/private')
+const globalRead = globalSafe.ok
+  ? 'no failure'
+  : `global:${describeUserFailure(globalSafe.error)}`
+
+/**
+ * SPEC.md §6.1's degradation lock on this surface: an undeclared route's result
+ * has **one arm**, so `ok` is the literal `true` and `data` is reachable with
+ * no branch. Without {@link TypedResult}'s collapse `ok` would be `boolean` and
+ * the line below would be a compile error — which is the whole reason
+ * `TypedResult`'s collapse exists here, and it is a different reason from the
+ * composable's.
+ *
+ * `immediate` has no meaning on this surface, so the call is real; `/api/boom`
+ * throws, which is what the `.catch` is for and what the server-side probe
+ * asserts about.
+ */
+const undeclared = $typedFetch.safe('/api/boom')
+
+type _undeclaredResultHasOneArm = Expect<
+  Equal<Awaited<typeof undeclared>['ok'], true>
+>
+
+const undeclaredRead = await undeclared.then(
+  (result) => `unexpected:${JSON.stringify(result.data)}`,
+  () => 'threw'
+)
+
 const client = `client:${DECLARED_ERROR_KEY}`
 const { data: server } = await useFetch('/api/specifier-probe')
 </script>
@@ -284,5 +331,6 @@ const { data: server } = await useFetch('/api/specifier-probe')
     <p id="typed-read">{{ typedRead }}/{{ owner }}/{{ fromShared }}</p>
     <p id="typed-fetch-read">{{ typedFetchRead }}</p>
     <p id="outside-api-read">{{ statusRead }}</p>
+    <p id="global-typed-fetch">{{ globalRead }}/{{ undeclaredRead }}</p>
   </main>
 </template>
