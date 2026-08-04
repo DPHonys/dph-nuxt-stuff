@@ -20,6 +20,15 @@ export default antfuConfig(
     ignores: ['**/SPEC.md/**'],
   },
 
+  // Negative type fixtures are deliberately non-compiling — they exist to
+  // produce one specific diagnostic each, which the compile-time harness reads
+  // back through its own program. They are excluded from their package's
+  // `tsconfig` for the same reason. See packages/*/SPEC.md §9.9.
+  {
+    name: 'project/negative-type-fixtures',
+    ignores: ['**/test/types/neg/**'],
+  },
+
   {
     name: 'project/overrides',
     rules: {

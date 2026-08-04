@@ -1,4 +1,7 @@
 {
   "extends": ["./.nuxt/tsconfig.json", "../../tsconfig.json"],
-  "exclude": ["dist", "node_modules", "playground"]
+  // `test/types/neg` is deliberately non-compiling: those fixtures exist to
+  // produce specific diagnostics, which the harness reads back through its own
+  // program. Left in this one they would fail `typecheck` (SPEC.md §9.9 trap 1).
+  "exclude": ["dist", "node_modules", "playground", "test/types/neg"]
 }
