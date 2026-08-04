@@ -86,24 +86,6 @@ export default {
         // scaffolded package on the hint promoted above.
         'test/types/{pos,neg}/**/*.ts',
       ],
-
-      ignoreDependencies: [
-        ...nuxtModuleWorkspace.ignoreDependencies,
-
-        // A deliberate runtime dependency with no source consumer *yet*: the
-        // path handling the emitter needs. It is declared now because what its
-        // range protects is instance identity, which is a packaging decision
-        // rather than a consequence of the first import (SPEC.md §7.2). `h3`
-        // and `nitropack` left this list the moment `src/runtime/` imported
-        // them.
-        //
-        // Package-scoped for the same reason as the fixtures: the template
-        // declares none of these, so globbing them would hand every future
-        // package a free pass on dependencies it never declared. This entry
-        // comes out the moment a source file imports it — the hint promotion
-        // above makes leaving it in a failure.
-        'pathe',
-      ],
     },
   },
 } satisfies KnipConfig
