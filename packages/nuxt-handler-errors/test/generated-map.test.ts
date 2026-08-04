@@ -100,6 +100,7 @@ const CONTEXT_REFERENCES = [
 /** Every `/api` route the playground serves, keyed as Nitro keys it. */
 const EXPECTED_ROUTE_KEYS = [
   "'/api/boom': {",
+  "'/api/method-fallback': {",
   "'/api/rogue-status': {",
   "'/api/specifier-probe': {",
   "'/api/users/:id': {",
@@ -107,6 +108,25 @@ const EXPECTED_ROUTE_KEYS = [
 
 /** The tags of the three variants `/api/users/:id` declares (SPEC.md §1). */
 const DECLARED_TAGS = ['user-not-found', 'user-suspended', 'forbidden']
+
+/**
+ * The tags `/api/method-fallback`'s `default` handler declares, which a `GET`
+ * reaches only through SPEC.md §4.3's presence-based fallback.
+ */
+const FALLBACK_TAGS = ['unauthorized', 'forbidden']
+
+/**
+ * What the emitted map's handler specifiers are rewritten to, to break them.
+ *
+ * Every specifier in the file is relative to `.nuxt/types`, so redirecting the
+ * one directory they all traverse points every one of them at nothing — which
+ * is precisely what emitting the file to the wrong place would do, and what
+ * `pathe.relative` returning a bare name would do (SPEC-AMENDMENTS item 11).
+ */
+const BROKEN_SPECIFIER_REWRITE = {
+  from: `'../../server/`,
+  to: `'../../nowhere/`,
+}
 
 /**
  * Where the compile-time probe is written.
@@ -129,8 +149,8 @@ function probeSource(): string {
 
   return [
     `import type { MatchedRoutes } from 'nitropack/types'`,
-    `import type { TypedApiErrors } from '${TYPES_SPECIFIER}'`,
-    `import type { Expect, IsNever } from '${vocabulary}'`,
+    `import type { DeclaredErrorsOf, TypedApiErrors } from '${TYPES_SPECIFIER}'`,
+    `import type { Equal, Expect, IsNever } from '${vocabulary}'`,
     ``,
     `declare module '${TYPES_SPECIFIER}' {`,
     `  interface TypedApiErrors {`,
@@ -147,35 +167,78 @@ function probeSource(): string {
     `export type Ghost = MatchedRoutes<'/api/ghost'>`,
     `type _ghostIsUnreachable = Expect<IsNever<Ghost>>`,
     ``,
+    // ---- ticket 08, the lookup -------------------------------------------
+    //
+    // A call-site *literal*, resolved through Nitro's own route matching
+    // against this app's really-generated `InternalApi` — `42` finds
+    // `/api/users/:id` by the same scoring Nitro uses for the success type.
+    `export type Lookup = DeclaredErrorsOf<'/api/users/42'>`,
+    // The presence-based fallback, on a route that really does have a branded
+    // `default` handler and an unbranded `post` sibling beside it.
+    `export type LookupFallback = DeclaredErrorsOf<'/api/method-fallback'>`,
+    // The key the map holds and `InternalApi` does not, one layer up from
+    // `Ghost` above.
+    `export type LookupGhost = DeclaredErrorsOf<'/api/ghost'>`,
+    // SPEC-AMENDMENTS item 16, at the lookup: Nuxt keys `/__nuxt_island/**` to
+    // `#internal/nuxt/island-renderer`, which `resolveNitroPath` does not
+    // resolve, so this entry is TypeScript's error type and `MatchedRoutes`
+    // reaches it. Rendered rather than asserted, because the error type
+    // satisfies every `Expect<Equal<…>>` written against it.
+    `export type LookupIsland = DeclaredErrorsOf<'/__nuxt_island/foo'>`,
+    ``,
+    // **Deliberately vacuous against a broken map.** Both are true of this app
+    // and both stay green when every specifier in the map resolves to nothing,
+    // which is the whole reason the claims that matter are rendering ones.
+    //
+    // Written as a claim about *one* variant's payload rather than about the
+    // whole tag set, so that the catalogue edit in the path-referentiality
+    // block below — which adds a variant on purpose — does not falsify it.
+    `type _lookupPayload = Expect<`,
+    `  Equal<Extract<Lookup, { tag: 'forbidden' }>['requiredRole'], 'admin' | 'owner'>>`,
+    `type _lookupMatchesTheRawEntry = Expect<Equal<Lookup, Declared>>`,
+    ``,
   ].join('\n')
 }
 
 /**
- * Re-point the playground's one reach into the suite at an absolute path.
+ * The playground files that reach into this suite for SPEC.md §9.5's fixed
+ * assertion vocabulary, with the relative spelling each one uses.
  *
- * `playground/server/api/users/[id].get.ts` imports the assertion vocabulary as
- * `'../../../../test/types/vocabulary'`, which is four levels up — and out of a
- * copy in the system temp directory that lands nowhere. Left alone it is the
- * one `TS2307` standing between this file and SPEC.md §9.5 rule 3, which is
- * worth more than the edit costs: without a clean-program assertion a fixture
- * that stopped compiling for an unrelated reason would pass while proving
- * nothing.
+ * Listed rather than globbed so that a file quietly losing the import is a
+ * failure here instead of a silently skipped rewrite.
  */
-function reanchorSuiteImport(root: string): void {
-  const path = join(root, 'server/api/users/[id].get.ts')
-  const source = readFileSync(path, 'utf8')
-  const reanchored = source.replace(
-    `'../../../../test/types/vocabulary'`,
-    `'${join(PACKAGE_ROOT, 'test/types/vocabulary')}'`
-  )
+const SUITE_IMPORTERS = [
+  ['server/api/users/[id].get.ts', '../../../../test/types/vocabulary'],
+  ['server/api/method-fallback.ts', '../../../test/types/vocabulary'],
+  ['shared/lookup-probe.ts', '../../test/types/vocabulary'],
+] as const
 
-  if (reanchored === source) {
-    throw new Error(
-      `Expected ${path} to import the suite vocabulary by relative path.`
+/**
+ * Re-point the playground's reaches into the suite at an absolute path.
+ *
+ * Those imports are written relative to the playground, which lands nowhere out
+ * of a copy in the system temp directory. Left alone each is a `TS2307`
+ * standing between this file and SPEC.md §9.5 rule 3, which is worth more than
+ * the edit costs: without a clean-program assertion a fixture that stopped
+ * compiling for an unrelated reason would pass while proving nothing.
+ */
+function reanchorSuiteImports(root: string): void {
+  for (const [file, specifier] of SUITE_IMPORTERS) {
+    const path = join(root, file)
+    const source = readFileSync(path, 'utf8')
+    const reanchored = source.replace(
+      `'${specifier}'`,
+      `'${join(PACKAGE_ROOT, 'test/types/vocabulary')}'`
     )
-  }
 
-  writeFileSync(path, reanchored)
+    if (reanchored === source) {
+      throw new Error(
+        `Expected ${path} to import the suite vocabulary as '${specifier}'.`
+      )
+    }
+
+    writeFileSync(path, reanchored)
+  }
 }
 
 /**
@@ -215,7 +278,7 @@ function buildApp(name: string, edit?: (root: string) => void): BuiltApp {
     filter: (source) => !NOT_COPIED.test(source),
   })
   symlinkSync(join(PLAYGROUND, 'node_modules'), join(root, 'node_modules'))
-  reanchorSuiteImport(root)
+  reanchorSuiteImports(root)
   edit?.(root)
 
   execFileSync(
@@ -239,6 +302,11 @@ function buildApp(name: string, edit?: (root: string) => void): BuiltApp {
     )
   }
 
+  return probeApp(root)
+}
+
+/** Write the probe into an already-prepared app root and compile it. */
+function probeApp(root: string): BuiltApp {
   writeFileSync(join(root, PROBE_PATH), probeSource())
 
   const harness = createTypeHarness({
@@ -249,9 +317,38 @@ function buildApp(name: string, edit?: (root: string) => void): BuiltApp {
 
   return {
     root,
-    map: readFileSync(mapPath, 'utf8'),
+    map: readFileSync(join(root, MAP_PATH), 'utf8'),
     compilation: harness.compileAlone(join(root, PROBE_PATH)),
   }
+}
+
+/**
+ * A byte copy of an already-built app whose emitted map has had every handler
+ * specifier pointed at a directory that is not there.
+ *
+ * The build is not repeated — nothing about `nuxt prepare` is under test here,
+ * only what the compiler does with a map that has stopped meaning anything, and
+ * the copy sits beside its original at the same depth so every relative path in
+ * the generated tsconfigs still resolves.
+ */
+function forkWithBrokenSpecifiers(from: BuiltApp, name: string): BuiltApp {
+  const root = join(WORKSPACE, name)
+
+  cpSync(from.root, root, { recursive: true })
+
+  const broken = from.map.replaceAll(
+    BROKEN_SPECIFIER_REWRITE.from,
+    BROKEN_SPECIFIER_REWRITE.to
+  )
+  if (broken === from.map) {
+    throw new Error(
+      `Expected the emitted map to spell its specifiers ${BROKEN_SPECIFIER_REWRITE.from}…`
+    )
+  }
+
+  writeFileSync(join(root, MAP_PATH), broken)
+
+  return probeApp(root)
 }
 
 let app: BuiltApp
@@ -344,6 +441,63 @@ describe('the generated map, in a real Nuxt app', () => {
     expect(rendered).toContain('requiredRole')
   })
 
+  it('keys the divergence case as a default plus an unbranded sibling', () => {
+    // What makes SPEC.md §4.3's three rows observable at all: one route, two
+    // handler files, one of them branded and keyed `default`.
+    expect(app.map).toContain(
+      `typeof import('../../server/api/method-fallback').default`
+    )
+    expect(app.map).toContain(
+      `typeof import('../../server/api/method-fallback.post').default`
+    )
+  })
+
+  it('resolves: a route literal names this route’s real tags', () => {
+    // Ticket 08's central claim, and a rendering one for the reason the whole
+    // file exists: `'/api/users/42'` is matched to the `'/api/users/:id'` entry
+    // by Nitro's own scoring, and what comes back carries this route's tags. An
+    // `Expect<Equal<…>>` over the same lookup is in the probe and is green even
+    // when the map means nothing — see the broken-specifier block below.
+    const rendered = app.compilation.renderHover('Lookup')
+
+    for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
+    expect(rendered).toContain('requiredRole')
+  })
+
+  it('resolves: a GET reaches the default handler’s union by presence', () => {
+    // SPEC.md §4.3's row 1, rendered. The three rows are asserted structurally
+    // in `playground/server/api/method-fallback.ts`, beside the handlers; this
+    // is the half that proves the union on the other side of the fallback is a
+    // real one rather than TypeScript's error type.
+    const rendered = app.compilation.renderHover('LookupFallback')
+
+    for (const tag of FALLBACK_TAGS) expect(rendered).toContain(`"${tag}"`)
+  })
+
+  it('answers `never` for a key the map holds and Nitro’s does not', () => {
+    // SPEC.md §4.5's convergence window, one layer up from `Ghost` below: the
+    // unreachable key degrades to §6.1's documented silent default rather than
+    // to the union the map is holding for it.
+    expect(app.compilation.renderHover('LookupGhost')).toBe('never')
+  })
+
+  it('cannot answer for a route whose handler resolves to nothing', () => {
+    // SPEC-AMENDMENTS item 16, recorded as a measurement rather than inherited
+    // as a warning. Nuxt registers its island renderer as
+    // `#internal/nuxt/island-renderer`; `resolveNitroPath` does not resolve that
+    // alias, so the emitter faithfully writes a specifier pointing at no file
+    // and the entry becomes TypeScript's error type — which `MatchedRoutes`
+    // reaches, and which no `IsAny` guard can see (item 9). The only fix would
+    // be a filesystem read inside the pure emitter, which SPEC.md §4.6 forbids.
+    //
+    // Asserted here so that the day it *stops* being true — Nuxt resolving the
+    // alias, or the emitter learning to skip such handlers — is a visible
+    // change rather than a silent one.
+    expect(() => app.compilation.renderHover('LookupIsland')).toThrow(
+      /rendered as `any`/
+    )
+  })
+
   it('holds a key Nitro’s interface does not, unreachably (SPEC.md §9.6)', () => {
     // The dev-server race, asserted structurally rather than statistically. The
     // probe declares `/api/ghost` on the map and nothing declares it on
@@ -358,6 +512,59 @@ describe('the generated map, in a real Nuxt app', () => {
     // program resolves it against the app's **real generated `InternalApi`**
     // rather than a hand-written stand-in, and the program was already built.
     expect(app.compilation.renderHover('Ghost')).toBe('never')
+  })
+})
+
+describe('the lookup, over a map whose specifiers resolve to nothing', () => {
+  /**
+   * The mutation that makes every rendering assertion above worth writing.
+   *
+   * The same real build, with one thing changed: every handler specifier in the
+   * emitted map now points at a directory that is not there. That is what
+   * emitting the file outside Nitro's `types/` directory does, and what
+   * `pathe.relative` returning a bare name does — both of them silent, because
+   * an unresolved `import("…")` inside a `.d.ts` produces **no diagnostic**
+   * under `skipLibCheck`, which every Nuxt-generated tsconfig sets.
+   *
+   * The two `it`s below are the two halves of SPEC-AMENDMENTS items 8, 9 and
+   * 16, taken at the *lookup* rather than at the raw map entry: the structural
+   * assertions in the probe stay green while being false, and only the render
+   * catches it.
+   */
+  let broken: BuiltApp
+
+  beforeAll(() => {
+    broken = forkWithBrokenSpecifiers(app, 'broken-specifiers')
+  }, 60_000)
+
+  it('is swallowed whole: the probe’s own assertions stay green', () => {
+    // `Lookup['tag']` is asserted to be three specific tags, and `Lookup` is
+    // asserted equal to the raw map entry. Neither is true of this map — the
+    // entry is TypeScript's error type, which propagates through every
+    // conditional in `DeclaredErrorsOf` and satisfies whatever it meets. This
+    // is what a suite looks like the day the emitter starts writing paths that
+    // resolve to nothing, and it is why the claims that matter are renders.
+    expect(
+      broken.compilation.diagnostics.filter(
+        (diagnostic) => diagnostic.fileName === broken.compilation.fixture
+      )
+    ).toEqual([])
+  })
+
+  it('is caught by the rendering assertion, which is why one is used', () => {
+    expect(() => broken.compilation.renderHover('Lookup')).toThrow(
+      /rendered as `any`/
+    )
+    expect(() => broken.compilation.renderHover('LookupFallback')).toThrow(
+      /rendered as `any`/
+    )
+  })
+
+  it('and the route matching is untouched, so the failure is localised', () => {
+    // The control. `MatchedRoutes` reads `keyof InternalApi`, which no broken
+    // handler specifier can affect — so a `never` from the lookup still means
+    // "no such key" here, and the two failure modes stay distinguishable.
+    expect(broken.compilation.renderHover('LookupGhost')).toBe('never')
   })
 })
 

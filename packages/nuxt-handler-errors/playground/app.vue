@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { DECLARED_ERROR_KEY } from '@dphonys/nuxt-handler-errors/shared'
 import type { TypedApiErrors } from '@dphonys/nuxt-handler-errors/types'
+import { describeUserFailure } from '#shared/lookup-probe'
 import { SHARED_CONTEXT_PROBE } from '#shared/specifier-probe'
 
 /** Context 1 of 3: the Vue client. `<script setup>` cannot export, so the
@@ -48,6 +49,18 @@ const narrowed = describeFailure({
   requiredRole: 'owner',
 })
 
+/**
+ * The same claim reached through the **lookup** rather than through a raw index
+ * — the route named by its path alone, from a helper living in the consumer's
+ * `shared/` directory (SPEC.md §3.6, §4.3). Its `switch` is exhaustive for the
+ * same reason `describeFailure`'s is, and red for the same reason.
+ */
+const looked = describeUserFailure({
+  tag: 'user-not-found',
+  status: 404,
+  userId: '42',
+})
+
 const client = `client:${DECLARED_ERROR_KEY}`
 const { data: server } = await useFetch('/api/specifier-probe')
 </script>
@@ -59,5 +72,6 @@ const { data: server } = await useFetch('/api/specifier-probe')
     <p id="shared-context">{{ SHARED_CONTEXT_PROBE }}</p>
     <p id="server-context">{{ server?.server }}</p>
     <p id="narrowed-failure">{{ narrowed }}</p>
+    <p id="looked-up-failure">{{ looked }}</p>
   </main>
 </template>

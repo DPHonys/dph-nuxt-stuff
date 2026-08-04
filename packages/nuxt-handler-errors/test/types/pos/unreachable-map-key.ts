@@ -31,7 +31,10 @@
 import type { MatchedRoutes } from 'nitropack/types'
 // Imported so the relative `declare module` below is an *augmentation* of this
 // module rather than a declaration of a new one TypeScript cannot place.
-import type { TypedApiErrors } from '../../../src/runtime/types'
+import type {
+  DeclaredErrorsOf,
+  TypedApiErrors,
+} from '../../../src/runtime/types'
 import type { Equal, Expect, IsNever } from '../vocabulary'
 
 // Nitro's own interface, with one route. This stands for `nitro-routes.d.ts`.
@@ -44,7 +47,7 @@ declare module 'nitropack/types' {
 // This module's map, one beat ahead: it knows a route Nitro has not keyed yet.
 declare module '../../../src/runtime/types' {
   interface TypedApiErrors {
-    '/api/real': { get: never }
+    '/api/real': { get: { tag: 'real'; status: 500 } }
     '/api/ghost': { get: { tag: 'ghost'; status: 404 } }
   }
 }
@@ -68,3 +71,22 @@ type _ghostIsUnreachable = Expect<IsNever<MatchedRoutes<'/api/ghost'>>>
  * `MatchedRoutes` that had stopped resolving anything at all.
  */
 type _realIsReachable = Expect<Equal<MatchedRoutes<'/api/real'>, '/api/real'>>
+
+/**
+ * **The same invariant one layer up**, which is the layer a call site actually
+ * reaches: `DeclaredErrorsOf` indexes the map through `MatchedRoutes`, so the
+ * unreachable key degrades to SPEC.md §6.1's documented silent `never` rather
+ * than to the union the map holds for it.
+ *
+ * This is what makes the convergence window harmless in the shape that matters.
+ * §4.5 re-measured the race and found disagreement going **both** ways in
+ * roughly equal measure; the honest statement is that one direction is inert —
+ * this one, by construction — and the other degrades to `never`. Neither
+ * produces a wrong type, which is all the argument needs.
+ */
+type _ghostLookupIsNever = Expect<IsNever<DeclaredErrorsOf<'/api/ghost'>>>
+
+/** The control again, one layer up: the reachable key really does answer. */
+type _realLookupAnswers = Expect<
+  Equal<DeclaredErrorsOf<'/api/real'>, { tag: 'real'; status: 500 }>
+>

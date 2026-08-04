@@ -18,8 +18,9 @@ import type {
   EventHandlerRequest,
   EventHandlerResponse,
   H3Event,
+  RouterMethod,
 } from 'h3'
-import type { Serialize } from 'nitropack/types'
+import type { MatchedRoutes, Serialize } from 'nitropack/types'
 
 // ---------------------------------------------------------------------------
 // Phantom slots
@@ -463,6 +464,133 @@ export type Flatten<T> = T extends unknown ? { [K in keyof T]: T[K] } : never
  * has declared anything yet (SPEC.md §4.2).
  */
 export interface TypedApiErrors {}
+
+/**
+ * **The lookup**: a route's declared union, named from its path alone
+ * (SPEC.md §4.3, §3.6).
+ *
+ * ```ts
+ * import type { DeclaredErrorsOf } from '@dphonys/nuxt-handler-errors/types'
+ *
+ * function toOrderFailure(e: DeclaredErrorsOf<'/api/users/:id'>): OrderTag {
+ *   switch (e.tag) { … }
+ * }
+ * ```
+ *
+ * This is public API whether or not it is ever hand-written (SPEC.md §8.1):
+ * `$typedFetch.safe`'s emitted signature carries it **unevaluated**, so the
+ * name travels to every consumer regardless.
+ *
+ * ## `MatchedRoutes` is Nitro's, on purpose
+ *
+ * `'/api/users/123'` finds the `'/api/users/:id'` entry by the *same* glob and
+ * parameter scoring Nitro uses for the success type, because it is literally
+ * the same type. The emitter keys this map exactly as Nitro keys `InternalApi`
+ * (SPEC.md §4.2), which is what makes reuse possible rather than a
+ * near-miss reimplementation — and it is also the structural safety property
+ * behind SPEC.md §4.5's dev-server race: `MatchedRoutes` derives its key
+ * universe from `keyof InternalApi`, so a key this map holds and Nitro's
+ * interface does not is **unreachable by construction**, whatever it says.
+ *
+ * ## The method fallback is PRESENCE-based, and the divergence is required
+ *
+ * Nitro falls back to its `default` handler when a method lookup yields
+ * `never`. That is safe for Nitro, whose serialized success type is never
+ * `never`. Here `never` is a **legitimate value** — it is exactly what an
+ * unbranded handler yields — so copying Nitro's rule would hand a `POST` caller
+ * the `default` handler's errors, which is a *wrong* error type rather than an
+ * absent one:
+ *
+ * ```
+ * server/api/y.ts       → default, branded, declares E
+ * server/api/y.post.ts  → post,    unbranded, declares nothing
+ * map: '/api/y': { default: E, post: never }
+ * ```
+ *
+ * Falling back on key **presence** instead is a *mirror of the h3 dispatcher,
+ * not an approximation of it*: h3 registers Nitro's `default` handlers under
+ * `"all"` (`h3@1.15.11/dist/index.mjs:2198`) and dispatches
+ * `matched.handlers[method] || matched.handlers.all` (`:2217`) — method-specific
+ * first, on presence. Three rows, all asserted against the real playground in
+ * `playground/server/api/method-fallback.ts`:
+ *
+ * | Call | Resolves | Runtime runs |
+ * | --- | --- | --- |
+ * | `('/api/y')` | `get` absent → `default` → `E` | `handlers.all` |
+ * | `('/api/y', { method: 'POST' })` | `post` present → `never` | `handlers.post` |
+ * | `('/api/y', { method: 'DELETE' })` | `delete` absent → `default` → `E` | `handlers.all` |
+ *
+ * Nitro's success side agrees on all three, so `data` and `error` stay in
+ * lockstep. h3's *cross-route* fallthrough (`POST /api/files/meta` walking up to
+ * `/api/files/**`'s `all` handler) is deliberately **not** modelled: Nitro's
+ * `AvailableRouterMethod` restricts the method set to the route's own keys, so
+ * that call is already a compile error through the typed surface. The block is
+ * inherited from vanilla rather than re-implemented here.
+ *
+ * ## `never` means "declares no failures", not "cannot fail"
+ *
+ * An undeclared route — one that never opted in, or a path this app does not
+ * serve at all — resolves to `never`, never to `unknown` (which destroys
+ * narrowing) and never to a compile error. `R` is deliberately unconstrained
+ * beyond `string`: constraining it to `keyof TypedApiErrors & string` would
+ * reject external URLs and dynamically-built paths and would break the
+ * byte-identical completion list vanilla `useFetch` offers, which SPEC.md §6.1's
+ * degradation lock forbids.
+ *
+ * **The accepted cost, stated plainly: `never` is silent.** A developer using a
+ * typed wrapper on a route that never opted in gets *no signal at all*. Every
+ * wrapper carrying this into a generic position needs an explicit
+ * `[Declared] extends [never]` collapse, because `never`'s absorbing behaviour
+ * does not propagate outward through a wrapper type (SPEC.md §6.1).
+ *
+ * ## Two things this cannot promise
+ *
+ * - **Not every map entry is inhabited.** Nuxt registers its island renderer as
+ *   `#internal/nuxt/island-renderer`, which `resolveNitroPath` does not resolve,
+ *   so `TypedApiErrors['/__nuxt_island/**']['default']` is TypeScript's *error
+ *   type* — it renders as `any`, is not `any`, and satisfies every conditional
+ *   and constraint it meets. `MatchedRoutes<'/__nuxt_island/foo'>` reaches it.
+ *   Recorded rather than guarded: the only fix is a filesystem read inside the
+ *   pure emitter, which SPEC.md §4.6 forbids. Measured in
+ *   `test/generated-map.test.ts`.
+ * - **A wrong answer under version skew.** A tag the client does not know comes
+ *   back typed as a member it is not (SPEC.md §6.4).
+ *
+ * @typeParam R - The route path as written at the call site. Any string.
+ * @typeParam M - The HTTP method, in either case. Defaults to `'get'`, which is
+ * vanilla's default method, so the common form names only the route.
+ */
+export type DeclaredErrorsOf<
+  R extends string,
+  // SPEC.md §4.3 writes this constraint as `RouterMethod`, which is
+  // **lowercase only** — and mandate 2 of the same section says both `'DELETE'`
+  // and `'delete'` are accepted, normalised by the `Lowercase<M>` below. Both
+  // cases are therefore admitted here, which is exactly the pair vanilla admits
+  // (`Uppercase<AvailableRouterMethod<R>> | AvailableRouterMethod<R>`), and a
+  // method that is neither is rejected rather than silently falling through to
+  // `default` — the one place in this type where a wrong answer is preferable
+  // to no answer, so it is not given.
+  //
+  // Measured against the two deferred positions tickets 10/11 will call from:
+  // `ExtractedRouteMethod<R, O>` and a naked `M extends AvailableRouterMethod<R>`
+  // both satisfy it with `R` and `O` unresolved. A raw `O['method']` does not —
+  // use Nitro's own `ExtractedRouteMethod`, which is SPEC.md §10.3's Option 1
+  // spelling anyway.
+  M extends RouterMethod | Uppercase<RouterMethod> = 'get',
+> =
+  MatchedRoutes<R> extends infer Key
+    ? // Distributes: a glob and a parametrised key can both match, and each
+      // matched key gets its own answer. It is also the totality guard — a
+      // route Nitro knows and this map does not (the other side of the
+      // dev-server window) answers `never` rather than `TS2536`.
+      Key extends keyof TypedApiErrors
+      ? Lowercase<M> extends keyof TypedApiErrors[Key]
+        ? TypedApiErrors[Key][Lowercase<M>]
+        : 'default' extends keyof TypedApiErrors[Key]
+          ? TypedApiErrors[Key]['default']
+          : never
+      : never
+    : never
 
 /**
  * The reserved key's type, derived from the exported constant so that the

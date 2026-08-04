@@ -4,19 +4,20 @@
   // produce specific diagnostics, which the harness reads back through its own
   // program. Left in this one they would fail `typecheck` (SPEC.md §9.9 trap 1).
   //
-  // `test/types/pos/unreachable-map-key.ts` is excluded for the opposite
-  // reason: it compiles fine, but it augments `nitropack/types`' `InternalApi`,
-  // and a module augmentation is **global to whatever program contains it**.
-  // Measured: with that one extra route key in scope, `$fetch('/api/users/42')`
-  // in `test/wire.test.ts` becomes `TS2321 Excessive stack depth` — SPEC.md
-  // §10's exact failure, reproduced by nothing more than a fixture being on the
-  // wrong side of an `include`. The harness compiles it alone, which is where it
-  // belongs.
+  // `test/types/pos/unreachable-map-key.ts` and `test/types/pos/lookup.ts` are
+  // excluded for the opposite reason: they compile fine, but they augment
+  // `nitropack/types`' `InternalApi`, and a module augmentation is **global to
+  // whatever program contains it**. Measured: with one extra route key in
+  // scope, `$fetch('/api/users/42')` in `test/wire.test.ts` becomes `TS2321
+  // Excessive stack depth` — SPEC.md §10's exact failure, reproduced by nothing
+  // more than a fixture being on the wrong side of an `include`. The harness
+  // compiles both alone, which is where they belong.
   "exclude": [
     "dist",
     "node_modules",
     "playground",
     "test/types/neg",
+    "test/types/pos/lookup.ts",
     "test/types/pos/unreachable-map-key.ts"
   ]
 }
