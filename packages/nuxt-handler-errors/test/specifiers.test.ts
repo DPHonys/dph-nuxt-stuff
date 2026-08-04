@@ -25,6 +25,12 @@ describe('the published specifiers', async () => {
 
     expect(html).toContain(`client:${DECLARED_ERROR_KEY}`)
     expect(html).toContain(`shared:${DECLARED_ERROR_KEY}`)
+
+    // `app.vue` narrows the generated map's entry for `/api/users/:id` on the
+    // tag, in `<script setup>`. The narrowing itself is a compile-time
+    // assertion checked by `vue-tsc`; this is what keeps the runtime side of it
+    // from being surface nothing looks at.
+    expect(html).toContain('forbidden, needs owner')
   })
 
   it('resolve from the Nitro server', async () => {

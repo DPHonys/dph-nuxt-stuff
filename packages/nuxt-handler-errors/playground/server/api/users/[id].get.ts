@@ -1,4 +1,5 @@
 import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
+import type { TypedApiErrors } from '@dphonys/nuxt-handler-errors/types'
 import type { EventHandler } from 'h3'
 import type { InternalApi } from 'nitropack/types'
 import { authErrors } from '#shared/errors/auth'
@@ -63,3 +64,33 @@ type _routeStaysVanilla = Expect<
  * h3 utility keep treating it as one (SPEC.md §4.1).
  */
 const _routeIsAPlainEventHandler: EventHandler = handler
+
+/**
+ * **The generated map keys this route, and its entry is this route's own
+ * declared union** (SPEC.md §4.2).
+ *
+ * Two things are claimed at once and both need the real build. The *index*
+ * claims the augmentation bound in the **server** program, which it reaches only
+ * through `addTypeTemplate`'s `{ nitro: true }`: drop that flag and
+ * `TypedApiErrors` stays the empty interface the package publishes, and
+ * `vue-tsc --project playground/server/tsconfig.json` reports `TS2339` here
+ * while the app project stays green. That is the measured mutation which proves
+ * this line can fail. The *union* claims the emitter read the brand off this
+ * very file: it is what
+ * `Simplify<Serialize<ExtractErrorsSafe<typeof import('./[id].get')>>>`
+ * evaluated to, with `until: string` arriving through `Serialize` rather than
+ * being written anywhere.
+ *
+ * The complementary claim — that the entry is a real union and not TypeScript's
+ * error type, which would satisfy this assertion vacuously — is made by the
+ * exhaustive `switch` in `playground/app.vue` and by the rendering assertion in
+ * `test/generated-map.test.ts`. Neither is expressible here.
+ */
+type _mapKeysThisRoute = Expect<
+  Equal<
+    TypedApiErrors['/api/users/:id']['get'],
+    | { tag: 'user-not-found'; status: 404; userId: string }
+    | { tag: 'user-suspended'; status: 403; until: string }
+    | { tag: 'forbidden'; status: 403; requiredRole: 'admin' | 'owner' }
+  >
+>

@@ -9,4 +9,13 @@ import type { TypedApiErrors } from '@dphonys/nuxt-handler-errors/types'
  */
 type _SharedContextErrorMap = TypedApiErrors
 
+/**
+ * And the augmentation binds here too, which it does through
+ * `addTypeTemplate`'s `shared: true` (SPEC.md §4.2). Indexing a real route key
+ * rather than merely naming the interface is what makes this an assertion:
+ * without that flag the augmentation never reaches this context, the published
+ * interface stays empty, and this line is `TS2339`.
+ */
+type _SharedContextSeesTheMap = TypedApiErrors['/api/users/:id']['get']
+
 export const SHARED_CONTEXT_PROBE = `shared:${DECLARED_ERROR_KEY}`
