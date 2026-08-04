@@ -21,6 +21,7 @@ import type {
   RouterMethod,
 } from 'h3'
 import type { MatchedRoutes, Serialize } from 'nitropack/types'
+import type { ComputedRef, Ref } from 'vue'
 
 // ---------------------------------------------------------------------------
 // Phantom slots
@@ -616,4 +617,120 @@ export interface DeclaredErrorBody<E extends AnyVariant> {
   statusMessage: string
   message: string
   data: { [K in DeclaredErrorKey]: E }
+}
+
+// ---------------------------------------------------------------------------
+// The readers
+// ---------------------------------------------------------------------------
+
+/**
+ * The error value {@link DeclaredErrorReader}'s first overload matches
+ * (SPEC.md §3.7).
+ *
+ * SPEC.md §3.7 writes that parameter as `NuxtError<DeclaredErrorBody<E>>`, and
+ * this is that shape reduced to the one property the reader actually walks.
+ * Three reasons, in descending order of weight:
+ *
+ * - **`NuxtError` is not importable from here.** `/shared` and `/types` resolve
+ *   from a consumer's server and `shared/` directories as well as from the
+ *   client, and `#app` exists in none of the first two. Naming it would also
+ *   make Nuxt's own error type part of this module's published signature
+ *   (SPEC.md §8.1) for no gain.
+ * - **Structural is what the reader is.** It reads a path, not a class. h3's
+ *   `H3Error`, ofetch's `FetchError`, Nuxt's `NuxtError` and the object a test
+ *   hands it all inhabit this, which is exactly the set of things that can
+ *   legitimately carry the envelope.
+ * - **It keeps the degraded overload reachable.** An undeclared route's error
+ *   is `NuxtError<unknown>`, whose `data?: unknown` is *not* assignable to
+ *   `DeclaredErrorBody<E>` for any `E` — so it falls to the second overload
+ *   rather than matching the first with `E` silently widened.
+ */
+export interface DeclaredErrorCarrier<E extends AnyVariant> {
+  data?: DeclaredErrorBody<E> | undefined
+}
+
+/**
+ * The value form of the reader (SPEC.md §3.7): the one and only read path from
+ * an error value to its declared variant.
+ *
+ * **No call site ever writes the wire key.** The honest address is
+ * `err.data.data.__declaredError__` — three property hops, two of them optional,
+ * ending on a key SPEC.md §5.2 froze as *renameable* protocol. Left raw, that
+ * address gets typed by hand at every call site, which quietly converts a
+ * protocol detail into a breaking change for every consumer.
+ *
+ * ## Two overloads, and what each one is for
+ *
+ * 1. The caller holds an error whose static type carries a declared union, so
+ *    the union comes back out and narrows on `tag` with payloads intact.
+ * 2. The caller holds anything else — a `catch` binding, an undeclared route's
+ *    `NuxtError<unknown>`, a value from a library. The answer degrades to
+ *    SPEC.md §5.3's **shape floor**, which is the whole evidence the wire
+ *    guarantees: a string `tag` and a number `status`.
+ *
+ * ## What `undefined` means
+ *
+ * It means **"not a declared failure"**. SPEC.md §3.7 consequence 2: declared and
+ * undeclared stay separate channels by **presence**, not by union — the error
+ * channel is exactly vanilla's, and no caller pays a narrowing tax to reach a
+ * 500's status. `undefined` covers three distinct states on purpose, because
+ * nothing on the wire distinguishes them: no marker at all, a marker whose
+ * shape floor is unmet, and a production-stripped response whose `data` Nitro
+ * wiped (SPEC.md §6.5).
+ *
+ * ## What it cannot tell you
+ *
+ * A tag the client's generated union does not know (SPEC.md §6.4). The union
+ * stays **closed** — SPEC.md §6.2 measured the widened alternative and it does
+ * not cost a fallback branch, it costs **all** narrowing — so under deploy skew
+ * an unrecognised
+ * tag comes back typed as a member it is not and reaches whatever fallback the
+ * caller wrote. A recognised/unrecognised flag is not computable either: the
+ * map is type-level only (SPEC.md §4.4), so a client holds no runtime list of a
+ * route's declared tags.
+ *
+ * Declared as a named `interface` with the value a `const` of that type, per
+ * SPEC.md §8.3(b) — see {@link DefinePayload}.
+ */
+export interface DeclaredErrorReader {
+  <E extends AnyVariant>(
+    error: DeclaredErrorCarrier<E> | null | undefined
+  ): E | undefined
+  (error: unknown): AnyVariant | undefined
+}
+
+/**
+ * The reactive sibling (SPEC.md §3.7): the same answer, as a computed.
+ *
+ * **Narrowing must land on a local `const`.** That is SPEC.md §3.7's
+ * consequence 1 and it is the reason this returns a computed of the variant
+ * rather than something a template reads through: a `.value` read does not
+ * carry a narrowing across, and template narrowing is weaker still. The shape
+ * that works is
+ *
+ * ```ts
+ * const failure = useDeclaredError(error)
+ * const current = failure.value        // ← the local const
+ * if (current) switch (current.tag) { … }
+ * ```
+ *
+ * See {@link DeclaredErrorReader} for what the two overloads answer and what
+ * `undefined` means; this one only adds the `computed` wrapper.
+ *
+ * The parameter is Vue's own `Ref`, which SPEC.md §3.7 spells it as. A
+ * narrower read-only `{ readonly value: T }` view was written first, on the
+ * theory that `Ref`'s getter/setter pair makes it invariant in `T` and would
+ * reject the ref a caller actually holds. **Measured, it does not**: object
+ * property assignability is covariant in TypeScript whether or not the property
+ * is writable, and a `Ref<NuxtError<DeclaredErrorBody<…>> | undefined>`,
+ * a `ComputedRef`, a `ShallowRef` and a `Readonly<Ref<…>>` all match a
+ * `Ref<DeclaredErrorCarrier<E> | null | undefined>` parameter with `E`
+ * inferring correctly. The read-only view was therefore one exported type
+ * (SPEC.md §8.1) buying nothing, and it is gone.
+ */
+export interface UseDeclaredError {
+  <E extends AnyVariant>(
+    error: Ref<DeclaredErrorCarrier<E> | null | undefined>
+  ): ComputedRef<E | undefined>
+  (error: Ref<unknown>): ComputedRef<AnyVariant | undefined>
 }

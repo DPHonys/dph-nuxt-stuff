@@ -7,7 +7,13 @@
  * job and nothing below re-derives a byte of it (SPEC.md §4.6).
  */
 
-import { addTypeTemplate, defineNuxtModule, updateTemplates } from '@nuxt/kit'
+import {
+  addImports,
+  addTypeTemplate,
+  createResolver,
+  defineNuxtModule,
+  updateTemplates,
+} from '@nuxt/kit'
 import type { Nitro } from 'nitropack/types'
 import { emitMap, EMPTY_MAP, TYPES_SPECIFIER } from './emit-map'
 import type { MethodKeyMode } from './emit-map'
@@ -76,6 +82,30 @@ export default defineNuxtModule<ModuleOptions>({
     // arriving through a Nuxt layer or a `moduleResolution` that ignores
     // `exports` — is exactly the one no test in this repo can reach.
     nuxt.options.typescript.hoist.push(TYPES_SPECIFIER)
+
+    // The reader pair, auto-imported app-side (SPEC.md §3.7).
+    //
+    // **Sugar, and only sugar.** The contract is the hand-writable
+    // `/shared` specifier, which resolves from the client, the server and a
+    // consumer's `shared/` directory alike; this registers the same two names
+    // in the app's auto-import scope so a `<script setup>` call site — the
+    // composable's primary one — need not write the import.
+    //
+    // `from` is resolved against this module's own file rather than named as
+    // the published specifier, so the auto-imported binding and the
+    // hand-written one are the same module instance rather than two copies of
+    // it.
+    //
+    // Deliberately app-side only. `addServerImports` would put
+    // `useDeclaredError`, a Vue composable, into the Nitro auto-import scope
+    // where it has no business being suggested, and a server call site is
+    // already one hand-written import away from the value form.
+    const shared = createResolver(import.meta.url).resolve('./runtime/shared')
+
+    addImports([
+      { name: 'declaredError', from: shared },
+      { name: 'useDeclaredError', from: shared },
+    ])
 
     // Captured here and read by `getContents` (SPEC.md §4.2). Deliberately not
     // `useNitro()` / `nuxt._nitro` at render time: those answer whatever

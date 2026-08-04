@@ -7,17 +7,37 @@
  * top of it, never a substitute — the bare `.` specifier is import-protected by
  * Nuxt in every context, which is why these subpaths are mandatory.
  *
- * `declaredError` and `invalidInput` land here as later tickets add them.
+ * `invalidInput` lands here as a later ticket adds it.
+ *
+ * ## Why the reactive reader is here too, and what it costs
+ *
+ * SPEC.md §3.7 puts the *value* reader "on `/shared`" and does not say where its
+ * reactive sibling goes. There is nowhere else: SPEC.md §3 publishes exactly
+ * three specifiers, `./types` is type-only, and `.` is the module entry, which
+ * Nuxt's import protection blocks from app code — so `/shared` is the only
+ * hand-writable home a composable can have, and SPEC.md §3.7 makes the
+ * hand-writable specifier the contract with auto-imports as sugar on top.
+ *
+ * The cost is the `vue` import below. It is paid by every context that loads
+ * this file, which in a Nuxt app is free — Vite and Nitro both already resolve
+ * `vue`, the latter for the SSR renderer — and is why `vue` is a plain
+ * catalog-ranged dependency for the same instance-identity reason SPEC.md §7.2
+ * gives for `h3`: two physical copies of Vue mean two reactivity systems, and a
+ * `computed` created in one does not track a ref owned by the other.
  */
 
 import { createError, defineEventHandler } from 'h3'
+import { computed } from 'vue'
+import type { Ref } from 'vue'
 import type {
   AnyCatalogue,
   AnyVariant,
+  DeclaredErrorReader,
   DefineErrors,
   DefinePayload,
   DefineTypedEventHandler,
   ErrorCatalogue,
+  UseDeclaredError,
   VariantDef,
 } from './types'
 
@@ -43,6 +63,94 @@ export const DECLARED_ERROR_KEY = '__declaredError__'
  * hygiene.
  */
 export const payload: DefinePayload = () => ({})
+
+// ---------------------------------------------------------------------------
+// Reading
+// ---------------------------------------------------------------------------
+
+/**
+ * The guard, and the whole of SPEC.md §5.3's shape floor.
+ *
+ * **Presence of the marker is not enough.** The floor — a string `tag` and a
+ * number `status` — is checked too, so a marker that is present but malformed
+ * (a proxy rewriting bodies, a mangled response, a hand-rolled imitation) reads
+ * as *undeclared* rather than as a malformed declared failure. That is the
+ * conservative direction: an undeclared error is what every existing consumer
+ * already knows how to handle, while a half-understood variant would narrow on
+ * a `tag` whose payload is not there.
+ *
+ * Everything here is deliberately `typeof`-based rather than `in`-based.
+ * `typeof marker === 'object'` rejects a function carrying `tag` and `status`
+ * properties, and the explicit `!== null` is what stops `typeof null` — which is
+ * `'object'` — from reaching the property reads. An array passes the `object`
+ * test and then fails on `tag`, which is correct: an array is not a variant.
+ *
+ * The three property hops are the honest address (SPEC.md §5.2): ofetch defines
+ * `FetchError.data` as a getter over the *whole* response body and `createError`
+ * copies `input.data` wholesale, so the body's own `data` is the second hop.
+ * Optional chaining covers a primitive, `null`, `undefined`, and a response
+ * whose `data` Nitro stripped in production (SPEC.md §6.5).
+ */
+function readFloor(error: unknown): AnyVariant | undefined {
+  const marker = (
+    error as { data?: { data?: Record<string, unknown> } } | null | undefined
+  )?.data?.data?.[DECLARED_ERROR_KEY]
+
+  return typeof marker === 'object' &&
+    marker !== null &&
+    typeof (marker as AnyVariant).tag === 'string' &&
+    typeof (marker as AnyVariant).status === 'number'
+    ? (marker as AnyVariant)
+    : undefined
+}
+
+/**
+ * Read the declared variant out of an error value, or `undefined` if there is
+ * not one (SPEC.md §3.7).
+ *
+ * ```ts
+ * import { declaredError } from '@dphonys/nuxt-handler-errors/shared'
+ *
+ * const failure = declaredError(error)
+ * if (failure) {
+ *   switch (failure.tag) { … }
+ * }
+ * ```
+ *
+ * The overloads, what `undefined` means and what deploy skew does to the answer
+ * are all documented on {@link DeclaredErrorReader}. The runtime behaviour is
+ * one function for both: {@link readFloor} answers the floor, and the first
+ * overload's `E` is a *static* claim about an error whose type already carried
+ * the union — nothing at run time re-checks it, because nothing on the wire
+ * could (SPEC.md §4.4, §6.2).
+ *
+ * The assertion is to the interface itself rather than through `never`: a
+ * single implementation signature can never be *assignable* to an overloaded
+ * type whose first member returns a type parameter, but it is still checked for
+ * comparability against it, so a `readFloor` that stopped answering the floor
+ * would fail here. `as never` would not.
+ */
+export const declaredError: DeclaredErrorReader =
+  readFloor as DeclaredErrorReader
+
+/**
+ * The reactive sibling of {@link declaredError}, for templates
+ * (SPEC.md §3.7).
+ *
+ * ```ts
+ * const { error } = await useFetch('/api/users/42')
+ * const failure = useDeclaredError(error)
+ * const current = failure.value        // ← narrowing lands here
+ * if (current) {
+ *   switch (current.tag) { … }
+ * }
+ * ```
+ *
+ * See {@link UseDeclaredError} for why the local `const` is not a style
+ * preference.
+ */
+export const useDeclaredError: UseDeclaredError = ((error: Ref<unknown>) =>
+  computed(() => readFloor(error.value))) as UseDeclaredError
 
 // ---------------------------------------------------------------------------
 // Raising

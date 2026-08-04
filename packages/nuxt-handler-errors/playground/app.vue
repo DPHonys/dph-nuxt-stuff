@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { DECLARED_ERROR_KEY } from '@dphonys/nuxt-handler-errors/shared'
-import type { TypedApiErrors } from '@dphonys/nuxt-handler-errors/types'
+import type {
+  DeclaredErrorBody,
+  DeclaredErrorsOf,
+  TypedApiErrors,
+} from '@dphonys/nuxt-handler-errors/types'
+import type { NuxtError } from '#app'
 import { describeUserFailure } from '#shared/lookup-probe'
+import { describeReadFailure } from '#shared/reader-probe'
 import { SHARED_CONTEXT_PROBE } from '#shared/specifier-probe'
 
 /** Context 1 of 3: the Vue client. `<script setup>` cannot export, so the
@@ -61,6 +67,64 @@ const looked = describeUserFailure({
   userId: '42',
 })
 
+// ---------------------------------------------------------------------------
+// The readers (SPEC.md §3.7), in the context they were designed for.
+//
+// **Neither name is imported.** Both arrive through the module's `addImports`
+// registration, which is the sugar half of SPEC.md §3.7 — the hand-writable
+// `/shared` specifier stays the contract, and `#shared/reader-probe.ts` above
+// exercises that half. Delete the registration and this file stops compiling.
+// ---------------------------------------------------------------------------
+
+/**
+ * The degraded overload against Nuxt's **real** error type. A vanilla
+ * `useFetch` on a declared route still gives `NuxtError<unknown>` — the typed
+ * error channel is ticket 10's job — so this reads back SPEC.md §5.3's shape
+ * floor at compile time while finding the real variant at run time. That
+ * combination is SPEC.md §5.3's whole claim about what the wire guarantees.
+ */
+const { error: vanillaError } = await useFetch('/api/users/missing')
+const floor = useDeclaredError(vanillaError)
+const read = floor.value ? `${floor.value.tag}/${floor.value.status}` : 'none'
+
+/**
+ * The declared overload, again against the real `NuxtError`, with the union
+ * named from the route path alone. Ticket 10's `useTypedFetch` produces exactly
+ * this ref.
+ */
+const typedError =
+  ref<NuxtError<DeclaredErrorBody<DeclaredErrorsOf<'/api/users/:id'>>>>()
+
+/**
+ * **Narrowing lands on a local const** (SPEC.md §3.7 consequence 1), and the
+ * two lines below are the assertion rather than a demonstration of it:
+ *
+ * - `describeUserFailure` takes `DeclaredErrorsOf<'/api/users/:id'>`, so it
+ *   only accepts `current` if the reader really inferred the declared union out
+ *   of a real `Ref<NuxtError<…>>`. Had the first overload not matched, this
+ *   would be the shape floor, and `AnyVariant` is not assignable to that
+ *   parameter. Measured: making the overload return `AnyVariant` reddens the
+ *   whole `switch` in `#shared/reader-probe`.
+ * - `current.requiredRole` is reachable only because the narrowing survived the
+ *   `.value` read, which is the thing a `NuxtError`-shaped read cannot do.
+ */
+const typedFailure = useDeclaredError(typedError)
+const current = typedFailure.value
+const typedRead = current === undefined ? 'none' : describeUserFailure(current)
+const owner = current?.tag === 'forbidden' ? current.requiredRole : 'none'
+
+/**
+ * The same reader reached from the consumer's own `shared/` directory, over the
+ * real failure the vanilla fetch above produced — so the `/shared` path is run
+ * rather than merely compiled. The cast is honest and is exactly what ticket 10
+ * removes: `useFetch` types this ref as `NuxtError<unknown>`, and until the
+ * typed wrapper exists nothing on the client can hand a `shared/` helper the
+ * declared shape without saying so.
+ */
+const fromShared = describeReadFailure(
+  vanillaError.value as Parameters<typeof describeReadFailure>[0]
+)
+
 const client = `client:${DECLARED_ERROR_KEY}`
 const { data: server } = await useFetch('/api/specifier-probe')
 </script>
@@ -73,5 +137,7 @@ const { data: server } = await useFetch('/api/specifier-probe')
     <p id="server-context">{{ server?.server }}</p>
     <p id="narrowed-failure">{{ narrowed }}</p>
     <p id="looked-up-failure">{{ looked }}</p>
+    <p id="read-failure">{{ read }}</p>
+    <p id="typed-read">{{ typedRead }}/{{ owner }}/{{ fromShared }}</p>
   </main>
 </template>

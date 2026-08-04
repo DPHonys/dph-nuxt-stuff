@@ -1,7 +1,7 @@
 import { $fetch, fetch, setup } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { DECLARED_ERROR_KEY } from '../src/runtime/shared'
+import { DECLARED_ERROR_KEY, declaredError } from '../src/runtime/shared'
 
 /**
  * Layer 4 (SPEC.md §9.1): the wire, against a **real built server**.
@@ -124,6 +124,52 @@ describe('the declared-failure wire format', async () => {
       status: 1042,
       declared: 1042,
     })
+  })
+
+  it('is read back off the wire by the reader, with no key written', async () => {
+    // The one and only read path (SPEC.md §3.7), against a value that really
+    // crossed a socket rather than one assembled in a test. `test/reader.test.ts`
+    // proves the guard rejects malformed markers; this proves the address it
+    // walks is the address the wire actually uses.
+    expect(declaredError(await rejectionOf('/api/users/missing'))).toEqual({
+      tag: 'user-not-found',
+      status: 404,
+      userId: 'missing',
+    })
+
+    // And a framework error sharing the status is not one, by presence.
+    expect(declaredError(await rejectionOf('/api/boom'))).toBeUndefined()
+  })
+
+  it('reads a production-stripped escaped callee as undeclared', async () => {
+    // SPEC.md §6.5, which is observable **only** against a production build:
+    // `/api/escaped-callee` lets a callee's declared failure escape, so
+    // `toNodeListener` marks it `unhandled`, Nitro's prod serializer applies
+    // `isSensitive = unhandled || fatal` and wipes `data` outright.
+    const error = await rejectionOf('/api/escaped-callee')
+
+    expect(error).toBeDefined()
+
+    // The reassuring half: the envelope cannot leak through this path, and the
+    // callee's declared failure degrades to an undeclared one — the safe
+    // direction, for free. `data` is gone from the body outright, which is the
+    // only reason the marker is not there; even unmasked it would have sat at
+    // `err.data.data.data.__declaredError__`, one hop deeper than the reader
+    // reads.
+    expect(declaredError(error)).toBeUndefined()
+    expect(error.data).not.toHaveProperty('data')
+    expect(error.data.message).toBe('Server Error')
+
+    // The half that is not reassuring, and that SPEC.md §6.5 says the module
+    // deliberately does nothing about: `statusMessage` is **not** gated by
+    // `isSensitive`, and it still carries the *callee's* internal tag — as the
+    // HTTP reason phrase, all the way to the caller's client. This is
+    // byte-for-byte what plain `$fetch` between handlers already does; the
+    // module did not introduce it and normalising it would break the
+    // typings-only lock. The shipped answer is one line of guidance: prefer
+    // `.safe()` server-to-server.
+    expect(error.data.statusMessage).toBe('user-not-found')
+    expect(error.statusCode).toBe(404)
   })
 
   it('leaves the success path completely alone', async () => {
