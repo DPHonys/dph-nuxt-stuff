@@ -59,7 +59,12 @@
  * 3. **Rendered types quote string literals with single quotes**
  *    (`{ tag: 'forbidden' }`), while *diagnostic messages* quote them with
  *    double quotes (`type '"forbidden"'`). Expected strings must match the
- *    surface they come from.
+ *    surface they come from — and within a rendered type the rule is narrower
+ *    than it looks: single quotes are what a literal *written in a type
+ *    annotation* keeps, while one the checker synthesised (`keyof` over an
+ *    object literal's inferred type, which is where every `tag` in this package
+ *    comes from) renders with double quotes in the same program. Measure it,
+ *    do not assume it.
  */
 
 import { readFileSync } from 'node:fs'
