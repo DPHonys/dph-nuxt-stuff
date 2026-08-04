@@ -1,25 +1,13 @@
-import { addPlugin, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { defineNuxtModule } from '@nuxt/kit'
 
-export interface ModuleOptions {
-  message?: string
-}
-
-export default defineNuxtModule<ModuleOptions>({
+export default defineNuxtModule({
   meta: {
     name: 'nuxt-handler-errors',
     configKey: 'handlerErrors',
-    compatibility: { nuxt: '>=4.0.0' },
-  },
-  defaults: {
-    message: 'Hello from Nuxt Handler Errors',
-  },
-  setup(options, nuxt) {
-    // TODO: Replace this Starter option and setup with package-specific behavior.
-    nuxt.options.runtimeConfig.public.handlerErrors = {
-      message: options.message ?? 'Hello from Nuxt Handler Errors',
-    }
-
-    const resolver = createResolver(import.meta.url)
-    addPlugin(resolver.resolve('./runtime/plugin'))
+    // The ceiling is load-bearing: `compatibility.nuxt` is checked at module
+    // setup, before any dependency or type machinery matters, so it is the only
+    // guard against the h3 v2 / Nitro 3 line. The floor is what was measured
+    // (4.5.1) rather than what the scaffold assumed. See SPEC.md §7.1.
+    compatibility: { nuxt: '>=4.5.0 <5.0.0' },
   },
 })

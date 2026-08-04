@@ -30,9 +30,15 @@ catalogs:
     citty:
       specifier: ^0.2.2
       version: 0.2.2
+    h3:
+      specifier: ^1.15.11
+      version: 1.15.11
     magicast:
       specifier: ^0.5.3
       version: 0.5.4
+    nitropack:
+      specifier: ^2.13.4
+      version: 2.13.4
     nuxt:
       specifier: ^4.5.1
       version: 4.5.1
@@ -116,6 +122,15 @@ importers:
       '@nuxt/kit':
         specifier: 'catalog:'
         version: 4.5.1(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.140.0)(rolldown@1.2.1)(unplugin@3.3.0(esbuild@0.28.1)(rolldown@1.2.1)(rollup@4.62.4)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(yaml@2.9.0)))
+      h3:
+        specifier: 'catalog:'
+        version: 1.15.11
+      nitropack:
+        specifier: 'catalog:'
+        version: 2.13.4(oxc-parser@0.140.0)(rolldown@1.2.1)(srvx@0.11.22)(supports-color@10.2.2)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(yaml@2.9.0))
+      pathe:
+        specifier: 'catalog:'
+        version: 2.0.3
     devDependencies:
       '@nuxt/devtools':
         specifier: 'catalog:'
@@ -4372,9 +4387,6 @@ packages:
       vue-tsc:
         optional: true
 
-  mlly@1.8.0:
-    resolution: {integrity: sha512-l8D9ODSRWLe2KHJSifWGwBqpTZXIXTeo8mlKjY+E2HAakaTeNpqAyBZ8GSqLzHgw4XmHmC8whvpjJNMbFZN7/g==}
-
   mlly@1.8.2:
     resolution: {integrity: sha512-d+ObxMQFmbt10sretNDytwt85VrbkhhUA/JBGm1MPaWJ65Cl4wOgLaB1NYvJSZ0Ef03MMEU/0xpPMXUIQ29UfA==}
 
@@ -5553,9 +5565,6 @@ packages:
     resolution: {integrity: sha512-scQFdHBhpFVsr9xmHDos+CCSQHcS0yVjL/4+RaUnfeQRJvrYtSsEpfyiseUmSmSdeKuVLPyQZDO+TcjdsOEsFQ==}
     engines: {node: '>=20.19'}
     hasBin: true
-
-  ufo@1.6.3:
-    resolution: {integrity: sha512-yDJTmhydvl5lJzBmy/hyOAA0d+aqCBuwl818haVdYCRrWV84o7YyeVm4QlVHStqNrrJSTb6jKuFAVqAFsr+K3Q==}
 
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
@@ -8573,8 +8582,8 @@ snapshots:
     dependencies:
       '@mapbox/node-pre-gyp': 2.0.3(supports-color@10.2.2)
       '@rollup/pluginutils': 5.4.0(rollup@4.62.4)
-      acorn: 8.16.0
-      acorn-import-attributes: 1.9.5(acorn@8.16.0)
+      acorn: 8.18.0
+      acorn-import-attributes: 1.9.5(acorn@8.18.0)
       async-sema: 3.1.1
       bindings: 1.5.0
       estree-walker: 2.0.2
@@ -8824,8 +8833,8 @@ snapshots:
   '@vue/language-core@3.3.9':
     dependencies:
       '@volar/language-core': 2.4.28
-      '@vue/compiler-dom': 3.5.29
-      '@vue/shared': 3.5.29
+      '@vue/compiler-dom': 3.5.40
+      '@vue/shared': 3.5.40
       alien-signals: 3.2.1
       muggle-string: 0.4.1
       path-browserify: 1.0.1
@@ -8863,9 +8872,9 @@ snapshots:
     dependencies:
       event-target-shim: 5.0.1
 
-  acorn-import-attributes@1.9.5(acorn@8.16.0):
+  acorn-import-attributes@1.9.5(acorn@8.18.0):
     dependencies:
-      acorn: 8.16.0
+      acorn: 8.18.0
 
   acorn-jsx@5.3.2(acorn@8.16.0):
     dependencies:
@@ -9070,13 +9079,13 @@ snapshots:
       confbox: 0.2.4
       defu: 6.1.7
       dotenv: 17.4.2
-      exsolve: 1.0.8
+      exsolve: 1.1.1
       giget: 3.3.1
       jiti: 2.7.0
       ohash: 2.0.11
       pathe: 2.0.3
       perfect-debounce: 2.1.0
-      pkg-types: 2.3.0
+      pkg-types: 2.3.1
       rc9: 3.0.1
     optionalDependencies:
       magicast: 0.5.4
@@ -9967,7 +9976,7 @@ snapshots:
   fix-dts-default-cjs-exports@1.0.1:
     dependencies:
       magic-string: 0.30.21
-      mlly: 1.8.0
+      mlly: 1.8.2
       rollup: 4.62.4
 
   flat-cache@4.0.1:
@@ -10070,7 +10079,7 @@ snapshots:
     dependencies:
       '@sindresorhus/merge-streams': 4.0.0
       fast-glob: 3.3.3
-      ignore: 7.0.5
+      ignore: 7.0.6
       is-path-inside: 4.0.0
       slash: 5.1.0
       unicorn-magic: 0.4.0
@@ -10092,7 +10101,7 @@ snapshots:
       iron-webcrypto: 1.2.1
       node-mock-http: 1.0.5
       radix3: 1.1.2
-      ufo: 1.6.3
+      ufo: 1.6.4
       uncrypto: 0.1.3
 
   h3@2.0.1-rc.26(crossws@0.4.10(srvx@0.11.22)):
@@ -10454,8 +10463,8 @@ snapshots:
 
   local-pkg@1.2.1:
     dependencies:
-      mlly: 1.8.0
-      pkg-types: 2.3.0
+      mlly: 1.8.2
+      pkg-types: 2.3.1
       quansync: 0.2.11
 
   locate-path@6.0.0:
@@ -10909,9 +10918,9 @@ snapshots:
       defu: 6.1.7
       esbuild: 0.25.12
       jiti: 1.21.7
-      mlly: 1.8.0
+      mlly: 1.8.2
       pathe: 2.0.3
-      pkg-types: 2.3.0
+      pkg-types: 2.3.1
       postcss: 8.5.25
       postcss-nested: 7.0.2(postcss@8.5.25)
       semver: 7.8.5
@@ -10922,19 +10931,12 @@ snapshots:
       vue-sfc-transformer: 0.2.5(@volar/typescript@2.4.28)(@vue/compiler-core@3.5.40)(@vue/language-core@3.3.9)(esbuild@0.28.1)(rolldown@1.2.1)(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)(vue@3.5.40(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))
       vue-tsc: 3.3.9(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
 
-  mlly@1.8.0:
-    dependencies:
-      acorn: 8.16.0
-      pathe: 2.0.3
-      pkg-types: 1.3.1
-      ufo: 1.6.3
-
   mlly@1.8.2:
     dependencies:
       acorn: 8.16.0
       pathe: 2.0.3
       pkg-types: 1.3.1
-      ufo: 1.6.3
+      ufo: 1.6.4
 
   mocked-exports@0.1.1: {}
 
@@ -10984,7 +10986,7 @@ snapshots:
       esbuild: 0.28.1
       escape-string-regexp: 5.0.0
       etag: 1.8.1
-      exsolve: 1.0.8
+      exsolve: 1.1.1
       globby: 16.2.2
       gzip-size: 7.0.0
       h3: 1.15.11
@@ -11096,7 +11098,7 @@ snapshots:
       esbuild: 0.28.1
       escape-string-regexp: 5.0.0
       etag: 1.8.1
-      exsolve: 1.0.8
+      exsolve: 1.1.1
       globby: 16.2.2
       gzip-size: 7.0.0
       h3: 1.15.11
@@ -11513,7 +11515,7 @@ snapshots:
     dependencies:
       destr: 2.0.5
       node-fetch-native: 1.6.7
-      ufo: 1.6.3
+      ufo: 1.6.4
 
   ofetch@2.0.0-alpha.3: {}
 
@@ -11751,7 +11753,7 @@ snapshots:
   pkg-types@1.3.1:
     dependencies:
       confbox: 0.1.8
-      mlly: 1.8.0
+      mlly: 1.8.2
       pathe: 2.0.3
 
   pkg-types@2.3.0:
@@ -11763,7 +11765,7 @@ snapshots:
   pkg-types@2.3.1:
     dependencies:
       confbox: 0.2.4
-      exsolve: 1.0.8
+      exsolve: 1.1.1
       pathe: 2.0.3
 
   pluralize@8.0.0: {}
@@ -12536,7 +12538,7 @@ snapshots:
   terser@5.49.0:
     dependencies:
       '@jridgewell/source-map': 0.3.11
-      acorn: 8.16.0
+      acorn: 8.18.0
       commander: 2.20.3
       source-map-support: 0.5.21
 
@@ -12636,8 +12638,6 @@ snapshots:
       '@typescript-native-bridge/win32-arm64': 6.0.3-bridge.8.tsgo.7.0.2
       '@typescript-native-bridge/win32-x64': 6.0.3-bridge.8.tsgo.7.0.2
 
-  ufo@1.6.3: {}
-
   ufo@1.6.4: {}
 
   ultrahtml@1.7.0: {}
@@ -12661,9 +12661,9 @@ snapshots:
       jiti: 2.7.0
       magic-string: 0.30.21
       mkdist: 2.4.1(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)(vue-sfc-transformer@0.2.5(@volar/typescript@2.4.28)(@vue/compiler-core@3.5.40)(@vue/language-core@3.3.9)(esbuild@0.28.1)(rolldown@1.2.1)(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)(vue@3.5.40(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)))(vue-tsc@3.3.9(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(vue@3.5.40(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))
-      mlly: 1.8.0
+      mlly: 1.8.2
       pathe: 2.0.3
-      pkg-types: 2.3.0
+      pkg-types: 2.3.1
       pretty-bytes: 7.1.1
       rollup: 4.62.4
       rollup-plugin-dts: 6.4.1(rollup@4.62.4)(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
@@ -12682,7 +12682,7 @@ snapshots:
 
   unctx@2.5.0:
     dependencies:
-      acorn: 8.16.0
+      acorn: 8.18.0
       estree-walker: 3.0.3
       magic-string: 0.30.21
       unplugin: 2.3.11
@@ -12819,7 +12819,7 @@ snapshots:
   unplugin@2.3.11:
     dependencies:
       '@jridgewell/remapping': 2.3.5
-      acorn: 8.16.0
+      acorn: 8.18.0
       picomatch: 4.0.5
       webpack-virtual-modules: 0.6.2
 
@@ -12837,7 +12837,7 @@ snapshots:
   unrouting@0.2.2:
     dependencies:
       escape-string-regexp: 5.0.0
-      ufo: 1.6.3
+      ufo: 1.6.4
 
   unstorage@1.17.5(db0@0.3.4)(ioredis@5.11.1(supports-color@10.2.2)):
     dependencies:
@@ -12848,7 +12848,7 @@ snapshots:
       lru-cache: 11.5.2
       node-fetch-native: 1.6.7
       ofetch: 1.5.1
-      ufo: 1.6.3
+      ufo: 1.6.4
     optionalDependencies:
       db0: 0.3.4
       ioredis: 5.11.1(supports-color@10.2.2)
@@ -12865,12 +12865,12 @@ snapshots:
 
   unwasm@0.5.3:
     dependencies:
-      exsolve: 1.0.8
+      exsolve: 1.1.1
       knitwork: 1.3.0
       magic-string: 0.30.21
-      mlly: 1.8.0
+      mlly: 1.8.2
       pathe: 2.0.3
-      pkg-types: 2.3.0
+      pkg-types: 2.3.1
 
   update-browserslist-db@1.2.3(browserslist@4.28.1):
     dependencies:
@@ -12979,7 +12979,7 @@ snapshots:
   vite-plugin-vue-tracer@1.4.0(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(yaml@2.9.0))(vue@3.5.40(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)):
     dependencies:
       estree-walker: 3.0.3
-      exsolve: 1.0.8
+      exsolve: 1.1.1
       magic-string: 0.30.21
       pathe: 2.0.3
       source-map-js: 1.2.1

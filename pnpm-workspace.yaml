@@ -36,7 +36,14 @@ catalog:
   '@nuxt/test-utils': ^4.1.0
   '@types/node': latest
   citty: ^0.2.2
+  # Ranged on purpose, with a major ceiling and no exact pin. The module augments
+  # `h3` and reads Nitro's types, and module augmentation binds to a resolved
+  # path — range overlap with Nuxt's own transitive copies is what keeps pnpm on
+  # a single physical instance. An exact pin causes the duplicate it looks like
+  # it prevents. See SPEC.md §7.2.
+  h3: ^1.15.11
   magicast: ^0.5.3
+  nitropack: ^2.13.4
   nuxt: ^4.5.1
   nypm: ^0.6.9
   pathe: ^2.0.3

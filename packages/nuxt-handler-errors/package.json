@@ -23,6 +23,12 @@
     "*": {
       ".": [
         "./dist/types.d.mts"
+      ],
+      "types": [
+        "./dist/runtime/types.d.ts"
+      ],
+      "shared": [
+        "./dist/runtime/shared.d.ts"
       ]
     }
   },
@@ -30,6 +36,14 @@
     ".": {
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
+    },
+    "./types": {
+      "types": "./dist/runtime/types.d.ts",
+      "import": "./dist/runtime/types.js"
+    },
+    "./shared": {
+      "types": "./dist/runtime/shared.d.ts",
+      "import": "./dist/runtime/shared.js"
     }
   },
   "publishConfig": {
@@ -39,7 +53,7 @@
     "build": "nuxt-module-build build",
     "dev": "pnpm run dev:prepare && nuxt dev playground",
     "dev:build": "nuxt build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "dev:prepare": "pnpm run build && nuxt prepare playground",
     "lint": "eslint .",
     "prebuild": "nuxt-module-build prepare",
     "prepack": "pnpm run build",
@@ -50,7 +64,10 @@
     "typecheck": "nuxt-module-build prepare && nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json"
   },
   "dependencies": {
-    "@nuxt/kit": "catalog:"
+    "@nuxt/kit": "catalog:",
+    "h3": "catalog:",
+    "nitropack": "catalog:",
+    "pathe": "catalog:"
   },
   "devDependencies": {
     "@nuxt/devtools": "catalog:",
