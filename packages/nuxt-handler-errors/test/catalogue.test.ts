@@ -76,6 +76,31 @@ describe('a catalogue at runtime', () => {
     expect((dropped as { data?: unknown }).data).toBeUndefined()
   })
 
+  it('refuses a catalogue it did not create, at the moment it is declared', () => {
+    // A catalogue carries its runtime half under a module-private `Symbol()`,
+    // which is per module *instance* — so a second physical copy of the package
+    // in the dependency tree produces catalogues this copy cannot read. The
+    // shape is right, the brand is not, and the type level cannot see the
+    // difference.
+    //
+    // Skipping the entry is what the code did first and it is the worse
+    // failure: nothing is wrong until some later request raises a tag that
+    // catalogue declared, and it is then reported as *undeclared* — which is
+    // false, points away from the cause, and reaches the client as an unhandled
+    // 500 instead of the declared failure the route's published type promised.
+    const foreign = { pick: () => foreign } as unknown as typeof authErrors
+
+    expect(() =>
+      defineTypedEventHandler({ errors: [authErrors, foreign] }, () => 'never')
+    ).toThrow(/errors\[1\] is not a catalogue created by this copy/)
+
+    // The whole point of the throw is *when* it lands: at declaration, before
+    // the route has served anything. Nothing has to be raised to reach it.
+    expect(() =>
+      defineTypedEventHandler({ errors: [authErrors] }, () => 'ok')
+    ).not.toThrow()
+  })
+
   it('refuses an unknown tag without ever marking it', () => {
     // Unreachable through the typed surface — `fail` is scoped to the declared
     // union — so this is the only witness. A programming mistake must not

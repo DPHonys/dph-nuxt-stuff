@@ -213,6 +213,47 @@ function internalsOf(catalogue: AnyCatalogue): CatalogueInternals | undefined {
 }
 
 /**
+ * What `errors: [...]` was handed, when it was not a catalogue **this copy of
+ * the module** created.
+ *
+ * `INTERNALS` is a module-private `Symbol()`, so it is per module *instance*
+ * rather than per package name: a catalogue built by a second physical copy of
+ * `@dphonys/nuxt-handler-errors` — a version duplicate, a Nuxt layer or a
+ * published module that resolved its own — carries a symbol this file cannot
+ * see, and reads as no catalogue at all. It is the same class of hazard
+ * SPEC.md §7.2 keeps `h3` on a caret range for, arriving through the one door
+ * a range cannot close.
+ *
+ * **Throwing here is the whole point of the function.** Skipping the entry
+ * instead is what the code did first, and it is a strictly worse failure: the
+ * misconfiguration is invisible until some later request happens to raise a tag
+ * that catalogue declared, at which point `raiseFrom` reports it as an
+ * undeclared tag — which is false, points away from the cause, and reaches the
+ * client as an unhandled 500 rather than the declared failure the route's
+ * published type promised. A route whose declaration cannot be honoured is
+ * broken at the moment it is declared, and that is when it says so: at module
+ * evaluation, before the route serves anything.
+ *
+ * A `Symbol.for()` registry would make the two copies interoperate instead, and
+ * it is deliberately not used. The *wire* survives a second copy already —
+ * `DECLARED_ERROR_KEY` is frozen protocol and both copies spell it identically,
+ * which is exactly what SPEC.md §5.2 froze it for — but the `h3` augmentation
+ * `event.$typedFetch` rides does not: a module augmentation binds to a resolved
+ * path, so the second copy declares it on an `h3` the consumer is not using.
+ * Making the catalogue quietly work across copies would conceal a state whose
+ * other consequences this file cannot fix.
+ */
+function raiseForeignCatalogue(index: number): never {
+  throw new Error(
+    `[nuxt-handler-errors] errors[${index}] is not a catalogue created by this copy of the module. ` +
+      `Either it did not come from defineErrors(), or there are two copies of ` +
+      `@dphonys/nuxt-handler-errors in the dependency tree — a version duplicate, or a Nuxt ` +
+      `layer or package that resolved its own. Deduplicate it so every catalogue and every ` +
+      `handler come from one copy.`
+  )
+}
+
+/**
  * `pick` keeps the full `defs` and narrows only `tags`, so `tags` is what
  * enforces the narrowing at runtime — a picked catalogue that was asked for a
  * tag it dropped must not answer for it.
@@ -266,6 +307,11 @@ function findVariant(
  * scoped to the declared union — so it exists for JavaScript callers, and it is
  * a plain `Error` on purpose: it is a programming mistake, not a declared
  * failure, and must not arrive at a client wearing the marker.
+ *
+ * It is also the only thing that message can mean. A catalogue this module
+ * cannot read is rejected at declaration by {@link raiseForeignCatalogue}, so a
+ * tag reported here as undeclared is never one that was declared into a
+ * catalogue that silently failed to resolve.
  */
 function raiseFrom(
   catalogues: readonly CatalogueInternals[],
@@ -309,15 +355,20 @@ export const defineErrors: DefineErrors = (defs) =>
  * phantom property added, so Nitro, the router and every h3 utility keep
  * treating the route as ordinary — and the success type still infers from the
  * body with no annotation, because `fail` returns `never`.
+ *
+ * The catalogues are resolved **here**, at declaration, rather than lazily
+ * inside `fail`: this runs once per route at module evaluation, and it is what
+ * makes {@link raiseForeignCatalogue}'s failure arrive before the route serves
+ * a request rather than on whichever one first raises.
  */
 export const defineTypedEventHandler: DefineTypedEventHandler = (
   options,
   handler
 ) => {
   const catalogues: readonly AnyCatalogue[] = options.errors
-  const internals = catalogues
-    .map((catalogue) => internalsOf(catalogue))
-    .filter((entry) => entry !== undefined)
+  const internals = catalogues.map(
+    (catalogue, index) => internalsOf(catalogue) ?? raiseForeignCatalogue(index)
+  )
 
   const fail = (tag: string, fields?: Record<string, unknown>): never =>
     raiseFrom(internals, tag, fields)
