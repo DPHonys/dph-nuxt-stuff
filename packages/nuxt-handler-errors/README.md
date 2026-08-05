@@ -818,9 +818,6 @@ Stated because a silent gap is worse than a known one.
 - **The client-side `$typedFetch` plugin's necessity has no assertion.** It is
   observable only in a browser, and no test tier here has its own runner. Its
   deletion is silent in `pnpm check`.
-- **`optimization.keyedComposables` registration is measured but not tested.**
-  The observation is a count of keys in Nuxt's SSR payload format, which is not
-  something this module contracts for.
 - **`event.$typedFetch` being absent client-side is untested**, as is plugin
   ordering against another plugin that replaces `event.$fetch`, and there is no
   rendering assertion taken _through_ `event.$typedFetch` against the real

@@ -471,9 +471,11 @@ export const useLazyTypedFetch: UseTypedFetch = …   // `lazy: true` supplied a
   route, because `useFetch`'s fallback key is hashed from the request and the option segments alone.
   Without it the wrapper is *behaviourally* narrower than the composable it mirrors, which is §6.1's
   degradation lock failing one layer below where the rest of it is enforced. `argumentLength: 3` is
-  vanilla's own. Not kept as a test: the observation is a count of keys in Nuxt's payload format
-  rather than anything this module contracts for. §3.5's `$typedFetch` needs no equivalent — it is
-  not a keyed composable.
+  vanilla's own. The payload-count observation is not kept as a test — it counts keys in Nuxt's
+  payload format rather than anything this module contracts for — but the registration it measured
+  is asserted structurally: `test/module-setup.test.ts` reads the two entries off a real `loadNuxt`
+  boot of the playground, so deleting them is a red test rather than a silent behavioural
+  narrowing. §3.5's `$typedFetch` needs no equivalent — it is not a keyed composable.
 - **⟳ Measured in implementation — this composable has no hand-writable published specifier**, and
   that is forced rather than chosen. See §3's note: the `addImports` registration is the whole
   contract for these two names, `#imports` is the spelling for a call site that wants it written
