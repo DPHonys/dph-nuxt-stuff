@@ -78,6 +78,13 @@ export default {
     'packages/nuxt-handler-errors': {
       ...nuxtModuleWorkspace,
 
+      // Not the scaffold's pair: `@nuxt/schema` is dropped from the inherited
+      // list because this package *does* import it from source —
+      // `test/module-setup.test.ts` types the loaded Nuxt instance with it —
+      // so the scaffold-shape exemption would suppress nothing here and the
+      // hint promoted above would fail the run.
+      ignoreDependencies: ['@nuxt/devtools'],
+
       entry: [
         ...nuxtModuleWorkspace.entry,
 
