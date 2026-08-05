@@ -1950,6 +1950,16 @@ majority of the assertions.
 >   (+2); and one hostile `/api/signup` request wrong in four ways at once plus its success
 >   counterpart (+2, because nothing else in the repo runs a **real Standard Schema library against a
 >   real built server**, which is the whole of §3.3's *"zod, valibot and arktype work untouched"*).
+>   The coverage-gaps effort later added the `event.$fetch`-replacer composition probe with its
+>   direct-call control (+1): a playground fixture plugin (`server/plugins/fetch-replacer.ts`)
+>   replaces `event.$fetch` in a `request` hook registered after the module's — scanned
+>   `server/plugins` are pushed after `addServerPlugin`'s entries — and the marker surviving the
+>   probe's internal hop is the only runtime observation of §3.6's thunk claim; capturing
+>   `event.$fetch` at hook time instead is a red test (mutation run). This gap had been classed
+>   *"observable only in a browser"*, wrongly: `event.$typedFetch` is a server-side member and the
+>   composition crosses plain server HTTP. (The signup pair has since left with the validation
+>   trim, whose policy was to leave this record untouched; measured on disk after both, the two
+>   e2e files hold eighteen tests.)
 > - **This section has no wall-clock budget, and layer 1 has spent the one Vitest gives it by
 >   default.** The declaration-emit test builds two whole TypeScript programs; alone it runs in ~3 s,
 >   and with §3.3's types in the graph it walks and the file suite saturating eight workers it

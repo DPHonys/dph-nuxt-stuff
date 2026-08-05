@@ -172,6 +172,28 @@ describe('the declared-failure wire format', async () => {
     expect(error.statusCode).toBe(404)
   })
 
+  it('composes event.$typedFetch with a later replacement of event.$fetch', async () => {
+    // SPEC.md §3.6: the wrapper reads `event.$fetch` through a thunk rather
+    // than capturing it, so it composes with anything that replaces
+    // `event.$fetch` later in the same hook chain. The playground carries that
+    // "anything" as a fixture: `server/plugins/fetch-replacer.ts` replaces
+    // `event.$fetch` in a `request` hook that runs after the module's (scanned
+    // `server/plugins` register after `addServerPlugin`'s), stamping
+    // `x-fetch-replaced` on every call made through the replacement. The
+    // probe's internal hop must carry the stamp — capturing `event.$fetch` at
+    // hook time instead reads `absent` here (mutation run).
+    expect(await $fetch('/api/fetch-replacer-probe')).toEqual({
+      marker: 'by-fixture',
+    })
+
+    // The control: the same echo reached directly over HTTP made no internal
+    // hop, so the replacement had nothing to stamp — the marker above is the
+    // fixture's doing, not something ambient in the transport.
+    expect(await $fetch('/api/fetch-replacer-echo')).toEqual({
+      marker: 'absent',
+    })
+  })
+
   it('leaves the success path completely alone', async () => {
     // The same route, same handler, no annotation anywhere: `fail` returning
     // `never` is what keeps the declared union out of this.

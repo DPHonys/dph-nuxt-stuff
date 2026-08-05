@@ -848,7 +848,14 @@ compiler.
   own upstream contract. Re-evaluated rather than assumed (SPEC.md §9.7): the
   candidate path is the same runner and fixture the suite already uses, and was
   rejected because `playwright-core`, a Chromium download in CI, and
-  real-browser flake are not worth that residual.
+  real-browser flake are not worth that residual. The two other claims once
+  classed browser-only turned out not to be: plugin ordering against a plugin
+  that replaces `event.$fetch` is server-observable and is asserted over the
+  wire (`test/wire.test.ts`, with `playground/server/plugins/fetch-replacer.ts`
+  as the antagonist), and `event.$typedFetch` being absent client-side
+  dissolved as a non-gap — no `H3Event` exists in a browser, so there is
+  nothing whose absence a test could observe and no deletion that could make
+  one red.
 
 ### Coverage gaps in the shipped test suite
 
@@ -861,13 +868,6 @@ Stated because a silent gap is worse than a known one.
   upstream still fires the hook is observable only from a live dev server;
   `pnpm dev-race` is the only observation that catches that, and it is ungated
   by design.
-- **`event.$typedFetch` being absent client-side is untested**, as is plugin
-  ordering against another plugin that replaces `event.$fetch`. Both are
-  observable only in a browser, so they stand or fall with the no-browser-tier
-  decision recorded under "What is deliberately not protected" above. The rendering assertion taken
-  _through_ `event.$typedFetch` against the real generated map now exists —
-  `test/generated-map.test.ts` compiles a probe in the prepared app's own
-  server program and budgets `event.$typedFetch.safe`'s hover there.
 - **The `@experimental` h3 augmentation `event.$fetch` rides is unguarded at
   runtime.** If h3 moves it, the failure is a compile error in one module file
   rather than a silent behaviour change in user code — which is why the ride was
