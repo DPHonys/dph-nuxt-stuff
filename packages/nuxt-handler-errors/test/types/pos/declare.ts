@@ -211,27 +211,6 @@ type _brandIsNotInTheReturnType = Expect<
 >
 
 // ---------------------------------------------------------------------------
-// The escape hatch (SPEC.md §6.3)
-// ---------------------------------------------------------------------------
-
-/**
- * `.raise()` is reachable from helper code that has no `fail` in scope, and it
- * is **deliberately unenforced** — this call sits outside every handler and
- * nothing checks that any route declared the variant.
- */
-function _assertUser(found: boolean): asserts found is true {
-  if (!found) userErrors.raise('user-not-found', { userId: 'unknown' })
-}
-
-/**
- * It returns `never`, which is what lets it stand as the whole body of a
- * narrowing helper without an unreachable `throw` after it.
- */
-type _raiseIsNever = Expect<
-  Equal<ReturnType<typeof userErrors.raise<'user-not-found'>>, never>
->
-
-// ---------------------------------------------------------------------------
 // Hover legibility (SPEC.md §8.3(b))
 // ---------------------------------------------------------------------------
 
@@ -239,8 +218,8 @@ type _raiseIsNever = Expect<
  * Every callable is a named `interface` with the value a `const` of that type,
  * so a hover renders the interface's *name* rather than an expanded signature.
  * Measured on the prototype at 1075 characters the other way. All three are
- * budgeted in `../declare-and-raise.test.ts`, which records the good/bad pair
- * measured against this fixture.
+ * budgeted in `../declare.test.ts`, which records the good/bad pair measured
+ * against this fixture.
  */
 const _hoverDefineTypedEventHandler = defineTypedEventHandler
 const _hoverDefineErrors = defineErrors

@@ -1,10 +1,11 @@
-import type { H3Error } from 'h3'
+import type { H3Error, H3Event } from 'h3'
 import { describe, expect, it } from 'vitest'
 import { computed, ref } from 'vue'
 import {
   DECLARED_ERROR_KEY,
   declaredError,
   defineErrors,
+  defineTypedEventHandler,
   payload,
   useDeclaredError,
 } from '../src/runtime/shared'
@@ -25,19 +26,33 @@ import {
  * `test/wire.test.ts`. Nothing here re-proves either.
  */
 
+const userErrors = defineErrors({
+  'user-not-found': {
+    status: 404,
+    payload: payload<{ userId: string }>(),
+  },
+})
+
 /**
- * A client-side error value, built from a variant the module **really raised**.
+ * A client-side error value, built from a variant the module **really
+ * raised** — through `fail`, which is the one raise path that ships.
  *
- * Deliberately not a hand-written envelope: the marker comes out of
- * `catalogue.raise`, and the two hops around it are Nitro's production
+ * Deliberately not a hand-written envelope: the marker comes out of a typed
+ * handler's own `fail`, and the two hops around it are Nitro's production
  * serializer (`prod.mjs:54-60`) reproduced field for field. An expectation that
  * restated the envelope would agree with a reader that had stopped reading it.
  */
-function clientErrorFor(raise: () => never): unknown {
+function clientErrorFor(userId: string): unknown {
+  const handler = defineTypedEventHandler(
+    { errors: [userErrors] },
+    (_event, { fail }) => fail('user-not-found', { userId })
+  )
+
   let thrown: unknown
 
   try {
-    raise()
+    // `fail` needs nothing off the event, so an empty object suffices.
+    handler({} as H3Event)
   } catch (error) {
     thrown = error
   }
@@ -59,13 +74,6 @@ function clientErrorFor(raise: () => never): unknown {
   }
 }
 
-const userErrors = defineErrors({
-  'user-not-found': {
-    status: 404,
-    payload: payload<{ userId: string }>(),
-  },
-})
-
 /** Wrap a marker value at the address the reader reads, whatever it is. */
 function atTheMarkerAddress(marker: unknown): unknown {
   return { data: { data: { [DECLARED_ERROR_KEY]: marker } } }
@@ -73,9 +81,7 @@ function atTheMarkerAddress(marker: unknown): unknown {
 
 describe('reading a declared variant out of an error value', () => {
   it('returns the variant the raise site produced, unchanged', () => {
-    const error = clientErrorFor(() =>
-      userErrors.raise('user-not-found', { userId: '42' })
-    )
+    const error = clientErrorFor('42')
 
     expect(declaredError(error)).toEqual({
       tag: 'user-not-found',
@@ -198,9 +204,7 @@ describe('values that carry no marker at all', () => {
 
 describe('the reactive sibling', () => {
   it('computes the same answer the value form gives', () => {
-    const error = clientErrorFor(() =>
-      userErrors.raise('user-not-found', { userId: '42' })
-    )
+    const error = clientErrorFor('42')
 
     expect(useDeclaredError(ref(error)).value).toEqual(declaredError(error))
   })
@@ -214,9 +218,7 @@ describe('the reactive sibling', () => {
 
     expect(failure.value).toBeUndefined()
 
-    source.value = clientErrorFor(() =>
-      userErrors.raise('user-not-found', { userId: '42' })
-    )
+    source.value = clientErrorFor('42')
 
     expect(failure.value).toEqual({
       tag: 'user-not-found',
@@ -234,11 +236,7 @@ describe('the reactive sibling', () => {
     // type-level half of that claim, over all four ref flavours a call site can
     // hold, is in `test/types/pos/reader.ts`.
     const source = ref('42')
-    const derived = computed(() =>
-      clientErrorFor(() =>
-        userErrors.raise('user-not-found', { userId: source.value })
-      )
-    )
+    const derived = computed(() => clientErrorFor(source.value))
 
     expect(useDeclaredError(derived).value).toMatchObject({ userId: '42' })
 

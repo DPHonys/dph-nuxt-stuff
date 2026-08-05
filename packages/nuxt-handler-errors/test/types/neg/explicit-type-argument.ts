@@ -9,12 +9,6 @@
  * (SPEC.md §3.1).
  *
  * Asserted: `TS2558`, naming the arity. Never a silent `any`.
- *
- * The arity is `2-6` rather than `2-3` because SPEC.md §3.3's schemas ride the
- * same options object and are inferred through three defaulted type parameters
- * appended after `Request`. The protection is unchanged — `Response` still has
- * no default, so one explicit argument is still an arity error rather than a
- * collapse — and the number in the message is the only thing that moved.
  */
 
 import {

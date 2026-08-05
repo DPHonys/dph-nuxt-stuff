@@ -232,14 +232,6 @@ export interface ErrorCatalogue<E extends AnyVariant> {
   pick: <const K extends readonly E['tag'][]>(
     ...tags: K
   ) => ErrorCatalogue<Extract<E, { tag: K[number] }>>
-
-  /**
-   * Raise a variant from helper code below the handler frame — the documented
-   * escape hatch, and **deliberately unenforced** (SPEC.md §6.3). It can throw
-   * a variant the calling route never declared, and nothing checks that. Rank
-   * it below `fail`, never beside it.
-   */
-  raise: <T extends E['tag']>(tag: T, ...payload: PayloadArgs<E, T>) => never
 }
 
 /** The element type of a composition array. */
@@ -294,227 +286,6 @@ export type ConflictGuard<C extends readonly AnyCatalogue[]> = [
   : {
       __duplicateErrorTag__: `Duplicate error tag across composed catalogues: ${DuplicateTags<UnionOfCatalogues<C>> & string}`
     }
-
-// ---------------------------------------------------------------------------
-// Validation (SPEC.md §3.3)
-// ---------------------------------------------------------------------------
-
-/**
- * Standard Schema v1, **inlined** rather than depended on (SPEC.md §3.3).
- *
- * Fifty-odd lines of interface, exactly as h3 v2 inlines them, and the whole
- * reason this package keeps zero runtime dependencies for its validation
- * surface: zod, valibot, arktype and anything else that implements the spec
- * works untouched, and none of them is named here.
- *
- * The one member the adapter calls is `validate`, and it is declared returning
- * `Result<Output> | Promise<Result<Output>>` — **the promise arm is there even
- * for a synchronous schema**, which is why the adapter always awaits.
- *
- * `SuccessResult.issues` is declared `?: undefined` on purpose: that is what
- * makes `result.issues === undefined` narrow the union, so the adapter needs no
- * cast to tell success from failure.
- */
-export interface StandardSchemaV1<Input = unknown, Output = Input> {
-  readonly '~standard': StandardSchemaProps<Input, Output>
-}
-
-/** See {@link StandardSchemaV1}. */
-interface StandardSchemaProps<Input, Output> {
-  readonly version: 1
-  readonly vendor: string
-  readonly validate: (
-    value: unknown
-  ) => StandardSchemaResult<Output> | Promise<StandardSchemaResult<Output>>
-  readonly types?: StandardSchemaTypes<Input, Output> | undefined
-}
-
-/** See {@link StandardSchemaV1}. */
-type StandardSchemaResult<Output> =
-  | StandardSchemaSuccessResult<Output>
-  | StandardSchemaFailureResult
-
-/** See {@link StandardSchemaV1}. */
-interface StandardSchemaSuccessResult<Output> {
-  readonly value: Output
-  readonly issues?: undefined
-}
-
-/** See {@link StandardSchemaV1}. */
-interface StandardSchemaFailureResult {
-  readonly issues: readonly StandardSchemaIssue[]
-}
-
-/**
- * The spec's own issue, and the reason {@link ValidationIssue} exists.
- *
- * `path` is `ReadonlyArray<PropertyKey | PathSegment>` and `PropertyKey`
- * includes `symbol`, so through Nitro's `Serialize` this becomes
- * `(string | number | { readonly key: string | number } | null)[]` — four arms
- * and a null, on the surface a client narrows every failure through.
- * Re-exporting it was **never** available; normalisation is mandatory rather
- * than preferred (SPEC.md §3.3, §11.4).
- */
-interface StandardSchemaIssue {
-  readonly message: string
-  readonly path?:
-    | ReadonlyArray<PropertyKey | StandardSchemaPathSegment>
-    | undefined
-}
-
-/** See {@link StandardSchemaIssue}. */
-interface StandardSchemaPathSegment {
-  readonly key: PropertyKey
-}
-
-/** See {@link StandardSchemaV1}. */
-interface StandardSchemaTypes<Input, Output> {
-  readonly input: Input
-  readonly output: Output
-}
-
-/**
- * A schema's parsed output — what the handler receives, already typed.
- *
- * The spec's own `InferOutput`, spelled out: the schema parks its types on an
- * optional `types` property that carries no runtime value, and `NonNullable`
- * is what reads through the `| undefined` the spec declares it with.
- */
-export type InferSchemaOutput<S extends StandardSchemaV1> = NonNullable<
-  S['~standard']['types']
->['output']
-
-/**
- * Where an input came from (SPEC.md §3.3).
- *
- * **`headers` is deliberately absent**, and that is an explicit rejection
- * rather than an omission: h3 offers no analogue, header contracts are a
- * middleware or gateway concern, and every header value is a string. This union
- * is **closed** and it is published inside a payload, so adding a fourth member
- * later widens a wire type every consumer has already narrowed on.
- */
-export type ValidationLocation = 'body' | 'query' | 'params'
-
-/**
- * One normalised validation issue (SPEC.md §3.3).
- *
- * **This is a named `interface` and that is a rendering mandate, not a
- * preference** (SPEC.md §8.3(c)). It inverts this package's usual taste for
- * anonymous payload literals: Nitro's `Simplify` is
- * `TType extends any[] | Date ? TType : {…}`, so it **short-circuits on
- * arrays** and an array-valued payload field keeps its `Serialize` residue in
- * every hover. Named, that residue is `SerializeObject<ValidationIssue>[]` —
- * short, and the name is clickable; fully inline it is the same unevaluated
- * wrapper wrapped around an expanded object literal. Budgeted in
- * `test/types/validation.test.ts`. **This binds every future payload with an
- * array field, not only this one.**
- *
- * `path` is a **segment array, not a dotted string**: lossless when a key
- * contains a `.`, and `issue.path.join('.')` at the call site is free. A
- * whole-value issue — "expected an object, received a string" — has `path: []`.
- * Symbol keys, which the spec admits and JSON does not, are normalised to their
- * `String(…)` form, so this array is exactly what survives the wire.
- */
-export interface ValidationIssue {
-  location: ValidationLocation
-  path: (string | number)[]
-  message: string
-}
-
-/**
- * The tag of the variant the module raises for a validation failure
- * (SPEC.md §3.3).
- *
- * The module ships one plain catalogue under this tag, `invalidInput`, at
- * status 400. It is an **ordinary** catalogue — it composes, it is subject to
- * the duplicate-tag guard, it has `.pick()` and `.raise()` — and it is **never
- * implicitly present**: a route that declares schemas and does not list it
- * still validates and still fails, unmarked.
- *
- * The status is genuinely swappable because the definer resolves the tag
- * against the *composed catalogues at runtime*: an app standardising on 422
- * declares its own catalogue with this tag and lists that instead.
- */
-export type ValidationTag = 'invalid-input'
-
-/** Exactly what the module can put in an `invalid-input` payload. */
-interface ValidationFill {
-  issues: ValidationIssue[]
-}
-
-/** The payload fields of every `invalid-input` variant a composition declares. */
-type DeclaredValidationPayload<C extends readonly AnyCatalogue[]> = Omit<
-  Extract<UnionOfCatalogues<C>, { tag: ValidationTag }>,
-  'tag' | 'status'
->
-
-/**
- * The declared payload fields the module has no value for.
- *
- * Mirrors {@link UnserializablePayloadFields}: a mapped type per field, so the
- * offending field's name is what lands in the diagnostic rather than a verdict
- * on the payload as a whole. `-?` is what lets an *optional* field pass — the
- * module not filling it is then the author's own declaration.
- */
-type UnfillableValidationFields<P> = {
-  [K in keyof P]-?: ValidationFill extends Pick<P, K> ? never : K
-}[keyof P]
-
-/**
- * Makes an `invalid-input` variant this module cannot fill a compile error
- * naming the field (SPEC.md §3.3).
- *
- * **Guard-first, for the same measured reason {@link ConflictGuard} is** — see
- * that type. The two are intersected ahead of `{ errors: C }` together, and a
- * clean composition contributes `{}` from each, which is the identity element
- * for `&`.
- *
- * The check is deliberately unconditional on whether a schema was declared. A
- * catalogue listing this tag is a promise that *this module* raises it, so the
- * shape has to be one the module can produce whether or not the route
- * validates anything today.
- */
-export type ValidationShapeGuard<C extends readonly AnyCatalogue[]> = [
-  Extract<UnionOfCatalogues<C>, { tag: ValidationTag }>,
-] extends [never]
-  ? // No variant with the tag: nothing to fill, and `{}` is the identity
-    // element for `&` (SPEC.md §8.2 fact 1).
-    // eslint-disable-next-line ts/no-empty-object-type
-    {}
-  : [UnfillableValidationFields<DeclaredValidationPayload<C>>] extends [never]
-    ? // eslint-disable-next-line ts/no-empty-object-type
-      {}
-    : {
-        __invalidValidationPayload__: `The \`${ValidationTag}\` variant declares a payload this module cannot fill: ${UnfillableValidationFields<DeclaredValidationPayload<C>> & string}`
-      }
-
-/**
- * One parsed input property, present **only** when its location is declared.
- *
- * Absent is `{}` rather than an optional property, which is what makes
- * destructuring an undeclared location `TS2339` at compile time instead of
- * `undefined` at run time (SPEC.md §3.3).
- */
-type InputProperty<Location extends string, S> = [S] extends [undefined]
-  ? // eslint-disable-next-line ts/no-empty-object-type
-    {}
-  : {
-      [K in Location]: S extends StandardSchemaV1 ? InferSchemaOutput<S> : never
-    }
-
-/**
- * The parsed inputs a typed handler receives — **eagerly and flat**
- * (SPEC.md §3.3).
- *
- * Lazy accessors (`await input.body()`) were rejected: they would let the
- * author order auth before validation, but a handler that never calls one
- * publishes a failure it can never emit. Eager delivery is also what makes
- * "every declared location is validated, and one response reports everything
- * wrong at once" true by construction.
- */
-export type ValidatedInputs<Body, Query, Params> = InputProperty<'body', Body> &
-  InputProperty<'query', Query> &
-  InputProperty<'params', Params>
 
 // ---------------------------------------------------------------------------
 // The brand
@@ -596,11 +367,7 @@ export type Fail<E extends AnyVariant> = <T extends E['tag']>(
 ) => never
 
 /**
- * The always-present half of the second argument a typed handler body receives.
- *
- * The parsed inputs are intersected onto it per declared location rather than
- * living here, so that only the locations a route actually declared exist at
- * all — see {@link ValidatedInputs}.
+ * The second argument a typed handler body receives.
  */
 export interface TypedHandlerContext<E extends AnyVariant> {
   fail: Fail<E>
@@ -608,23 +375,12 @@ export interface TypedHandlerContext<E extends AnyVariant> {
 
 /**
  * A typed handler body. The success type infers from it with no annotation.
- *
- * The three schema parameters default to `undefined`, which is what
- * {@link ValidatedInputs} reads as *"this location was not declared"*, so a
- * route that validates nothing gets exactly the context it got before
- * validation existed.
  */
 export type TypedHandlerFn<
   Request extends EventHandlerRequest,
   Response,
   E extends AnyVariant,
-  Body = undefined,
-  Query = undefined,
-  Params = undefined,
-> = (
-  event: H3Event<Request>,
-  ctx: TypedHandlerContext<E> & ValidatedInputs<Body, Query, Params>
-) => Response
+> = (event: H3Event<Request>, ctx: TypedHandlerContext<E>) => Response
 
 // ---------------------------------------------------------------------------
 // The callable surfaces
@@ -658,47 +414,18 @@ export interface DefineErrors {
  * third positional parameter.
  *
  * **`Response` has no default type parameter.** That is what makes an explicit
- * type argument `TS2558: Expected 2-6 type arguments, but got 1` instead of a
+ * type argument `TS2558: Expected 2-3 type arguments, but got 1` instead of a
  * silent collapse of the success type to `any`. The trap is unrepresentable
- * rather than merely documented. The three schema parameters are appended after
- * it and each defaults, so the arity in that message is the only thing
- * SPEC.md §3.3's *"no signature change"* moved.
- *
- * **Schemas ride this same options object** (SPEC.md §3.3) — no third
- * positional parameter, and `body`/`query`/`params` are inferred from it, so a
- * declared location's parsed output reaches the handler already typed. Two of
- * h3's live footguns are unrepresentable here as a consequence, and the second
- * is inverted: `body: CreateUser.safeParse` — h3's own JSDoc-recommended
- * spelling, which there *silently disables validation* — has no `~standard` and
- * is a compile error, while `body: CreateUser`, the raw schema object h3
- * crashes on, is the correct argument. There is deliberately no
- * plain-`(v: unknown) => T` escape hatch: accepting one reopens that hole
- * verbatim, since a `safeParse` reference is exactly that shape.
+ * rather than merely documented.
  */
 export interface DefineTypedEventHandler {
   <
     const C extends readonly AnyCatalogue[],
     Response extends EventHandlerResponse,
     Request extends EventHandlerRequest = EventHandlerRequest,
-    Body extends StandardSchemaV1 | undefined = undefined,
-    Query extends StandardSchemaV1 | undefined = undefined,
-    Params extends StandardSchemaV1 | undefined = undefined,
   >(
-    options: ConflictGuard<C> &
-      ValidationShapeGuard<C> & {
-        errors: C
-        body?: Body
-        query?: Query
-        params?: Params
-      },
-    handler: TypedHandlerFn<
-      Request,
-      Response,
-      UnionOfCatalogues<C>,
-      Body,
-      Query,
-      Params
-    >
+    options: ConflictGuard<C> & { errors: C },
+    handler: TypedHandlerFn<Request, Response, UnionOfCatalogues<C>>
   ): TypedEventHandler<Request, Response, UnionOfCatalogues<C>>
 }
 

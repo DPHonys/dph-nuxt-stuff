@@ -7,7 +7,6 @@
   },
   "dependencies": {
     "@dphonys/nuxt-handler-errors": "workspace:*",
-    "nuxt": "catalog:",
-    "zod": "catalog:"
+    "nuxt": "catalog:"
   }
 }

@@ -122,7 +122,6 @@ const EXPECTED_ROUTE_KEYS = [
   "'/api/event-typed-fetch-probe': {",
   "'/api/method-fallback': {",
   "'/api/rogue-status': {",
-  "'/api/signup': {",
   "'/api/specifier-probe': {",
   "'/api/users/:id': {",
 ]
@@ -379,7 +378,6 @@ const SUITE_IMPORTERS = [
   ['server/api/chain/a.get.ts', '../../../../test/types/vocabulary'],
   ['server/api/users/[id].get.ts', '../../../../test/types/vocabulary'],
   ['server/api/method-fallback.ts', '../../../test/types/vocabulary'],
-  ['server/api/signup.post.ts', '../../../test/types/vocabulary'],
   ['shared/lookup-probe.ts', '../../test/types/vocabulary'],
 ] as const
 

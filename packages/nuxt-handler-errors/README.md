@@ -164,62 +164,41 @@ the load-bearing half: Nuxt 5 moves to h3 v2 / Nitro 3, which this module has no
 been measured against. The floor is what _was_ measured — 4.5.1 — rather than
 what the scaffold assumed.
 
-One option exists, and most apps never need it:
-
-```ts
-export default defineNuxtConfig({
-  modules: ['@dphonys/nuxt-handler-errors'],
-  handlerErrors: {
-    // 'presence' (default) | 'expanded'
-    methodKeys: 'presence',
-  },
-})
-```
-
-`expanded` is a documented escape hatch for the day a large app's compiler tips
-over on type-instantiation depth: it moves the method fallback into the emitted
-map so consumption is a bare index with zero conditionals, at the cost of a
-nine-fold expansion of every catch-all route. Before reaching for it, read
-[Depth, and one practical rule](#depth-and-one-practical-rule) — every occurrence
-measured so far had a one-line fix that was not this option.
+The module has **zero options**, deliberately: every wrapper mirrors its
+vanilla counterpart exactly, so there is nothing to configure — and an option
+is far cheaper to add later than to remove.
 
 ---
 
-## Four rules the compiler will not teach you
+## Two rules the compiler will not teach you
 
-Most of this design enforces itself at compile time. **These four do not**, and
+Most of this design enforces itself at compile time. **These two do not**, and
 each will otherwise be discovered the hard way.
 
-### 1. The handler body is enforced. Helper modules are on you
-
-`fail` is scoped to the route's declared union and is the spelling to reach for.
-It is available on every handler, it cannot name a tag the route did not declare,
-and its payload arity is checked.
-
-Sometimes the throw has to happen three frames below the handler, where `fail` is
-not in scope. For that — **and only for that** — a catalogue also carries
-`.raise()`:
+First, though, the rule that _is_ enforced, stated once: **`fail` is the only
+raise path.** It is scoped to the route's declared union, it cannot name a tag
+the route did not declare, and its payload arity is checked. There is
+deliberately no unenforced escape hatch for throwing a declared failure from
+helper code — a helper returns evidence, and the route converts it under
+`fail`'s enforcement:
 
 ```ts
-// server/utils/assert-owner.ts
-import { authErrors } from '#shared/errors/auth'
-
-export function assertOwner(user: User, actor: Actor): void {
-  if (!isOwner(user, actor))
-    throw authErrors.raise('forbidden', { requiredRole: 'owner' })
+// server/utils/check-owner.ts
+export function checkOwner(user: User, actor: Actor) {
+  return isOwner(user, actor)
+    ? ({ ok: true } as const)
+    : ({ ok: false, required: 'owner' as const } as const)
 }
+
+// in the route
+const check = checkOwner(user, actor)
+if (!check.ok) return fail('forbidden', { requiredRole: check.required })
 ```
 
-> **`.raise()` is unenforced, and that is its whole cost.** Nothing checks that
-> the route calling this helper declared `forbidden`. A helper can throw a
-> variant the route never published, and the client is then typed a lie **with no
-> compile signal at all**. Prefer `fail`. Reach for `.raise()` when the call
-> stack genuinely forces it, and keep the helper close to the routes that
-> declare its tags.
+That one line of ceremony is what keeps every wire failure traceable to a
+declaration the client can see.
 
-Whether this deserves a backstop is [an open question](#open-questions).
-
-### 2. `.safe` returns what the route declared. Everything else throws
+### 1. `.safe` returns what the route declared. Everything else throws
 
 ```ts
 const user = await $typedFetch('/api/users/123') // throws, as $fetch does
@@ -239,7 +218,7 @@ The throwing form is not a legacy path. It is what
 `useAsyncData(() => $typedFetch('/api/users/1'))` composes with, and it is why
 `declaredError` exists as a value reader at all.
 
-### 3. Overriding `accept` forfeits the declared-error channel
+### 2. Overriding `accept` forfeits the declared-error channel
 
 Every request this module makes carries `accept: application/json`, and that is
 not cosmetic. Nitro's `isJsonRequest` heuristic decides whether an error comes
@@ -258,37 +237,6 @@ await $typedFetch('/status', { headers: { accept: 'text/html' } })
 Lose the header on such a route and a declared 403 arrives as an HTML string in
 `err.data`. The marker is not there, `declaredError()` answers `undefined`, and
 `.safe` never takes its `ok: false` arm. Routes under `/api/**` are unaffected.
-
-### 4. Validation runs before your handler body — including before your auth check
-
-Input is delivered eagerly and flat, which means a malformed request is answered
-_before_ a line of your handler executes:
-
-```ts
-export default defineTypedEventHandler(
-  { errors: [invalidInput, authErrors.pick('unauthorized')], body: CreateUser },
-  async (event, { fail, body }) => {
-    // ← too late: a malformed body was already answered with 400 and field names
-    if (!session(event)) return fail('unauthorized')
-    return db.users.create(body)
-  }
-)
-```
-
-**A malformed request from an unauthenticated caller has field names disclosed to
-it.** The answer is auth in **Nitro middleware**, which runs before the handler:
-
-```ts
-// server/middleware/require-session.ts
-export default defineEventHandler((event) => {
-  if (event.path.startsWith('/api/private') && !session(event))
-    throw createError({ statusCode: 401 })
-})
-```
-
-This is documented rather than solved. Lazy accessors (`await input.body()`)
-would let the author order auth first, but they cost the guarantee: a handler
-that never calls the accessor publishes a failure it can never emit.
 
 ---
 
@@ -329,6 +277,14 @@ export const userErrors = defineErrors({
   from client code, so any later client-side _runtime_ use of the value needs a
   file move touching every import — while a `shared/` catalogue imported only by
   server code is tree-shaken out of the client bundle entirely.
+- **An array-valued payload field must be a NAMED interface**, not an inline
+  object literal. This inverts the usual preference, and it is about the hover
+  a consumer reads: Nitro's `Simplify` short-circuits on arrays, so a payload
+  array keeps its serialization residue in the hover and never expands. Naming
+  the element type renders `SerializeObject<Issue>[]` — short, with a clickable
+  name; the identical fields written inline render an expanded literal inside
+  the _same_ unevaluated wrapper. The type is structurally exact either way;
+  only the hover differs.
 
 ### `defineTypedEventHandler`
 
@@ -337,13 +293,8 @@ the route file:
 
 ```ts
 defineTypedEventHandler(
-  {
-    errors: [userErrors, authErrors.pick('forbidden')],
-    body: CreateUser, // optional — any Standard Schema
-    query: Paging, // optional
-    params: RouteParams, // optional
-  },
-  async (event, { fail, body, query, params }) => {
+  { errors: [userErrors, authErrors.pick('forbidden')] },
+  async (event, { fail }) => {
     /* … */
   }
 )
@@ -352,176 +303,22 @@ defineTypedEventHandler(
 **Do not supply an explicit type argument.** `Response` is declared with no
 default, so any explicit type argument is a `TS2558` arity error rather than a
 silent collapse of the success type to `any`. The exact number in that message is
-`Expected 2-6 type arguments` today and will move again the day a fourth typed
-option lands — quote it from
-`test/types/declare-and-raise.test.ts`, never from prose.
+`Expected 2-3 type arguments` today and will move the day a typed option adds a
+type parameter — quote it from `test/types/declare.test.ts`, never from prose.
 
 The returned handler is an ordinary h3 `EventHandler` with one optional phantom
 property added, so Nitro, the router and every h3 utility keep treating the route
 as ordinary.
 
----
+### Input validation is not this module's job
 
-## Validation
-
-Schemas ride the **same options object** as `errors` — no signature change, no
-third positional parameter. Any [Standard Schema](https://standardschema.dev)
-validator works untouched: zod, valibot, arktype.
-
-```ts
-// server/api/signup.post.ts
-import {
-  defineTypedEventHandler,
-  invalidInput,
-} from '@dphonys/nuxt-handler-errors/shared'
-import { z } from 'zod'
-import { authErrors } from '#shared/errors/auth'
-
-const CreateUser = z.object({
-  name: z.string().min(1),
-  'contact.email': z.email(),
-  tags: z.array(z.object({ label: z.string() })).optional(),
-})
-
-const Invite = z.object({ code: z.coerce.number() })
-
-export default defineTypedEventHandler(
-  {
-    errors: [invalidInput, authErrors.pick('unauthorized')],
-    body: CreateUser,
-    query: Invite,
-  },
-  async (_event, { fail, body, query }) => {
-    //                      ^ CreateUser's output   ^ Invite's output
-    //                        both already parsed
-    if (query.code === 0) return fail('unauthorized')
-
-    return {
-      name: body.name,
-      email: body['contact.email'],
-      tagCount: body.tags?.length ?? 0,
-      code: query.code,
-    }
-  }
-)
-```
-
-The module ships **one plain catalogue value**, `invalidInput`, tag
-`'invalid-input'`, status 400. It is an ordinary `defineErrors` product: it
-composes, it is subject to the duplicate-tag guard, it has `.pick()` (vacuously)
-and `.raise()`.
-
-```ts
-interface InvalidInput {
-  tag: 'invalid-input'
-  status: 400
-  issues: ValidationIssue[]
-}
-
-interface ValidationIssue {
-  location: 'body' | 'query' | 'params'
-  path: (string | number)[]
-  message: string
-}
-```
-
-### Things worth knowing
-
-- **`body: CreateUser` — the raw schema object.** h3's own JSDoc recommends
-  `body: CreateUser.safeParse`, a spelling that _silently disables validation_
-  there. Here it is a compile error (a function has no `~standard`), and the raw
-  schema object h3 crashes on is the correct argument.
-- **One merged variant, not one per location.** `location` sits on the _issue_,
-  so one response reports everything wrong at once — a bad `body` and a bad
-  `query` together.
-- **`path` is a segment array, not a dotted string.** Lossless, and it survives
-  serialization unchanged. The dotted form is one `.join('.')` at the call site:
-
-  ```ts
-  const label = issue.path.join('.')
-  ```
-
-  A key that itself contains `.` — like `contact.email` above — is why the dotted
-  form cannot be the wire shape: `"contact.email"` could not be told apart from a
-  nested `contact` object.
-
-- **A whole-value issue is `path: []`.**
-- **The status is genuinely swappable.** An app standardising on 422 declares its
-  own catalogue with the same tag and lists that instead; the tag is resolved
-  against the route's composed catalogues at run time.
-- **Opting out is free.** Declare `body:` and simply do not list `invalidInput`:
-  validation still runs and still 400s, but throws **unmarked**, landing in the
-  ordinary Nuxt channel. The published union then matches `errors:` exactly.
-- **`headers` is not a location, deliberately.** h3 offers no analogue, header
-  contracts are a middleware/gateway concern, and every header value is a string.
-  `location` is a closed union, so adding a member later would widen a published
-  payload.
-- **No adapter ships for pre-Standard-Schema validators** (yup, joi, superstruct,
-  zod &lt; 3.24). A plain `(v: unknown) => T` escape hatch is deliberately
-  rejected — accepting one reopens the `safeParse` hole verbatim, since a
-  `safeParse` reference is exactly that shape. Wrap your validator yourself:
-
-  ```ts
-  import type { StandardSchemaV1 } from '@dphonys/nuxt-handler-errors/types'
-
-  interface NewUser {
-    name: string
-  }
-
-  // the annotation is load-bearing — see below
-  const CreateUser: StandardSchemaV1<unknown, NewUser> = {
-    '~standard': {
-      version: 1,
-      vendor: 'my-legacy-validator',
-      validate: (value) => {
-        const result = legacy.check(value)
-        return result.ok
-          ? { value: result.value as NewUser }
-          : { issues: result.errors.map((e) => ({ message: e.message })) }
-      },
-    },
-  }
-  ```
-
-  **Annotate the const.** A Standard Schema parks its input and output types on
-  an _optional_ `~standard.types` property that carries no runtime value, so a
-  bare object literal satisfies the interface with that property absent — and
-  `body` then arrives as `unknown`, **with no compile signal at all**. The
-  `StandardSchemaV1<Input, Output>` annotation is what supplies it. Real
-  libraries do this for you; a hand-rolled wrapper must do it itself.
-
-### Two behaviours the spec did not describe, and both ship
-
-- **A source that cannot be _read_ becomes an issue at that location, not a
-  throw.** A body that is not JSON at all yields
-  `{ location: 'body', path: [], message: 'The request body could not be read.' }`.
-  Without this, a body of the wrong _shape_ would be a **declared** failure while
-  a body that is not JSON would be an **undeclared** one — the same caller mistake
-  reported through two different channels.
-
-  **Its cost, stated rather than hidden: it masks h3's own 405.** `readBody` on a
-  method h3 refuses a body for throws `405 Method Not Allowed`, and through this
-  arm the caller sees this module's 400 instead. That case is a _route author's_
-  mistake — declaring `body` on a route that cannot have one — which is why the
-  trade goes this way.
-
-- **The unmarked opt-out throw still carries `issues` on `data`.** A route that
-  declared a schema and did not list `invalidInput` throws unmarked, but the
-  normalised issues are kept at `err.data.data.issues`, one hop shallower than the
-  marker. It is deliberately **not** the marker: `declaredError` answers
-  `undefined` for it, because the route never declared it.
-
-### A rule that binds every future payload
-
-**An array-valued payload field must be a NAMED interface**, not an inline object
-literal. This inverts the usual preference, and it is about the hover a consumer
-reads: Nitro's `Simplify` short-circuits on arrays, so a payload array keeps its
-serialization residue in the hover and never expands. Naming the element type
-renders `SerializeObject<ValidationIssue>[]` — 54 characters with a clickable
-name. The identical fields written inline render 125 characters of expanded
-noise inside the _same_ unevaluated wrapper. The type is structurally exact
-either way; only the hover differs. This is why `ValidationIssue` is an
-interface, and it binds every payload with an array field, not only this one.
+An earlier iteration shipped `body`/`query`/`params` Standard Schema validation
+on the same options object. It was cut before first publication as a second
+product with its own caveat surface, and it survives — compiling and tested
+against this package — as the parked, unpublished sibling
+[`@dphonys/nuxt-handler-validation`](../nuxt-handler-validation). Validate in
+the handler body and `fail` with your own variant, or revisit that package if
+the layered definer is wanted.
 
 ---
 
@@ -763,11 +560,11 @@ context including `shared/`, so it is never hand-written:
 | `@dphonys/nuxt-handler-errors/shared` | side-agnostic runtime values, importable from the client, the server and your `shared/` folder |
 
 `/shared` carries `defineErrors`, `payload`, `defineTypedEventHandler`,
-`invalidInput`, `declaredError`, `useDeclaredError` and `DECLARED_ERROR_KEY`.
+`declaredError`, `useDeclaredError` and `DECLARED_ERROR_KEY`.
 
 `/types` carries `TypedApiErrors`, `DeclaredErrorsOf`, `DeclaredErrorBody`,
-`ErrorCatalogue`, `VariantsOf`, `Payload`, `TypedEventHandler`, `ValidationIssue`,
-`Flatten`, `TypedResult` and the rest of the public type surface.
+`ErrorCatalogue`, `VariantsOf`, `Payload`, `TypedEventHandler`, `Flatten`,
+`TypedResult` and the rest of the public type surface.
 
 **Auto-imports are additive sugar, never the contract** — with the one forced
 exception noted above:
@@ -966,20 +763,7 @@ failure handled normally it is logged as `[request error] [unhandled]`, fires
 `captureError`, and escalates to the global error page. That is correct behaviour
 for a genuine caller bug.
 
-### Validation discloses field names before your handler's auth check
-
-See [rule 4](#4-validation-runs-before-your-handler-body--including-before-your-auth-check).
-Put auth in Nitro middleware.
-
-### Forgetting the catalogue is silent, by design
-
-Declare `body:` and forget to list `invalidInput`, and you get **no compile
-signal**. Validation still runs and still 400s, unmarked. You find out when the
-tag is missing from the client's union. A presence guard plus an opt-out flag
-would catch that mistake and reintroduce the same silence through the flag, on
-the most-read surface in the design.
-
-### An undeclared route is silent too
+### An undeclared route is silent
 
 A route that never opted in infers `never`, which is the honest statement — _"this
 route declares no failures"_, not _"this route cannot fail"_. It is deliberately
@@ -1068,15 +852,12 @@ assume otherwise.
    entirely**. It is not on the default path, but a project pointing
    `errorHandler` at it would silently lose every declared payload, with no
    compile-time signal.
-3. **Whether the unenforced `.raise()` escape hatch wants a backstop** — a lint
-   rule, a dev-time check, or simply the documented rule above. Not sharp enough
-   to ticket, and it probably wants real handler code to judge against.
-4. **The adoption path for handlers that already exist and throw `createError` by
+3. **The adoption path for handlers that already exist and throw `createError` by
    hand** — whether the module offers incremental migration or is all-or-nothing
    per route. Untouched.
-5. **Whether the module needs a devtools panel or a generated documentation
+4. **Whether the module needs a devtools panel or a generated documentation
    surface.** Untouched.
-6. **Whether the wire marker should be honoured on responses the app did not
+5. **Whether the wire marker should be honoured on responses the app did not
    originate.** Marker presence is sufficient evidence, on the reasoning that a
    forged marker is no worse than a forged success payload — which holds for a
    first-party Nitro origin and is less obviously right for a `$typedFetch`
@@ -1086,7 +867,7 @@ assume otherwise.
    `never`, so `.safe`'s `ok: false` arm does not exist). What remains is the
    **runtime reader**, whose degraded overload reads the floor off any error
    whatsoever. Should it require a same-origin or first-party signal?
-7. **Whether an opt-in, catalogue-driven skew-safe match helper is worth
+6. **Whether an opt-in, catalogue-driven skew-safe match helper is worth
    shipping.** The union is closed and the deploy-skew tail above is accepted. A
    caller _could_ recover exactness by passing a catalogue as the runtime tag list
    — the floor guarantee exists precisely so that is decidable — but a
@@ -1126,12 +907,13 @@ closed: the scaffolded starter behaviour and starter prose are gone, and this
 README documents the shipped surface. `pnpm check` and `pnpm knip` are green from
 a cold cache, and `publint` reports no problems against a real `dist/`.
 
-The recommendation is to admit it, at `0.1.0` rather than `0.0.1` — the surface is
-complete against `SPEC.md`, and the version should say _usable, not yet stable_.
-Weigh the consumer-compiler gap and the coverage gaps above first. **The call
-belongs to the repository owner**; until `private` is removed the package is not
-a Publishable package and owes no Release intent, so its first intent is the one
-that accompanies its admission.
+The recommendation is to admit it, at `0.1.0` rather than `0.0.1` — the surface
+is deliberately smaller than `SPEC.md` (see the pruning note below), it is
+complete against this README, and the version should say _usable, not yet
+stable_. Weigh the consumer-compiler gap and the coverage gaps above first.
+**The call belongs to the repository owner**; until `private` is removed the
+package is not a Publishable package and owes no Release intent, so its first
+intent is the one that accompanies its admission.
 
 ---
 
@@ -1150,6 +932,19 @@ not reachable. And re-measuring is possible — every probe records how it was r
 — but it is not free. `SPEC.md` was amended in place at the end of the
 implementation effort against fifty-four measured contradictions, so what it says
 now is what was built, not what was planned.
+
+**One further divergence, deliberate and later than the amendments:** three
+surfaces `SPEC.md` describes were pruned before first publication, and the spec
+was left as the design record rather than rewritten. Input validation
+(§3.3, §7.4, §11.4) moved wholesale — adapter, definer layering, and tests —
+into the parked sibling package
+[`@dphonys/nuxt-handler-validation`](../nuxt-handler-validation). The
+`.raise()` escape hatch (§6.3) was cut: it could throw a variant the calling
+route never published, with no compile signal, and re-adding it later is
+non-breaking while removing it later would not have been. The
+`methodKeys: 'expanded'` module option (§10.3 Option 2) was cut as insurance
+for a compiler-depth problem no measured app has hit; the emitter ships
+presence mode only.
 
 ---
 

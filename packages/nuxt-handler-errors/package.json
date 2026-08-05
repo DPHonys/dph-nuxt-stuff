@@ -82,8 +82,7 @@
     "publint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "vue-tsc": "catalog:",
-    "zod": "catalog:"
+    "vue-tsc": "catalog:"
   },
   "engines": {
     "node": ">=26.0.0"
