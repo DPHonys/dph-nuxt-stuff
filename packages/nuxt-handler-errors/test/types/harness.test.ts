@@ -1,7 +1,7 @@
 import { globSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { COMPILERS } from './compilers'
 import {
   assertDiagnostic,
   assertHoverBudget,
@@ -18,14 +18,6 @@ import {
  * what every assertion in tickets 04–13 rests on — so each check here is paired
  * with its own failure direction. A harness that cannot fail is worthless.
  */
-
-/**
- * SPEC.md §9.8: the compiler is a parameter, not a top-level import of the
- * harness. There is exactly one row today and the consumer gap that leaves is
- * accepted; a stock-TypeScript run is one more row here plus one aliased dev
- * dependency. Deliberately not wired up.
- */
-const COMPILERS = [['typescript-native-bridge (the pinned gate)', ts]] as const
 
 const TYPE_SUITE = fileURLToPath(new URL('.', import.meta.url))
 
@@ -45,8 +37,8 @@ const SELF_TEST_BUDGET = 78
 
 describe.each(COMPILERS)(
   'the compile-time assertion harness, on %s',
-  (_label, compiler) => {
-    const harness = createTypeHarness({ ts: compiler })
+  (_label, compiler, dialect) => {
+    const harness = createTypeHarness({ ts: compiler, dialect })
 
     describe('compiling one fixture alone', () => {
       it('reports a real diagnostic by code and message substring', () => {
@@ -150,10 +142,13 @@ describe.each(COMPILERS)(
         expect(verbose).toContain('readonly traceId: string')
 
         // The bridge single-quotes string literals in *rendered* types and
-        // double-quotes them in diagnostic messages. Both surfaces appear in
-        // this file, and an expected string has to match the one it came from.
+        // double-quotes them in diagnostic messages; stock double-quotes both
+        // surfaces. An expected string has to match the surface it came from
+        // *and* the compiler that rendered it — this is the measured
+        // quote-style divergence, asserted where it lives.
+        const quote = dialect === 'stock' ? '"' : `'`
         expect(compilation.renderHover('_hoverConcise')).toBe(
-          `{ readonly tag: 'forbidden'; readonly status: 403; }`
+          `{ readonly tag: ${quote}forbidden${quote}; readonly status: 403; }`
         )
       })
 
@@ -180,6 +175,7 @@ describe.each(COMPILERS)(
         // characters that would have sailed through a length budget.
         const starved = createTypeHarness({
           ts: compiler,
+          dialect,
           tsconfigPath: 'tsconfig.starved-program.json',
         })
         const alone = starved.compileAlone('pos/harness-hover.ts')

@@ -57,6 +57,9 @@ catalogs:
     scule:
       specifier: ^1.3.0
       version: 1.3.0
+    typescript-stock:
+      specifier: npm:typescript@^5
+      version: 5.9.3
     vitest:
       specifier: ^4.1.10
       version: 4.1.10
@@ -165,6 +168,9 @@ importers:
       typescript:
         specifier: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
         version: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      typescript-stock:
+        specifier: 'catalog:'
+        version: typescript@5.9.3
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(yaml@2.9.0))
@@ -5583,6 +5589,11 @@ packages:
   typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2:
     resolution: {integrity: sha512-scQFdHBhpFVsr9xmHDos+CCSQHcS0yVjL/4+RaUnfeQRJvrYtSsEpfyiseUmSmSdeKuVLPyQZDO+TcjdsOEsFQ==}
     engines: {node: '>=20.19'}
+    hasBin: true
+
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
     hasBin: true
 
   ufo@1.6.4:
@@ -12624,6 +12635,8 @@ snapshots:
       '@typescript-native-bridge/linux-x64': 6.0.3-bridge.8.tsgo.7.0.2
       '@typescript-native-bridge/win32-arm64': 6.0.3-bridge.8.tsgo.7.0.2
       '@typescript-native-bridge/win32-x64': 6.0.3-bridge.8.tsgo.7.0.2
+
+  typescript@5.9.3: {}
 
   ufo@1.6.4: {}
 

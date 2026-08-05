@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
-import ts from 'typescript'
 import { describe, it } from 'vitest'
+import { COMPILERS } from './compilers'
 import { assertNoDiagnostics, createTypeHarness } from './harness'
 
 /**
@@ -16,12 +16,15 @@ import { assertNoDiagnostics, createTypeHarness } from './harness'
 
 const FIXTURE = fileURLToPath(new URL('pos/lookup.ts', import.meta.url))
 
-describe('naming a route’s declared union from its path alone', () => {
-  const harness = createTypeHarness({ ts })
+describe.each(COMPILERS)(
+  'naming a route’s declared union from its path alone, on %s',
+  (_label, compiler, dialect) => {
+    const harness = createTypeHarness({ ts: compiler, dialect })
 
-  it('resolves every documented row, with controls', () => {
-    // Every claim in the fixture is an `Expect<…>` alias, so the whole
-    // assertion is that it compiles clean (SPEC.md §9.5 rule 3).
-    assertNoDiagnostics(harness.compileAlone(FIXTURE))
-  })
-})
+    it('resolves every documented row, with controls', () => {
+      // Every claim in the fixture is an `Expect<…>` alias, so the whole
+      // assertion is that it compiles clean (SPEC.md §9.5 rule 3).
+      assertNoDiagnostics(harness.compileAlone(FIXTURE))
+    })
+  }
+)

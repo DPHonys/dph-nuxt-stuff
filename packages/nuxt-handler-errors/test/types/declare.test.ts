@@ -1,5 +1,5 @@
-import ts from 'typescript'
 import { describe, it } from 'vitest'
+import { COMPILERS } from './compilers'
 import {
   assertDiagnostic,
   assertHoverBudget,
@@ -19,34 +19,30 @@ import {
  */
 
 /**
- * SPEC.md §9.8: the compiler is a parameter. One row today, and the consumer
- * gap that leaves is accepted.
- */
-const COMPILERS = [['typescript-native-bridge (the pinned gate)', ts]] as const
-
-/**
  * SPEC.md §8.3(b): every callable is a named `interface` with the value a
  * `const` of that type, so a hover renders the interface's name instead of an
- * expanded generic signature. Measured in this package, on this fixture:
+ * expanded generic signature. Measured in this package, on this fixture, with
+ * import specifiers canonicalized (identical under both compilers):
  *
  * | target                    | named interface | bare `function` |
  * | ------------------------- | --------------- | --------------- |
- * | `defineTypedEventHandler` | 60              | 546             |
- * | `defineErrors`            | 49              | 160             |
- * | `payload`                 | 50              | —               |
+ * | `defineTypedEventHandler` | 35              | 546             |
+ * | `defineErrors`            | 24              | 160             |
+ * | `payload`                 | 25              | —               |
  *
  * The budget sits at ~1.5× the worst good value, per SPEC.md §9.3, so a
  * failure reads as *"the named-interface mandate broke"* rather than as a
- * number moving. Roughly two thirds of each measurement is the
- * `import("…/src/runtime/types")` prefix the renderer adds for a symbol that
- * has no local alias.
+ * number moving. The `import("…")` prefix the renderer adds for a symbol with
+ * no local alias is collapsed to a fixed token before measuring — the path
+ * inside it was two thirds of the old measurement, all of it noise, and the
+ * canonicalized lengths are byte-identical under both compilers.
  */
-const CALLABLE_HOVER_BUDGET = 90
+const CALLABLE_HOVER_BUDGET = 53
 
 describe.each(COMPILERS)(
   'the declaration surface, on %s',
-  (_label, compiler) => {
-    const harness = createTypeHarness({ ts: compiler })
+  (_label, compiler, dialect) => {
+    const harness = createTypeHarness({ ts: compiler, dialect })
 
     describe('the declaration surface', () => {
       it('holds every positive claim, with zero diagnostics', () => {
@@ -119,9 +115,15 @@ describe.each(COMPILERS)(
       })
 
       it('rejects `.pick()` of an unknown tag, listing the real tags', () => {
+        // The same union, ordered differently: the bridge sorts the members
+        // alphabetically, stock lists them in declaration order. Both
+        // messages name all three real tags, which is the claim.
         assertDiagnostic(harness.compileAlone('neg/pick-unknown-tag.ts'), {
           code: 2345,
           message: '"forbidden" | "token-expired" | "unauthorized"',
+          stock: {
+            message: '"unauthorized" | "forbidden" | "token-expired"',
+          },
         })
       })
 
@@ -149,13 +151,21 @@ describe.each(COMPILERS)(
       it('rejects a payload field that JSON serialization would throw on', () => {
         // The message has to name the field: a guard that only said "this
         // payload is bad" would leave the author looking for which of eight
-        // fields it meant (SPEC.md §3.2).
+        // fields it meant (SPEC.md §3.2). Same red through a different door on
+        // stock — the bridge reports the missing property, stock reports the
+        // constraint the property was missing from — and the field's name
+        // survives in both messages, which is what the mandate asks.
         assertDiagnostic(
           harness.compileAlone('neg/unserializable-payload.ts'),
           {
             code: 2741,
             message:
               'Payload field does not survive JSON serialization: outstanding',
+            stock: {
+              code: 2344,
+              message:
+                'Payload field does not survive JSON serialization: outstanding',
+            },
           }
         )
       })

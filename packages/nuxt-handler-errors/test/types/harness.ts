@@ -17,11 +17,13 @@
  * ## The compiler is a parameter
  *
  * Nothing here imports `typescript` at the top level; `createTypeHarness` takes
- * the module. The suite runs under the pinned bridge only and the consumer gap
- * that leaves is accepted (SPEC.md §9.8) — but a future stock-TypeScript run is
- * then a `describe.each([bridge, stock])` plus one aliased dev dependency
- * rather than a harness rewrite. The second compiler is deliberately not wired
- * up.
+ * the module. That is what lets `./compilers.ts` hand every suite a second row:
+ * the same fixtures, compiled by the stock TypeScript consumers actually run
+ * (SPEC.md §9.8). Where the two compilers genuinely diverge, the divergence is
+ * declared at the call site — `DiagnosticExpectation.stock` overrides a code or
+ * message for the stock row, and `assertHoverBudget` canonicalizes `import("…")`
+ * specifiers before measuring, because stock renders them as absolute,
+ * checkout-specific paths no fixed budget could survive.
  *
  * ## Four traps this file exists to keep closed
  *
@@ -75,6 +77,16 @@ import { fileURLToPath } from 'node:url'
 /** The compiler module, taken as a parameter rather than imported. */
 export type TypeScriptModule = typeof import('typescript')
 
+/**
+ * Which of the two compilers a harness is running under.
+ *
+ * Not a version string on purpose: expectations key on the *dialect* — the
+ * pinned bridge versus whatever `typescript-stock`'s caret currently resolves —
+ * so a stock patch release does not invalidate every override written against
+ * the row.
+ */
+export type CompilerDialect = 'bridge' | 'stock'
+
 /** One pre-emit diagnostic, flattened to the parts assertions may match on. */
 export interface HarnessDiagnostic {
   /** The `TSxxxx` number, without the prefix. */
@@ -98,6 +110,15 @@ export interface HarnessDiagnostic {
 export interface DiagnosticExpectation {
   readonly code: number
   readonly message: string
+  /**
+   * What the **stock** compiler reports where it genuinely diverges from the
+   * bridge — a different code, a different message, or both. Absent fields
+   * fall back to the bridge expectation, so both compilers stay fully
+   * asserted and the divergence is legible right where the claim is made.
+   * Measured example: `neg/unserializable-payload.ts` is TS2741 on the bridge
+   * and TS2344 on stock, the same red through a different door.
+   */
+  readonly stock?: Partial<Pick<DiagnosticExpectation, 'code' | 'message'>>
 }
 
 /**
@@ -117,6 +138,11 @@ export interface HoverBudget {
 export interface TypeHarnessOptions {
   /** The compiler module. See "The compiler is a parameter" above. */
   readonly ts: TypeScriptModule
+  /**
+   * Which dialect `ts` is, for resolving per-compiler expectation overrides.
+   * Defaults to `'bridge'`, the pinned gate.
+   */
+  readonly dialect?: CompilerDialect
   /** Fixture paths resolve against this. Defaults to this file's directory. */
   readonly rootDir?: string
   /**
@@ -135,6 +161,8 @@ export interface TypeHarnessOptions {
 export interface Compilation {
   /** Absolute path of the fixture, for failure messages. */
   readonly fixture: string
+  /** The dialect this fixture was compiled under. */
+  readonly dialect: CompilerDialect
   /** Every root file the program was seeded with, fixture first. */
   readonly rootNames: readonly string[]
   /** Every pre-emit diagnostic in the whole program, unfiltered. */
@@ -228,16 +256,24 @@ export function assertDiagnostic(
   compilation: Compilation,
   expected: DiagnosticExpectation
 ): HarnessDiagnostic {
+  // The stock override, resolved here so a divergence is one field at the
+  // call site rather than a second assertion. On the bridge row the override
+  // is inert.
+  const { code, message } =
+    compilation.dialect === 'stock' && expected.stock !== undefined
+      ? { ...expected, ...expected.stock }
+      : expected
+
   const match = compilation.diagnostics.find(
     (diagnostic) =>
-      diagnostic.code === expected.code &&
-      diagnostic.message.includes(expected.message)
+      diagnostic.code === code && diagnostic.message.includes(message)
   )
 
   if (match === undefined) {
     fail([
-      `Expected TS${expected.code} whose message contains`,
-      `${JSON.stringify(expected.message)} in ${compilation.fixture}.`,
+      `Expected TS${code} whose message contains`,
+      `${JSON.stringify(message)} in ${compilation.fixture}`,
+      `(${compilation.dialect} compiler).`,
       ...describeDiagnostics(compilation),
     ])
   }
@@ -261,23 +297,45 @@ export function assertNoDiagnostics(compilation: Compilation): void {
 }
 
 /**
+ * A rendered `import("…")` prefix, whatever specifier it carries.
+ *
+ * The specifier inside is machine noise, not measurement: the bridge renders
+ * it relative, stock renders it as an absolute checkout-specific path roughly
+ * twice as long, and neither length says anything about the mandate a budget
+ * asserts. Canonicalized to the literal fixed token `import("…")` before
+ * measuring, under **both** compilers, so one budget per hover holds
+ * machine-stably everywhere.
+ */
+const IMPORT_SPECIFIER = /import\("[^"]*"\)/g
+
+/** `rendered`, with every `import("…")` specifier collapsed to a fixed token. */
+export function canonicalizeImportSpecifiers(rendered: string): string {
+  return rendered.replaceAll(IMPORT_SPECIFIER, 'import("…")')
+}
+
+/**
  * Render `budget.name` and assert it fits (SPEC.md §9.3).
  *
  * Character count is the metric all three §8.3 legibility mandates were
  * actually decided on, and it is far more stable than the exact string:
  * cosmetic churn moves it a few percent, a real regression moves it 2–20×.
- * Returns the rendered string.
+ * Measured over the canonicalized form — see `IMPORT_SPECIFIER` — which is
+ * also what is returned, so a substring claim on the result never couples to
+ * a path.
  */
 export function assertHoverBudget(
   compilation: Compilation,
   budget: HoverBudget
 ): string {
-  const rendered = compilation.renderHover(budget.name)
+  const rendered = canonicalizeImportSpecifiers(
+    compilation.renderHover(budget.name)
+  )
 
   if (rendered.length > budget.max) {
     fail([
       `Hover budget blown for \`${budget.name}\` in ${compilation.fixture}:`,
-      `${rendered.length} characters against a budget of ${budget.max}.`,
+      `${rendered.length} characters against a budget of ${budget.max}`,
+      `(${compilation.dialect} compiler, import specifiers canonicalized).`,
       rendered,
     ])
   }
@@ -306,6 +364,7 @@ let programGeneration = 0
 
 export function createTypeHarness(options: TypeHarnessOptions): TypeHarness {
   const { ts } = options
+  const dialect = options.dialect ?? 'bridge'
   const rootDir = options.rootDir ?? dirname(fileURLToPath(import.meta.url))
   const tsconfigPath = resolveFrom(
     rootDir,
@@ -372,9 +431,8 @@ export function createTypeHarness(options: TypeHarnessOptions): TypeHarness {
     // whatever was missing.
     //
     // The bridge happens to re-expand the config's `include` from
-    // `configFilePath` on its own, so naming the files here is currently
-    // belt-and-braces. Keep it: it is what stock TypeScript needs, and §9.8's
-    // future second compiler is supposed to be a parameter change.
+    // `configFilePath` on its own, so naming the files here is belt-and-braces
+    // there — and load-bearing on the stock row, which does no such re-read.
     const rootNames = [...new Set([fixturePath, ...parsed.fileNames])]
 
     let built = build(rootNames)
@@ -385,6 +443,7 @@ export function createTypeHarness(options: TypeHarnessOptions): TypeHarness {
 
     return {
       fixture: fixturePath,
+      dialect,
       rootNames,
       diagnostics,
       renderHover: (name) => {

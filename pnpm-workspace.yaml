@@ -51,6 +51,14 @@ catalog:
   publint: ^0.3.22
   scule: ^1.3.0
   typescript: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+  # Stock TypeScript under an alias, for the consumer-compiler test row
+  # (nuxt-handler-errors SPEC.md §9.8). The override above keys on the
+  # dependency alias, never on the package inside the `npm:` spec, so this
+  # entry escapes it and resolves real TS — never rename the alias to
+  # `typescript`, or it gets rewritten to the bridge. The caret floats on
+  # purpose: a new stock minor breaking the type suites is the divergence
+  # signal the second compiler row exists to catch.
+  typescript-stock: npm:typescript@^5
   vitest: ^4.1.10
   # Ranged with a major ceiling, for the same instance-identity reason as `h3`
   # (SPEC.md §7.2): Vue's reactivity is module-global, so a second physical copy

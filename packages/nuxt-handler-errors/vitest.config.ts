@@ -19,11 +19,17 @@ import { defineConfig } from 'vitest/config'
  * screen and is imported by the test that uses it.
  */
 export default defineConfig({
-  // Vitest's own default in all but name. Stated because a config file that
-  // does not name its tests leaves knip with no entry patterns for this
-  // workspace, and `treatConfigHintsAsErrors` then reports every suite in it as
-  // an unused file.
-  test: { include: ['test/**/*.test.ts'] },
+  // The `include` is Vitest's own default in all but name. Stated because a
+  // config file that does not name its tests leaves knip with no entry
+  // patterns for this workspace, and `treatConfigHintsAsErrors` then reports
+  // every suite in it as an unused file.
+  //
+  // The timeout is for the stock-compiler row (`test/types/compilers.ts`): a
+  // fixture program the bridge checks in ~100ms costs stock TypeScript one to
+  // three seconds, and a test that compiles two would flirt with the 5s
+  // default on a loaded box. Watch mode never runs the stock row, so the
+  // margin costs iteration nothing.
+  test: { include: ['test/**/*.test.ts'], testTimeout: 60_000 },
 
   resolve: {
     alias: [

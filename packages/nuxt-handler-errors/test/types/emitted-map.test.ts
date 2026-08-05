@@ -9,15 +9,15 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import ts from 'typescript'
 import { afterAll, describe, expect, it } from 'vitest'
 import { emitMap } from '../../src/emit-map'
+import { COMPILERS } from './compilers'
 import {
   assertDiagnostic,
   assertNoDiagnostics,
   createTypeHarness,
 } from './harness'
-import type { Compilation } from './harness'
+import type { Compilation, CompilerDialect, TypeScriptModule } from './harness'
 
 /**
  * Layer 2 (SPEC.md §9.4): the emitted map, compiled.
@@ -188,16 +188,24 @@ interface AppSpec {
   readonly pretendBuildDir?: string
 }
 
-interface App {
+interface AppTree {
   readonly root: string
   /** The emitted text, so path-referentiality can be a byte comparison. */
   readonly emitted: string
+}
+
+interface App extends AppTree {
   /** Compile one consumer fixture inside this app, alone, with the map in scope. */
   readonly compile: (name: string, source: string) => Compilation
 }
 
 /**
  * Materialise one app: route files, the emitted map, and a tsconfig.
+ *
+ * The tree is built **once**, at module level, because nothing in it depends
+ * on a compiler — the emitter is the pure function under test and its output
+ * is bytes on disk. What each compiler row owns is `attach` below: the same
+ * tree, compiled through that row's `ts` module.
  *
  * Three resolution decisions, and none of them rewrites a byte of the emitted
  * text — the map is compiled exactly as the emitter produced it:
@@ -216,7 +224,7 @@ interface App {
  *   so if it were not named here it would simply be absent, and every assertion
  *   below would go green against an interface that stayed empty.
  */
-function buildApp(spec: AppSpec): App {
+function buildAppTree(spec: AppSpec): AppTree {
   const root = join(ROOT, spec.name)
   mkdirSync(root, { recursive: true })
   symlinkSync(
@@ -261,16 +269,26 @@ function buildApp(spec: AppSpec): App {
     )}\n`
   )
 
+  return { root, emitted }
+}
+
+/** One compiler row's view of a tree: the same bytes, compiled by `ts`. */
+function attach(
+  tree: AppTree,
+  ts: TypeScriptModule,
+  dialect: CompilerDialect
+): App {
   const harness = createTypeHarness({
     ts,
-    rootDir: root,
-    tsconfigPath: join(root, 'tsconfig.json'),
+    dialect,
+    rootDir: tree.root,
+    tsconfigPath: join(tree.root, 'tsconfig.json'),
   })
 
   return {
-    root,
-    emitted,
-    compile: (name, source) => harness.compileAlone(write(root, name, source)),
+    ...tree,
+    compile: (name, source) =>
+      harness.compileAlone(write(tree.root, name, source)),
   }
 }
 
@@ -289,189 +307,201 @@ const CONSUMER_PRELUDE = [
   ``,
 ]
 
-const APP_A = buildApp({ name: 'app-a', catalogue: CATALOGUE_A })
-const APP_B = buildApp({ name: 'app-b', catalogue: CATALOGUE_B })
+const TREE_A = buildAppTree({ name: 'app-a', catalogue: CATALOGUE_A })
+const TREE_B = buildAppTree({ name: 'app-b', catalogue: CATALOGUE_B })
 
-describe('the emitted map, compiled', () => {
-  const compilation = APP_A.compile(
-    'consumer.ts',
-    [
-      ...CONSUMER_PRELUDE,
-      `export type Declared = TypedApiErrors['/api/users/:id']['get']`,
-      `export type Defaulted = TypedApiErrors['/api/y']['default']`,
-      `export type Unbranded = TypedApiErrors['/api/legacy']['get']`,
-      `export type Indexed = TypedApiErrors['/api/indexed']['get']`,
-      ``,
-      `type _tags = Expect<Equal<Declared['tag'], 'user-not-found' | 'user-suspended'>>`,
-      `type _payload = Expect<`,
-      `  Equal<Extract<Declared, { tag: 'user-not-found' }>['userId'], string>>`,
-      `type _notCollapsed = Expect<Equal<IsAny<Declared>, false>>`,
-      `type _notEmpty = Expect<Equal<IsNever<Declared>, false>>`,
-      `type _default = Expect<Equal<Defaulted['tag'], Declared['tag']>>`,
-      `type _unbranded = Expect<IsNever<Unbranded>>`,
-      `type _indexed = Expect<IsNever<Indexed>>`,
-      ``,
-    ].join('\n')
-  )
-
-  it('compiles clean, with the map in the program', () => {
-    assertNoDiagnostics(compilation)
-  })
-
-  it('carries the route’s real tags and payload fields', () => {
-    // The check SPEC-AMENDMENTS item 8 says is the one that catches a map that
-    // resolved to nothing. Tags render **double**-quoted: they are synthesised
-    // by the checker out of an object literal's inferred type rather than
-    // written in an annotation (item 7).
-    const rendered = compilation.renderHover('Declared')
-
-    expect(rendered).toContain('"user-not-found"')
-    expect(rendered).toContain('"user-suspended"')
-    expect(rendered).toContain('userId: string')
-  })
-
-  it('applies Serialize around the extractor, so a Date arrives as a string', () => {
-    // Direct evidence that the `Simplify<Serialize<…>>` the emitter writes
-    // around `ExtractErrorsSafe` is doing work: the catalogue declares
-    // `until: Date`, and the map is the wire's view of it.
-    expect(compilation.renderHover('Declared')).toContain('until: string')
-  })
-
-  it('neutralises the index-signature leak at this position', () => {
-    // Ticket 05's deferred hardening, answered rather than inherited.
-    // `ExtractErrorsSafe` really does hand back `unknown` here — but the map
-    // never emits the extractor bare. `Serialize<unknown>` is `never`
-    // (`nitropack/dist/types/index.d.ts:184-186`: `unknown` matches no arm and
-    // falls off the end), so the wrapper SPEC.md §4.2 mandates for wire-honesty
-    // closes this door as a side effect. **No extra arm is needed in the
-    // extractor for anything reachable through the map**; a consumer calling
-    // `ExtractErrorsSafe` directly is still exposed, which is ticket 15's note
-    // to write rather than this one's code to change.
-    expect(compilation.renderHover('Indexed')).toBe('never')
-  })
-
-  it('extracts nothing from an unbranded route, without special-casing it', () => {
-    // Keying every route costs nothing precisely because of this (SPEC.md
-    // §4.2). `renderHover` will not answer `any` or `unknown`, so this is the
-    // third possibility stated outright.
-    expect(compilation.renderHover('Unbranded')).toBe('never')
-  })
+/**
+ * The same emitter, the same app as `TREE_A`, one thing changed: the map is
+ * written into `.nuxt/types` but emitted as though it were going somewhere
+ * else, so every `import("…")` in it points at a file that is not there.
+ */
+const TREE_BROKEN = buildAppTree({
+  name: 'app-broken',
+  catalogue: CATALOGUE_A,
+  pretendBuildDir: join(ROOT, 'app-broken/elsewhere/deeper'),
 })
 
-describe('the emitted map, when it resolves to nothing', () => {
-  /**
-   * The same emitter, the same app, one thing changed: the map is written into
-   * `.nuxt/types` but emitted as though it were going somewhere else, so every
-   * `import("…")` in it points at a file that is not there.
-   *
-   * **Nothing complains, and the damage is worse than SPEC-AMENDMENTS item 8
-   * predicts.** Item 8 expected the entry to become `any` and
-   * `ExtractErrorsSafe`'s `IsAny` guard to turn that into `never`. Measured
-   * here: it does not. An unresolved `import("…")` yields TypeScript's *error
-   * type*, which renders as `any` but is not `any` — it propagates through
-   * every conditional it is fed to and satisfies whatever constraint it lands
-   * against. The fixture below pins that down the only way it can be pinned
-   * down: it asserts `IsAny<Declared>` is `false` **and** that it is `true`, in
-   * the same program, and the program compiles clean. No inhabited type
-   * satisfies both. SPEC.md §4.3 mandate 1's guard therefore never fires, and
-   * the entry stays `any` all the way to the call site.
-   */
-  const broken = buildApp({
-    name: 'app-broken',
-    catalogue: CATALOGUE_A,
-    pretendBuildDir: join(ROOT, 'app-broken/elsewhere/deeper'),
-  })
+describe.each(COMPILERS)(
+  'the emitted map, on %s',
+  (_label, compiler, dialect) => {
+    const APP_A = attach(TREE_A, compiler, dialect)
+    const APP_B = attach(TREE_B, compiler, dialect)
 
-  const compilation = broken.compile(
-    'consumer.ts',
-    [
-      ...CONSUMER_PRELUDE,
-      `export type Declared = TypedApiErrors['/api/users/:id']['get']`,
-      ``,
-      `type _tags = Expect<Equal<Declared['tag'], 'user-not-found' | 'user-suspended'>>`,
-      `type _notCollapsed = Expect<Equal<IsAny<Declared>, false>>`,
-      `type _isAnyToo = Expect<Equal<IsAny<Declared>, true>>`,
-      `type _notEmpty = Expect<Equal<IsNever<Declared>, false>>`,
-      ``,
-    ].join('\n')
-  )
-
-  it('is swallowed whole: the structural assertions are green and vacuous', () => {
-    // Every one of the four assertions above is false of this map, and not one
-    // of them fails. Two of them contradict each other outright — `IsAny` is
-    // asserted `false` and `true` in the same program — which is what makes
-    // this a measurement of the error type rather than a guess about it. This
-    // is what a suite looks like the day the emitter starts writing paths that
-    // resolve to nothing.
-    assertNoDiagnostics(compilation)
-  })
-
-  it('is caught by the rendering assertion, which is why one is used', () => {
-    expect(() => compilation.renderHover('Declared')).toThrow(
-      /rendered as `any`/
-    )
-  })
-
-  it('and the contradiction is a real diagnostic when the map resolves', () => {
-    // The control for the experiment above. Without it, "both halves of a
-    // contradiction compiled" could just mean `Expect` never checks anything.
-    // Against APP_A's working map the same pair is `TS2344`, so the silence
-    // over the broken map is a property of the broken map.
-    assertDiagnostic(
-      APP_A.compile(
-        'control.ts',
+    describe('the emitted map, compiled', () => {
+      const compilation = APP_A.compile(
+        'consumer.ts',
         [
           ...CONSUMER_PRELUDE,
-          `type Declared = TypedApiErrors['/api/users/:id']['get']`,
+          `export type Declared = TypedApiErrors['/api/users/:id']['get']`,
+          `export type Defaulted = TypedApiErrors['/api/y']['default']`,
+          `export type Unbranded = TypedApiErrors['/api/legacy']['get']`,
+          `export type Indexed = TypedApiErrors['/api/indexed']['get']`,
           ``,
-          `type _notAny = Expect<Equal<IsAny<Declared>, false>>`,
-          `type _isAny = Expect<Equal<IsAny<Declared>, true>>`,
+          `type _tags = Expect<Equal<Declared['tag'], 'user-not-found' | 'user-suspended'>>`,
+          `type _payload = Expect<`,
+          `  Equal<Extract<Declared, { tag: 'user-not-found' }>['userId'], string>>`,
+          `type _notCollapsed = Expect<Equal<IsAny<Declared>, false>>`,
+          `type _notEmpty = Expect<Equal<IsNever<Declared>, false>>`,
+          `type _default = Expect<Equal<Defaulted['tag'], Declared['tag']>>`,
+          `type _unbranded = Expect<IsNever<Unbranded>>`,
+          `type _indexed = Expect<IsNever<Indexed>>`,
           ``,
         ].join('\n')
-      ),
-      { code: 2344, message: 'true' }
-    )
-  })
-})
+      )
 
-describe('path-referentiality, against two apps that really do differ', () => {
-  const compilation = APP_B.compile(
-    'consumer.ts',
-    [
-      ...CONSUMER_PRELUDE,
-      `export type Declared = TypedApiErrors['/api/users/:id']['get']`,
-      ``,
-      `type _tags = Expect<Equal<Declared['tag'], 'account-locked' | 'rate-limited' | 'quota-exceeded'>>`,
-      ``,
-    ].join('\n')
-  )
+      it('compiles clean, with the map in the program', () => {
+        assertNoDiagnostics(compilation)
+      })
 
-  it('emits byte-identical text for two different catalogues', () => {
-    // SPEC.md §4.4 and §4.6's mandate, end to end. Two apps, the same routes at
-    // the same relative paths, catalogues that share not one tag — and the
-    // emitted map is the same string. This is the property that lets Nitro
-    // never regenerate route types on a content change, and it is why no
-    // runtime value map may ever be emitted: a value map resolves its tags at
-    // build time and would go stale with no watcher that would ever fix it.
-    expect(APP_A.emitted).toBe(APP_B.emitted)
-  })
+      it('carries the route’s real tags and payload fields', () => {
+        // The check SPEC-AMENDMENTS item 8 says is the one that catches a map that
+        // resolved to nothing. Tags render **double**-quoted: they are synthesised
+        // by the checker out of an object literal's inferred type rather than
+        // written in an annotation (item 7).
+        const rendered = compilation.renderHover('Declared')
 
-  it('compiles clean against the other catalogue', () => {
-    // SPEC.md §9.5 rule 3, and not a formality here: `renderHover` refuses only
-    // on diagnostics in the *fixture*, while this fixture's whole subject is a
-    // declaration that reaches it from two files away.
-    assertNoDiagnostics(compilation)
-  })
+        expect(rendered).toContain('"user-not-found"')
+        expect(rendered).toContain('"user-suspended"')
+        expect(rendered).toContain('userId: string')
+      })
 
-  it('and the compiler still tells the two apart', () => {
-    // The other half, and the half a string comparison cannot make: byte
-    // identity would be worthless if the type were stale too. It is not,
-    // because the emitted text is an import expression the compiler re-resolves
-    // against whatever is on disk now.
-    const rendered = compilation.renderHover('Declared')
+      it('applies Serialize around the extractor, so a Date arrives as a string', () => {
+        // Direct evidence that the `Simplify<Serialize<…>>` the emitter writes
+        // around `ExtractErrorsSafe` is doing work: the catalogue declares
+        // `until: Date`, and the map is the wire's view of it.
+        expect(compilation.renderHover('Declared')).toContain('until: string')
+      })
 
-    expect(rendered).toContain('"account-locked"')
-    expect(rendered).toContain('"rate-limited"')
-    expect(rendered).not.toContain('"user-not-found"')
-  })
-})
+      it('neutralises the index-signature leak at this position', () => {
+        // Ticket 05's deferred hardening, answered rather than inherited.
+        // `ExtractErrorsSafe` really does hand back `unknown` here — but the map
+        // never emits the extractor bare. `Serialize<unknown>` is `never`
+        // (`nitropack/dist/types/index.d.ts:184-186`: `unknown` matches no arm and
+        // falls off the end), so the wrapper SPEC.md §4.2 mandates for wire-honesty
+        // closes this door as a side effect. **No extra arm is needed in the
+        // extractor for anything reachable through the map**; a consumer calling
+        // `ExtractErrorsSafe` directly is still exposed, which is ticket 15's note
+        // to write rather than this one's code to change.
+        expect(compilation.renderHover('Indexed')).toBe('never')
+      })
+
+      it('extracts nothing from an unbranded route, without special-casing it', () => {
+        // Keying every route costs nothing precisely because of this (SPEC.md
+        // §4.2). `renderHover` will not answer `any` or `unknown`, so this is the
+        // third possibility stated outright.
+        expect(compilation.renderHover('Unbranded')).toBe('never')
+      })
+    })
+
+    describe('the emitted map, when it resolves to nothing', () => {
+      /**
+       * `TREE_BROKEN`, compiled. **Nothing complains, and the damage is worse
+       * than SPEC-AMENDMENTS item 8 predicts.** Item 8 expected the entry to
+       * become `any` and `ExtractErrorsSafe`'s `IsAny` guard to turn that into
+       * `never`. Measured here: it does not. An unresolved `import("…")` yields
+       * TypeScript's *error type*, which renders as `any` but is not `any` — it
+       * propagates through every conditional it is fed to and satisfies whatever
+       * constraint it lands against. The fixture below pins that down the only
+       * way it can be pinned down: it asserts `IsAny<Declared>` is `false` **and**
+       * that it is `true`, in the same program, and the program compiles clean.
+       * No inhabited type satisfies both. SPEC.md §4.3 mandate 1's guard
+       * therefore never fires, and the entry stays `any` all the way to the call
+       * site.
+       */
+      const broken = attach(TREE_BROKEN, compiler, dialect)
+
+      const compilation = broken.compile(
+        'consumer.ts',
+        [
+          ...CONSUMER_PRELUDE,
+          `export type Declared = TypedApiErrors['/api/users/:id']['get']`,
+          ``,
+          `type _tags = Expect<Equal<Declared['tag'], 'user-not-found' | 'user-suspended'>>`,
+          `type _notCollapsed = Expect<Equal<IsAny<Declared>, false>>`,
+          `type _isAnyToo = Expect<Equal<IsAny<Declared>, true>>`,
+          `type _notEmpty = Expect<Equal<IsNever<Declared>, false>>`,
+          ``,
+        ].join('\n')
+      )
+
+      it('is swallowed whole: the structural assertions are green and vacuous', () => {
+        // Every one of the four assertions above is false of this map, and not one
+        // of them fails. Two of them contradict each other outright — `IsAny` is
+        // asserted `false` and `true` in the same program — which is what makes
+        // this a measurement of the error type rather than a guess about it. This
+        // is what a suite looks like the day the emitter starts writing paths that
+        // resolve to nothing.
+        assertNoDiagnostics(compilation)
+      })
+
+      it('is caught by the rendering assertion, which is why one is used', () => {
+        expect(() => compilation.renderHover('Declared')).toThrow(
+          /rendered as `any`/
+        )
+      })
+
+      it('and the contradiction is a real diagnostic when the map resolves', () => {
+        // The control for the experiment above. Without it, "both halves of a
+        // contradiction compiled" could just mean `Expect` never checks anything.
+        // Against APP_A's working map the same pair is `TS2344`, so the silence
+        // over the broken map is a property of the broken map.
+        assertDiagnostic(
+          APP_A.compile(
+            'control.ts',
+            [
+              ...CONSUMER_PRELUDE,
+              `type Declared = TypedApiErrors['/api/users/:id']['get']`,
+              ``,
+              `type _notAny = Expect<Equal<IsAny<Declared>, false>>`,
+              `type _isAny = Expect<Equal<IsAny<Declared>, true>>`,
+              ``,
+            ].join('\n')
+          ),
+          { code: 2344, message: 'true' }
+        )
+      })
+    })
+
+    describe('path-referentiality, against two apps that really do differ', () => {
+      const compilation = APP_B.compile(
+        'consumer.ts',
+        [
+          ...CONSUMER_PRELUDE,
+          `export type Declared = TypedApiErrors['/api/users/:id']['get']`,
+          ``,
+          `type _tags = Expect<Equal<Declared['tag'], 'account-locked' | 'rate-limited' | 'quota-exceeded'>>`,
+          ``,
+        ].join('\n')
+      )
+
+      it('emits byte-identical text for two different catalogues', () => {
+        // SPEC.md §4.4 and §4.6's mandate, end to end. Two apps, the same routes at
+        // the same relative paths, catalogues that share not one tag — and the
+        // emitted map is the same string. This is the property that lets Nitro
+        // never regenerate route types on a content change, and it is why no
+        // runtime value map may ever be emitted: a value map resolves its tags at
+        // build time and would go stale with no watcher that would ever fix it.
+        expect(APP_A.emitted).toBe(APP_B.emitted)
+      })
+
+      it('compiles clean against the other catalogue', () => {
+        // SPEC.md §9.5 rule 3, and not a formality here: `renderHover` refuses only
+        // on diagnostics in the *fixture*, while this fixture's whole subject is a
+        // declaration that reaches it from two files away.
+        assertNoDiagnostics(compilation)
+      })
+
+      it('and the compiler still tells the two apart', () => {
+        // The other half, and the half a string comparison cannot make: byte
+        // identity would be worthless if the type were stale too. It is not,
+        // because the emitted text is an import expression the compiler re-resolves
+        // against whatever is on disk now.
+        const rendered = compilation.renderHover('Declared')
+
+        expect(rendered).toContain('"account-locked"')
+        expect(rendered).toContain('"rate-limited"')
+        expect(rendered).not.toContain('"user-not-found"')
+      })
+    })
+  }
+)

@@ -788,14 +788,48 @@ TypeScript's error type — which renders as `any` and satisfies whatever it mee
 forbidden by design. The route is Nuxt-internal and the state is pinned by a test,
 so the day it changes is visible rather than silent.
 
-### The consumer-compiler gap
+### The consumer compiler runs too
 
 This repo type-checks on a pinned tsgo bridge, and that is the gate's contract.
-**Downstream projects compile the emitted `.d.ts` with stock TypeScript, and
-nothing in this repo's gate proves what they will experience.** The mitigation is
-designed in and costs nothing today — the type-assertion harness takes its `ts`
-module as a parameter, so a second compiler is a `describe.each` plus one aliased
-devDependency — but it is not wired up.
+Downstream projects compile the emitted `.d.ts` with stock TypeScript — so every
+compile-time assertion suite runs **twice**: the `test/types/*` fixtures, the
+emitted-map suite, and the generated-map suite (a real prepared app compiling
+probes through the published exports map) are each a `describe.each` over both
+compilers. The stock row resolves through the `typescript-stock` devDependency
+(`npm:typescript@^5` — 5.9.3 at wiring time), whose caret **floats
+deliberately**: a new stock minor breaking this suite is precisely the
+consumer-divergence signal the row exists to catch. `pnpm test` — and therefore
+CI and `pnpm check` — always runs both compilers via the
+`NUXT_HANDLER_ERRORS_STOCK_TS` flag the script sets; `pnpm test:watch` leaves it
+unset, keeping iteration on the ~15×-faster bridge. Measured at wiring time
+(stock 5.9.3, 8-thread box): the full suite is 18s bridge-only and 63s with the
+stock row; the generated-map suite alone is 7s → 18s, its `nuxt prepare` builds
+shared across the rows so each row pays only for its own probe compilations.
+
+Where the compilers genuinely diverge, both stay fully asserted — the
+expectation carries a stock-side override at the call site rather than an
+exemption. Three divergence classes are known:
+
+- **Diagnostic codes.** `neg/unserializable-payload.ts` is TS2741 on the bridge
+  and TS2344 on stock — the same red through a different door, with the
+  offending field named in both messages.
+- **Union ordering in messages.** The bridge sorts union members
+  alphabetically; stock lists them in declaration order.
+- **Quote style in rendered types.** A literal written in a type annotation
+  renders single-quoted on the bridge and double-quoted on stock (synthesised
+  literals are double-quoted on both).
+
+A fourth was dissolved rather than asserted: hovers that render an
+`import("…")` prefix get a relative specifier on the bridge and an absolute,
+checkout-specific one on stock, so the harness canonicalizes the specifier to a
+fixed token before measuring hover budgets — after which every budgeted render
+measures **byte-identical** under both compilers, and one budget per hover
+holds everywhere.
+
+What remains exempt: the `vue-tsc` typecheck step still runs the bridge only
+(the workspace-wide `typescript` override is repo tooling; SPEC.md §12.1), and
+the language-service surfaces §9.7 names were never in scope for either
+compiler.
 
 ### What is deliberately not protected
 
@@ -913,7 +947,9 @@ a cold cache, and `publint` reports no problems against a real `dist/`.
 The recommendation is to admit it, at `0.1.0` rather than `0.0.1` — the surface
 is deliberately smaller than `SPEC.md` (see the pruning note below), it is
 complete against this README, and the version should say _usable, not yet
-stable_. Weigh the consumer-compiler gap and the coverage gaps above first.
+stable_. Weigh the coverage gaps above first; the consumer-compiler gap that
+used to sit beside them is closed — the suite now runs under stock TypeScript
+as well as the bridge.
 **The call belongs to the repository owner**; until `private` is removed the
 package is not a Publishable package and owes no Release intent, so its first
 intent is the one that accompanies its admission.

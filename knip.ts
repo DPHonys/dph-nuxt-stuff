@@ -82,8 +82,13 @@ export default {
       // list because this package *does* import it from source —
       // `test/module-setup.test.ts` types the loaded Nuxt instance with it —
       // so the scaffold-shape exemption would suppress nothing here and the
-      // hint promoted above would fail the run.
-      ignoreDependencies: ['@nuxt/devtools'],
+      // hint promoted above would fail the run. `typescript-stock` is the
+      // consumer-compiler row of the type suites (SPEC.md §9.8): loaded by
+      // `test/types/compilers.ts` through `createRequire` under its alias
+      // name — never through the name `typescript`, which the workspace
+      // override rewrites to the bridge — and knip cannot follow a require
+      // held in a variable.
+      ignoreDependencies: ['@nuxt/devtools', 'typescript-stock'],
 
       entry: [
         ...nuxtModuleWorkspace.entry,

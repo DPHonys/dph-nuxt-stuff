@@ -2117,6 +2117,26 @@ parameter** rather than importing it at top level. A future stock-tsc run is the
 `describe.each([bridge, stock])` plus one aliased devDependency — no harness rewrite. Deliberately not
 wired up now.
 
+> **⟳ Wired in the coverage-gaps effort — the mitigation paid out exactly as designed.** Every
+> `createTypeHarness` suite (`test/types/*`, the emitted-map suite, and the generated-map suite
+> against the real prepared app) is now a `describe.each` over both compilers
+> (`test/types/compilers.ts`). The stock row is the aliased `typescript-stock` devDependency
+> (`npm:typescript@^5`, floating on purpose — a stock minor breaking the suite is the divergence
+> signal this row exists for; pnpm overrides key on the dependency alias, so the workspace-wide
+> bridge override never touches it) and joins via an env flag `pnpm test` sets, so CI always runs
+> both while `test:watch` stays on the bridge. The divergence class this section declared itself
+> blind to was real and is now *asserted*, not exempted: expectations carry a per-compiler `stock`
+> override at the call site (measured: TS2741→TS2344 on `neg/unserializable-payload.ts`; union
+> members ordered alphabetically on the bridge, declaration-order on stock; annotation-written
+> literals single-quoted on the bridge, double-quoted on stock). Hover budgets survive both
+> compilers by canonicalizing the `import("…")` specifier to a fixed token before measuring —
+> stock renders absolute checkout-specific paths there — after which every budgeted render
+> measures byte-identical under both. Cost, measured at wiring: `pnpm test` 18s → 63s wall; the
+> generated-map suite 7s → 18s, its `nuxt prepare` builds shared across rows. §9.7 item 2 and
+> §10's "neither observation is now under test" are both narrowed by this: stock-tsc behaviour of
+> everything the harness compiles *is* now under test, and only the `vue-tsc` typecheck step
+> remains bridge-only (§12.1's repo-tooling item, unchanged).
+
 ### 9.9 Six implementation traps handed forward (18 §9)
 
 Each was hit by a probe session and would otherwise cost an hour.
