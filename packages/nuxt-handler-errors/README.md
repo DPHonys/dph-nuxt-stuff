@@ -856,6 +856,19 @@ compiler.
   dissolved as a non-gap — no `H3Event` exists in a browser, so there is
   nothing whose absence a test could observe and no deletion that could make
   one red.
+- **Consumer-side version skew on the `@experimental` h3 augmentation
+  `event.$fetch` rides.** Inside this repo the ride is guarded twice: an h3 or
+  Nitro bump that moves `event.$fetch` is a compile error in the one module
+  file that reads it, and a red wire tier — `test/wire.test.ts` sends a real
+  hop through `event.$typedFetch`, which cannot succeed unless Nitro assigned
+  `event.$fetch` at runtime first. What is not guarded is a consumer running a
+  newer nitro/h3 than this repo built against, where the property is gone at
+  runtime: no shipped presence check exists, deliberately. The failure there
+  is lazy but loud — the first `$typedFetch` call throws
+  `event.$fetch is not a function` at the wrapper's own line — and an
+  every-request guard would buy only a better-worded, earlier error at the
+  cost of shipped runtime behaviour guarding a residual the suite cannot
+  reach, the same class as the upstream client-plugin contract above.
 
 ### Coverage gaps in the shipped test suite
 
@@ -868,10 +881,6 @@ Stated because a silent gap is worse than a known one.
   upstream still fires the hook is observable only from a live dev server;
   `pnpm dev-race` is the only observation that catches that, and it is ungated
   by design.
-- **The `@experimental` h3 augmentation `event.$fetch` rides is unguarded at
-  runtime.** If h3 moves it, the failure is a compile error in one module file
-  rather than a silent behaviour change in user code — which is why the ride was
-  accepted — but nothing checks it at run time.
 
 ---
 
