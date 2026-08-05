@@ -425,6 +425,43 @@ describe('relative handler specifiers', () => {
       })
     ).toContain(`    '/it\\'s': {`)
   })
+
+  it('escapes a line terminator, which would not end the literal but unterminate it', () => {
+    // A newline is legal in a POSIX file name and reaches the emitter as part
+    // of Nitro's own `mw.route`. Unescaped it is not a wrong *type* — it is an
+    // unterminated string literal, so the whole generated `.d.ts` stops
+    // parsing and every route goes with it, not one.
+    const emitted = emitMap(
+      [
+        { route: '/we\nird', handler: '/app/server/routes/we\nird.ts' },
+        { route: '/re\rturn', handler: '/app/server/routes/re\rturn.ts' },
+        {
+          route: '/sep\u2028arator',
+          handler: '/app/server/routes/sep\u2028arator.ts',
+        },
+        {
+          route: '/para\u2029graph',
+          handler: '/app/server/routes/para\u2029graph.ts',
+        },
+      ],
+      { nitroOptions: NITRO }
+    )
+
+    expect(emitted).toContain(`    '/we\\nird': {`)
+    expect(emitted).toContain(`    '/re\\rturn': {`)
+    expect(emitted).toContain(`    '/sep\\u2028arator': {`)
+    expect(emitted).toContain(`    '/para\\u2029graph': {`)
+
+    // The property the four rows above are evidence *for*, asserted directly:
+    // every literal the file opens, it closes on the same line. A raw `\n` in
+    // a route key would split one entry across two lines, so the count is what
+    // sees it — and the specifiers carry the same characters as the keys, since
+    // both are quoted by the same function.
+    expect(
+      emitted.split('\n').filter((line) => /^ {4}'/.test(line))
+    ).toHaveLength(4)
+    expect(emitted).not.toMatch(/[\r\u2028\u2029]/)
+  })
 })
 
 describe('path-referentiality (SPEC.md §4.4, §4.6)', () => {

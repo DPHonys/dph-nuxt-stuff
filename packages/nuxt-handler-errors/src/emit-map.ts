@@ -57,6 +57,44 @@ const SOURCE_EXTENSION = /\.(?:js|mjs|cjs|ts|mts|cts|tsx|jsx)$/
 const RELATIVE_SPECIFIER = /^\.\.?\//
 
 /**
+ * What a character is written as inside the single-quoted TypeScript string
+ * literals this file emits.
+ *
+ * All six are here for the reason the quote already was: **a route key is a
+ * file name**. It is Nitro's own `mw.route`, derived from a path on disk, and
+ * a POSIX file name may contain any byte but `/` and NUL — so every character
+ * below is one a route key can really carry.
+ *
+ * They are not equally bad, and the difference is why the first four are the
+ * point of this table:
+ *
+ * - **`\` and `'` corrupt the literal.** Already handled, and unchanged.
+ * - **`\n` and `\r` are a parse error.** A line terminator is forbidden inside
+ *   a string literal, so one route key with a newline in it does not produce a
+ *   wrong type — it produces an **unterminated string** and takes the whole
+ *   generated `.d.ts` down, which is every route rather than one.
+ * - **U+2028 and U+2029 are hardening, not a fix.** ES2019's JSON-superset
+ *   change made them legal in a string literal and TypeScript follows it, so
+ *   nothing here is broken today. They are normalised because they are line
+ *   terminators everywhere *else* in the grammar and this file's output is read
+ *   by more than one parser.
+ *
+ * Escaping is the right treatment rather than rejection: the key has to reach
+ * the map verbatim or the entry stops matching what Nitro wrote for the same
+ * handler (SPEC.md §4.2).
+ */
+const STRING_ESCAPES: Readonly<Record<string, string>> = {
+  '\\': '\\\\',
+  "'": "\\'",
+  '\n': '\\n',
+  '\r': '\\r',
+  '\u2028': '\\u2028',
+  '\u2029': '\\u2029',
+}
+
+const NEEDS_ESCAPE = /[\\'\n\r\u2028\u2029]/g
+
+/**
  * The slice of `Nitro['options']` the path arithmetic reads.
  *
  * Narrowed rather than taking the whole options object so that the emitter's
@@ -273,7 +311,7 @@ function specifierFor(
 
 /** A single-quoted TypeScript string literal. Route keys come from the filesystem. */
 function quote(value: string): string {
-  return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`
+  return `'${value.replaceAll(NEEDS_ESCAPE, (char) => STRING_ESCAPES[char] ?? char)}'`
 }
 
 function getOrCreate<K, V>(map: Map<K, V>, key: K, create: () => V): V {
