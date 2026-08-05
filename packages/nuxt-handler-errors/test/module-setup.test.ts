@@ -77,6 +77,30 @@ describe('module setup wiring', () => {
     ])
   })
 
+  it('registers the app $typedFetch plugin, client-only', () => {
+    // The browser half of SPEC.md §3.5's global: one `addPlugin` whose
+    // `mode: 'client'` is load-bearing and measured — an all-modes app plugin
+    // writes the same one `globalThis` during SSR and masks the Nitro
+    // plugin's deletion (§3.5's implementation note). The e2e suite already
+    // reddens on losing `client`; this is what reddens on losing the
+    // *registration*, which no browser runs in `pnpm check` to observe. What
+    // the plugin's function body does is the unit test beside the double
+    // (`typed-fetch.plugin.test.ts`); that Nuxt ships and executes a
+    // registered client plugin in a real browser is upstream's contract and
+    // deliberately not protected.
+    const entries = nuxt.options.plugins.filter((plugin) =>
+      /\/runtime\/app\/typed-fetch\.plugin(?:\.\w+)?$/.test(
+        typeof plugin === 'string' ? plugin : plugin.src
+      )
+    )
+
+    // Length over the whole filtered list, so a duplicate registration is a
+    // failure too. `toMatchObject` rather than `toEqual`, because kit stamps
+    // each entry with a marker symbol that is its internals, not contract.
+    expect(entries).toHaveLength(1)
+    expect(entries).toMatchObject([{ mode: 'client' }])
+  })
+
   it('re-renders exactly the map template when this nitro’s types:extend fires', async () => {
     // The correctness anchor's deletion half (SPEC.md §4.2): `types:extend`
     // fires inside Nitro's `writeTypes` after a fresh `scanHandlers`, and the

@@ -840,6 +840,15 @@ compiler.
   Nitro bump is suspected.
 - **Editor experience beyond rendered strings** — go-to-definition, quick-info
   layout, squiggle placement.
+- **Nuxt shipping and executing a registered `mode: 'client'` plugin in a real
+  browser.** Both deletion modes of the client `$typedFetch` plugin are red in
+  `pnpm check` without one — the `mode: 'client'` registration structurally in
+  `test/module-setup.test.ts`, the assignment by executing the plugin against
+  the `#app` recording double — so a browser tier's whole yield would be Nuxt's
+  own upstream contract. Re-evaluated rather than assumed (SPEC.md §9.7): the
+  candidate path is the same runner and fixture the suite already uses, and was
+  rejected because `playwright-core`, a Chromium download in CI, and
+  real-browser flake are not worth that residual.
 
 ### Coverage gaps in the shipped test suite
 
@@ -852,13 +861,10 @@ Stated because a silent gap is worse than a known one.
   upstream still fires the hook is observable only from a live dev server;
   `pnpm dev-race` is the only observation that catches that, and it is ungated
   by design.
-- **The client-side `$typedFetch` plugin's necessity has no assertion.** It is
-  observable only in a browser, and no test tier here has its own runner. Its
-  deletion is silent in `pnpm check`.
 - **`event.$typedFetch` being absent client-side is untested**, as is plugin
   ordering against another plugin that replaces `event.$fetch`. Both are
   observable only in a browser, so they stand or fall with the no-browser-tier
-  decision the client-plugin gap above records. The rendering assertion taken
+  decision recorded under "What is deliberately not protected" above. The rendering assertion taken
   _through_ `event.$typedFetch` against the real generated map now exists —
   `test/generated-map.test.ts` compiles a probe in the prepared app's own
   server program and budgets `event.$typedFetch.safe`'s hover there.

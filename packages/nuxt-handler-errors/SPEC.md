@@ -593,9 +593,13 @@ type TypedResult<T, D extends AnyVariant> = [D] extends [never]
 > auto-import (`addImports` + `addServerImports`) was considered and rejected: it gives the same
 > call-site ergonomics with less machinery, but this section declares a **global**, and a name that
 > is not on `globalThis` is not one — a `.js` file, a template expression, or any code Nuxt's
-> unimport transform does not reach would not see it. *What is not covered, stated rather than
-> implied:* the client plugin's own necessity has no assertion. It is observable only in a browser,
-> and §9 forbids a test tier that needs its own runner, so its deletion is silent in `pnpm check`.
+> unimport transform does not reach would not see it. *⟳ Since asserted structurally, without a
+> browser:* both of the client plugin's deletion modes are red in `pnpm check` —
+> `test/module-setup.test.ts` holds the `mode: 'client'` registration on a real `loadNuxt` boot, and
+> `test/typed-fetch.plugin.test.ts` executes the plugin against the `#app` recording double and
+> holds the `globalThis` write to be the module's own `$typedFetch` instance. What stays unobserved
+> is Nuxt shipping and executing a registered client plugin in a real browser — upstream's own
+> contract, §9.7 item 5.
 
 - **The `[D] extends [never]` collapse is mandatory** and for a reason that is *not* the one 10
   needed it for: a union member whose *property* is `never` is **not itself `never`**, so the naive
@@ -2095,6 +2099,15 @@ Stated plainly, because inheriting a silent gap is worse than inheriting a known
 3. **Dev-server wall-clock timing** — the invariant is tested, the clock is not (§9.6).
 4. **Editor experience beyond rendered strings** — go-to-definition, quick-info layout, error squiggle
    placement. Out of reach of any harness this repo would maintain.
+5. **⟳ Nuxt shipping and executing a registered `mode: 'client'` plugin in a real browser.** Both
+   deletion modes of the client `$typedFetch` plugin are asserted without one (§3.5's
+   implementation note), so a browser tier's whole yield would be upstream's own contract. The
+   rejection was re-evaluated rather than assumed, and this section's original terms are not what
+   carries it: the candidate path — `browser: true` on the *existing* `@nuxt/test-utils/e2e`
+   `setup()` — is the same runner and the same fixture app the "no new test tier" rule names, so
+   nothing above bars it. What stands is the price: a `playwright-core` devDependency, a Chromium
+   download in CI, and real-browser flake exposure, none of it worth that thin residual in the
+   gate. No ungated browser diagnostic either — same thin residual, same dependency weight.
 
 ### 9.8 Compilers: the pinned bridge only, and the consumer gap
 

@@ -8,6 +8,11 @@
  *
  * It is not a simulation of `useFetch` and must not become one. The composable
  * running for real, against a real server, is `test/specifiers.test.ts`.
+ *
+ * `defineNuxtPlugin` is here for the same reason with even less to it: the
+ * client plugin (`typed-fetch.plugin.test.ts`) is app-side code, and what its
+ * test asserts is the setup function's own effect — so the double hands that
+ * function back unchanged and simulates nothing of Nuxt's plugin lifecycle.
  */
 
 /** One recorded call, in vanilla's own three-argument runtime shape. */
@@ -35,3 +40,5 @@ function record(name: RecordedCall['name']) {
 
 export const useFetch = record('useFetch')
 export const useLazyFetch = record('useLazyFetch')
+
+export const defineNuxtPlugin = <T>(plugin: T): T => plugin
