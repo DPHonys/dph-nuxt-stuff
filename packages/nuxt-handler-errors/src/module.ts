@@ -18,25 +18,13 @@ import {
 } from '@nuxt/kit'
 import type { Nitro } from 'nitropack/types'
 import { emitMap, EMPTY_MAP, TYPES_SPECIFIER } from './emit-map'
-import type { MethodKeyMode } from './emit-map'
 
-export interface ModuleOptions {
-  /**
-   * How a route with no method-specific handler is keyed (SPEC.md §10.3).
-   *
-   * `presence` is the default and the shipped design: one `default` key, with
-   * the fallback done at the type level on key presence, mirroring h3's
-   * dispatcher. `expanded` is the documented fallback for the day the added
-   * conditional depth tips a large app's compiler over — it moves the fallback
-   * into the emitter, so consumption is a bare index with zero conditionals, at
-   * the cost of a nine-fold expansion of every catch-all route.
-   *
-   * Exposed rather than hard-coded because the trigger condition is a property
-   * of the *consumer's* app — the evidence for `presence` is one app with six
-   * routes (SPEC.md §10.2) — and an escape hatch nobody can reach is not one.
-   */
-  methodKeys?: MethodKeyMode
-}
+/**
+ * The module has no options. Deliberate: every wrapper mirrors its vanilla
+ * counterpart exactly, so there is nothing to configure — and an option is far
+ * cheaper to add later than to remove.
+ */
+export interface ModuleOptions {}
 
 /**
  * Where the map is written, relative to Nuxt's `buildDir`.
@@ -63,7 +51,7 @@ export default defineNuxtModule<ModuleOptions>({
     // (4.5.1) rather than what the scaffold assumed. See SPEC.md §7.1.
     compatibility: { nuxt: '>=4.5.0 <5.0.0' },
   },
-  setup(options, nuxt) {
+  setup(_options, nuxt) {
     // Nuxt's hoist list puts a `paths` entry for the specifier into every
     // generated tsconfig, so the `declare module` block the emitter writes and
     // every consumer's `import type { TypedApiErrors }` name the same file.
@@ -246,12 +234,6 @@ export default defineNuxtModule<ModuleOptions>({
                   // hand-built object narrowed to the three properties the
                   // signature names would silently lose them.
                   nitroOptions: nitro.options,
-                  // Forwarded only when the consumer set it, so the default
-                  // lives in exactly one place — `EmitMapOptions` — rather than
-                  // being restated here and in a `defaults` block as well.
-                  ...(options.methodKeys === undefined
-                    ? {}
-                    : { methodKeys: options.methodKeys }),
                 }
               ),
       },

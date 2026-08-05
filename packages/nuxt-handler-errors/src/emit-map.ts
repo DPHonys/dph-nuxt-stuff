@@ -41,43 +41,6 @@ import { isAbsolute, relative, resolve } from 'pathe'
  */
 export const TYPES_SPECIFIER = '@dphonys/nuxt-handler-errors/types'
 
-/**
- * `h3`'s `RouterMethod`, which is `Lowercase<HTTPMethod>` and therefore a closed
- * nine-member union (`h3/dist/index.d.ts:177,268`).
- *
- * Written out rather than derived because it is *data* here — the `expanded`
- * mode iterates it — and a type-level union cannot be iterated at run time.
- *
- * Two guards keep it honest against h3, and **one of them alone is not enough**:
- * `satisfies` rejects a member that is not an h3 method, but a *subset*
- * satisfies it happily, so it says nothing about a member going missing.
- * `Covers` below is the other direction, which is the one SPEC.md §10.3's
- * "closed nine-member union" actually rests on — an h3 release adding a tenth
- * method would otherwise silently under-expand every `default` route.
- */
-const ROUTER_METHODS = [
-  'connect',
-  'delete',
-  'get',
-  'head',
-  'options',
-  'patch',
-  'post',
-  'put',
-  'trace',
-] as const satisfies readonly RouterMethod[]
-
-/**
- * Assert at compile time that `Listed` leaves no member of `Union` out. The
- * constraint *is* the assertion; nothing reads the alias.
- */
-type Covers<Listed, Union extends Listed> = Union
-
-type _EveryRouterMethodIsListed = Covers<
-  (typeof ROUTER_METHODS)[number],
-  RouterMethod
->
-
 /** The key a handler with no method of its own is filed under, as Nitro files it. */
 const DEFAULT_METHOD = 'default'
 
@@ -92,20 +55,6 @@ const SOURCE_EXTENSION = /\.(?:js|mjs|cjs|ts|mts|cts|tsx|jsx)$/
 
 /** Matches a specifier TypeScript and Node both read as *relative*. */
 const RELATIVE_SPECIFIER = /^\.\.?\//
-
-type RouterMethod = NonNullable<NitroEventHandler['method']>
-
-/**
- * How `default` routes are keyed.
- *
- * - `presence` — SPEC.md §10.3's chosen Option 1. A route with no
- *   method-specific handler keeps a single `default` key, and the type-level
- *   lookup (ticket 08) falls back to it **on key presence**, mirroring h3's
- *   dispatcher.
- * - `expanded` — SPEC.md §10.3's documented Option 2, and the reason it is
- *   shipped rather than merely written down is below.
- */
-export type MethodKeyMode = 'presence' | 'expanded'
 
 /**
  * The slice of `Nitro['options']` the path arithmetic reads.
@@ -126,23 +75,6 @@ export interface EmitMapOptions {
    * the instance itself is deliberately not a parameter.
    */
   readonly nitroOptions: NitroPathOptions
-
-  /**
-   * Defaults to `presence`.
-   *
-   * **The trigger condition for switching, recorded here and not only in
-   * SPEC.md §10.3: it is the added conditional depth being what tips this
-   * repo's compiler over.** `presence` costs the consumption site a second
-   * `MatchedRoutes` traversal plus two conditionals, in exactly the
-   * deferred-generic position where research 02 measured `TS2321 Excessive
-   * stack depth` on the pinned bridge. The ticket-09 prototype did *not*
-   * reproduce that, which is why Option 1 is the default — but the evidence for
-   * it is **one app with six routes**, and nothing measured says a large app
-   * will not hit it. `expanded` moves the fallback out of the type level and
-   * into this file, leaving consumption a bare index with zero conditionals, at
-   * the cost of a nine-fold expansion of every catch-all route.
-   */
-  readonly methodKeys?: MethodKeyMode
 }
 
 /**
@@ -214,9 +146,7 @@ export function emitMap(
   }
 
   return renderFile(
-    sortedEntries(routes).map(([route, methods]) =>
-      renderRoute(route, methods, options)
-    )
+    sortedEntries(routes).map(([route, methods]) => renderRoute(route, methods))
   )
 }
 
@@ -264,47 +194,15 @@ function renderFile(routeBlocks: readonly string[]): string {
 
 function renderRoute(
   route: string,
-  methods: ReadonlyMap<string, readonly string[]>,
-  options: EmitMapOptions
+  methods: ReadonlyMap<string, readonly string[]>
 ): string {
-  const keyed =
-    options.methodKeys === 'expanded' ? expandDefaultKey(methods) : methods
-
   return [
     `    ${quote(route)}: {`,
-    ...sortedEntries(keyed).map(
+    ...sortedEntries(methods).map(
       ([method, declared]) => `      ${quote(method)}: ${declared.join(' | ')}`
     ),
     '    }',
   ].join('\n')
-}
-
-/**
- * SPEC.md §10.3's Option 2, applied to one route.
- *
- * Every `default` route becomes the nine `RouterMethod` keys minus any method
- * with its own handler file, and the `default` key is dropped. A route that
- * never had a `default` key is returned untouched — there is nothing to expand,
- * and inventing keys for methods the route does not serve would contradict
- * Nitro's `AvailableRouterMethod`, which is what already makes such a call
- * `TS2769`.
- */
-function expandDefaultKey(
-  methods: ReadonlyMap<string, readonly string[]>
-): ReadonlyMap<string, readonly string[]> {
-  const fallback = methods.get(DEFAULT_METHOD)
-  if (fallback === undefined) return methods
-
-  const expanded = new Map<string, readonly string[]>(
-    [...methods].filter(([method]) => method !== DEFAULT_METHOD)
-  )
-
-  for (const method of ROUTER_METHODS) {
-    // A method with its own handler file wins: it is the one h3 dispatches to.
-    if (!expanded.has(method)) expanded.set(method, fallback)
-  }
-
-  return expanded
 }
 
 /**

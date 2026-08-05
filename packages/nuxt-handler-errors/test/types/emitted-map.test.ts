@@ -12,7 +12,6 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { afterAll, describe, expect, it } from 'vitest'
 import { emitMap } from '../../src/emit-map'
-import type { EmitMapOptions } from '../../src/emit-map'
 import {
   assertDiagnostic,
   assertNoDiagnostics,
@@ -113,8 +112,7 @@ function appFiles(catalogue: string): Record<string, string> {
     ].join('\n'),
 
     // A `default`-keyed route: no method in the file name, so SPEC.md §4.3's
-    // presence-based fallback is what a `GET` caller resolves through — and
-    // SPEC.md §10.3's `expanded` mode is what rewrites it into nine keys.
+    // presence-based fallback is what a `GET` caller resolves through.
     'server/api/y.ts': [
       `import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'`,
       `import { userErrors } from '../../shared/errors/user'`,
@@ -182,7 +180,6 @@ interface AppSpec {
   /** Directory under the suite's temp root. */
   readonly name: string
   readonly catalogue: string
-  readonly methodKeys?: EmitMapOptions['methodKeys']
   /**
    * A `buildDir` to hand the emitter *instead of* this app's real one, while
    * the map is still written to `MAP_PATH`. The one knob that breaks every
@@ -238,7 +235,6 @@ function buildApp(spec: AppSpec): App {
       srcDir: join(root, 'server'),
       alias: {},
     },
-    ...(spec.methodKeys === undefined ? {} : { methodKeys: spec.methodKeys }),
   })
 
   write(root, MAP_PATH, emitted)
@@ -477,41 +473,5 @@ describe('path-referentiality, against two apps that really do differ', () => {
     expect(rendered).toContain('"account-locked"')
     expect(rendered).toContain('"rate-limited"')
     expect(rendered).not.toContain('"user-not-found"')
-  })
-})
-
-describe('the `expanded` method-key mode, still compiling (SPEC.md §10.3)', () => {
-  // The test that stops the documented fallback rotting into one that no longer
-  // compiles the day it is needed. `expanded` moves SPEC.md §4.3's `default`
-  // fallback out of the type level and into the emitter, so a `default`-keyed
-  // route answers on all nine method keys through a bare index with zero
-  // conditionals.
-  const expanded = buildApp({
-    name: 'app-expanded',
-    catalogue: CATALOGUE_A,
-    methodKeys: 'expanded',
-  })
-
-  const compilation = expanded.compile(
-    'consumer.ts',
-    [
-      ...CONSUMER_PRELUDE,
-      `export type Patch = TypedApiErrors['/api/y']['patch']`,
-      `export type Get = TypedApiErrors['/api/y']['get']`,
-      ``,
-      `type _same = Expect<Equal<Patch, Get>>`,
-      `type _notCollapsed = Expect<Equal<IsAny<Patch>, false>>`,
-      `type _notEmpty = Expect<Equal<IsNever<Patch>, false>>`,
-      ``,
-    ].join('\n')
-  )
-
-  it('compiles clean, with nine method keys and no default', () => {
-    assertNoDiagnostics(compilation)
-    expect(expanded.emitted).not.toContain(`'default'`)
-  })
-
-  it('answers with the route’s real union on every expanded key', () => {
-    expect(compilation.renderHover('Patch')).toContain('"user-not-found"')
   })
 })
