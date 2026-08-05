@@ -66,6 +66,15 @@ export default {
   workspaces: {
     'packages/*': nuxtModuleWorkspace,
 
+    // A parked plain-library workspace, not the Nuxt-module shape the glob
+    // assumes (no `src/module.ts`, no runtime tree reached by registration).
+    // The package export is discovered from `exports` on its own; the one
+    // entry knip cannot see is the type-assertion file, which is compiled by
+    // the package's own `tsc --noEmit` rather than imported.
+    'packages/nuxt-handler-validation': {
+      entry: ['test/types.ts'],
+    },
+
     'packages/nuxt-handler-errors': {
       ...nuxtModuleWorkspace,
 
