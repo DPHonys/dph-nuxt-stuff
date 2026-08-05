@@ -1912,10 +1912,14 @@ majority of the assertions.
 >   `nitro:init` fires before the type templates are first rendered, so the closure is already
 >   populated and the first render is already complete — the forced re-render buys **regeneration on
 >   route change in dev** and nothing else. The claim is true of layer 3's *fixture* (only a real app
->   can see the binding at all) and false of its *build mode*. The only observation that catches it
->   is `pnpm dev-race`, which §9.6 leaves ungated — so this is a **known, deliberate gap in
->   `pnpm check`**, and it is the reason the two diagnostic scripts ship rather than being written
->   down. The column above is rewritten to what layer 3 does catch.
+>   can see the binding at all) and false of its *build mode*. The deletion half is since asserted
+>   structurally: `test/module-setup.test.ts` fires `types:extend` on the Nitro instance captured
+>   from a real `loadNuxt` boot and holds the answer to one re-render request filtered to exactly
+>   the map template, so dropping the registration is a red test rather than a byte-identical
+>   build. What stays dev-race-only is the *upstream* half — a Nuxt or Nitro bump making
+>   `types:extend` stop firing at all is observable only from a live dev server, and §9.6 leaves
+>   `pnpm dev-race` ungated — which is the reason the two diagnostic scripts ship rather than being
+>   written down. The column above is rewritten to what layer 3 does catch.
 > - **Layer 3 needs a second surface inside `vitest run`.** Three claims are not expressible under
 >   `vue-tsc`: the emitted file's **route keys**, its **byte identity across a catalogue content
 >   edit** (which needs a second build of an edited app), and the `paths` entries the `hoist` push

@@ -811,10 +811,13 @@ devDependency — but it is not wired up.
 
 Stated because a silent gap is worse than a known one.
 
-- **`types:extend` silently ceasing to fire is not caught by `pnpm check`.**
-  Deleting the forced re-render leaves a `nuxt prepare` build byte-identical; it
-  only costs regeneration on route change _in dev_. `pnpm dev-race` is the only
-  observation that catches it, and it is ungated by design.
+- **A Nuxt or Nitro bump making `types:extend` stop _firing_ is not caught by
+  `pnpm check`.** The module's own half — that the hook it registers re-renders
+  exactly the map template — is asserted structurally in
+  `test/module-setup.test.ts`, so deleting the re-render is a red test. Whether
+  upstream still fires the hook is observable only from a live dev server;
+  `pnpm dev-race` is the only observation that catches that, and it is ungated
+  by design.
 - **The client-side `$typedFetch` plugin's necessity has no assertion.** It is
   observable only in a browser, and no test tier here has its own runner. Its
   deletion is silent in `pnpm check`.

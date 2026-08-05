@@ -1,5 +1,6 @@
 import { loadNuxt } from '@nuxt/kit'
-import type { Nuxt } from '@nuxt/schema'
+import type { Nuxt, ResolvedNuxtTemplate } from '@nuxt/schema'
+import type { Nitro } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -22,12 +23,22 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
  */
 describe('module setup wiring', () => {
   let nuxt: Nuxt
+  let nitro: Nitro | undefined
 
   beforeAll(async () => {
+    // Booted in two steps rather than `ready: true`, because `nitro:init`
+    // fires *during* `ready()` and the instance it hands over is the only
+    // public route to the hooks the module registers on it.
     nuxt = await loadNuxt({
       cwd: fileURLToPath(new URL('../playground', import.meta.url)),
-      ready: true,
+      ready: false,
     })
+
+    nuxt.hook('nitro:init', (instance) => {
+      nitro = instance
+    })
+
+    await nuxt.ready()
   }, 60_000)
 
   afterAll(async () => {
@@ -64,5 +75,43 @@ describe('module setup wiring', () => {
         argumentLength: 3,
       },
     ])
+  })
+
+  it('re-renders exactly the map template when this nitro’s types:extend fires', async () => {
+    // The correctness anchor's deletion half (SPEC.md §4.2): `types:extend`
+    // fires inside Nitro's `writeTypes` after a fresh `scanHandlers`, and the
+    // module's answer must be a re-render of the map template — on the *same*
+    // Nitro instance whose `nitro:init` populated the closure, because on a
+    // dev-server restart the current instance and the hooked one are not the
+    // same object. `updateTemplates` is, publicly, one `builder:generateApp`
+    // call carrying a template filter; recording that hook is how the
+    // re-render is observed without a builder running. The *other* half of
+    // the README gap — an upstream bump making `types:extend` stop firing at
+    // all — is observable only from a live dev server and stays with the
+    // ungated `pnpm dev-race` diagnostic (SPEC.md §9.6).
+    const renders: { filter?: (template: ResolvedNuxtTemplate) => boolean }[] =
+      []
+
+    nuxt.hook('builder:generateApp', (options) => {
+      renders.push(options ?? {})
+    })
+
+    await nitro?.hooks.callHook('types:extend', { routes: {} })
+
+    // Exactly one render request: a duplicate hook registration re-renders
+    // every template twice per route change, and is a failure too.
+    expect(renders).toHaveLength(1)
+
+    // The filter selects the map template and nothing else — asserted against
+    // the boot's real template registry, so “exactly” quantifies over every
+    // template actually registered, not an invented sample.
+    const selected = nuxt.options.build.templates
+      .filter(
+        (template) =>
+          renders[0]?.filter?.(template as ResolvedNuxtTemplate) ?? false
+      )
+      .map((template) => template.filename)
+
+    expect(selected).toEqual(['types/nuxt-handler-errors.d.ts'])
   })
 })
