@@ -2595,3 +2595,9 @@ artifact** — an implementation effort that wants the prototype should recover 
   > blocking: §9.8's consumer-compiler gap (nothing in the gate proves the surface on stock
   > TypeScript, which is what every consumer will use), and the four coverage gaps §9.1's amendment
   > and the README's limitations section name.
+
+  > **⟳ Both weights have since resolved (the coverage-gaps effort).** The consumer-compiler gap is
+  > closed — every harness suite now runs under stock TypeScript beside the bridge (§9.8's ⟳ note) —
+  > and the coverage-gap list is down to one deliberate remainder: whether upstream still *fires*
+  > `types:extend`, observable only from a live dev server and ungated by design (§9.6). The
+  > recommendation stands with nothing left to weigh beyond that remainder.
