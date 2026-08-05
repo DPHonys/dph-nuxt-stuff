@@ -72,7 +72,13 @@ function prepareNuxtModule(
     version: '0.0.1',
     type: 'module',
     license: 'MIT',
-    engines: { node: '>=26.0.0' },
+    // Nuxt 4.5.1's own `engines.node`, verbatim. A Nuxt module cannot run
+    // anywhere Nuxt does not, and has no reason to exclude a line Nuxt still
+    // supports — so this tracks Nuxt's range rather than stating one of its
+    // own. Copied rather than derived: `engines` is consumer-facing metadata,
+    // and a range that moved on its own when a caret dependency resolved
+    // upward would be a silent change to what installs cleanly.
+    engines: { node: '^22.19.0 || ^24.11.0 || >=26.0.0' },
     keywords: ['nuxt', 'nuxt-module', naming.scaffoldName],
     repository: {
       type: 'git',

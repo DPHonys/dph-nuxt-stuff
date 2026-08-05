@@ -188,7 +188,7 @@ describe('nuxt module Template contract', () => {
       description: 'A typed API client for Nuxt',
       type: 'module',
       license: 'MIT',
-      engines: { node: '>=26.0.0' },
+      engines: { node: '^22.19.0 || ^24.11.0 || >=26.0.0' },
       keywords: ['nuxt', 'nuxt-module', 'api-2-client'],
       repository: {
         type: 'git',
