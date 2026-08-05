@@ -1,7 +1,7 @@
 /**
  * The second half of the dev-server diagnostic, ungated (SPEC.md §9.6).
  *
- * `dev-race.mjs` measures how long convergence takes. This one samples *inside*
+ * `dev-race.ts` measures how long convergence takes. This one samples *inside*
  * the window and asks which side is ahead, because that is the question that
  * decides whether the window matters at all:
  *
@@ -35,7 +35,7 @@ import {
   read,
   SCRATCH_ROUTE,
   startDevServer,
-} from './dev-server.mjs'
+} from './dev-server.ts'
 
 const SAMPLES = 40
 const SCRATCH_KEY = `'/api/late'`
@@ -43,7 +43,7 @@ const SCRATCH_KEY = `'/api/late'`
 /** One `'route': { … }` block of the emitted map. */
 const ROUTE_BLOCK = /'(\/api\/[^']+)': \{([^}]*)\}/g
 
-for (const signal of ['SIGINT', 'SIGTERM']) {
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     rmSync(SCRATCH_ROUTE, { force: true })
     process.exit(1)
@@ -104,6 +104,11 @@ try {
     else tally.nitroAhead++
 
     for (const [, route, block] of ours.matchAll(ROUTE_BLOCK)) {
+      // Both groups always participate in a match, so this guard can never
+      // fire; it exists because `noUncheckedIndexedAccess` types a destructured
+      // match element as possibly `undefined`.
+      if (route === undefined || block === undefined) continue
+
       // A `:param` route or a glob does not name its handler file, so this
       // cheap check cannot decide it. That is a real limit on the scan: it
       // sees the routes whose keying is trivial, which are also the ones a

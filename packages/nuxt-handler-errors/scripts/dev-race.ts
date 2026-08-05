@@ -25,7 +25,7 @@
  * 3. **A content-only edit to a catalogue changes nothing**, which is
  *    SPEC.md §4.4's path-referentiality mandate seen from the dev server.
  *
- * `dev-race-direction.mjs` is the companion: it samples *inside* the
+ * `dev-race-direction.ts` is the companion: it samples *inside* the
  * convergence window and tallies which side is ahead.
  *
  * **It edits tracked sources**, so it restores them from a `finally` block and
@@ -44,7 +44,7 @@ import {
   SCRATCH_ROUTE,
   startDevServer,
   waitUntil,
-} from './dev-server.mjs'
+} from './dev-server.ts'
 
 const CATALOGUE = join(PLAYGROUND, 'shared/errors/user.ts')
 const ADDED_VARIANT = `  'user-rate-limited': { status: 429, payload: payload<{ retryAfter: number }>() },`
@@ -53,8 +53,13 @@ const SCRATCH_KEY = `'/api/late'`
 const startedAt = Date.now()
 
 /** Every line is stamped, because the whole subject of this script is *when*. */
-function log(...parts) {
+function log(...parts: unknown[]): void {
   console.log(`[+${String(Date.now() - startedAt).padStart(6)}ms]`, ...parts)
+}
+
+/** A wait's answer, printed. `waitUntil` answers `null` for a blown budget. */
+function fmt(ms: number | null): string {
+  return ms === null ? 'never (budget exhausted)' : `${ms}ms`
 }
 
 /**
@@ -63,7 +68,7 @@ function log(...parts) {
  * Synchronous and idempotent so it can run from a signal handler, where an
  * unawaited promise would simply never settle.
  */
-function restoreTrackedSources() {
+function restoreTrackedSources(): void {
   rmSync(SCRATCH_ROUTE, { force: true })
 
   const catalogue = readFileSync(CATALOGUE, 'utf8')
@@ -72,15 +77,15 @@ function restoreTrackedSources() {
   }
 }
 
-for (const signal of ['SIGINT', 'SIGTERM']) {
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     restoreTrackedSources()
     process.exit(1)
   })
 }
 
-const has = (needle) => (source) => source.includes(needle)
-const lacks = (needle) => (source) => !source.includes(needle)
+const has = (needle: string) => (source: string) => source.includes(needle)
+const lacks = (needle: string) => (source: string) => !source.includes(needle)
 
 const dev = await startDevServer(3099)
 
@@ -111,8 +116,10 @@ try {
     waitUntil(EMITTED_MAP, has(SCRATCH_KEY)),
     waitUntil(NITRO_ROUTES, has(SCRATCH_KEY)),
   ])
-  log(`route added → our map ${ours}ms, nitro-routes.d.ts ${nitro}ms`)
-  log(`  ours ahead by ${nitro - ours}ms (negative means Nitro won)`)
+  log(`route added → our map ${fmt(ours)}, nitro-routes.d.ts ${fmt(nitro)}`)
+  if (ours !== null && nitro !== null) {
+    log(`  ours ahead by ${nitro - ours}ms (negative means Nitro won)`)
+  }
   log(
     `  our map references the new handler:`,
     (await read(EMITTED_MAP)).includes('api/late.get')
@@ -139,7 +146,7 @@ try {
   log('removing server/api/late.get.ts')
   rmSync(SCRATCH_ROUTE, { force: true })
   const dropped = await waitUntil(EMITTED_MAP, lacks(SCRATCH_KEY))
-  log(`route removed → our map ${dropped}ms`)
+  log(`route removed → our map ${fmt(dropped)}`)
 } finally {
   restoreTrackedSources()
   await dev.stop()

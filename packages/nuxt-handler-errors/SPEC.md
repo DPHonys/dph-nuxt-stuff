@@ -1205,12 +1205,12 @@ indistinguishable from a perfect run).
 > **⟳ Measured in implementation — two defects in the prototype's own scripts, and one conclusion
 > that survives on a different tally.**
 >
-> - **`dev-race.mjs` awaited the two convergence waits sequentially**, and each wait starts its own
+> - **`dev-race.ts` awaited the two convergence waits sequentially**, and each wait starts its own
 >   clock — so `nitroAdd` was timed from *after* our map had already converged. The *"950 ms /
 >   976 ms, ours ~26 ms ahead"* row is not a comparison of two elapsed times; the 26 ms is however
 >   long Nitro took *after* we were done. Shipped is one `Promise.all`, one instant, two clocks. The
 >   direction holds; the magnitude does not.
-> - **`dev-race-direction.mjs` labelled every *removal* sample backwards.** It tallied *"whoever
+> - **`dev-race-direction.ts` labelled every *removal* sample backwards.** It tallied *"whoever
 >   lists the route is ahead"*, which is right while adding and inverted while removing — and the
 >   loop alternates. The original `agree 31, oursAhead 9, nitroAhead 0` therefore mixes two meanings.
 >   Shipped compares each file against the edit just made.
@@ -2072,7 +2072,7 @@ hermetically at layer 1:
 type _unreachable = Expect<Equal<MatchedRoutes<'/api/ghost'>, never>>
 ```
 
-`dev-race.mjs` / `dev-race-direction.mjs` ship as an **ungated `pnpm dev-race` diagnostic** for when a
+`dev-race.ts` / `dev-race-direction.ts` ship as an **ungated `pnpm dev-race` diagnostic** for when a
 Nuxt or Nitro bump is suspected. §4.5's table and the `:1441`-fires / `:1442`-writes mechanism are the
 evidence. A gated timing test is flaky by construction — a persistent dev server inside `pnpm check`
 is the first thing disabled on a loaded CI box.
