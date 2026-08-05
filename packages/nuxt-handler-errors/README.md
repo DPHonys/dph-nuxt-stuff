@@ -822,9 +822,12 @@ Stated because a silent gap is worse than a known one.
   observable only in a browser, and no test tier here has its own runner. Its
   deletion is silent in `pnpm check`.
 - **`event.$typedFetch` being absent client-side is untested**, as is plugin
-  ordering against another plugin that replaces `event.$fetch`, and there is no
-  rendering assertion taken _through_ `event.$typedFetch` against the real
-  generated map.
+  ordering against another plugin that replaces `event.$fetch`. Both are
+  observable only in a browser, so they stand or fall with the no-browser-tier
+  decision the client-plugin gap above records. The rendering assertion taken
+  _through_ `event.$typedFetch` against the real generated map now exists —
+  `test/generated-map.test.ts` compiles a probe in the prepared app's own
+  server program and budgets `event.$typedFetch.safe`'s hover there.
 - **The `@experimental` h3 augmentation `event.$fetch` rides is unguarded at
   runtime.** If h3 moves it, the failure is a compile error in one module file
   rather than a silent behaviour change in user code — which is why the ride was

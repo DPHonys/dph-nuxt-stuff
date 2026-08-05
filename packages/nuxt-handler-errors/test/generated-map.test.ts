@@ -165,6 +165,19 @@ const H_ERROR_BUDGET = 260
 const SAFE_RESULT_BUDGET = 340
 
 /**
+ * `event.$typedFetch.safe`'s whole result, hovered in the **server** program.
+ *
+ * `Event$TypedFetch.safe` is the same `TypedFetchSafe` the global carries
+ * (SPEC.md §3.6 — the surface adds context forwarding, not a second type), and
+ * the measurement agrees: **273 flat here, the global's own number** / 432 as
+ * the `SerializeObject` residue that spelling measured without §8.3(a)'s
+ * `Flatten`. Budgeted separately at the same ~1.25× anyway — the two programs
+ * render through different `paths` and different ambient declarations, and one
+ * number standing for both would hide which program regressed.
+ */
+const EVENT_SAFE_RESULT_BUDGET = 340
+
+/**
  * The tags `/api/method-fallback`'s `default` handler declares, which a `GET`
  * reaches only through SPEC.md §4.3's presence-based fallback.
  */
@@ -192,6 +205,16 @@ const BROKEN_SPECIFIER_REWRITE = {
  * arrives through the generated tsconfig's `paths`.
  */
 const PROBE_PATH = join('.nuxt', 'handler-errors-probe.ts')
+
+/**
+ * Where the **server-program** probe is written — beside `PROBE_PATH` and
+ * invisible for the same reasons, but compiled against the generated
+ * `tsconfig.server.json`. `event.$typedFetch` hangs off h3's `H3Event`, and the
+ * server program is the one a handler author's call site is typed in — the
+ * probe above cannot reach it, because the app program types `H3Event` too and
+ * a hover there would say nothing about the program the surface is used from.
+ */
+const SERVER_PROBE_PATH = join('.nuxt', 'handler-errors-server-probe.ts')
 
 const WORKSPACE = mkdtempSync(join(tmpdir(), 'nuxt-handler-errors-app-'))
 
@@ -471,6 +494,54 @@ function buildApp(name: string, edit?: (root: string) => void): BuiltApp {
   }
 
   return probeApp(root)
+}
+
+/**
+ * The server-program probe: `event.$typedFetch` hovered where a handler author
+ * writes it.
+ *
+ * `/api/users/42` rather than a route parameter for the reason the app probe
+ * uses it — the literal is matched to `/api/users/:id` by Nitro's own scoring,
+ * so the render carries the callee's declared tags only if the whole chain
+ * (augmentation → global declaration → map entry → handler specifier) resolved
+ * against the really-generated map.
+ */
+function serverProbeSource(): string {
+  return [
+    `import type { H3Event } from 'h3'`,
+    ``,
+    // Declared rather than taken from a `defineEventHandler` callback: the
+    // harness hovers top-level declarations only, and the parameter's type is
+    // exactly this. What the declaration cannot fake is the member — h3's own
+    // `H3Event` has no `$typedFetch`, so the call below resolving at all is
+    // also the assertion that the module's augmentation reaches a real server
+    // program.
+    `declare const event: H3Event`,
+    ``,
+    `const safe = await event.$typedFetch.safe('/api/users/42')`,
+    `export type EventSafeResult = typeof safe`,
+    ``,
+  ].join('\n')
+}
+
+/**
+ * Write the server probe into an already-prepared app root and compile it
+ * against the generated server program.
+ *
+ * A `Compilation` rather than a `BuiltApp`: the map was already read and
+ * asserted on by the app-program probe of the same root, and re-reading it
+ * here would only invite asserting the same bytes twice.
+ */
+function probeServerApp(root: string): Compilation {
+  writeFileSync(join(root, SERVER_PROBE_PATH), serverProbeSource())
+
+  const harness = createTypeHarness({
+    ts,
+    rootDir: root,
+    tsconfigPath: join(root, '.nuxt/tsconfig.server.json'),
+  })
+
+  return harness.compileAlone(join(root, SERVER_PROBE_PATH))
 }
 
 /** Write the probe into an already-prepared app root and compile it. */
@@ -859,6 +930,46 @@ describe('the generated map, in a real Nuxt app', () => {
     // program resolves it against the app's **real generated `InternalApi`**
     // rather than a hand-written stand-in, and the program was already built.
     expect(app.compilation.renderHover('Ghost')).toBe('never')
+  })
+})
+
+describe('event.$typedFetch, in the real server program', () => {
+  /**
+   * The same built app, compiled a second time through its generated
+   * `tsconfig.server.json`. Everything above ran in the app program; this is
+   * the program a handler author's `event.$typedFetch` call site is actually
+   * typed in, and the README gap this block closes is precisely that no
+   * rendering assertion had ever been taken through it.
+   */
+  let server: Compilation
+
+  beforeAll(() => {
+    server = probeServerApp(app.root)
+  }, 60_000)
+
+  it('compiles the server probe clean, with the map in the program', () => {
+    // SPEC.md §9.5 rule 3 for this program, and the license for the render
+    // below: a hover out of a program that did not compile clean is a guess.
+    assertNoDiagnostics(server)
+  })
+
+  it('renders `.safe`’s result flat, in budget, with the callee’s real tags', () => {
+    // SPEC.md §8.3(a) taken through `event.$typedFetch` — the hover a handler
+    // author lands on first, on the surface whose whole point is being called
+    // from other handlers (SPEC.md §3.6). The tags are the resolution half:
+    // the map entry's handler specifier resolved from *this* program, or the
+    // harness would have refused the render as `any`.
+    const rendered = assertHoverBudget(server, {
+      name: 'EventSafeResult',
+      max: EVENT_SAFE_RESULT_BUDGET,
+    })
+
+    for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
+    expect(rendered).toContain('requiredRole')
+    expect(rendered).not.toContain('SerializeObject')
+    // And the success arm is Nitro's own success type beside it, untouched.
+    expect(rendered).toContain('ok: true')
+    expect(rendered).toContain('email: string')
   })
 })
 
