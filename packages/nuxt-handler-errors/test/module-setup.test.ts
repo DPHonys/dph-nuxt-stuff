@@ -1,8 +1,36 @@
-import { loadNuxt } from '@nuxt/kit'
+import { loadNuxt, logger } from '@nuxt/kit'
 import type { Nuxt, ResolvedNuxtTemplate } from '@nuxt/schema'
 import type { Nitro } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+const PLAYGROUND = fileURLToPath(new URL('../playground', import.meta.url))
+
+/**
+ * Everything the kit logger warns while `run` executes.
+ *
+ * The reporter seam rather than a console spy, because the module warns
+ * through `@nuxt/kit`'s consola instance and consola's default reporter
+ * writes to stdout directly — a `console.warn` spy never sees it.
+ */
+async function warningsDuring(run: () => Promise<void>): Promise<string[]> {
+  const captured: string[] = []
+  const reporter = {
+    log: (entry: { type: string; args: unknown[] }) => {
+      if (entry.type === 'warn') captured.push(entry.args.map(String).join(' '))
+    },
+  }
+
+  logger.addReporter(reporter)
+
+  try {
+    await run()
+  } finally {
+    logger.removeReporter(reporter)
+  }
+
+  return captured
+}
 
 /**
  * Structural module-wiring: what `setup()` *registers*, observed on a real
@@ -24,21 +52,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 describe('module setup wiring', () => {
   let nuxt: Nuxt
   let nitro: Nitro | undefined
+  let bootWarnings: string[]
 
   beforeAll(async () => {
     // Booted in two steps rather than `ready: true`, because `nitro:init`
     // fires *during* `ready()` and the instance it hands over is the only
     // public route to the hooks the module registers on it.
-    nuxt = await loadNuxt({
-      cwd: fileURLToPath(new URL('../playground', import.meta.url)),
-      ready: false,
-    })
+    bootWarnings = await warningsDuring(async () => {
+      nuxt = await loadNuxt({ cwd: PLAYGROUND, ready: false })
 
-    nuxt.hook('nitro:init', (instance) => {
-      nitro = instance
-    })
+      nuxt.hook('nitro:init', (instance) => {
+        nitro = instance
+      })
 
-    await nuxt.ready()
+      await nuxt.ready()
+    })
   }, 60_000)
 
   afterAll(async () => {
@@ -138,4 +166,38 @@ describe('module setup wiring', () => {
 
     expect(selected).toEqual(['types/nuxt-handler-errors.d.ts'])
   })
+
+  it('does not warn about nitro.errorHandler when the project leaves it unset', () => {
+    // The control for the warning below: the playground does not override the
+    // error handler, so a hit here means the detection misfires on every boot.
+    expect(
+      bootWarnings.filter((warning) => warning.includes('nitro.errorHandler'))
+    ).toEqual([])
+  })
+
+  it('warns at setup when the project sets a custom nitro.errorHandler', async () => {
+    // Nitro has a serializer that drops `data` entirely, and a project
+    // pointing `errorHandler` at it — or at any handler that does not keep
+    // `data` — silently loses every declared payload with no compile-time
+    // signal. Setup can only see the override, not what the handler does, so
+    // the warning fires on the override itself.
+    let overridden: Nuxt | undefined
+
+    const warnings = await warningsDuring(async () => {
+      overridden = await loadNuxt({
+        cwd: PLAYGROUND,
+        ready: true,
+        overrides: { nitro: { errorHandler: '~/server/error-handler' } },
+      })
+    })
+
+    await overridden?.close()
+
+    const hits = warnings.filter((warning) =>
+      warning.includes('nitro.errorHandler')
+    )
+
+    expect(hits).toHaveLength(1)
+    expect(hits[0]).toMatch(/declared/)
+  }, 60_000)
 })

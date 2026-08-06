@@ -14,6 +14,7 @@ import {
   addTypeTemplate,
   createResolver,
   defineNuxtModule,
+  logger,
   updateTemplates,
 } from '@nuxt/kit'
 import type { Nitro } from 'nitropack/types'
@@ -52,6 +53,23 @@ export default defineNuxtModule<ModuleOptions>({
     compatibility: { nuxt: '>=4.5.0 <5.0.0' },
   },
   setup(_options, nuxt) {
+    // A declared failure is an ordinary HTTP error whose marker rides
+    // `error.data`; nothing intercepts it, so the wire format depends entirely
+    // on Nitro's default error serializer keeping `data`. A project pointing
+    // `nitro.errorHandler` at its own handler can drop `data` wholesale — every
+    // declared payload then vanishes silently, with no compile-time signal —
+    // so the override is worth a build-time warning even when the custom
+    // handler happens to preserve it.
+    if (nuxt.options.nitro.errorHandler !== undefined) {
+      logger.warn(
+        '[nuxt-handler-errors] A custom `nitro.errorHandler` is set. Declared ' +
+          'failures travel as `error.data` on ordinary HTTP errors — an error ' +
+          'handler that does not serialize `data` silently drops every ' +
+          'declared payload, and typed call sites will read those failures as ' +
+          'undeclared. Make sure your handler keeps `data` in the response body.'
+      )
+    }
+
     // Nuxt's hoist list puts a `paths` entry for the specifier into every
     // generated tsconfig, so the `declare module` block the emitter writes and
     // every consumer's `import type { TypedApiErrors }` name the same file.
