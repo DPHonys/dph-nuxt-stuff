@@ -13,13 +13,13 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { EMPTY_MAP, TYPES_SPECIFIER } from '../src/emit-map'
+import { EMPTY_MAP, TYPES_SPECIFIER } from '../../src/emit-map'
 import {
   assertHoverBudget,
   assertNoDiagnostics,
   createTypeHarness,
-} from './types/harness'
-import type { Compilation } from './types/harness'
+} from '../types/harness'
+import type { Compilation } from '../types/harness'
 
 /**
  * Layer 3: the map, produced by a **real Nuxt build** rather
@@ -37,7 +37,7 @@ import type { Compilation } from './types/harness'
  * fastidiousness:
  *
  * - The path-referentiality claim can only be made by **editing a
- *   catalogue and rebuilding**, and `test/specifiers.test.ts` boots a server out
+ *   catalogue and rebuilding**, and `test/e2e/specifiers.test.ts` boots a server out
  *   of the same directory. Mutating tracked sources under a sibling suite's feet
  *   is a race, and the alternative — serialising the whole suite — would slow
  *   every run to pay for one assertion.
@@ -62,7 +62,7 @@ import type { Compilation } from './types/harness'
  * render `any`, and that refusal is the check that bites.
  */
 
-const PACKAGE_ROOT = fileURLToPath(new URL('..', import.meta.url))
+const PACKAGE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const PLAYGROUND = join(PACKAGE_ROOT, 'playground')
 
 /**

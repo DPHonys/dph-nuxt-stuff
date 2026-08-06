@@ -244,7 +244,7 @@ describe('the extractor', () => {
       // the box is rather than of anything this test claims. Alone it runs in
       // ~3 s; with the file suite saturating eight workers it reached ~7 s once
       // the shared error types joined the graph the emit walks. Explicit, in the
-      // style `test/generated-map.test.ts` already uses for its `nuxt prepare`
+      // style `test/e2e/generated-map.test.ts` already uses for its `nuxt prepare`
       // builds.
     }, 60_000)
   })

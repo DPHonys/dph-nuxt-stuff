@@ -8,7 +8,7 @@ import { assertNoDiagnostics, createTypeHarness } from './harness'
  *
  * The fixture is a hand-written map plus a hand-written `InternalApi`, compiled
  * alone. That is deliberately *weaker* evidence than
- * `test/generated-map.test.ts`, which renders the same lookup out of a real
+ * `test/e2e/generated-map.test.ts`, which renders the same lookup out of a real
  * Nuxt build and is the only thing that can catch a map whose specifiers
  * resolve to nothing. What this buys instead is a statement of the **rule**
  * that survives the real build breaking, and one that runs in milliseconds.

@@ -5,7 +5,7 @@ import {
   defineErrors,
   defineTypedEventHandler,
   payload,
-} from '../src/runtime/shared'
+} from '../../src/runtime/shared'
 
 /**
  * The catalogue's *runtime* behaviour, with no server in the way.

@@ -6,7 +6,7 @@
  * Every claim made about the read path is made here, plus the two
  * fixes in place (the union stays closed) and the shape floor
  * on the degraded overload. The runtime half — that a malformed marker reads as
- * undeclared — is `test/reader.test.ts`; the real framework types are met at
+ * undeclared — is `test/unit/reader.test.ts`; the real framework types are met at
  * layer 3, in `playground/shared/reader-probe.ts`.
  *
  * Must compile with **zero** diagnostics. The one

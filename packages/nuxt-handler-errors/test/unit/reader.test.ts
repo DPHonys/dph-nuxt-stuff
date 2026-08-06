@@ -8,7 +8,7 @@ import {
   defineTypedEventHandler,
   payload,
   useDeclaredError,
-} from '../src/runtime/shared'
+} from '../../src/runtime/shared'
 
 /**
  * The reader's runtime guard.
@@ -23,7 +23,7 @@ import {
  * undeclared error is what every consumer already knows how to handle.
  *
  * The type-level half is `test/types/pos/reader.ts`; the wire crossing is
- * `test/wire.test.ts`. Nothing here re-proves either.
+ * `test/e2e/wire.test.ts`. Nothing here re-proves either.
  */
 
 const userErrors = defineErrors({
@@ -183,7 +183,7 @@ describe('values that carry no marker at all', () => {
       // `unhandled || fatal`, while `statusMessage` is not gated and still
       // carries the callee's tag. The reader must not reconstruct a variant out
       // of that — the failure degrades to undeclared, which is the safe
-      // direction. `test/wire.test.ts` runs this against a real build.
+      // direction. `test/e2e/wire.test.ts` runs this against a real build.
       'a production-stripped body whose statusMessage still names the tag',
       {
         data: {

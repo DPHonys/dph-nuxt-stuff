@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { DECLARED_ERROR_KEY } from '../src/runtime/shared'
-import { createTypedFetch } from '../src/runtime/shared/typed-fetch'
-import { declaredFailure, settled } from './failure-channel'
+import { DECLARED_ERROR_KEY } from '../../src/runtime/shared'
+import { createTypedFetch } from '../../src/runtime/shared/typed-fetch'
+import { declaredFailure, settled } from '../failure-channel'
 
 /**
  * The run-time half of `$typedFetch`.

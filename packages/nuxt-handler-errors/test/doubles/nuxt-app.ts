@@ -7,7 +7,7 @@
  * which is precisely the boundary the header merge is a claim about.
  *
  * It is not a simulation of `useFetch` and must not become one. The composable
- * running for real, against a real server, is `test/specifiers.test.ts`.
+ * running for real, against a real server, is `test/e2e/specifiers.test.ts`.
  *
  * `defineNuxtPlugin` is here for the same reason with even less to it: the
  * client plugin (`typed-fetch.plugin.test.ts`) is app-side code, and what its

@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest'
-import plugin from '../src/runtime/app/plugins/typed-fetch.client'
-import { $typedFetch } from '../src/runtime/shared/typed-fetch'
+import plugin from '../../src/runtime/app/plugins/typed-fetch.client'
+import { $typedFetch } from '../../src/runtime/shared/typed-fetch'
 
 /**
  * The client plugin's one assignment: executing it puts *the*

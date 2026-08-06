@@ -6,7 +6,7 @@
  * route is an undeclared route, so this is where the degradation
  * lock can be stated as *"byte-identical to vanilla"* and meant literally. The
  * declared side needs a generated map and is asserted at layer 3, in
- * `test/generated-map.test.ts` and `playground/app.vue`.
+ * `test/e2e/generated-map.test.ts` and `playground/app.vue`.
  *
  * Compiled by `test/types/use-typed-fetch.test.ts` against the **package's own**
  * `tsconfig.json` rather than `tsconfig.fixtures.json`, because `#app` resolves

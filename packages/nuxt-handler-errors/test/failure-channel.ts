@@ -1,7 +1,7 @@
 /**
  * The two shapes both fetch-wrapper suites need, written once.
  *
- * `test/typed-fetch.test.ts` and `test/event-typed-fetch.test.ts` are
+ * `test/unit/typed-fetch.test.ts` and `test/unit/event-typed-fetch.test.ts` are
  * deliberately parallel — same wrapper shape, same `.safe` contract — and
  * "one shared helper would be a defect" is about the **header merge** and the
  * fakes that model it, which stay per-file because the thing

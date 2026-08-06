@@ -13,7 +13,7 @@ import {
  * The fixture is compiled against a replica of h3's and Nuxt's error types
  * rather than the real ones — `../replica.ts` records why — so a claim made
  * here cannot pass by having quietly degraded to `any`. The real types are met
- * at layer 3 in `playground/`, and the runtime guard is `test/reader.test.ts`.
+ * at layer 3 in `playground/`, and the runtime guard is `test/unit/reader.test.ts`.
  */
 
 const FIXTURE = fileURLToPath(new URL('pos/reader.ts', import.meta.url))

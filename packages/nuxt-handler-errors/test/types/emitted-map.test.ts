@@ -22,7 +22,7 @@ import type { Compilation } from './harness'
 /**
  * Layer 2: the emitted map, compiled.
  *
- * `test/emit-map.test.ts` asserts what the emitter *writes*. Nothing there can
+ * `test/unit/emit-map.test.ts` asserts what the emitter *writes*. Nothing there can
  * see whether the text it wrote **means** anything, and the gap is not
  * theoretical — it was hit during implementation and
  * handed forward to this ticket by name. Declaration emit writes its type

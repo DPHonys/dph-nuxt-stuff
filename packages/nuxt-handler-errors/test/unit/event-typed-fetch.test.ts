@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createEventTypedFetch,
   EventFetchUnavailableError,
-} from '../src/runtime/server/lib/event-typed-fetch'
-import { declaredFailure, settled } from './failure-channel'
+} from '../../src/runtime/server/lib/event-typed-fetch'
+import { declaredFailure, settled } from '../failure-channel'
 
 /**
  * The run-time half of `event.$typedFetch`.
  *
- * **The fake here is not `test/typed-fetch.test.ts`'s fake, and that is the
+ * **The fake here is not `test/unit/typed-fetch.test.ts`'s fake, and that is the
  * whole point of the file.** The global wrapper sits on an ofetch instance,
  * whose `mergeHeaders` takes a `Headers` correctly; this one sits on h3's
  * `fetchWithEvent`, which builds its options by **object spread**. So the
@@ -181,7 +181,7 @@ describe('the header merge — the EVENT-BOUND form', () => {
 
   it('flattens to a plain object, which is the inverse of the global rule', async () => {
     // **The categorical difference, asserted on the object itself.** The global
-    // wrapper hands its `Headers` on whole and `test/typed-fetch.test.ts`
+    // wrapper hands its `Headers` on whole and `test/unit/typed-fetch.test.ts`
     // asserts exactly that; here the same value would spread to nothing, so the
     // wrapper must hand over something a spread can see. The claim that *one
     // shared helper would be a defect* is this pair of assertions.
@@ -251,7 +251,7 @@ describe('the namespace is the bare call signature plus .safe', () => {
 describe('.safe is the global’s, not a second copy', () => {
   /**
    * `toTypedResult` is imported rather than rewritten, so
-   * `test/typed-fetch.test.ts`'s 15-row rethrow suite — every shape that is not
+   * `test/unit/typed-fetch.test.ts`'s 15-row rethrow suite — every shape that is not
    * a well-formed declared marker, each asserted to leave through `throw`
    * carrying the original value — is a claim about **this** surface too. What
    * is asserted here is only that this wrapper really routes through it: the

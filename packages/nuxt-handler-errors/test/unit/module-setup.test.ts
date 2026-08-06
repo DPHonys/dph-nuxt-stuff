@@ -4,7 +4,7 @@ import type { Nitro } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-const PLAYGROUND = fileURLToPath(new URL('../playground', import.meta.url))
+const PLAYGROUND = fileURLToPath(new URL('../../playground', import.meta.url))
 
 /**
  * Everything the kit logger warns while `run` executes.

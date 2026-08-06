@@ -3,8 +3,8 @@ import { ref, toValue } from 'vue'
 import {
   useLazyTypedFetch,
   useTypedFetch,
-} from '../src/runtime/app/composables/use-typed-fetch'
-import { calls } from './doubles/nuxt-app'
+} from '../../src/runtime/app/composables/use-typed-fetch'
+import { calls } from '../doubles/nuxt-app'
 
 /**
  * The header merge, and the rest of what the wrapper hands vanilla.
@@ -13,7 +13,7 @@ import { calls } from './doubles/nuxt-app'
  * `vitest.config.ts` aliases that one specifier to `./doubles/nuxt-app`, which
  * records the three arguments the wrapper passed on. That boundary is exactly
  * what the merge is a claim about; the composable *running*, against a real
- * built server, is `test/specifiers.test.ts`.
+ * built server, is `test/e2e/specifiers.test.ts`.
  *
  * **Naive spreading is a shipped-defect-class bug, not a style issue**, and the
  * three input shapes below are why: a `Headers` instance has no own enumerable
@@ -137,7 +137,7 @@ describe('the header merge', () => {
     // handing one on discards the caller's headers *and* this module's
     // `accept`. The flattening was originally scoped to the event-bound
     // wrapper only; measured, this surface needs it too, and
-    // `test/specifiers.test.ts` is where the consequence is run.
+    // `test/e2e/specifiers.test.ts` is where the consequence is run.
     useTypedFetch('/anything', {
       headers: new Headers({ authorization: 'Bearer t' }),
     })

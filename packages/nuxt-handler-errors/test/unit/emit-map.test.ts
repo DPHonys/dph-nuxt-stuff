@@ -1,7 +1,7 @@
 import type { NitroEventHandler } from 'nitropack/types'
 import { describe, expect, it } from 'vitest'
-import { emitMap, TYPES_SPECIFIER } from '../src/emit-map'
-import type { NitroPathOptions } from '../src/emit-map'
+import { emitMap, TYPES_SPECIFIER } from '../../src/emit-map'
+import type { NitroPathOptions } from '../../src/emit-map'
 
 /**
  * The emitter, exercised as the pure function it is required to be: no

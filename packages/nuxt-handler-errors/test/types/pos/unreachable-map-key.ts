@@ -22,7 +22,7 @@
  * `tsconfig.json`, and it has to stay excluded.** The two `declare module`
  * blocks below are augmentations, and an augmentation is global to whatever
  * program contains it. Measured: with `/api/real` added to `InternalApi` in the
- * package program, `$fetch('/api/users/42')` in `test/wire.test.ts` becomes
+ * package program, `$fetch('/api/users/42')` in `test/e2e/wire.test.ts` becomes
  * `TS2321 Excessive stack depth` — the known catastrophic failure, from one extra
  * route key. The harness compiles this alone, which is the only place it is
  * safe.

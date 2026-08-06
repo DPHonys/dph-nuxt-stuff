@@ -14,7 +14,7 @@ import { assertNoDiagnostics, createTypeHarness } from './harness'
  * path. `pnpm dev-race` and `pnpm dev-race:direction` ship as ungated
  * diagnostics for when a Nuxt or Nitro bump is suspected.
  *
- * `test/generated-map.test.ts` re-takes the same claim against a real app's
+ * `test/e2e/generated-map.test.ts` re-takes the same claim against a real app's
  * own generated `InternalApi`, which is stronger evidence and free there. The
  * duplication is deliberate: that one is gated behind two real builds, and this
  * invariant should survive them breaking.

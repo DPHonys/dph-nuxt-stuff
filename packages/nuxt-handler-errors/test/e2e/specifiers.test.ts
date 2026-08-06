@@ -1,7 +1,7 @@
 import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { DECLARED_ERROR_KEY, declaredError } from '../src/runtime/shared'
+import { DECLARED_ERROR_KEY, declaredError } from '../../src/runtime/shared'
 
 /**
  * The playground is the e2e fixture on purpose: it is a separate workspace
@@ -15,7 +15,7 @@ import { DECLARED_ERROR_KEY, declaredError } from '../src/runtime/shared'
  */
 describe('the published specifiers', async () => {
   await setup({
-    rootDir: fileURLToPath(new URL('../playground', import.meta.url)),
+    rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
     server: true,
     browser: false,
   })
@@ -310,7 +310,7 @@ describe('the published specifiers', async () => {
  * deepest handler's own event, and comes back out in the payload. A caller who
  * wanted a rejection without that would be reaching for the wrong function.
  *
- * `any` for the reason `test/wire.test.ts`'s twin gives: the point is what
+ * `any` for the reason `test/e2e/wire.test.ts`'s twin gives: the point is what
  * arrives at a caller, so nothing here may lean on the shape it is checking.
  */
 async function chainRejection(path: string): Promise<any> {

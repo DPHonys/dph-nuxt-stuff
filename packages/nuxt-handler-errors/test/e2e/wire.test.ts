@@ -1,7 +1,7 @@
 import { $fetch, fetch, setup } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { DECLARED_ERROR_KEY, declaredError } from '../src/runtime/shared'
+import { DECLARED_ERROR_KEY, declaredError } from '../../src/runtime/shared'
 
 /**
  * Layer 4: the wire, against a **real built server**.
@@ -21,7 +21,7 @@ import { DECLARED_ERROR_KEY, declaredError } from '../src/runtime/shared'
  */
 describe('the declared-failure wire format', async () => {
   await setup({
-    rootDir: fileURLToPath(new URL('../playground', import.meta.url)),
+    rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
     server: true,
     browser: false,
   })
@@ -127,7 +127,7 @@ describe('the declared-failure wire format', async () => {
 
   it('is read back off the wire by the reader, with no key written', async () => {
     // The one and only read path, against a value that really
-    // crossed a socket rather than one assembled in a test. `test/reader.test.ts`
+    // crossed a socket rather than one assembled in a test. `test/unit/reader.test.ts`
     // proves the guard rejects malformed markers; this proves the address it
     // walks is the address the wire actually uses.
     expect(declaredError(await rejectionOf('/api/users/missing'))).toEqual({
