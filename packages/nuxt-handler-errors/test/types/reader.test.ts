@@ -8,7 +8,7 @@ import {
 } from './harness'
 
 /**
- * Layer 1 for the reader pair (SPEC.md §3.7, §5.3, §6.2, §6.4).
+ * Layer 1 for the reader pair.
  *
  * The fixture is compiled against a replica of h3's and Nuxt's error types
  * rather than the real ones — `../replica.ts` records why — so a claim made
@@ -20,27 +20,26 @@ const FIXTURE = fileURLToPath(new URL('pos/reader.ts', import.meta.url))
 
 /**
  * The hover a caller actually consults when writing their `switch`
- * (SPEC.md §8.3, §9.3).
+ *.
  *
- * **measured 194 flat / 333 as the `Serialize` residue SPEC.md §8.3(a)
- * describes** — the bad half taken by handing the reader the identical union
+ * **measured 194 flat / 333 as the `Serialize` residue** — the bad half taken
+ * by handing the reader the identical union
  * spelled `Simplify<Serialize<…>>`, which is what the map would carry if the
- * emitter stopped evaluating it. Set at ~1.5× the good value, per SPEC.md §9.3.
+ * emitter stopped evaluating it. Set at ~1.5× the good value.
  *
  * This is the one budget that makes the envelope-shaped `error.value` hover
- * acceptable: SPEC.md §8.3's table grades that surface *"honest, envelope-
- * shaped"* and grades this one ✅ precisely because it is where the user's
- * attention moves.
+ * acceptable: that surface can stay *"honest, envelope-shaped"* precisely
+ * because this one — where the user's attention moves — is held legible.
  */
 const READER_RETURN_BUDGET = 290
 
 describe('reading a declared variant out of an error value', () => {
   const harness = createTypeHarness({ ts })
 
-  it('holds every claim SPEC.md §3.7 makes, against a framework replica', () => {
+  it('holds every claim made about the read path, against a framework replica', () => {
     // Every claim in the fixture is an `Expect<…>` alias, an exhaustive
     // `switch` or a consumed `@ts-expect-error`, so the whole assertion is
-    // that it compiles clean (SPEC.md §9.5 rule 3).
+    // that it compiles clean.
     assertNoDiagnostics(harness.compileAlone(FIXTURE))
   })
 

@@ -2,8 +2,8 @@ import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
 import { chainErrors } from '#shared/errors/chain'
 
 /**
- * Hop 2 of 3 — the middle of SPEC.md §6.6's A→B→C chain, and the one that shows
- * **both** shapes a caller may take with a callee's failure (SPEC.md §3.6).
+ * Hop 2 of 3 — the middle of the A→B→C chain, and the one that shows
+ * **both** shapes a caller may take with a callee's failure.
  *
  * - `mode=remap` — the ordinary branch. B raises its **own** variant,
  *   `b-upstream`, carrying whatever of C's payload it chose to keep. This is
@@ -16,12 +16,12 @@ import { chainErrors } from '#shared/errors/chain'
  *   unrepresentable rather than merely discouraged.
  *
  * A `fail.forward(r.error)` helper was rejected for exactly this reason
- * (SPEC.md §11.7): it can only type-check once the caller has already declared
+ *: it can only type-check once the caller has already declared
  * the tag, so it is sugar over the two lines below — and it would quietly
  * encourage the one shape the design asks callers to be deliberate about.
  *
- * **The explicit return annotation is required** and it is SPEC.md §6.6's
- * cycle, not this module's (SPEC-AMENDMENTS item 28): a handler whose return
+ * **The explicit return annotation is required** and it is Nitro's own
+ * `InternalApi` cycle, not this module's: a handler whose return
  * type is inferred from a fetch call needs `InternalApi` to type the call and
  * needs the call to type its own `InternalApi` entry. Every hop here is
  * annotated for that reason.
@@ -35,7 +35,7 @@ export default defineTypedEventHandler(
     if (!result.ok) {
       // One `case` and no `default`, and that is the assertion: C declares
       // exactly one variant, so an error union that had degraded to
-      // SPEC.md §5.3's shape floor or to TypeScript's error type would leave
+      // the shape floor or to TypeScript's error type would leave
       // this `switch` non-exhaustive and the annotated return unsatisfied.
       switch (result.error.tag) {
         case 'c-gone':

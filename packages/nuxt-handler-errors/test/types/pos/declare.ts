@@ -1,7 +1,7 @@
 /**
- * The declaration surface, asserted where it is decided (SPEC.md §3.1, §3.2).
+ * The declaration surface, asserted where it is decided.
  *
- * Must compile with **zero** diagnostics (SPEC.md §9.5 rule 3). Everything
+ * Must compile with **zero** diagnostics. Everything
  * structural about `defineErrors`, `payload`, `.pick()` and
  * `defineTypedEventHandler` is claimed here; the things that must *not* compile
  * are claimed one file at a time in `../neg/`.
@@ -56,7 +56,7 @@ type AuthVariants = VariantsIn<typeof authErrors>
 
 /**
  * A status written as `404` stays `404` — not `number`, and not a defaulted
- * 400. This is what SPEC.md §3.2 buys by making `defineErrors`' type parameter
+ * 400. This is what is bought by making `defineErrors`' type parameter
  * `const` and by refusing to give `status` a default.
  */
 type _notFound = Expect<
@@ -107,7 +107,7 @@ const _auditErrors = defineErrors({
 })
 
 /**
- * `Date` → `string` is fine and must not be rejected (SPEC.md §3.2). Asserting
+ * `Date` → `string` is fine and must not be rejected. Asserting
  * the *serialized* shape is what proves both halves at once: the guard let it
  * through, and the client will be told the truth about what arrives.
  */
@@ -165,7 +165,7 @@ const _handler = defineTypedEventHandler(
  * **The property everything downstream depends on**, asserted through the real
  * serialization chain rather than on paper: the success type infers from the
  * body with no annotation, and the three `return fail(…)` exits contribute
- * nothing to it because `fail` returns `never` (SPEC.md §3.1).
+ * nothing to it because `fail` returns `never`.
  */
 type _successInfers = Expect<
   Equal<
@@ -202,7 +202,7 @@ type _brandNotCollapsed = Expect<Equal<IsAny<Declared>, false>>
 /**
  * The brand and the payload occupy disjoint type positions: `ReturnType` reads
  * only the call signature, so nothing about the declared union can leak into
- * what a vanilla `useFetch` sees (SPEC.md §4.1).
+ * what a vanilla `useFetch` sees.
  */
 type _brandIsNotInTheReturnType = Expect<
   IsNever<
@@ -211,7 +211,7 @@ type _brandIsNotInTheReturnType = Expect<
 >
 
 // ---------------------------------------------------------------------------
-// Hover legibility (SPEC.md §8.3(b))
+// Hover legibility
 // ---------------------------------------------------------------------------
 
 /**

@@ -4,10 +4,10 @@ import type { Equal, Expect, IsNever } from '../../test/types/vocabulary'
 
 /**
  * The lookup, exercised from a consumer's `shared/` directory — the context
- * SPEC.md §3's published specifiers exist for, and one a `$typedFetch` call
+ * the published specifiers exist for, and one a `$typedFetch` call
  * site may legally live in.
  *
- * **The narrowing below is the demo and the assertion at once.** SPEC.md §3.6
+ * **The narrowing below is the demo and the assertion at once.** The module
  * blesses exactly this shape for server-to-server remapping: a helper whose
  * parameter is a *callee's* declared union, narrowed exhaustively, with the
  * route named only by its path. Nothing here fetches anything, and nothing here
@@ -21,7 +21,7 @@ import type { Equal, Expect, IsNever } from '../../test/types/vocabulary'
  * **exhaustiveness is the assertion** — and a structural one would not do. When
  * the emitted map's specifiers resolve to nothing, this union becomes
  * TypeScript's error type, which satisfies every `Expect<Equal<…>>` written
- * against it (SPEC-AMENDMENTS item 9) but does *not* make a `switch`
+ * against it (measured) but does *not* make a `switch`
  * exhaustive: the absent final `return` becomes a real `TS2366`. This function
  * is red exactly when the lookup has stopped meaning anything.
  */
@@ -39,7 +39,7 @@ export function describeUserFailure(
 }
 
 // ---------------------------------------------------------------------------
-// SPEC.md §6.1 — `never`, and never a compile error
+// Undeclared routes — `never`, and never a compile error
 //
 // Every claim below is about what the lookup does with a path it has nothing to
 // say about, and the answer is always the same. `never` is the honest statement
@@ -60,7 +60,7 @@ export function describeUserFailure(
 
 /**
  * A route this app really serves, through a plain `defineEventHandler`. It is
- * keyed in the map like every other route (SPEC.md §4.2) and extracts to
+ * keyed in the map like every other route and extracts to
  * nothing, with no "we chose not to key this" branch anywhere.
  */
 type _undeclaredRouteIsNever = Expect<IsNever<DeclaredErrorsOf<'/api/boom'>>>

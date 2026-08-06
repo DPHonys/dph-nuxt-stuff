@@ -1,5 +1,5 @@
 /**
- * `$typedFetch` and `$typedFetch.safe` at layer 1 (SPEC.md §9.1): the whole
+ * `$typedFetch` and `$typedFetch.safe` at layer 1: the whole
  * namespace over a hand-written stand-in for a generated map, with nothing
  * running.
  *
@@ -8,7 +8,7 @@
  * the fast half: it says what the *rule* is, in one screen, and it keeps saying
  * it on the day a Nuxt or Nitro bump takes the real build down.
  *
- * Must compile with **zero** diagnostics (SPEC.md §9.5 rule 3).
+ * Must compile with **zero** diagnostics.
  *
  * **Excluded from the package's own `tsconfig.json`, and it has to stay
  * excluded** — for the reason `./lookup.ts` and `./unreachable-map-key.ts`
@@ -29,7 +29,7 @@ import type { Equal, Expect, IsAny, IsNever } from '../vocabulary'
 
 /**
  * Imported for the **render's** sake rather than for an assertion: a name the
- * fixture does not import renders as `import("…").Name`, and SPEC.md §9.3's
+ * fixture does not import renders as `import("…").Name`, and the hover
  * budgets were taken in an editor, where a call site's own file has the name in
  * scope. The alias below is what keeps the import used.
  */
@@ -68,7 +68,7 @@ declare module '../../../src/runtime/types' {
 type _MapIsAugmented = TypedApiErrors
 
 // ---------------------------------------------------------------------------
-// SPEC.md §6.1: the default entry point is a pure typings mirror of vanilla
+// The default entry point is a pure typings mirror of vanilla
 // ---------------------------------------------------------------------------
 
 /**
@@ -104,7 +104,7 @@ async function _defaultEntryPointIsVanillas(): Promise<unknown[]> {
   >
 
   // An external URL and a path built at run time are both legal through
-  // vanilla, so both stay legal here (SPEC.md §6.1).
+  // vanilla, so both stay legal here.
   const external = await $typedFetch('https://example.com/thing')
   const built = await $typedFetch(String(Date.now()))
 
@@ -112,7 +112,7 @@ async function _defaultEntryPointIsVanillas(): Promise<unknown[]> {
 }
 
 // ---------------------------------------------------------------------------
-// SPEC.md §3.5: the namespace is a FULL mirror, plus exactly one member
+// The namespace is a FULL mirror, plus exactly one member
 // ---------------------------------------------------------------------------
 
 /**
@@ -139,7 +139,7 @@ type _namespaceIsVanillasPlusSafe = Expect<
 type _rawIsVanillas = Expect<Equal<typeof $typedFetch.raw, typeof $fetch.raw>>
 
 /**
- * **`create` returns the *typed* interface** (SPEC.md §3.5). Returning a
+ * **`create` returns the *typed* interface**. Returning a
  * vanilla `$Fetch` would be a silent typing cliff: the call compiles and
  * `.safe` vanishes one level later with no signal at all.
  */
@@ -163,13 +163,13 @@ async function _createdInstanceKeepsTheUnion(): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// SPEC.md §3.5: `.safe` on a declared route
+// `.safe` on a declared route
 // ---------------------------------------------------------------------------
 
 /**
  * **The exhaustive `switch` is the assertion.** No `default`, and the function
  * promises a `string`, so an error union that had degraded to TypeScript's
- * error type — or to SPEC.md §5.3's shape floor, or to `any` — leaves the final
+ * error type — or to the shape floor, or to `any` — leaves the final
  * `return` missing and this is a real `TS2366`.
  *
  * `ok` is the discriminant and `error` is the **flat variant**: the wrapper has
@@ -216,7 +216,7 @@ async function _safeNarrowsAfterDestructuring(): Promise<string> {
 }
 
 /**
- * **Neither arm is `any`** (SPEC.md §9.5 rule 1).
+ * **Neither arm is `any`.**
  *
  * Not decoration on this surface: every claim here goes through a *call*, and a
  * fixture program that cannot resolve ofetch's `FetchRequest` — it needs
@@ -254,8 +254,7 @@ async function _safeDataIsVanillas(): Promise<unknown> {
 }
 
 // ---------------------------------------------------------------------------
-// SPEC.md §6.1: the undeclared collapse, which this surface needs for its own
-// reason
+// The undeclared collapse, which this surface needs for its own reason
 // ---------------------------------------------------------------------------
 
 /**
@@ -284,7 +283,7 @@ type _declaredRouteKeepsTwoArms = Expect<
 
 /**
  * The same thing through a real call, and **after destructuring** — which is
- * the shape SPEC.md §3.5 says to verify, because it is how call sites will be
+ * the shape to verify, because it is how call sites will be
  * written. Both lines are a compile error without the collapse: `ok` would be
  * `boolean`, and `data` does not exist on the false arm.
  */
@@ -302,7 +301,7 @@ async function _undeclaredRouteDegradesToOneArm(): Promise<unknown> {
 }
 
 /**
- * SPEC.md §4.3's presence-based method fallback, reached through `.safe`'s own
+ * The presence-based method fallback, reached through `.safe`'s own
  * method parameter rather than through the lookup — the only thing that proves
  * the method reaches the lookup at all.
  *
@@ -329,7 +328,7 @@ async function _methodReachesTheLookup(): Promise<string> {
 
 /**
  * An external URL and a run-time-built path both degrade to the one-arm form
- * rather than to a compile error, for the reason SPEC.md §6.1 gives: a typed
+ * rather than to a compile error: a typed
  * wrapper must not reject what vanilla accepts.
  */
 async function _undeclarablePathsDegrade(): Promise<unknown[]> {
@@ -343,7 +342,7 @@ async function _undeclarablePathsDegrade(): Promise<unknown[]> {
 }
 
 // ---------------------------------------------------------------------------
-// SPEC.md §8.3(b): the declaration shape, as a rendering pair
+// The declaration shape, as a rendering pair
 // ---------------------------------------------------------------------------
 
 /**

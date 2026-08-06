@@ -1,11 +1,11 @@
 /**
  * Deliberately does not compile. Excluded from the package's `tsconfig` and
- * from lint (SPEC.md §9.9 trap 1).
+ * from lint.
  *
  * `.pick()` of a tag the catalogue does not declare. Asserted: `TS2345`, with a
  * message listing the **real** tags — a narrowing that silently picked nothing
  * would publish a contract for failures the route can never emit, which is the
- * exact dishonesty `.pick()` exists to prevent (SPEC.md §3.2).
+ * exact dishonesty `.pick()` exists to prevent.
  */
 
 import { defineErrors, payload } from '../../../src/runtime/shared'

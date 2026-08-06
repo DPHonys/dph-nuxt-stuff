@@ -1,9 +1,9 @@
 import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/shared'
 
 /**
- * The three-hop chain's catalogue (SPEC.md §6.6, §3.6).
+ * The three-hop chain's catalogue.
  *
- * **One catalogue for three routes on purpose.** SPEC.md §3.6's rule for
+ * **One catalogue for three routes on purpose.** The rule for
  * forwarding a callee's variant verbatim is *"import the same catalogue and
  * declare it"* — which already works with zero new API — so the three hops each
  * `.pick()` their own slice out of this, and `/api/chain/b` picks two: its own

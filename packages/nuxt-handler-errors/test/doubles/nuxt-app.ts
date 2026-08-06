@@ -4,7 +4,7 @@
  * `src/runtime/app/use-typed-fetch.ts` is app-side code: it imports `useFetch`
  * from `#app`, an alias that exists only inside a Nuxt build. This stands in
  * for the two functions it imports, and records what the wrapper handed them —
- * which is precisely the boundary SPEC.md §3.8's header merge is a claim about.
+ * which is precisely the boundary the header merge is a claim about.
  *
  * It is not a simulation of `useFetch` and must not become one. The composable
  * running for real, against a real server, is `test/specifiers.test.ts`.

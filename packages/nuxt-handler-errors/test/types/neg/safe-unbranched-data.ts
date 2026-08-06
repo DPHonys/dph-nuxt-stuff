@@ -1,6 +1,6 @@
 /**
  * A declared route's `.safe` result really does keep the false arm
- * (SPEC.md §3.5).
+ *.
  *
  * This is the **control for the undeclared collapse**, and without it that
  * assertion would pass just as well against a `TypedResult` that had degraded

@@ -2,7 +2,7 @@ import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
 import { chainErrors } from '#shared/errors/chain'
 
 /**
- * Hop 3 of 3 — the deepest callee (SPEC.md §6.6).
+ * Hop 3 of 3 — the deepest callee.
  *
  * It declares one variant and knows nothing about the two routes above it.
  * `cookie` is read off **this** request, which is the whole point: this handler

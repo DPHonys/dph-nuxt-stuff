@@ -4,7 +4,7 @@ import { emitMap, TYPES_SPECIFIER } from '../src/emit-map'
 import type { NitroPathOptions } from '../src/emit-map'
 
 /**
- * The emitter, exercised as the pure function SPEC.md §4.6 mandates it be: no
+ * The emitter, exercised as the pure function it is required to be: no
  * Nuxt, no Nitro instance, no filesystem, no compiler. Everything here is a
  * string comparison and the whole file runs in milliseconds.
  *
@@ -45,7 +45,7 @@ describe('the generated map’s frame', () => {
   )
 
   it('augments the module’s own specifier and imports the extractor from it', () => {
-    // Both strings are load-bearing and fixed (SPEC.md §4.2): augmenting
+    // Both strings are load-bearing and fixed: augmenting
     // `nitropack/types` would be squatting, and the `hoist` entry ticket 07
     // pushes has to name exactly this. Written as literals rather than
     // interpolated from the constant, so renaming the constant cannot quietly
@@ -100,7 +100,7 @@ describe('the generated map’s frame', () => {
 
 describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   it('keys every route Nitro knows, branded or not', () => {
-    // SPEC.md §4.2: keying every route is what makes ticket 08's lookup total
+    // Keying every route is what makes ticket 08's lookup total
     // and lets `MatchedRoutes` be reused verbatim as the indexer. It costs
     // nothing — an unbranded handler extracts to `never` naturally — so the
     // emitter has no notion of "branded" at all, which is the point.
@@ -191,7 +191,7 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
 
   it('lowercases a method a module passed through unmodified', () => {
     // Filesystem scanning guarantees lowercase; `addServerHandler` does not.
-    // The lookup side normalises with `Lowercase<M>` (SPEC.md §4.3 mandate 2),
+    // The lookup side normalises with `Lowercase<M>`,
     // so an uppercased key here would simply never be found.
     const emitted = emitMap(
       [
@@ -240,7 +240,7 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   })
 
   it('keeps a route’s methods apart, including alongside a default', () => {
-    // SPEC.md §4.3's worked example: `/api/y` served by `y.ts` and `y.post.ts`.
+    // The worked example: `/api/y` served by `y.ts` and `y.post.ts`.
     const emitted = emitMap(
       [
         { route: '/api/y', handler: '/app/server/api/y.ts' },
@@ -464,9 +464,9 @@ describe('relative handler specifiers', () => {
   })
 })
 
-describe('path-referentiality (SPEC.md §4.4, §4.6)', () => {
+describe('path-referentiality', () => {
   it('is blind to catalogue content: only routes and paths reach the output', () => {
-    // The mandate that matters, and the reason §4.6 makes the emitter's *shape*
+    // The mandate that matters, and the reason the emitter's *shape* is
     // a constraint. Nitro never regenerates route types on a content change and
     // gets away with it only because its output is an import expression the
     // compiler re-resolves on every edit. Anything resolving values at emit time

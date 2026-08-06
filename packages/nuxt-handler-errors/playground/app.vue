@@ -10,7 +10,7 @@ import { describeUserFailure } from '#shared/lookup-probe'
 import { describeReadFailure } from '#shared/reader-probe'
 import { SHARED_CONTEXT_PROBE } from '#shared/specifier-probe'
 // The same reach into the module package's own suite the route files make:
-// `Equal` and `Expect` are fixed vocabulary (SPEC.md §9.5) and a second copy
+// `Equal` and `Expect` are fixed vocabulary and a second copy
 // here could drift from the one every other assertion uses.
 import type { Equal, Expect } from '../test/types/vocabulary'
 
@@ -19,8 +19,8 @@ import type { Equal, Expect } from '../test/types/vocabulary'
 type _ClientContextErrorMap = TypedApiErrors
 
 // ---------------------------------------------------------------------------
-// Layer 3 (SPEC.md §9.1), in `<script setup>` — which is *the* reason SPEC.md
-// §4.2 chose a type template over a hand-rolled write: `addTypeTemplate` puts
+// Layer 3, in `<script setup>` — which is *the* reason the module
+// chose a type template over a hand-rolled write: `addTypeTemplate` puts
 // the generated file into the app program and into
 // `vite.vue.script.globalTypeFiles`, and the composable's primary call site is
 // a single-file component. Nothing hermetic can make this claim; it holds only
@@ -38,7 +38,7 @@ type UserFailure = TypedApiErrors['/api/users/:id']['get']
  * every `import('…')` in it resolves to nothing — silently, because
  * `skipLibCheck` covers a `.d.ts` — and `UserFailure` becomes TypeScript's
  * *error type*. That type satisfies every `Expect<Equal<…>>` written against
- * it (measured: SPEC-AMENDMENTS item 9). What it does not do is make a `switch`
+ * it (measured). What it does not do is make a `switch`
  * exhaustive, so the absent final `return` below becomes a real `TS2366`. This
  * function is red exactly when the map has stopped meaning anything.
  */
@@ -62,7 +62,7 @@ const narrowed = describeFailure({
 /**
  * The same claim reached through the **lookup** rather than through a raw index
  * — the route named by its path alone, from a helper living in the consumer's
- * `shared/` directory (SPEC.md §3.6, §4.3). Its `switch` is exhaustive for the
+ * `shared/` directory. Its `switch` is exhaustive for the
  * same reason `describeFailure`'s is, and red for the same reason.
  */
 const looked = describeUserFailure({
@@ -72,10 +72,10 @@ const looked = describeUserFailure({
 })
 
 // ---------------------------------------------------------------------------
-// The readers (SPEC.md §3.7), in the context they were designed for.
+// The readers, in the context they were designed for.
 //
 // **Neither name is imported.** Both arrive through the module's `addImports`
-// registration, which is the sugar half of SPEC.md §3.7 — the hand-writable
+// registration, which is the sugar half of the design — the hand-writable
 // `/shared` specifier stays the contract, and `#shared/reader-probe.ts` above
 // exercises that half. Delete the registration and this file stops compiling.
 // ---------------------------------------------------------------------------
@@ -83,9 +83,9 @@ const looked = describeUserFailure({
 /**
  * The degraded overload against Nuxt's **real** error type. A vanilla
  * `useFetch` on a declared route still gives `NuxtError<unknown>` — the typed
- * error channel is ticket 10's job — so this reads back SPEC.md §5.3's shape
+ * error channel is ticket 10's job — so this reads back the shape
  * floor at compile time while finding the real variant at run time. That
- * combination is SPEC.md §5.3's whole claim about what the wire guarantees.
+ * combination is the whole claim about what the wire guarantees.
  */
 const { error: vanillaError } = await useFetch('/api/users/missing')
 const floor = useDeclaredError(vanillaError)
@@ -100,7 +100,7 @@ const typedError =
   ref<NuxtError<DeclaredErrorBody<DeclaredErrorsOf<'/api/users/:id'>>>>()
 
 /**
- * **Narrowing lands on a local const** (SPEC.md §3.7 consequence 1), and the
+ * **Narrowing lands on a local const**, and the
  * two lines below are the assertion rather than a demonstration of it:
  *
  * - `describeUserFailure` takes `DeclaredErrorsOf<'/api/users/:id'>`, so it
@@ -130,15 +130,14 @@ const fromShared = describeReadFailure(
 )
 
 // ---------------------------------------------------------------------------
-// The composable (SPEC.md §3.4), in `<script setup>` — its primary call site,
+// The composable, in `<script setup>` — its primary call site,
 // and the one context nothing hermetic can stand in for.
 //
 // **Neither `useTypedFetch` nor `useLazyTypedFetch` is imported.** Both arrive
 // through the module's `addImports` registration, which for these two names is
 // the *whole* contract rather than sugar on top of a hand-writable specifier:
 // the composable calls `useFetch`, which lives behind `#app`, and none of
-// SPEC.md §3's three published specifiers may carry that import
-// (SPEC-AMENDMENTS item 29).
+// the three published specifiers may carry that import.
 // ---------------------------------------------------------------------------
 
 /**
@@ -149,8 +148,7 @@ const fromShared = describeReadFailure(
  * `current` to `describeUserFailure` — whose parameter is
  * `DeclaredErrorsOf<'/api/users/:id'>` and whose `switch` is exhaustive — is
  * what claims that the whole chain survived: the composable's return type, the
- * reader's first overload, and the `.value` read onto a local `const`
- * (SPEC.md §3.7 consequence 1).
+ * reader's first overload, and the `.value` read onto a local `const`.
  *
  * This is also the line that would go red if the composable's error type
  * degraded to vanilla's `NuxtError<unknown>`: the reader would fall to its
@@ -166,7 +164,7 @@ const typedFetchRead =
     : describeUserFailure(currentUserFailure)
 
 /**
- * **`data` is what it always was** (SPEC.md §3.4). Nitro's own success type,
+ * **`data` is what it always was**. Nitro's own success type,
  * untouched — the declared union rides a sibling property on the handler type
  * and never enters `ReturnType`, so nothing about the error channel reaches
  * this one. Its absent member is `undefined` and **not** `null`, which is what
@@ -182,7 +180,7 @@ type _dataStaysVanilla = Expect<
 
 /**
  * **The error ref really carries the envelope**, with the union named from the
- * route path alone and nothing else in the way (SPEC.md §3.4).
+ * route path alone and nothing else in the way.
  *
  * This lives here rather than in `test/generated-map.test.ts`'s probe on
  * purpose: measured, it goes **red** against that file's broken-specifier
@@ -200,12 +198,12 @@ type _errorIsTheEnvelope = Expect<
 >
 
 /**
- * SPEC.md §4.3's method table, reached through the composable's own `Method`
+ * The method table, reached through the composable's own `Method`
  * type parameter rather than through the lookup — the only thing that proves
  * the method reaches the lookup at all.
  *
  * Row 2: `post` is present on `/api/method-fallback` and unbranded, so the
- * error collapses back to vanilla's envelope — SPEC.md §6.1's degradation lock,
+ * error collapses back to vanilla's envelope — the degradation lock,
  * in the app program, against a route this app really serves. Row 1 — `get`
  * absent, so the `default` handler's union — is rendered in
  * `test/generated-map.test.ts`, which is where a union that had stopped meaning
@@ -228,11 +226,11 @@ type _presentMethodKeyCollapses = Expect<
 >
 
 /**
- * **SPEC.md §3.8's header merge, run rather than reasoned about.**
+ * **The header merge, run rather than reasoned about.**
  *
  * `/status` echoes back the `accept` and `x-probe` headers it was called with,
  * so what this renders is the merge's actual output on the SSR path — the path
- * SPEC.md §3.8 exists for.
+ * the merge exists for.
  *
  * The caller's header is passed as a **`Headers` instance** on purpose. It is a
  * legal, common form and it is the one that breaks silently: it has no own
@@ -256,7 +254,7 @@ const statusRead =
 
 /**
  * The lazy sibling — the same interface, so the same union comes back out
- * (SPEC.md §3.4). `immediate: false` keeps it from adding a third request to
+ *. `immediate: false` keeps it from adding a third request to
  * every page render; the claim here is the type, and the runtime half is
  * covered by the two calls above.
  */
@@ -269,7 +267,7 @@ type _lazySiblingCarriesTheSameUnion = Expect<
 >
 
 // ---------------------------------------------------------------------------
-// `$typedFetch` (SPEC.md §3.5), in `<script setup>` — **with no import**, and
+// `$typedFetch`, in `<script setup>` — **with no import**, and
 // not through an auto-import either.
 //
 // It is a genuine global, declared the way Nitro declares its own `$fetch`:
@@ -293,7 +291,7 @@ const globalRead = globalSafe.ok
   : `global:${describeUserFailure(globalSafe.error)}`
 
 /**
- * SPEC.md §6.1's degradation lock on this surface: an undeclared route's result
+ * The degradation lock on this surface: an undeclared route's result
  * has **one arm**, so `ok` is the literal `true` and `data` is reachable with
  * no branch. Without {@link TypedResult}'s collapse `ok` would be `boolean` and
  * the line below would be a compile error — which is the whole reason

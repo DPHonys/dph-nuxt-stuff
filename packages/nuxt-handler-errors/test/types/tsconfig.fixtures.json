@@ -6,9 +6,9 @@
   //
   // This config is never built or checked as a project. `test/types/harness.ts`
   // reads it with `readConfigFile` + `parseJsonConfigFileContent` and hands
-  // `createProgram` the fixture plus `parsed.fileNames` (SPEC.md §9.9 trap 4),
+  // `createProgram` the fixture plus `parsed.fileNames`,
   // which is why `include` names the ambient declarations rather than the
-  // fixtures: the fixtures arrive one at a time, alone (SPEC.md §9.2).
+  // fixtures: the fixtures arrive one at a time, alone.
   //
   // The options mirror the package's own program where it can affect a type
   // assertion — `strict`, `exactOptionalPropertyTypes` and

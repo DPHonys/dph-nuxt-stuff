@@ -11,14 +11,14 @@ import {
 } from '../src/runtime/shared'
 
 /**
- * The reader's runtime guard (SPEC.md §3.7, §5.3).
+ * The reader's runtime guard.
  *
  * **This is a security-shaped surface.** `declaredError` decides whether an
  * arbitrary value — a response body a proxy may have rewritten, a `catch`
  * binding of unknown provenance, a hand-rolled imitation — is treated as a
  * declared variant and narrowed on its `tag`. So the assertions that matter
- * here are the **rejections**: SPEC.md §5.3 says a marker that is present but
- * whose two-field floor is unmet reads as *undeclared*, never as a malformed
+ * here are the **rejections**: a marker that is present but whose two-field
+ * floor is unmet must read as *undeclared*, never as a malformed
  * declared failure, and that is the conservative direction because an
  * undeclared error is what every consumer already knows how to handle.
  *
@@ -61,7 +61,7 @@ function clientErrorFor(userId: string): unknown {
 
   // ofetch defines `FetchError.data` as a getter over the whole response body,
   // and `createError` copies `input.data` wholesale — so the body sits one hop
-  // in and the H3Error's own `data` one hop further (SPEC.md §5.2).
+  // in and the H3Error's own `data` one hop further.
   return {
     data: {
       error: true,
@@ -91,8 +91,8 @@ describe('reading a declared variant out of an error value', () => {
   })
 
   it('hands back the marker itself rather than a copy of it', () => {
-    // The reader is a *path*, not a transform: SPEC.md §5.2 says the marker's
-    // value **is** the variant, byte for byte, with no excess key to `Omit` and
+    // The reader is a *path*, not a transform: the marker's value **is** the
+    // variant, byte for byte, with no excess key to `Omit` and
     // nothing to reassemble.
     const marker = { tag: 'forbidden', status: 403, requiredRole: 'owner' }
 
@@ -100,7 +100,7 @@ describe('reading a declared variant out of an error value', () => {
   })
 })
 
-describe('the shape floor, on a marker that is present (SPEC.md §5.3)', () => {
+describe('the shape floor, on a marker that is present', () => {
   /**
    * Each row is a marker that really is at the reserved key and really is
    * malformed — a proxy rewriting bodies, a mangled response, a hand-rolled
@@ -133,7 +133,7 @@ describe('the shape floor, on a marker that is present (SPEC.md §5.3)', () => {
   it('accepts the floor with nothing else on it', () => {
     // The control for the whole table: without it every row above would pass
     // just as well against a reader that had stopped finding anything.
-    // SPEC.md §5.3 constrains exactly two fields and no more, so a variant with
+    // The floor constrains exactly two fields and no more, so a variant with
     // no payload is a legal variant.
     expect(
       declaredError(atTheMarkerAddress({ tag: 'unauthorized', status: 401 }))
@@ -145,7 +145,7 @@ describe('values that carry no marker at all', () => {
   /**
    * The three hops are `err.data.data.__declaredError__` and **only** those.
    * A marker one hop short or one hop deep is not this envelope, and the
-   * one-hop-deep row is SPEC.md §6.5's escaped-callee case: were the reader to
+   * one-hop-deep row is the escaped-callee case: were the reader to
    * walk further it would start reporting a *callee's* declared failure as the
    * caller's own.
    */
@@ -179,7 +179,7 @@ describe('values that carry no marker at all', () => {
       },
     ],
     [
-      // SPEC.md §6.5: Nitro's production serializer wipes `data` entirely when
+      // Nitro's production serializer wipes `data` entirely when
       // `unhandled || fatal`, while `statusMessage` is not gated and still
       // carries the callee's tag. The reader must not reconstruct a variant out
       // of that — the failure degrades to undeclared, which is the safe

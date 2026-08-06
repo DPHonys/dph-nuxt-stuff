@@ -1,10 +1,10 @@
 /**
  * Deliberately does not compile. Excluded from the package's `tsconfig` and
- * from lint (SPEC.md §9.9 trap 1).
+ * from lint.
  *
  * A payload-less variant takes **no** second argument, because `PayloadArgs`
  * resolves to the empty tuple rather than to an optional parameter
- * (SPEC.md §3.1). Passing one anyway is an error rather than an extra that
+ *. Passing one anyway is an error rather than an extra that
  * silently rides along into the wire envelope.
  *
  * Asserted: `TS2554`, naming the arity.

@@ -1,14 +1,14 @@
 /**
- * `event.$typedFetch` at layer 1 (SPEC.md §9.1): the whole surface over a
+ * `event.$typedFetch` at layer 1: the whole surface over a
  * hand-written stand-in for a generated map, with nothing running.
  *
  * The playground makes the same claims against a **real** Nuxt build — and it
  * is the only place the augmentation can be shown to have *bound*, since an
- * augmentation landing on a second physical `h3` is silent (SPEC.md §7.2). This
+ * augmentation landing on a second physical `h3` is silent. This
  * file is the fast half: it says what the *rule* is, in one screen, and it keeps
  * saying it on the day a Nuxt or Nitro bump takes the real build down.
  *
- * Must compile with **zero** diagnostics (SPEC.md §9.5 rule 3).
+ * Must compile with **zero** diagnostics.
  *
  * **Excluded from the package's own `tsconfig.json`, and it has to stay
  * excluded** — for the reason `./typed-fetch.ts`, `./lookup.ts` and
@@ -29,8 +29,8 @@ import type { Equal, Expect, IsAny, IsNever } from '../vocabulary'
 
 /**
  * Imported for the **render's** sake rather than for an assertion: a name the
- * fixture does not import renders as `import("…").Name`, and SPEC.md §9.3's
- * budgets were taken in an editor, where a call site's own file has the name in
+ * fixture does not import renders as `import("…").Name`, and the hover
+ * budgets were measured in an editor, where a call site's own file has the name in
  * scope.
  */
 type _RequestIsNitros = NitroFetchRequest
@@ -71,7 +71,7 @@ type _MapIsAugmented = TypedApiErrors
 declare const event: H3Event
 
 // ---------------------------------------------------------------------------
-// SPEC.md §3.6: the bare call signature plus the sibling, and nothing else
+// The namespace: the bare call signature plus the sibling, and nothing else
 // ---------------------------------------------------------------------------
 
 /**
@@ -96,7 +96,7 @@ type _vanillaHasNoMembersAtAll = Expect<IsNever<keyof typeof event.$fetch>>
 
 /**
  * **`.safe` is the global's declaration, not a second one that can disagree**
- * (SPEC.md §3.6). What genuinely differs between the two surfaces is the
+ *. What genuinely differs between the two surfaces is the
  * *header merge*, which is run time.
  */
 type _safeIsTheSameSignature = Expect<
@@ -114,7 +114,7 @@ type _isNotTheGlobalsNamespace = Expect<
 >
 
 // ---------------------------------------------------------------------------
-// SPEC.md §6.1: the default entry point is a pure typings mirror of vanilla
+// The degradation lock: the default entry point is a pure typings mirror of vanilla
 // ---------------------------------------------------------------------------
 
 /**
@@ -134,7 +134,7 @@ async function _defaultEntryPointIsVanillas(): Promise<unknown[]> {
   type _successIsTheRoutes = Expect<Equal<typeof typed, { id: string }>>
 
   // An external URL and a path built at run time are both legal through
-  // vanilla, so both stay legal here (SPEC.md §6.1).
+  // vanilla, so both stay legal here.
   const external = await event.$typedFetch('https://example.com/thing')
   const built = await event.$typedFetch(String(Date.now()))
 
@@ -142,17 +142,17 @@ async function _defaultEntryPointIsVanillas(): Promise<unknown[]> {
 }
 
 // ---------------------------------------------------------------------------
-// SPEC.md §3.6: `.safe` on a declared callee
+// `.safe` on a declared callee
 // ---------------------------------------------------------------------------
 
 /**
  * **The exhaustive `switch` is the assertion.** No `default`, and the function
  * promises a `string`, so an error union that had degraded to TypeScript's
- * error type — or to SPEC.md §5.3's shape floor, or to `any` — leaves the final
+ * error type — or to the wire's shape floor, or to `any` — leaves the final
  * `return` missing and this is a real `TS2366`.
  *
- * This is SPEC.md §3.6's worked example in miniature, and it is the shape
- * SPEC-AMENDMENTS item 28 warns about: a handler whose return type is *inferred*
+ * This is the server-to-server worked example in miniature, and it is the shape
+ * the depth rule warns about: a handler whose return type is *inferred*
  * from a call like this one needs an explicit annotation, which is what every
  * chain route in the playground writes.
  */
@@ -193,11 +193,11 @@ async function _safeNarrowsAfterDestructuring(): Promise<string> {
 }
 
 /**
- * **Neither arm is `any`** (SPEC.md §9.5 rule 1), and it is not decoration
+ * **Neither arm is `any`**, and it is not decoration
  * here: every claim above goes through a *call*, and a fixture program that
  * cannot resolve ofetch's `FetchRequest` — which needs `lib.dom`, absent from
  * the base fixture config — infers the route literal as `any` and hands back
- * `unknown`, silently (SPEC-AMENDMENTS item 40).
+ * `unknown`, silently.
  */
 type _SafeResult = Awaited<
   ReturnType<typeof event.$typedFetch.safe<unknown, '/api/users/:id'>>
@@ -216,13 +216,13 @@ type _safeDataIsNotAny = Expect<
 >
 
 // ---------------------------------------------------------------------------
-// SPEC.md §6.1: the undeclared collapse
+// The undeclared collapse
 // ---------------------------------------------------------------------------
 
 /**
  * A callee that declared nothing has **one arm**, so `ok` is the literal `true`
  * and `data` is reachable with no branch — including after destructuring, which
- * is the shape SPEC.md §3.5 says to verify. Without {@link TypedResult}'s
+ * is the shape to verify. Without {@link TypedResult}'s
  * tuple-wrapped collapse `ok` would be `boolean` and both lines below would be
  * compile errors.
  */
@@ -239,7 +239,7 @@ async function _undeclaredCalleeDegradesToOneArm(): Promise<unknown> {
 }
 
 // ---------------------------------------------------------------------------
-// SPEC.md §8.3(b): the declaration shape, as a rendering target
+// The declaration shape, as a rendering target
 // ---------------------------------------------------------------------------
 
 /**

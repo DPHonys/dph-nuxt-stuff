@@ -1,5 +1,5 @@
 /**
- * The type-level assertion vocabulary (SPEC.md §9.5).
+ * The type-level assertion vocabulary.
  *
  * Three rules bind every use of it, and every helper here exists so that the
  * correct form is the short one:
@@ -12,15 +12,14 @@
  *    distributes over the empty union and is vacuously true, so `IsNever`
  *    tuple-wraps it once, here, and `assertNoBareNeverChecks` in `./harness.ts`
  *    fails the suite if anyone writes the unwrapped form by hand — including
- *    inside a comment, for the same reason SPEC.md §9.9 trap 3 forbids prose
- *    that quotes an expect-error directive.
+ *    inside a comment, for the same reason prose must never quote an
+ *    expect-error directive.
  * 3. **Positive fixtures assert ZERO diagnostics** — see `assertNoDiagnostics`
  *    in `./harness.ts`. Without that, a fixture which stops compiling for an
  *    unrelated reason passes while proving nothing.
  *
  * Assertions are written as throwaway type aliases, so they must be prefixed
- * with `_` to clear this repo's `unused-imports/no-unused-vars` rule
- * (SPEC.md §9.9 trap 2):
+ * with `_` to clear this repo's `unused-imports/no-unused-vars` rule:
  *
  * ```ts
  * type _errsExact = Expect<Equal<Errs, { tag: 'forbidden' }>>
@@ -55,7 +54,7 @@ export type Expect<T extends true> = T
  * every other `T` the intersection stays narrow and `0` does not extend it.
  *
  * Rule 1's idiom is `Expect<Equal<IsAny<X>, false>>`. There is deliberately no
- * `NotAny` shorthand: SPEC.md §9.5 fixes the vocabulary at `Equal`, `Expect`
+ * `NotAny` shorthand: the vocabulary is fixed at `Equal`, `Expect`
  * and `IsAny`, and the point of rule 1 is that `IsAny` appears where the claim
  * is made.
  */

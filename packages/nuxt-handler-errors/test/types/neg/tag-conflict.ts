@@ -1,11 +1,11 @@
 /**
  * Deliberately does not compile. Excluded from the package's `tsconfig` and
- * from lint (SPEC.md §9.9 trap 1).
+ * from lint.
  *
  * Two composed catalogues declare `forbidden` with **different** statuses, so
  * the route's published contract would say two things at once.
  *
- * This fixture is what tests SPEC.md §3.2's guard-**first** mandate. The
+ * This fixture is what tests the guard-**first** mandate. The
  * assertion is that the colliding tag is still visible in the rendered message:
  * TypeScript truncates the tail of a rendered type at creation time, so
  * `{ errors: C } & ConflictGuard<C>` detects the collision and then buries it

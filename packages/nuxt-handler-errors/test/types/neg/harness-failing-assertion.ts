@@ -1,6 +1,6 @@
 /**
  * Deliberately does not compile. Excluded from the package's `tsconfig` and
- * from lint (SPEC.md §9.9 trap 1).
+ * from lint.
  *
  * `Expect` is what turns a type-level claim into a build failure, and its whole
  * mechanism is one constraint. This fixture is the only place in the suite

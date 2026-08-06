@@ -8,7 +8,7 @@ import {
 } from './harness'
 
 /**
- * Layer 1 for `useTypedFetch` (SPEC.md §3.4, §6.1, §8.3(b)).
+ * Layer 1 for `useTypedFetch`.
  *
  * ## Why this one fixture has its own config
  *
@@ -16,12 +16,12 @@ import {
  * `tsconfig.fixtures.json` cannot resolve. The **package's own** `tsconfig.json`
  * can — it extends the `.nuxt/tsconfig.json` the module builder generates — and
  * it brings a second property this fixture depends on: it *excludes* the two
- * fixtures that augment `InternalApi` (SPEC-AMENDMENTS item 18), so the route
+ * fixtures that augment `InternalApi`, so the route
  * interface in this program is empty.
  *
  * **An empty `InternalApi` is the fixture, not a limitation.** Every route is
- * then an undeclared route, which is the only condition under which SPEC.md
- * §6.1's degradation lock can be stated as *"byte-identical to vanilla"* and
+ * then an undeclared route, which is the only condition under which the
+ * degradation lock can be stated as *"byte-identical to vanilla"* and
  * meant literally — the two renders below are compared character for character.
  * The declared side needs a generated map and is asserted at layer 3.
  */
@@ -34,7 +34,7 @@ const PACKAGE_TSCONFIG = fileURLToPath(
 )
 
 /**
- * SPEC.md §9.3's first budget, re-measured here (SPEC.md §8.3(b)).
+ * The hover budget for this surface, re-measured here.
  *
  * **measured 25 as a named `interface` / 560 as a bare `function` declaration**
  * — with the `import("…")` specifier canonicalized before measuring, which is
@@ -45,7 +45,7 @@ const PACKAGE_TSCONFIG = fileURLToPath(
  * was 55 / 1075 on a bigger signature; vanilla `useFetch` renders 94 for
  * exactly this reason.
  *
- * Set at ~2× the good value rather than SPEC.md §9.3's usual 1.5×, because
+ * Set at ~2× the good value rather than the usual 1.5×, because
  * the good value is a single name and 1.5× would leave no room to rename it.
  */
 const USE_TYPED_FETCH_BUDGET = 50
@@ -57,10 +57,10 @@ describe('useTypedFetch, against Nuxt’s real types', () => {
     tsconfigPath: PACKAGE_TSCONFIG,
   })
 
-  it('holds every claim SPEC.md §3.4 makes about the call surface', () => {
+  it('holds every claim made about the call surface', () => {
     // Every claim in the fixture is an `Expect<…>` alias or a call that has to
-    // resolve, so the whole assertion is that it compiles clean
-    // (SPEC.md §9.5 rule 3). Nothing is filtered by file: the fixture calls
+    // resolve, so the whole assertion is that it compiles clean.
+    // Nothing is filtered by file: the fixture calls
     // both wrappers *and* vanilla with identical arguments, so a diagnostic
     // anywhere in the program is a reason to disbelieve the pairs.
     assertNoDiagnostics(harness.compileAlone(FIXTURE))
@@ -78,14 +78,14 @@ describe('useTypedFetch, against Nuxt’s real types', () => {
 
     // The mutation, committed rather than described: the identical signature as
     // a bare `function` declaration is in the same fixture, and this is what
-    // it costs. Without SPEC.md §8.3(b)'s mandate the line above renders this.
+    // it costs. Without the named-interface mandate the line above renders this.
     expect(
       compilation.renderHover('_bareUseTypedFetch').length
     ).toBeGreaterThan(USE_TYPED_FETCH_BUDGET)
   })
 
   it('leaves an undeclared route’s error channel byte-identical to vanilla', () => {
-    // SPEC.md §6.1's degradation lock, and the strongest form the claim has:
+    // The degradation lock, and the strongest form the claim has:
     // not "assignable to", not "equal by `Equal<…>`" — the same characters.
     //
     // `Equal<…>` over the same pair is in the fixture and is the cheaper guard;

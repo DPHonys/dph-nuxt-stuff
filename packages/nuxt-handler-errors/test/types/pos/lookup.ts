@@ -1,5 +1,5 @@
 /**
- * The lookup, at layer 1 (SPEC.md §9.1): `DeclaredErrorsOf` over a
+ * The lookup, at layer 1: `DeclaredErrorsOf` over a
  * hand-written stand-in for a generated map, with nothing running.
  *
  * `playground/server/api/method-fallback.ts` and
@@ -9,7 +9,7 @@
  * half: it says what the *rule* is, in one screen, and it keeps saying it on the
  * day a Nuxt or Nitro bump takes the real build down.
  *
- * Must compile with **zero** diagnostics (SPEC.md §9.5 rule 3).
+ * Must compile with **zero** diagnostics.
  *
  * **Excluded from the package's own `tsconfig.json`, and it has to stay
  * excluded** — for the reason `./unreachable-map-key.ts` records: the
@@ -74,7 +74,7 @@ declare module '../../../src/runtime/types' {
 }
 
 // ---------------------------------------------------------------------------
-// Nitro's own route matching is the indexer (SPEC.md §4.3)
+// Nitro's own route matching is the indexer
 // ---------------------------------------------------------------------------
 
 /**
@@ -96,7 +96,7 @@ type _literalKeyMatches = Expect<
 >
 
 // ---------------------------------------------------------------------------
-// The method fallback is presence-based (SPEC.md §4.3)
+// The method fallback is presence-based
 // ---------------------------------------------------------------------------
 
 /** Row 1 — `get` absent from `/api/y` → `default`. */
@@ -118,7 +118,7 @@ type _rowThreeFallsBack = Expect<
   Equal<DeclaredErrorsOf<'/api/y', 'DELETE'>, YDefaultFailure>
 >
 
-/** Both spellings of a method name reach the same key (SPEC.md §4.3 mandate 2). */
+/** Both spellings of a method name reach the same key. */
 type _methodCaseIsNormalised = Expect<
   Equal<DeclaredErrorsOf<'/api/y', 'delete'>, YDefaultFailure>
 >
@@ -139,7 +139,7 @@ type _noDefaultToFallBackTo = Expect<
 >
 
 // ---------------------------------------------------------------------------
-// SPEC.md §6.1 — `never` is the answer, and it is never a compile error
+// `never` is the answer, and it is never a compile error
 // ---------------------------------------------------------------------------
 
 /** Served, keyed, and declaring nothing. */

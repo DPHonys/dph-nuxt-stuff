@@ -3,11 +3,11 @@ import plugin from '../src/runtime/app/typed-fetch.plugin'
 import { $typedFetch } from '../src/runtime/typed-fetch'
 
 /**
- * The client plugin's one assignment (SPEC.md §3.5): executing it puts *the*
+ * The client plugin's one assignment: executing it puts *the*
  * `$typedFetch` — the same object `src/runtime/typed-fetch` exports — onto
  * `globalThis`. Identity, not shape: a plugin that installed a lookalike
- * would pass every shape check and still be a second instance with §7.2's
- * instance-identity problem.
+ * would pass every shape check and still be a second instance, with the
+ * instance-identity problem that brings.
  *
  * The plugin is app-side (`defineNuxtPlugin` from `#app`), so it loads here
  * through the same recording-double alias `use-typed-fetch.test.ts` uses;

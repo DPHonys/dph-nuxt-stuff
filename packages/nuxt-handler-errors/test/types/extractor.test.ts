@@ -8,12 +8,12 @@ import { assertNoDiagnostics, createTypeHarness } from './harness'
 import type { TypeScriptModule } from './harness'
 
 /**
- * Layer 1 for the extractor (SPEC.md §9.1): the lock the whole design rests on,
+ * Layer 1 for the extractor: the lock the whole design rests on,
  * proved with no Nuxt, no emitter and no running server in the path.
  *
  * Two things are asserted here that the fixture itself cannot claim. The
  * `Flatten` mandate is a **rendering** property — both spellings are
- * structurally identical, so only a length budget sees it break (SPEC.md §9.3).
+ * structurally identical, so only a length budget sees it break.
  * And the brand's survival through **declaration emit** is a property of the
  * emitted `.d.ts`, which only exists once a compiler has been asked to produce
  * one.
@@ -141,7 +141,7 @@ describe('the extractor', () => {
     })
   })
 
-  describe('the Flatten mandate (SPEC.md §8.3(a))', () => {
+  describe('the Flatten mandate', () => {
     it('collapses a variant’s intersection into one rendered object', () => {
       // A matched pair, so the assertion proves it can fail as well as pass:
       // the two declarations are the same variant, and the only difference is
@@ -157,11 +157,11 @@ describe('the extractor', () => {
     })
 
     it('renders the envelope as the flat variants, not a Serialize residue', () => {
-      // SPEC.md §8.3(a)'s own subject, measured rather than assumed: a union
+      // The Flatten mandate's own subject, measured rather than assumed: a union
       // forwarded on as a type argument to `DeclaredErrorBody`.
       //
-      // MEASURED, and it does not match what §8.3(a) records — see the
-      // implementation effort's SPEC-AMENDMENTS entry. As compiled here,
+      // MEASURED, and it does not match what was originally
+      // recorded. As compiled here,
       // `Simplify<Serialize<…>>` is already evaluated and a nested type
       // argument renders as its alias chain, so no `Serialize` residue is
       // reachable here in either spelling and `Flatten` makes the render one
@@ -170,7 +170,7 @@ describe('the extractor', () => {
       // stopped: no residue reaches the envelope's rendering.
       //
       // No length budget: the two spellings measure 289 and 304 characters, a
-      // 5% spread, and SPEC.md §9.3's budgets are calibrated for the 2–20×
+      // 5% spread, and the hover budgets are calibrated for the 2–20×
       // regressions they were decided on. Ticket 10 owns the `H_error` budget
       // and must re-take this measurement against the real playground under
       // `vue-tsc`, where the union arrives through an instantiated generic
@@ -243,7 +243,7 @@ describe('the extractor', () => {
       // generated consumer — so Vitest's 5 s default is a measure of how busy
       // the box is rather than of anything this test claims. Alone it runs in
       // ~3 s; with the file suite saturating eight workers it reached ~7 s once
-      // SPEC.md §3.3's types joined the graph the emit walks. Explicit, in the
+      // the shared error types joined the graph the emit walks. Explicit, in the
       // style `test/generated-map.test.ts` already uses for its `nuxt prepare`
       // builds.
     }, 60_000)

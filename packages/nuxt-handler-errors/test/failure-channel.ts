@@ -3,8 +3,8 @@
  *
  * `test/typed-fetch.test.ts` and `test/event-typed-fetch.test.ts` are
  * deliberately parallel — same wrapper shape, same `.safe` contract — and
- * SPEC.md §3.8's *"one shared helper would be a defect"* is about the **header
- * merge** and the fakes that model it, which stay per-file because the thing
+ * "one shared helper would be a defect" is about the **header merge** and the
+ * fakes that model it, which stay per-file because the thing
  * underneath each surface really does merge differently. It says nothing about
  * the scaffolding, and two copies of *that* can drift while both suites keep
  * passing.
@@ -21,12 +21,12 @@ import { DECLARED_ERROR_KEY } from '../src/runtime/shared'
 
 /**
  * An error body carrying a well-formed declared marker, exactly as the wire has
- * it (SPEC.md §5.1).
+ * it.
  *
  * Three hops — ofetch defines `FetchError.data` as a getter over the whole
  * response body, and `createError` copies `input.data` wholesale — and the key
- * is derived from the constant rather than restated, because SPEC.md §5.2
- * froze it as *renameable* protocol.
+ * is derived from the constant rather than restated, because the key is
+ * *renameable* protocol.
  */
 export function declaredFailure(variant: unknown): unknown {
   return { data: { data: { [DECLARED_ERROR_KEY]: variant } } }

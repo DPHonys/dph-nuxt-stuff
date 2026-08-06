@@ -30,8 +30,7 @@ const RUNTIME_SOURCE = fileURLToPath(
  * One budget for two structurally unrelated declarations, so the self-test
  * proves the budget can fail as well as pass.
  *
- * measured 52 concise / 320 verbose — set at ~1.5× the good value, per
- * SPEC.md §9.3.
+ * measured 52 concise / 320 verbose — set at ~1.5× the good value.
  */
 const SELF_TEST_BUDGET = 78
 
@@ -155,7 +154,7 @@ describe('the compile-time assertion harness', () => {
     })
 
     it('refuses the whole trap: the same fixture, starved of its program', () => {
-      // SPEC.md §9.9 trap 4, reproduced rather than described. This harness
+      // The starved-program trap, reproduced rather than described. This harness
       // is given a config that reaches nothing but the file under inspection,
       // which is exactly what the first attempt at a hover renderer did.
       //
@@ -186,7 +185,7 @@ describe('the compile-time assertion harness', () => {
     })
 
     it('holds a legible type to its budget', () => {
-      // SPEC.md §9.3 measures length, not the exact string — cosmetic churn
+      // The budget measures length, not the exact string — cosmetic churn
       // moves a length a few percent, a real regression moves it 2–20×.
       const rendered = assertHoverBudget(compilation, {
         name: '_hoverConcise',
@@ -210,7 +209,7 @@ describe('the compile-time assertion harness', () => {
 describe('the never-check scan', () => {
   it('finds a check that was not tuple-wrapped', () => {
     // Split so that this file does not trip the scan it is testing — the same
-    // discipline SPEC.md §9.9 trap 3 imposes on prose about a directive. Do not
+    // discipline any prose about a directive has to follow. Do not
     // join it back into one literal.
     const offending = ['type A<X> = X extends', 'never ? 1 : 2'].join(' ')
 
@@ -236,9 +235,9 @@ describe('the never-check scan', () => {
   })
 
   it('holds over the whole type suite, and over the source it tests', () => {
-    // `src/runtime/**` is scanned for the reason SPEC.md §9.5 rule 2 gives for
-    // the suite: the code must not use a weaker form than the assertions about
-    // it. The stakes are higher there — SPEC.md §6.1 mandates an explicit
+    // `src/runtime/**` is scanned for the same reason the suite is: the code
+    // must not use a weaker form than the assertions about
+    // it. The stakes are higher there — the degradation lock mandates an explicit
     // `[Declared] extends [never]` collapse wherever an undeclared route's
     // `never` enters a generic position, and the unwrapped form is shorter,
     // reads correctly and *passes*, so a bare one in the published surface is a

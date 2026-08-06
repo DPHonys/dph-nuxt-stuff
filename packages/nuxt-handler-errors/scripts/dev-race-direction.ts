@@ -1,5 +1,5 @@
 /**
- * The second half of the dev-server diagnostic, ungated (SPEC.md §9.6).
+ * The second half of the dev-server diagnostic, ungated.
  *
  * `dev-race.ts` measures how long convergence takes. This one samples *inside*
  * the window and asks which side is ahead, because that is the question that
@@ -14,7 +14,7 @@
  *   a wrong type.
  * - **misattributed** — a route keyed to a handler file that is not its own.
  *   The only shape that produces a *wrong* error type rather than an absent
- *   one, and the only tally that must stay at zero. SPEC.md §4.5 records
+ *   one, and the only tally that must stay at zero. A recorded run produced
  *   `agree 31, oursAhead 9, nitroAhead 0, misattributed 0` over 40 samples.
  *
  * Two liveness tallies are printed beside them, and they are not decoration: a
@@ -98,7 +98,7 @@ try {
 
     // "Ahead" is *converged on the edit just made*, not *lists the route*.
     // Reading it the second way — which the prototype's script did, and which
-    // is where SPEC.md §4.5's tally comes from — inverts every removal sample.
+    // is where the recorded tally above comes from — inverts every removal sample.
     if (weHave === theyHave) tally.agree++
     else if (weHave === adding) tally.oursAhead++
     else tally.nitroAhead++

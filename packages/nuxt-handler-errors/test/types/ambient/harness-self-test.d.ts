@@ -6,7 +6,7 @@
  * seeds `createProgram` with `parsed.fileNames` as well as the fixture. Drop
  * that and `pos/harness-clean.ts` stops compiling clean — which is how the
  * suite notices it has gone back to compiling fixtures in isolation from the
- * declarations they need (SPEC.md §9.9 trap 4).
+ * declarations they need.
  *
  * The generated `.nuxt/types/*.d.ts` augmentations later tickets assert against
  * arrive by exactly this route.

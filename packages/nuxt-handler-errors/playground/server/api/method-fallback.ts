@@ -3,11 +3,12 @@ import type { DeclaredErrorsOf } from '@dphonys/nuxt-handler-errors/types'
 import { authErrors } from '#shared/errors/auth'
 // The same reach into the module package's own suite `users/[id].get.ts`
 // makes, and for the same reason: `Equal`, `Expect` and `IsNever` are fixed
-// vocabulary (SPEC.md §9.5) and a second copy here could drift.
+// vocabulary and a second copy here could drift.
 import type { Equal, Expect, IsNever } from '../../../test/types/vocabulary'
 
 /**
- * The **branded, `default`-keyed** half of SPEC.md §4.3's divergence case.
+ * The **branded, `default`-keyed** half of the method-resolution divergence
+ * case.
  *
  * No method in the file name, so Nitro keys this handler `default` and h3
  * registers it under `"all"`. Its unbranded sibling `./method-fallback.post.ts`
@@ -28,7 +29,7 @@ export default defineTypedEventHandler(
 )
 
 // ---------------------------------------------------------------------------
-// Layer 3 (SPEC.md §9.1): the three-row divergence, in the real playground.
+// Layer 3: the three-row divergence, in the real playground.
 //
 // **This is the assertion that proves the divergence was necessary**, and
 // without it a later "simplification" back to Nitro's method-resolution rule

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { DECLARED_ERROR_KEY, declaredError } from '../src/runtime/shared'
 
 /**
- * Layer 4 (SPEC.md §9.1): the wire, against a **real built server**.
+ * Layer 4: the wire, against a **real built server**.
  *
  * The envelope was derived from Nitro's and h3's source, and every type-level
  * claim about it is asserted at layer 1 — but neither of those runs it. This
@@ -13,11 +13,11 @@ import { DECLARED_ERROR_KEY, declaredError } from '../src/runtime/shared'
  *
  * The playground is the fixture because it consumes the module through its real
  * published specifiers, which is also why the package-level `turbo.json` gives
- * `test` a dependency on this package's own `build` (SPEC.md §8.2).
+ * `test` a dependency on this package's own `build`.
  *
  * Expectations are derived from `DECLARED_ERROR_KEY` rather than restating the
  * literal — the key is frozen protocol, and nothing but the constant's own
- * declaration should ever spell it (SPEC.md §5.2).
+ * declaration should ever spell it.
  */
 describe('the declared-failure wire format', async () => {
   await setup({
@@ -34,15 +34,14 @@ describe('the declared-failure wire format', async () => {
     expect(response.status).toBe(403)
     // Nitro substitutes "Server Error" for an unset `statusMessage`, so leaving
     // it off would make every declared failure report that as its HTTP reason
-    // phrase (SPEC.md §5.2).
+    // phrase.
     expect(response.statusText).toBe('user-suspended')
 
-    // The body, exactly as SPEC.md §5.1 specifies it — `toEqual` rather than
-    // `toMatchObject`, so an extra key is a failure too.
+    // The whole body, exactly — `toEqual` rather than `toMatchObject`, so an
+    // extra key is a failure too.
     //
-    // One correction to §5.1's worked example, measured here: Nitro 2.13.4
-    // writes `url` as the **absolute** request URL, not the path. The example
-    // shows a path. Nothing else differs, and nothing reads `url`.
+    // One detail measured here: Nitro 2.13.4 writes `url` as the **absolute**
+    // request URL, not the path. Nothing reads `url`.
     expect(await response.json()).toEqual({
       error: true,
       url: expect.stringMatching(/\/api\/users\/suspended$/),
@@ -66,7 +65,7 @@ describe('the declared-failure wire format', async () => {
 
     // Three hops: ofetch defines `FetchError.data` as a getter over the whole
     // response body, and `createError` copies `input.data` wholesale
-    // (SPEC.md §5.2).
+    //.
     expect(error.data.data[DECLARED_ERROR_KEY]).toEqual({
       tag: 'user-not-found',
       status: 404,
@@ -75,7 +74,7 @@ describe('the declared-failure wire format', async () => {
 
     // `data` surviving at all is the observable half of "fatal and unhandled
     // are left alone": this is a production build, and Nitro's prod serializer
-    // wipes `data` entirely whenever `unhandled || fatal` (SPEC.md §6.5).
+    // wipes `data` entirely whenever `unhandled || fatal`.
     expect(error.statusCode).toBe(404)
   })
 
@@ -83,7 +82,7 @@ describe('the declared-failure wire format', async () => {
     // `/api/boom` throws a hand-rolled 403 — the same status as the declared
     // `user-suspended` — carrying `data` of its own. This is the assertion the
     // whole wire format exists for: the discriminator is marker presence, not
-    // status (SPEC.md §5.2).
+    // status.
     const error = await rejectionOf('/api/boom')
 
     expect(error, 'a framework error must still reject').toBeDefined()
@@ -114,7 +113,7 @@ describe('the declared-failure wire format', async () => {
     // `/api/rogue-status` declares 1042, which `sanitizeStatusCode` refuses to
     // put on the wire. The HTTP status and the declared status genuinely
     // disagree, and the copy inside the marker is the one the generated type
-    // promised (SPEC.md §5.3).
+    // promised.
     const error = await rejectionOf('/api/rogue-status')
 
     expect(error).toBeDefined()
@@ -127,7 +126,7 @@ describe('the declared-failure wire format', async () => {
   })
 
   it('is read back off the wire by the reader, with no key written', async () => {
-    // The one and only read path (SPEC.md §3.7), against a value that really
+    // The one and only read path, against a value that really
     // crossed a socket rather than one assembled in a test. `test/reader.test.ts`
     // proves the guard rejects malformed markers; this proves the address it
     // walks is the address the wire actually uses.
@@ -142,8 +141,8 @@ describe('the declared-failure wire format', async () => {
   })
 
   it('reads a production-stripped escaped callee as undeclared', async () => {
-    // SPEC.md §6.5, which is observable **only** against a production build:
-    // `/api/escaped-callee` lets a callee's declared failure escape, so
+    // The escaped-callee degradation, observable **only** against a production
+    // build: `/api/escaped-callee` lets a callee's declared failure escape, so
     // `toNodeListener` marks it `unhandled`, Nitro's prod serializer applies
     // `isSensitive = unhandled || fatal` and wipes `data` outright.
     const error = await rejectionOf('/api/escaped-callee')
@@ -160,8 +159,8 @@ describe('the declared-failure wire format', async () => {
     expect(error.data).not.toHaveProperty('data')
     expect(error.data.message).toBe('Server Error')
 
-    // The half that is not reassuring, and that SPEC.md §6.5 says the module
-    // deliberately does nothing about: `statusMessage` is **not** gated by
+    // The half that is not reassuring, and that the module deliberately does
+    // nothing about: `statusMessage` is **not** gated by
     // `isSensitive`, and it still carries the *callee's* internal tag — as the
     // HTTP reason phrase, all the way to the caller's client. This is
     // byte-for-byte what plain `$fetch` between handlers already does; the
@@ -173,7 +172,7 @@ describe('the declared-failure wire format', async () => {
   })
 
   it('composes event.$typedFetch with a later replacement of event.$fetch', async () => {
-    // SPEC.md §3.6: the wrapper reads `event.$fetch` through a thunk rather
+    // The wrapper reads `event.$fetch` through a thunk rather
     // than capturing it, so it composes with anything that replaces
     // `event.$fetch` later in the same hook chain. The playground carries that
     // "anything" as a fixture: `server/plugins/fetch-replacer.ts` replaces

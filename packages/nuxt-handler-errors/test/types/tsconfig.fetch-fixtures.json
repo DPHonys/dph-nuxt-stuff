@@ -4,7 +4,7 @@
   // `./tsconfig.fixtures.json` plus the one library every fetch surface needs,
   // and nothing else.
   //
-  // **Measured, and it is SPEC.md §9.9 trap 4 wearing a new hat.** ofetch's
+  // **Measured, and it is the starved-program trap wearing a new hat.** ofetch's
   // `FetchRequest` is `RequestInfo | URL`, both of which live in `lib.dom`. With
   // the base config's `lib: ["ESNext"]` they resolve to nothing, `skipLibCheck`
   // swallows the diagnostic, and `NitroFetchRequest` — which every `$fetch` and

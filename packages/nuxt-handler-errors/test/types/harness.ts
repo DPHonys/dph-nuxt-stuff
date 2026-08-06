@@ -1,5 +1,5 @@
 /**
- * The compile-time assertion harness (SPEC.md §9.0, §9.5, §9.9).
+ * The compile-time assertion harness.
  *
  * This module's whole value proposition is compile-time, so ordinary runtime
  * assertions prove almost nothing. Everything the suite claims about types is
@@ -11,14 +11,14 @@
  *
  * `createProgram` + `getPreEmitDiagnostics` are taken from the workspace's
  * `typescript` — stock TypeScript, the compiler every downstream consumer of
- * the emitted `.d.ts` actually runs (SPEC.md §9.8). That is the canonical
- * gate's own checker, reached programmatically (SPEC.md §9.0).
+ * the emitted `.d.ts` actually runs. That is the canonical
+ * gate's own checker, reached programmatically.
  *
  * ## The compiler is a parameter
  *
  * Nothing here imports `typescript` at the top level; `createTypeHarness`
  * takes the module. The parameter is what once carried a second compiler row
- * (SPEC.md §9.8's dissolved dual-compiler era) and is kept because it keeps
+ * (the dissolved dual-compiler era) and is kept because it keeps
  * the harness dependency-explicit and the suites uniform. One artefact of
  * that era stays load-bearing: `assertHoverBudget` canonicalizes
  * `import("…")` specifiers before measuring, because stock renders them as
@@ -26,11 +26,11 @@
  *
  * ## Four traps this file exists to keep closed
  *
- * - **One program per fixture** (SPEC.md §9.2). Compiling the `neg/` fixtures
+ * - **One program per fixture**. Compiling the `neg/` fixtures
  *   together lets one file's diagnostics mask another's, which is what would
  *   make the later tickets' fixtures meaningless.
  * - **The renderer is handed the whole program**, never the file under
- *   inspection alone (SPEC.md §9.9 trap 4). The first attempt at this passed
+ *   inspection alone. The first attempt at this passed
  *   only the target file and every lookup silently came back `unknown`/`any` —
  *   a harness that passes everything. `compileAlone` therefore always seeds the
  *   program with the fixture *plus* the fixture config's own file list, and
@@ -39,10 +39,10 @@
  *   yields a *residue* of the unresolved reference — plausible-looking, budget-
  *   sized, and silent. The diagnostic is the reliable signal; the `any` check
  *   is the secondary one.
- * - **Positive fixtures assert zero diagnostics** (SPEC.md §9.5 rule 3), which
+ * - **Positive fixtures assert zero diagnostics**, which
  *   is why `assertNoDiagnostics` takes no filter.
- * - **`neg/` fixtures are excluded from the package `tsconfig` and from lint**
- *   (SPEC.md §9.9 trap 1). They are deliberately non-compiling. This harness
+ * - **`neg/` fixtures are excluded from the package `tsconfig` and from
+ *   lint**. They are deliberately non-compiling. This harness
  *   passes explicit `compilerOptions` per file regardless, so the exclusion
  *   costs the fixtures nothing.
  *
@@ -93,11 +93,11 @@ export interface HarnessDiagnostic {
 /**
  * What a negative fixture claims: a code **and** a message substring.
  *
- * The substring half is not decoration. §3.2's guard-first mandate is tested
+ * The substring half is not decoration. The guard-first mandate is tested
  * only by asserting that the colliding tag is still visible in the rendered
  * message, and that couples the suite to TypeScript's truncation length on
  * purpose — a compiler bump that truncates the tag away has genuinely broken
- * the mandate (SPEC.md §9.2).
+ * the mandate.
  */
 export interface DiagnosticExpectation {
   readonly code: number
@@ -105,7 +105,7 @@ export interface DiagnosticExpectation {
 }
 
 /**
- * A rendered-length budget for one hover target (SPEC.md §9.3).
+ * A rendered-length budget for one hover target.
  *
  * Budgets sit around 1.5× the measured good value, with the measured good/bad
  * pair recorded in a comment beside each, so a failure reads as *"the mandate
@@ -129,7 +129,7 @@ export interface TypeHarnessOptions {
    * A fixture that needs extra declarations in its program — the generated
    * `.nuxt/types/*.d.ts` augmentations, say, which nothing imports — gets them
    * by naming them in a config's `include`, which `compileAlone` turns into
-   * root files (SPEC.md §9.9 trap 4). That is the only hook, on purpose: a
+   * root files. That is the only hook, on purpose: a
    * second per-call one would be a second way to say the same thing.
    */
   readonly tsconfigPath?: string
@@ -155,7 +155,7 @@ export interface Compilation {
 }
 
 export interface TypeHarness {
-  /** Compile one fixture in its own program (SPEC.md §9.2). */
+  /** Compile one fixture in its own program. */
   readonly compileAlone: (fixture: string) => Compilation
 }
 
@@ -164,7 +164,7 @@ export interface TypeHarness {
  *
  * Assembled from two fragments so that this file does not trip the scan it
  * implements — the source text never contains the pattern it looks for. That is
- * the same discipline SPEC.md §9.9 trap 3 imposes on prose about an
+ * the same discipline imposed on prose about an
  * expect-error directive, and it means the scan can safely be pointed at every
  * file in the suite, including this one.
  *
@@ -191,10 +191,9 @@ export function findBareNeverChecks(source: string): readonly number[] {
 }
 
 /**
- * Fail if any of `files` writes a never-check without the tuple wrap
- * (SPEC.md §9.5 rule 2).
+ * Fail if any of `files` writes a never-check without the tuple wrap.
  *
- * Of the three rules, this is the one the suite cannot keep on discipline
+ * Of the harness's three rules, this is the one the suite cannot keep on discipline
  * alone: the unwrapped form is shorter, reads correctly, and *passes*. Rule 3
  * is enforced by `assertNoDiagnostics` and rule 1 by `IsAny` being the only
  * helper that can make its claim, so neither needs a scan.
@@ -251,7 +250,7 @@ export function assertDiagnostic(
 }
 
 /**
- * Assert that the fixture compiled completely clean (SPEC.md §9.5 rule 3).
+ * Assert that the fixture compiled completely clean.
  *
  * Nothing here filters by file: a positive fixture whose *dependency* stopped
  * compiling is not a passing fixture.
@@ -282,9 +281,9 @@ export function canonicalizeImportSpecifiers(rendered: string): string {
 }
 
 /**
- * Render `budget.name` and assert it fits (SPEC.md §9.3).
+ * Render `budget.name` and assert it fits.
  *
- * Character count is the metric all three §8.3 legibility mandates were
+ * Character count is the metric all three legibility mandates were
  * actually decided on, and it is far more stable than the exact string:
  * cosmetic churn moves it a few percent, a real regression moves it 2–20×.
  * Measured over the canonicalized form — see `IMPORT_SPECIFIER` — which is
@@ -360,12 +359,12 @@ export function createTypeHarness(options: TypeHarnessOptions): TypeHarness {
     ])
   }
 
-  // SPEC.md §9.3 mandates NoTruncation, and it is the whole point of a length
+  // NoTruncation is mandatory, and it is the whole point of a length
   // budget that the renderer never shortens what it measures. Measured here:
   // the verbose self-test hover renders 320 characters with the flag and is cut
   // to `boolean; }...` without it.
   //
-  // The other two are inherited from the probe that produced §9.3's recorded
+  // The other two are inherited from the probe that produced the recorded
   // good/bad pairs, which rendered with
   // `NoTruncation | InTypeAlias | UseFullyQualifiedType`. InTypeAlias is kept:
   // it expands the type rather than echoing an alias name back, which is what
@@ -472,7 +471,7 @@ function renderHoverFrom(
   { ts, program, fixture, diagnostics, flags }: FixtureProgram,
   name: string
 ): string {
-  // The primary guard for SPEC.md §9.9 trap 4, and it is deliberately not the
+  // The primary guard for the starved-program trap, and it is deliberately not the
   // `any` check further down. Measured: a fixture rendered from a program that
   // was starved of the declarations it needed does **not** come back `any` — it
   // comes back as a residue of the unresolved reference, which is a plausible

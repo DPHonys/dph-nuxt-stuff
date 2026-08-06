@@ -4,7 +4,7 @@ import { describe, it } from 'vitest'
 import { assertNoDiagnostics, createTypeHarness } from './harness'
 
 /**
- * Layer 1 for `DeclaredErrorsOf` (SPEC.md §4.3, §6.1).
+ * Layer 1 for `DeclaredErrorsOf`.
  *
  * The fixture is a hand-written map plus a hand-written `InternalApi`, compiled
  * alone. That is deliberately *weaker* evidence than
@@ -21,7 +21,7 @@ describe('naming a route’s declared union from its path alone', () => {
 
   it('resolves every documented row, with controls', () => {
     // Every claim in the fixture is an `Expect<…>` alias, so the whole
-    // assertion is that it compiles clean (SPEC.md §9.5 rule 3).
+    // assertion is that it compiles clean.
     assertNoDiagnostics(harness.compileAlone(FIXTURE))
   })
 })

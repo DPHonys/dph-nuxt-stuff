@@ -4,7 +4,7 @@ import { createTypedFetch } from '../src/runtime/typed-fetch'
 import { declaredFailure, settled } from './failure-channel'
 
 /**
- * The run-time half of `$typedFetch` (SPEC.md §3.5, §3.8).
+ * The run-time half of `$typedFetch`.
  *
  * Unlike the composable, this file needs no `#app` double: `$typedFetch` is
  * side-agnostic by construction, so the wrapper loads under a plain
@@ -114,7 +114,7 @@ beforeEach(() => {
   outcome = { resolve: 'ok' }
 })
 
-describe('the header merge — the global form (SPEC.md §3.8)', () => {
+describe('the header merge — the global form', () => {
   it('keeps a plain object and adds accept', async () => {
     await createTypedFetch(fakeFetch())('/anything', {
       headers: { authorization: 'Bearer t' },
@@ -127,7 +127,7 @@ describe('the header merge — the global form (SPEC.md §3.8)', () => {
   })
 
   it('keeps a Headers instance, which a spread would drop whole', async () => {
-    // SPEC.md §3.8's shipped-defect-class bug: `new Headers({ authorization })`
+    // The shipped-defect-class bug: `new Headers({ authorization })`
     // has no own enumerable properties, so `{ accept, ...opts.headers }`
     // silently drops every header the caller set.
     await createTypedFetch(fakeFetch())('/anything', {
@@ -156,8 +156,8 @@ describe('the header merge — the global form (SPEC.md §3.8)', () => {
   })
 
   it('honours a caller’s own accept, in every input shape', async () => {
-    // SPEC.md §3.8's first further rule. Overriding it forfeits the declared
-    // error channel for routes outside `/api/**`, which is a documentation note
+    // Overriding it forfeits the declared error channel for routes outside
+    // `/api/**`, which is a documentation note
     // rather than something to prevent — the caller asked.
     const typed = createTypedFetch(fakeFetch())
 
@@ -179,12 +179,12 @@ describe('the header merge — the global form (SPEC.md §3.8)', () => {
 
   it('hands the fetcher a Headers instance, unflattened', async () => {
     // **The categorical difference from the composable's merge, and the reason
-    // SPEC.md §3.8 says one shared helper would be a defect.** What sits under
+    // one shared helper would be a defect.** What sits under
     // this surface is an ofetch instance, whose `mergeHeaders` takes a
     // `Headers` correctly. `event.$typedFetch` reaches h3's `fetchWithEvent`
     // instead, which merges by object spread and would discard a `Headers`
-    // whole, and `useTypedFetch` reaches it too on the SSR path
-    // (SPEC-AMENDMENTS item 30) — so both of those flatten and this one must
+    // whole, and `useTypedFetch` reaches it too on the SSR
+    // path — so both of those flatten and this one must
     // not. The correct fix for one is wrong for the others.
     await createTypedFetch(fakeFetch())('/anything', {
       headers: { authorization: 'Bearer t' },
@@ -222,10 +222,10 @@ describe('the header merge — the global form (SPEC.md §3.8)', () => {
   })
 })
 
-describe('create, and the instance half of the rule (SPEC.md §3.8)', () => {
+describe('create, and the instance half of the rule', () => {
   it('leaves an instance-level accept alone', async () => {
-    // SPEC.md §3.8's global rule is *set `accept` only when neither the call
-    // nor the instance defaults carry it*, and names `create`'s closure as what
+    // The global rule is *set `accept` only when neither the call
+    // nor the instance defaults carry it*, and `create`'s closure is what
     // checks the second half. Without that check this module would silently
     // override a content type the consumer configured for the whole instance.
     const instance = createTypedFetch(fakeFetch()).create({
@@ -267,7 +267,7 @@ describe('create, and the instance half of the rule (SPEC.md §3.8)', () => {
     // dropped that `accept` by the time the request goes out. A closure that
     // accumulated headers across creates would still believe it was there,
     // suppress this module's own, and send the request with **no `accept` at
-    // all** — which SPEC.md §3.8 says turns a declared 403 into an HTML string
+    // all** — which turns a declared 403 into an HTML string
     // in `err.data`, i.e. exactly the outcome the rule exists to prevent.
     const instance = createTypedFetch(fakeFetch())
       .create({ headers: { accept: 'application/vnd.api+json' } })
@@ -295,7 +295,7 @@ describe('create, and the instance half of the rule (SPEC.md §3.8)', () => {
   })
 
   it('keeps the sibling on a created instance', async () => {
-    // SPEC.md §3.5: `create` returns the *typed* interface. The type-level half
+    // `create` returns the *typed* interface. The type-level half
     // is in `test/types/pos/typed-fetch.ts`; this is the value being really
     // there.
     outcome = { resolve: { id: '7' } }
@@ -308,7 +308,7 @@ describe('create, and the instance half of the rule (SPEC.md §3.8)', () => {
   })
 })
 
-describe('.safe returns only what the route declared (SPEC.md §3.5)', () => {
+describe('.safe returns only what the route declared', () => {
   it('answers the success arm when the call resolves', async () => {
     outcome = { resolve: { id: '7' } }
 
@@ -346,7 +346,7 @@ describe('.safe returns only what the route declared (SPEC.md §3.5)', () => {
   })
 })
 
-describe('.safe swallows nothing (SPEC.md §3.5, §6.5)', () => {
+describe('.safe swallows nothing', () => {
   /**
    * Every shape that is **not** a well-formed declared marker, and the same
    * claim about each: it leaves through `throw`, and the value a caller catches
@@ -356,8 +356,8 @@ describe('.safe swallows nothing (SPEC.md §3.5, §6.5)', () => {
    * The list is exhaustive rather than illustrative because `ok: false` is the
    * only thing standing between a caller and a failure they never see. The
    * three rows that read as near-misses are the ones that matter: a marker
-   * whose shape floor is unmet (SPEC.md §5.3), a marker one hop too shallow,
-   * and a production-stripped body whose `data` Nitro wiped (SPEC.md §6.5).
+   * whose shape floor is unmet, a marker one hop too shallow,
+   * and a production-stripped body whose `data` Nitro wiped.
    */
   const rethrown: readonly [name: string, thrown: unknown][] = [
     ['a plain Error', new Error('boom')],
@@ -418,7 +418,7 @@ describe('.safe swallows nothing (SPEC.md §3.5, §6.5)', () => {
   it('leaves the throwing form throwing, declared or not', async () => {
     // The default entry point is a pure typings mirror: a declared failure
     // throws through it exactly as it throws through vanilla `$fetch`, which is
-    // what keeps `useAsyncData(() => $typedFetch(…))` working (SPEC.md §3.4).
+    // what keeps `useAsyncData(() => $typedFetch(…))` working.
     const thrown = declaredFailure({ tag: 't', status: 404 })
 
     outcome = { reject: thrown }

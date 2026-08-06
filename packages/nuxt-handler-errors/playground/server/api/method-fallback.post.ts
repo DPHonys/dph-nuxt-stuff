@@ -1,5 +1,6 @@
 /**
- * The **unbranded, method-specific** half of SPEC.md §4.3's divergence case.
+ * The **unbranded, method-specific** half of the method-resolution divergence
+ * case.
  *
  * It sits beside `./method-fallback.ts`, which *is* branded and is keyed
  * `default`. That pairing is the whole point: `/api/method-fallback` ends up

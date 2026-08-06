@@ -1,5 +1,5 @@
 /**
- * Installs `globalThis.$typedFetch` in the **browser** (SPEC.md §3.5).
+ * Installs `globalThis.$typedFetch` in the **browser**.
  *
  * `$typedFetch` is a global because vanilla `$fetch` is one: that is what makes
  * it callable from `<script setup>`, from a store and from a plain `.ts` module

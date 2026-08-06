@@ -1,10 +1,9 @@
 /**
- * The extractor, asserted hermetically (SPEC.md §4.1, §4.3, §8.3(a)).
+ * The extractor, asserted hermetically.
  *
  * Hand-written handler types, no Nuxt in the path, no emitter and no running
  * server — the whole lock the design rests on is provable at the fast layer,
- * and this is where it is proved. Must compile with **zero** diagnostics
- * (SPEC.md §9.5 rule 3).
+ * and this is where it is proved. Must compile with **zero** diagnostics.
  *
  * Everything the union is claimed to be is claimed through
  * `Simplify<Serialize<…>>` — Nitro's own pair, imported rather than copied —
@@ -31,7 +30,7 @@ import type branded from './branded-route'
 
 /**
  * The declared union as the emitted map will write it: the extractor wrapped in
- * Nitro's own serialization pair (SPEC.md §4.2). Named for the handler it is
+ * Nitro's own serialization pair. Named for the handler it is
  * read off, which is what distinguishes it from `pos/declare-and-raise.ts`'s
  * same-idea helper over a catalogue variant.
  */
@@ -134,7 +133,7 @@ type _unbrandedValueIsUndeclared = Expect<
 
 /**
  * And `never` rather than `unknown`, which is the load-bearing half: an
- * unbranded route is an *undeclared* route (SPEC.md §6.1), and `unknown` would
+ * unbranded route is an *undeclared* route, and `unknown` would
  * poison the narrowing at every call site that touched it.
  */
 type _unbrandedIsNotUnknown = Expect<
@@ -144,7 +143,7 @@ type _unbrandedIsNotUnknown = Expect<
 /**
  * The brand is **optional and not function-typed**, so the branded type stays
  * inhabited by any plain event handler — which is what lets the emitted map key
- * every route Nitro knows rather than only the branded ones (SPEC.md §4.1).
+ * every route Nitro knows rather than only the branded ones.
  */
 const _plainInhabitsTheBrand: TypedEventHandler = plain
 
@@ -154,7 +153,7 @@ const _plainInhabitsTheBrand: TypedEventHandler = plain
 
 /**
  * `typeof import('./legacy.js').default` for a `.js` route is `any`, and this
- * is the one the whole guard exists for (SPEC.md §4.3 mandate 1).
+ * is the one the whole guard exists for.
  */
 type _anyIsUndeclared = Expect<IsNever<ExtractErrorsSafe<any>>>
 
@@ -188,7 +187,7 @@ type _guardOnlyTouchesAny = Expect<
 /**
  * The route's entry as **vanilla** computes it: `ReturnType` reads only the
  * call signature and `Serialize` runs after it, so the brand and the response
- * payload occupy disjoint type positions (SPEC.md §4.1).
+ * payload occupy disjoint type positions.
  */
 type VanillaEntry = Simplify<Serialize<Awaited<ReturnType<typeof branded>>>>
 
@@ -225,7 +224,7 @@ type _vanillaIsUnchanged = Expect<
 >
 
 // ---------------------------------------------------------------------------
-// The `Flatten` mandate (SPEC.md §8.3(a))
+// The `Flatten` mandate
 // ---------------------------------------------------------------------------
 
 /**
@@ -267,7 +266,7 @@ type _flattenIsLossless = Expect<
  * Measured: `T extends unknown` is **not** what buys this. `{ [K in keyof T]:
  * T[K] }` over a naked type parameter is a homomorphic mapped type and
  * distributes over a union on its own, so removing the conditional changes
- * nothing. The spelling is kept because SPEC.md §8.3(a) fixes it, and the
+ * nothing. The spelling is deliberately fixed, and the
  * assertion is kept because it does bite a genuinely non-distributive rewrite
  * — `Pick<T, keyof T>`, say, which merges the three into one.
  */
@@ -279,7 +278,7 @@ type _flattenDistributes = Expect<
 >
 
 /**
- * The rendering half, as a matched pair (SPEC.md §9.3) — measured in
+ * The rendering half, as a matched pair — measured in
  * `../extractor.test.ts`, which is the only place a *rendering* can be
  * asserted.
  *

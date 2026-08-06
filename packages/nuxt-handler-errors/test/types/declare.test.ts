@@ -8,18 +8,18 @@ import {
 } from './harness'
 
 /**
- * Layer 1 for the declaration surface (SPEC.md §9.1): every type-level
+ * Layer 1 for the declaration surface: every type-level
  * guarantee `defineErrors`, `payload` and `defineTypedEventHandler` make, and
  * the only layer that can assert a *rendering*.
  *
  * The positive fixtures carry their own `Expect<Equal<…>>` claims and are
  * asserted here to compile with **zero** diagnostics; the negative ones are
  * compiled alone and matched on a code **plus** a message substring, because
- * "some error happened" is not an assertion (SPEC.md §9.2, §9.5).
+ * "some error happened" is not an assertion.
  */
 
 /**
- * SPEC.md §8.3(b): every callable is a named `interface` with the value a
+ * The named-interface mandate: every callable is a named `interface` with the value a
  * `const` of that type, so a hover renders the interface's name instead of an
  * expanded generic signature. Measured in this package, on this fixture, with
  * import specifiers canonicalized:
@@ -30,7 +30,7 @@ import {
  * | `defineErrors`            | 24              | 160             |
  * | `payload`                 | 25              | —               |
  *
- * The budget sits at ~1.5× the worst good value, per SPEC.md §9.3, so a
+ * The budget sits at ~1.5× the worst good value, so a
  * failure reads as *"the named-interface mandate broke"* rather than as a
  * number moving. The `import("…")` prefix the renderer adds for a symbol with
  * no local alias is collapsed to a fixed token before measuring — the path
@@ -48,7 +48,7 @@ describe('the declaration surface', () => {
   it('composes two catalogues declaring an identical member, clean', () => {
     // The other half of the duplicate guard, and the easy half to lose: an
     // identical re-declaration collapses to one union member and must not
-    // be flagged (SPEC.md §3.2).
+    // be flagged.
     assertNoDiagnostics(harness.compileAlone('pos/identical-duplicate.ts'))
   })
 
@@ -79,7 +79,7 @@ describe('what must not compile', () => {
   })
 
   it('rejects a duplicate tag across composed catalogues, guard-first', () => {
-    // THE guard-first assertion (SPEC.md §3.2, §9.2). Matching the guard's
+    // THE guard-first assertion. Matching the guard's
     // own sentence rather than the bare tag is what makes it bite:
     // `forbidden` also appears inside the rendered catalogue types, so
     // `toContain('forbidden')` passes either way. Measured with the
@@ -140,7 +140,7 @@ describe('what must not compile', () => {
   it('rejects a payload field that JSON serialization would throw on', () => {
     // The message has to name the field: a guard that only said "this
     // payload is bad" would leave the author looking for which of eight
-    // fields it meant (SPEC.md §3.2). Stock reports the red as TS2344 — the
+    // fields it meant. Stock reports the red as TS2344 — the
     // constraint the property was missing from — and the field's name
     // survives in the message, which is what the mandate asks.
     assertDiagnostic(harness.compileAlone('neg/unserializable-payload.ts'), {

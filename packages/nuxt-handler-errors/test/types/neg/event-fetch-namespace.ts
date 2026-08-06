@@ -1,5 +1,5 @@
 /**
- * SPEC.md §3.6: `event.$typedFetch` is the bare call signature plus `.safe` —
+ * `event.$typedFetch` is the bare call signature plus `.safe` —
  * **no `raw` and no instance-creating member**, because that is exactly what
  * `event.$fetch` is.
  *
@@ -11,7 +11,7 @@
  * the two member names.
  *
  * Deliberately non-compiling; excluded from the package `tsconfig` and from
- * lint (SPEC.md §9.9 trap 1).
+ * lint.
  */
 
 import type { H3Event } from 'h3'

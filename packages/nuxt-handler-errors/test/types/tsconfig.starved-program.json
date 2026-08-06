@@ -3,7 +3,7 @@
 
   // A fixture config that reaches **nothing but the file under inspection**.
   //
-  // It exists for exactly one self-test. SPEC.md §9.9 trap 4 records that the
+  // It exists for exactly one self-test: the
   // first attempt at a hover renderer passed only the target file, every lookup
   // silently came back `unknown`/`any`, and the harness therefore passed
   // everything. This config reproduces that program on demand, so the guard

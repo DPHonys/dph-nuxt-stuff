@@ -1,5 +1,5 @@
 /**
- * What a callee actually received (SPEC.md §3.6).
+ * What a callee actually received.
  *
  * Every field is one thing `event.$typedFetch` is supposed to forward and
  * `globalThis.$typedFetch` is not, read off **this** request. Called directly it
@@ -12,13 +12,13 @@
  * every union assertion elsewhere.
  */
 interface ContextEcho {
-  /** Forwarded by h3's `getProxyRequestHeaders` — the headline of §3.6. */
+  /** Forwarded by h3's `getProxyRequestHeaders` — the headline of context forwarding. */
   cookie: string
   /** The same mechanism, for an ordinary request header. */
   header: string
   /**
    * The one header h3 lists in `ignoredHeaders` and therefore never forwards,
-   * which is why this module sets it itself (SPEC.md §3.8).
+   * which is why this module sets it itself.
    */
   accept: string
   /** Whether the request went through the app's middleware — a full app pass. */

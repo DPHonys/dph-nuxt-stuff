@@ -74,10 +74,10 @@ describe('module setup wiring', () => {
   })
 
   it('registers the composable pair as keyed, with vanilla’s argument length', () => {
-    // The two `keyedComposables.push` lines are load-bearing (SPEC.md §3.4):
+    // The two `keyedComposables.push` lines are load-bearing:
     // without them Nuxt's compiler injects no per-call-site key, duplicate
     // fetches collapse onto one `useAsyncData` entry, and the wrapper is
-    // *behaviourally* narrower than the `useFetch` it mirrors — §6.1's
+    // *behaviourally* narrower than the `useFetch` it mirrors — the
     // degradation lock failing one layer below the types. The SSR
     // payload-count observation that measured that (9 vs 7 data keys) stays
     // untested — it counts keys in Nuxt's payload format, not this module's
@@ -106,10 +106,10 @@ describe('module setup wiring', () => {
   })
 
   it('registers the app $typedFetch plugin, client-only', () => {
-    // The browser half of SPEC.md §3.5's global: one `addPlugin` whose
+    // The browser half of the global: one `addPlugin` whose
     // `mode: 'client'` is load-bearing and measured — an all-modes app plugin
     // writes the same one `globalThis` during SSR and masks the Nitro
-    // plugin's deletion (§3.5's implementation note). The e2e suite already
+    // plugin's deletion. The e2e suite already
     // reddens on losing `client`; this is what reddens on losing the
     // *registration*, which no browser runs in `pnpm check` to observe. What
     // the plugin's function body does is the unit test beside the double
@@ -130,7 +130,7 @@ describe('module setup wiring', () => {
   })
 
   it('re-renders exactly the map template when this nitro’s types:extend fires', async () => {
-    // The correctness anchor's deletion half (SPEC.md §4.2): `types:extend`
+    // The correctness anchor's deletion half: `types:extend`
     // fires inside Nitro's `writeTypes` after a fresh `scanHandlers`, and the
     // module's answer must be a re-render of the map template — on the *same*
     // Nitro instance whose `nitro:init` populated the closure, because on a
@@ -140,7 +140,7 @@ describe('module setup wiring', () => {
     // re-render is observed without a builder running. The *other* half of
     // the README gap — an upstream bump making `types:extend` stop firing at
     // all — is observable only from a live dev server and stays with the
-    // ungated `pnpm dev-race` diagnostic (SPEC.md §9.6).
+    // ungated `pnpm dev-race` diagnostic.
     const renders: { filter?: (template: ResolvedNuxtTemplate) => boolean }[] =
       []
 

@@ -1,6 +1,6 @@
 /**
- * The false arm carries a real **discriminated union**, not SPEC.md §5.3's
- * shape floor and not TypeScript's error type (SPEC-AMENDMENTS item 9).
+ * The false arm carries a real **discriminated union**, not the wire's
+ * shape floor and not TypeScript's error type.
  *
  * A payload field is unreachable until the `tag` has been narrowed, which is
  * the whole point of the closed union: a widened one — `Declared | { tag:

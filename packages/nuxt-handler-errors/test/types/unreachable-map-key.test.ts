@@ -4,8 +4,8 @@ import { describe, it } from 'vitest'
 import { assertNoDiagnostics, createTypeHarness } from './harness'
 
 /**
- * SPEC.md §9.6, taken literally: *"That property is testable hermetically at
- * layer 1"*.
+ * The dev-race property, testable hermetically at layer 1 — and tested that
+ * way.
  *
  * The dev-server race is real, and it gets **no timing test** — a persistent
  * dev server inside `pnpm check` is flaky by construction and is the first
@@ -29,7 +29,7 @@ describe('a key the map holds and Nitro’s interface does not', () => {
 
   it('is unreachable through MatchedRoutes, with a reachable control', () => {
     // Both claims are `Expect<…>` aliases in the fixture, so the whole
-    // assertion is that it compiles clean (SPEC.md §9.5 rule 3).
+    // assertion is that it compiles clean.
     assertNoDiagnostics(harness.compileAlone(FIXTURE))
   })
 })

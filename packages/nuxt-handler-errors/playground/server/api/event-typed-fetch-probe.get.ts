@@ -2,11 +2,11 @@ import { declaredError } from '@dphonys/nuxt-handler-errors/shared'
 import { describeUserFailure } from '#shared/lookup-probe'
 
 /**
- * `event.$typedFetch` inside a Nitro handler (SPEC.md §3.6), **with the global
+ * `event.$typedFetch` inside a Nitro handler, **with the global
  * beside it as the control**.
  *
  * The global `$typedFetch` already works verbatim in a handler — that is
- * `./typed-fetch-probe.get.ts`, and SPEC.md §3.5 says so. So the *only* thing
+ * `./typed-fetch-probe.get.ts`. So the *only* thing
  * this surface adds is context forwarding, and the only honest way to assert it
  * is to make both calls to the same callee in the same request and compare. The
  * `context` field below is that comparison, and it is why this probe returns
@@ -20,17 +20,17 @@ import { describeUserFailure } from '#shared/lookup-probe'
  *    to `describeUserFailure`, whose parameter is
  *    `DeclaredErrorsOf<'/api/users/:id'>` and whose `switch` is exhaustive. The
  *    shape floor is not assignable to that parameter, so a degraded union is a
- *    compile error rather than a silent pass. This is SPEC.md §3.6's blessed
+ *    compile error rather than a silent pass. This is the blessed
  *    server-to-server shape.
  * 3. **An undeclared callee still throws.** `/api/boom` is a hand-rolled 403
  *    with `data` of its own and no marker.
  * 4. **The header merge reaches the wire** on a route outside `/api/**`, which
  *    is the only place `accept` decides whether a declared failure comes back
- *    as JSON at all (SPEC.md §3.8) — and it is the *flattening* merge, which
+ *    as JSON at all — and it is the *flattening* merge, which
  *    the global's correct one would break here.
  *
- * **The explicit return annotation is required, and it is SPEC.md §6.6's cycle
- * rather than anything this module introduced** (SPEC-AMENDMENTS item 28): a
+ * **The explicit return annotation is required, and it is Nitro's own
+ * `InternalApi` cycle rather than anything this module introduced**: a
  * handler whose return type is inferred from a fetch call needs `InternalApi`
  * to type the call and needs the call to type its own `InternalApi` entry.
  * Measured on this app without it: `TS2321 Excessive stack depth` in
@@ -56,7 +56,7 @@ interface EventTypedFetchProbe {
  * **twelve `TS2321 Excessive stack depth`**, one per `InternalApi` key, in
  * `MatchedRoutes`' scoring conditional. The contextual type keeps `R`
  * unresolved through `NitroFetchOptions<R>`'s
- * `Uppercase<AvailableRouterMethod<R>>`, which is SPEC-AMENDMENTS item 33's
+ * `Uppercase<AvailableRouterMethod<R>>`, which is the `TS2321` stack-depth
  * trap arriving from a third direction. Left un-annotated the literal resolves
  * first and the whole file is clean.
  *
@@ -85,15 +85,15 @@ function render(echo: Echo): string {
 
 export default defineEventHandler(
   async (event): Promise<EventTypedFetchProbe> => {
-    // **`_platform` and not a plain key, and that is measured** — see
-    // SPEC-AMENDMENTS item 43. h3 hands the caller's whole `event.context` to
+    // **`_platform` and not a plain key, and that is measured.**
+    // h3 hands the caller's whole `event.context` to
     // the callee as the fetch init's `context`, `node-mock-http` parks it on
     // the inner request as `__unenv__`, and Nitro's `onRequest` then reads
     // exactly two things out of it: `_platform`, which it merges into the
     // callee's own context, and `waitUntil` (`app.mjs:48-59`). So a plain
     // `event.context.probeToken = …` here comes back `none` — mutation run —
     // while the platform binding arrives. This is the honest version of
-    // SPEC.md §3.6's *"cookies + context forwarded"*.
+    // *"cookies + context forwarded"*.
     event.context._platform = { probeToken: 'from-outer' }
 
     const forwarded = await event.$typedFetch('/api/context-echo')

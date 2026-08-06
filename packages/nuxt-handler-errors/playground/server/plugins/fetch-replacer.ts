@@ -1,5 +1,5 @@
 /**
- * The fixture antagonist for SPEC.md §3.6's thunk claim (`test/wire.test.ts`).
+ * The fixture antagonist for the thunk claim (`test/wire.test.ts`).
  *
  * Replaces `event.$fetch` in its own `request` hook — standing in for any
  * third-party Nitro plugin that does the same. **The ordering is the point**:
@@ -15,12 +15,12 @@
  * `/api/fetch-replacer-echo` is the only route that reads the marker. The
  * `Headers`-then-flatten shuffle keeps whatever header shape the caller
  * passed intact (the module's own wrapper hands over a plain object —
- * SPEC.md §3.8's flatten — but bare `event.$fetch` callers may not).
+ * its header flatten — but bare `event.$fetch` callers may not).
  *
  * `RawFetch` reduces `event.$fetch` to the shape this file touches, for the
  * module's own reason (`RawEventFetch` in its server runtime): calling through
  * the real `$Fetch` generic with a wide request type is the `TS2321` stack
- * -depth trap (SPEC-AMENDMENTS item 33) — measured here on the stock-compiler
+ * -depth trap — measured here on the stock-compiler
  * row before this spelling. The width also drops `$Fetch`'s `.raw` and
  * `.create` from the replacement, which nothing in this app calls off the
  * event; the thunk claim is about the call signature.

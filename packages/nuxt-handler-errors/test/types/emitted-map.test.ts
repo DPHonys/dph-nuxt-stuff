@@ -20,11 +20,11 @@ import {
 import type { Compilation } from './harness'
 
 /**
- * Layer 2 (SPEC.md §9.4): the emitted map, compiled.
+ * Layer 2: the emitted map, compiled.
  *
  * `test/emit-map.test.ts` asserts what the emitter *writes*. Nothing there can
  * see whether the text it wrote **means** anything, and the gap is not
- * theoretical — it is the implementation effort's SPEC-AMENDMENTS item 8,
+ * theoretical — it was hit during implementation and
  * handed forward to this ticket by name. Declaration emit writes its type
  * references as `import("…")` type nodes; an `import("…")` that does not
  * resolve inside a `.d.ts` produces **no diagnostic** under `skipLibCheck`,
@@ -111,7 +111,7 @@ function appFiles(catalogue: string): Record<string, string> {
       ``,
     ].join('\n'),
 
-    // A `default`-keyed route: no method in the file name, so SPEC.md §4.3's
+    // A `default`-keyed route: no method in the file name, so the
     // presence-based fallback is what a `GET` caller resolves through.
     'server/api/y.ts': [
       `import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'`,
@@ -124,7 +124,7 @@ function appFiles(catalogue: string): Record<string, string> {
       ``,
     ].join('\n'),
 
-    // Unbranded, and keyed anyway (SPEC.md §4.2). This is the arm that makes
+    // Unbranded, and keyed anyway. This is the arm that makes
     // ticket 08's lookup total without a "we chose not to key this" branch.
     'server/api/legacy.get.ts': [
       `import { defineEventHandler } from 'h3'`,
@@ -136,8 +136,8 @@ function appFiles(catalogue: string): Record<string, string> {
     // The deferred-hardening case ticket 05 left unguarded and asked ticket 06
     // to look for a route to: a default export carrying an index signature
     // satisfies `{ __declaredErrors__?: infer E }` with `E = unknown`, and
-    // `ExtractErrorsSafe` hands that straight back — the poison SPEC.md §4.3
-    // mandate 1 exists to stop, through a door the `IsAny` arm does not cover.
+    // `ExtractErrorsSafe` hands that straight back — the poison the
+    // extraction guard exists to stop, through a door the `IsAny` arm does not cover.
     // Keyed here so the map answers the question with a measurement.
     'server/api/indexed.get.ts': [
       `const handler: { [key: string]: unknown } = {}`,
@@ -151,8 +151,8 @@ function appFiles(catalogue: string): Record<string, string> {
 /**
  * The handler records Nitro would have scanned for `appFiles`.
  *
- * Written by hand rather than by running Nitro, which is the whole point of
- * SPEC.md §4.6: these are the records ticket 07 will hand over, and the emitter
+ * Written by hand rather than by running Nitro, which is the whole
+ * point: these are the records ticket 07 will hand over, and the emitter
  * never sees anything else.
  */
 function appHandlers(root: string): NitroEventHandler[] {
@@ -346,10 +346,10 @@ describe('the emitted map', () => {
     })
 
     it('carries the route’s real tags and payload fields', () => {
-      // The check SPEC-AMENDMENTS item 8 says is the one that catches a map that
+      // The one check that catches a map that
       // resolved to nothing. Tags render **double**-quoted: they are synthesised
       // by the checker out of an object literal's inferred type rather than
-      // written in an annotation (item 7).
+      // written in an annotation.
       const rendered = compilation.renderHover('Declared')
 
       expect(rendered).toContain('"user-not-found"')
@@ -369,7 +369,7 @@ describe('the emitted map', () => {
       // `ExtractErrorsSafe` really does hand back `unknown` here — but the map
       // never emits the extractor bare. `Serialize<unknown>` is `never`
       // (`nitropack/dist/types/index.d.ts:184-186`: `unknown` matches no arm and
-      // falls off the end), so the wrapper SPEC.md §4.2 mandates for wire-honesty
+      // falls off the end), so the wrapper mandated for wire-honesty
       // closes this door as a side effect. **No extra arm is needed in the
       // extractor for anything reachable through the map**; a consumer calling
       // `ExtractErrorsSafe` directly is still exposed, which is ticket 15's note
@@ -378,8 +378,8 @@ describe('the emitted map', () => {
     })
 
     it('extracts nothing from an unbranded route, without special-casing it', () => {
-      // Keying every route costs nothing precisely because of this (SPEC.md
-      // §4.2). `renderHover` will not answer `any` or `unknown`, so this is the
+      // Keying every route costs nothing precisely because of
+      // this. `renderHover` will not answer `any` or `unknown`, so this is the
       // third possibility stated outright.
       expect(compilation.renderHover('Unbranded')).toBe('never')
     })
@@ -388,7 +388,7 @@ describe('the emitted map', () => {
   describe('the emitted map, when it resolves to nothing', () => {
     /**
      * `TREE_BROKEN`, compiled. **Nothing complains, and the damage is worse
-     * than SPEC-AMENDMENTS item 8 predicts.** Item 8 expected the entry to
+     * than first predicted.** The expectation was for the entry to
      * become `any` and `ExtractErrorsSafe`'s `IsAny` guard to turn that into
      * `never`. Measured here: it does not. An unresolved `import("…")` yields
      * TypeScript's *error type*, which renders as `any` but is not `any` — it
@@ -396,7 +396,7 @@ describe('the emitted map', () => {
      * constraint it lands against. The fixture below pins that down the only
      * way it can be pinned down: it asserts `IsAny<Declared>` is `false` **and**
      * that it is `true`, in the same program, and the program compiles clean.
-     * No inhabited type satisfies both. SPEC.md §4.3 mandate 1's guard
+     * No inhabited type satisfies both. The extraction guard
      * therefore never fires, and the entry stays `any` all the way to the call
      * site.
      */
@@ -467,7 +467,7 @@ describe('the emitted map', () => {
     )
 
     it('emits byte-identical text for two different catalogues', () => {
-      // SPEC.md §4.4 and §4.6's mandate, end to end. Two apps, the same routes at
+      // The path-referentiality mandate, end to end. Two apps, the same routes at
       // the same relative paths, catalogues that share not one tag — and the
       // emitted map is the same string. This is the property that lets Nitro
       // never regenerate route types on a content change, and it is why no
@@ -477,7 +477,7 @@ describe('the emitted map', () => {
     })
 
     it('compiles clean against the other catalogue', () => {
-      // SPEC.md §9.5 rule 3, and not a formality here: `renderHover` refuses only
+      // Zero diagnostics, and not a formality here: `renderHover` refuses only
       // on diagnostics in the *fixture*, while this fixture's whole subject is a
       // declaration that reaches it from two files away.
       assertNoDiagnostics(compilation)

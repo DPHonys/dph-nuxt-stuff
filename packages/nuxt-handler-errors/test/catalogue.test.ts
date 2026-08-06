@@ -46,7 +46,7 @@ describe('a catalogue at runtime', () => {
     })
 
     // Left alone, so the framework's existing "expected error" convention holds
-    // and the production serializer keeps `data` (SPEC.md §5.1).
+    // and the production serializer keeps `data`.
     expect(thrown).toMatchObject({ fatal: false, unhandled: false })
   })
 

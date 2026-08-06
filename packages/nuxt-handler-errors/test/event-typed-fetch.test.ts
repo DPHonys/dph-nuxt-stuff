@@ -6,7 +6,7 @@ import {
 import { declaredFailure, settled } from './failure-channel'
 
 /**
- * The run-time half of `event.$typedFetch` (SPEC.md §3.6, §3.8).
+ * The run-time half of `event.$typedFetch`.
  *
  * **The fake here is not `test/typed-fetch.test.ts`'s fake, and that is the
  * whole point of the file.** The global wrapper sits on an ofetch instance,
@@ -15,7 +15,7 @@ import { declaredFailure, settled } from './failure-channel'
  * double below is `fetchWithEvent`'s own body rather than ofetch's, and every
  * assertion is on what would go **on the wire** after that spread — not on what
  * the wrapper handed over. Measured: asserting on the handed-over value instead
- * makes SPEC.md §3.8's headline bug read as a pass, because a `Headers` and a
+ * makes the headline header bug read as a pass, because a `Headers` and a
  * flattened object are equally present until something spreads them.
  */
 
@@ -100,9 +100,9 @@ beforeEach(() => {
   outcome = { resolve: 'ok' }
 })
 
-describe('the header merge — the EVENT-BOUND form (SPEC.md §3.8)', () => {
+describe('the header merge — the EVENT-BOUND form', () => {
   /**
-   * SPEC.md §3.8's table, one row per legal input form plus the two edge cases
+   * One row per legal input form plus the two edge cases
    * the ticket names. Every row asserts the **whole** header set that would go
    * on the wire, so a caller's header going missing and a forwarded header
    * going missing are both failures.
@@ -119,7 +119,7 @@ describe('the header merge — the EVENT-BOUND form (SPEC.md §3.8)', () => {
    *
    * Row 1 is the ticket's headline: the fix that is *correct* one file over
    * discards the caller's headers **and** this module's own `accept` here. Row
-   * 2 is SPEC.md §3.8's named shipped-defect-class bug, which survives a plain
+   * 2 is the named shipped-defect-class bug, which survives a plain
    * object and dies on the two other legal forms. Row 3 is the header simply
    * not being added.
    */
@@ -157,7 +157,7 @@ describe('the header merge — the EVENT-BOUND form (SPEC.md §3.8)', () => {
     ],
     ['no headers at all', undefined, { accept: 'application/json' }],
     [
-      // SPEC.md §3.8's first further rule: a caller's own `accept` is honoured
+      // A caller's own `accept` is honoured
       // on both surfaces. Overriding it forfeits the declared-error channel for
       // a callee outside `/api/**`, which is a documentation note rather than
       // something to prevent — the caller asked.
@@ -183,8 +183,8 @@ describe('the header merge — the EVENT-BOUND form (SPEC.md §3.8)', () => {
     // **The categorical difference, asserted on the object itself.** The global
     // wrapper hands its `Headers` on whole and `test/typed-fetch.test.ts`
     // asserts exactly that; here the same value would spread to nothing, so the
-    // wrapper must hand over something a spread can see. SPEC.md §3.8's title
-    // — *one shared helper would be a defect* — is this pair of assertions.
+    // wrapper must hand over something a spread can see. The claim that *one
+    // shared helper would be a defect* is this pair of assertions.
     await createEventTypedFetch(fakeEventFetch)('/api/anything', {
       headers: new Headers({ authorization: 'Bearer t' }),
     })
@@ -232,11 +232,11 @@ describe('the header merge — the EVENT-BOUND form (SPEC.md §3.8)', () => {
   })
 })
 
-describe('the namespace is the bare call signature plus .safe (SPEC.md §3.6)', () => {
+describe('the namespace is the bare call signature plus .safe', () => {
   it('has neither raw nor create at run time', async () => {
     // `event.$fetch` is `Base$Fetch` — a bare call signature — because it is a
     // closure over `fetchWithEvent` rather than an ofetch instance. Growing
-    // either member would be SPEC.md §6.1's degradation lock inverted: a
+    // either member would be the degradation lock inverted: a
     // completion list *longer* than vanilla's, offering calls that cannot be
     // made. The type-level half is in `test/types/pos/event-typed-fetch.ts`;
     // this is the value really having nothing there.
@@ -248,7 +248,7 @@ describe('the namespace is the bare call signature plus .safe (SPEC.md §3.6)', 
   })
 })
 
-describe('.safe is the global’s, not a second copy (SPEC.md §3.6)', () => {
+describe('.safe is the global’s, not a second copy', () => {
   /**
    * `toTypedResult` is imported rather than rewritten, so
    * `test/typed-fetch.test.ts`'s 15-row rethrow suite — every shape that is not
@@ -276,7 +276,7 @@ describe('.safe is the global’s, not a second copy (SPEC.md §3.6)', () => {
   })
 
   it('rethrows a near-miss untouched, and has a control', async () => {
-    // A production-stripped body, which SPEC.md §6.5 says is what an escaped
+    // A production-stripped body, which is what an escaped
     // callee failure degrades to. It is *not* a declared failure, so it leaves
     // through `throw` carrying the same instance.
     const stripped = { data: { statusCode: 500 } }

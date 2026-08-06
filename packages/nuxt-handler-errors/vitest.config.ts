@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config'
  *
  * `src/runtime/app/use-typed-fetch.ts` imports `useFetch` from `#app`, which
  * only exists inside a Nuxt **app** build — so under a plain `vitest run` the
- * module cannot be loaded at all, and SPEC.md §3.8's header merge would be
+ * module cannot be loaded at all, and the SSR header merge would be
  * reachable only through a full e2e build. That is where its end-to-end proof
  * lives (`test/specifiers.test.ts`, on a route outside `/api/**`), but a build
  * per input shape is not a proportionate way to check what a merge does with a
@@ -24,11 +24,9 @@ export default defineConfig({
   // patterns for this workspace, and `treatConfigHintsAsErrors` then reports
   // every suite in it as an unused file.
   //
-  // The timeout is for the stock-compiler row (`test/types/compilers.ts`): a
-  // fixture program the bridge checks in ~100ms costs stock TypeScript one to
-  // three seconds, and a test that compiles two would flirt with the 5s
-  // default on a loaded box. Watch mode never runs the stock row, so the
-  // margin costs iteration nothing.
+  // The timeout is for the compile-fixture suites: a fixture program costs
+  // stock TypeScript one to three seconds, and a test that compiles two would
+  // flirt with the 5s default on a loaded box.
   test: { include: ['test/**/*.test.ts'], testTimeout: 60_000 },
 
   resolve: {

@@ -1,5 +1,5 @@
 /**
- * SPEC.md §3.6's thunk claim, from the caller's seat: `event.$typedFetch` must
+ * The thunk claim, from the caller's seat: `event.$typedFetch` must
  * reach the callee through whatever `event.$fetch` is **at call time**, not
  * whatever it was when the module's `request` hook installed the wrapper.
  *
@@ -13,7 +13,7 @@
  * makes this hop bypass the replacement and the marker read `absent`
  * (mutation run, `test/wire.test.ts`).
  *
- * The explicit return annotation is SPEC.md §6.6's cycle — see
+ * The explicit return annotation is Nitro's `InternalApi` cycle — see
  * `./event-typed-fetch-probe.get.ts`.
  */
 interface FetchReplacerProbe {
@@ -25,7 +25,7 @@ interface FetchReplacerProbe {
  * `./event-typed-fetch-probe.get.ts` measures: any position that hands the
  * fetch call a contextual type (a variable annotation there, the argument
  * slot of an inlined call here — measured on the stock-compiler row) is the
- * `TS2321` stack-depth trap (SPEC-AMENDMENTS item 33), so the result lands in
+ * `TS2321` stack-depth trap, so the result lands in
  * an un-annotated const first. The parameter still makes the claim that the
  * day the callee's response changes shape, this file is a compile error
  * rather than a silently wrong string.

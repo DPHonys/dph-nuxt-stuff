@@ -1,20 +1,20 @@
 /**
- * The dev-server race, asserted **structurally** (SPEC.md §4.5, §9.6).
+ * The dev-server race, asserted **structurally**.
  *
- * SPEC.md §4.5 measured this map landing a beat *ahead* of Nitro's — the
+ * Measurement showed this map landing a beat *ahead* of Nitro's — the
  * `types:extend` hook fires immediately before Nitro writes `nitro-routes.d.ts`
  * — so for a short window after a route is added the map holds a key that
- * `InternalApi` does not. §9.6 refuses that a timing test: a persistent dev
+ * `InternalApi` does not. That gets no timing test: a persistent dev
  * server inside the canonical gate is flaky by construction, and the safety is
  * not statistical anyway. This file is the property that makes the window
  * harmless, at the fast layer and with nothing running:
  *
  * **`MatchedRoutes` derives its key universe from `keyof InternalApi`**, so a
  * key the map has and Nitro does not is *unreachable by construction*. That is
- * why §4.5's 40 samples recorded `misattributed: 0` rather than merely "few",
+ * why the race's 40 samples recorded `misattributed: 0` rather than merely "few",
  * and it is why no guard machinery ships.
  *
- * Must compile with **zero** diagnostics (SPEC.md §9.5 rule 3). `pnpm dev-race`
+ * Must compile with **zero** diagnostics. `pnpm dev-race`
  * is where the clock is watched, ungated, when a Nuxt or Nitro bump is
  * suspected.
  *
@@ -23,7 +23,7 @@
  * blocks below are augmentations, and an augmentation is global to whatever
  * program contains it. Measured: with `/api/real` added to `InternalApi` in the
  * package program, `$fetch('/api/users/42')` in `test/wire.test.ts` becomes
- * `TS2321 Excessive stack depth` — SPEC.md §10's exact failure, from one extra
+ * `TS2321 Excessive stack depth` — the known catastrophic failure, from one extra
  * route key. The harness compiles this alone, which is the only place it is
  * safe.
  */
@@ -75,11 +75,11 @@ type _realIsReachable = Expect<Equal<MatchedRoutes<'/api/real'>, '/api/real'>>
 /**
  * **The same invariant one layer up**, which is the layer a call site actually
  * reaches: `DeclaredErrorsOf` indexes the map through `MatchedRoutes`, so the
- * unreachable key degrades to SPEC.md §6.1's documented silent `never` rather
+ * unreachable key degrades to the documented silent `never` rather
  * than to the union the map holds for it.
  *
  * This is what makes the convergence window harmless in the shape that matters.
- * §4.5 re-measured the race and found disagreement going **both** ways in
+ * Re-measuring the race found disagreement going **both** ways in
  * roughly equal measure; the honest statement is that one direction is inert —
  * this one, by construction — and the other degrades to `never`. Neither
  * produces a wrong type, which is all the argument needs.

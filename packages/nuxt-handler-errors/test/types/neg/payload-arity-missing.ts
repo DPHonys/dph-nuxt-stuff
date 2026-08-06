@@ -1,6 +1,6 @@
 /**
  * Deliberately does not compile. Excluded from the package's `tsconfig` and
- * from lint (SPEC.md §9.9 trap 1).
+ * from lint.
  *
  * The mirror of `payload-arity-extra.ts`: a variant that declares a payload
  * **requires** it. Omitting it would put a variant on the wire missing the

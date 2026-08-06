@@ -7,7 +7,7 @@ import {
 import { calls } from './doubles/nuxt-app'
 
 /**
- * SPEC.md §3.8's header merge, and the rest of what the wrapper hands vanilla.
+ * The header merge, and the rest of what the wrapper hands vanilla.
  *
  * The composable itself is app-side — it imports `useFetch` from `#app` — so
  * `vitest.config.ts` aliases that one specifier to `./doubles/nuxt-app`, which
@@ -40,7 +40,7 @@ beforeEach(() => {
   calls.length = 0
 })
 
-describe('the header merge (SPEC.md §3.8)', () => {
+describe('the header merge', () => {
   it('keeps a plain object and adds accept', () => {
     useTypedFetch('/anything', { headers: { authorization: 'Bearer t' } })
 
@@ -77,9 +77,9 @@ describe('the header merge (SPEC.md §3.8)', () => {
   })
 
   it('honours a caller’s own accept, in every input shape', () => {
-    // SPEC.md §3.8's first further rule. Overriding it forfeits the declared
-    // error channel for routes outside `/api/**`, which is a documentation
-    // note (ticket 15) rather than something to prevent — the caller asked.
+    // Overriding it forfeits the declared error channel for routes outside
+    // `/api/**`, which is a documentation note (ticket 15) rather than
+    // something to prevent — the caller asked.
     useTypedFetch('/anything', { headers: { accept: 'text/html' } })
     expect(sentHeaders().accept).toBe('text/html')
 
@@ -131,13 +131,13 @@ describe('the header merge (SPEC.md §3.8)', () => {
     // The half `sentHeaders` above is blind to, because it re-wraps whatever it
     // is given in a `Headers` and so normalises the distinction away.
     //
-    // It is the whole of SPEC-AMENDMENTS item 30: `useFetch` swaps in
-    // `useRequestFetch()` — h3's `fetchWithEvent` — for every same-origin SSR
-    // request, and that merges headers by **object spread**. A `Headers`
-    // instance has no own enumerable properties, so handing one on discards the
-    // caller's headers *and* this module's `accept`. SPEC.md §3.8 puts the
-    // flattening on the event-bound wrapper only; measured, this surface needs
-    // it too, and `test/specifiers.test.ts` is where the consequence is run.
+    // `useFetch` swaps in `useRequestFetch()` — h3's `fetchWithEvent` — for
+    // every same-origin SSR request, and that merges headers by **object
+    // spread**. A `Headers` instance has no own enumerable properties, so
+    // handing one on discards the caller's headers *and* this module's
+    // `accept`. The flattening was originally scoped to the event-bound
+    // wrapper only; measured, this surface needs it too, and
+    // `test/specifiers.test.ts` is where the consequence is run.
     useTypedFetch('/anything', {
       headers: new Headers({ authorization: 'Bearer t' }),
     })
@@ -154,7 +154,7 @@ describe('the header merge (SPEC.md §3.8)', () => {
 
 describe('what else reaches vanilla', () => {
   it('forwards every other option verbatim', () => {
-    // SPEC.md §3.4: every vanilla option carries over, and it is true by
+    // Every vanilla option carries over, and it is true by
     // construction rather than by enumeration — `opts` is spread, so anything
     // a future Nuxt adds passes through with no change here.
     const watch = ref(0)
@@ -197,7 +197,7 @@ describe('what else reaches vanilla', () => {
   })
 
   it('gives the lazy sibling Nuxt’s own lazy composable', () => {
-    // SPEC.md §3.4: the lazy option is supplied at run time, exactly as vanilla
+    // The lazy option is supplied at run time, exactly as vanilla
     // does it — by being Nuxt's `useLazyFetch` rather than by this module
     // setting `lazy: true`, which would also lose Nuxt's own dev-mode data
     // diagnostics tag.

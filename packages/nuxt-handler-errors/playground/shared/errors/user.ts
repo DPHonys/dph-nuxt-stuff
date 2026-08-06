@@ -1,7 +1,7 @@
 import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/shared'
 
 /**
- * A catalogue authored in the consumer's `shared/` directory — SPEC.md §3.2's
+ * A catalogue authored in the consumer's `shared/` directory — the
  * documented default location — and imported across a real package boundary
  * through the published `/shared` specifier.
  *

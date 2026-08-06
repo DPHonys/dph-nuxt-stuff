@@ -1,6 +1,6 @@
 /**
  * A hermetic replica of the two framework error types the reader is written
- * against (SPEC.md §3.7).
+ * against.
  *
  * **Why a replica rather than the real declarations.** The reference install's
  * own `.d.ts` files do not resolve their transitive dependencies from outside
@@ -8,7 +8,7 @@
  * `@nuxt/nitro-server/h3`, and a fixture program that resolves *neither* gets a
  * silent collapse rather than a diagnostic — the probe degrades to `any` and
  * every assertion written against it passes vacuously. That already happened
- * once during the map (SPEC-AMENDMENTS items 8 and 9), which is why the reader
+ * once during the map work, which is why the reader
  * is verified against types this file owns and the *real* ones are exercised at
  * layer 3, in `playground/`, where they resolve because the app is inside the
  * install.

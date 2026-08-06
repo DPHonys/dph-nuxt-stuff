@@ -1,5 +1,5 @@
 /**
- * The dev-server diagnostic, ungated on purpose (SPEC.md §9.6).
+ * The dev-server diagnostic, ungated on purpose.
  *
  * Run it with `pnpm dev-race` when a Nuxt or Nitro bump is suspected. It is not
  * part of `pnpm check` and must not become part of it: a persistent dev server
@@ -11,7 +11,7 @@
  * not is unreachable. What is measured here is the clock and the direction,
  * which is evidence rather than a contract.
  *
- * Three things it answers, and SPEC.md §4.5 records the numbers it produced:
+ * Three things it answers:
  *
  * 1. **A route added while the server runs reaches this map**, and reaches it
  *    ahead of `nitro-routes.d.ts` — the `:1441`-fires-before-`:1442` ordering,
@@ -23,7 +23,7 @@
  *    the hook and the gated layer-3 suite cannot see the difference.
  * 2. **A route removed leaves it.**
  * 3. **A content-only edit to a catalogue changes nothing**, which is
- *    SPEC.md §4.4's path-referentiality mandate seen from the dev server.
+ *    the path-referentiality mandate seen from the dev server.
  *
  * `dev-race-direction.ts` is the companion: it samples *inside* the
  * convergence window and tallies which side is ahead.
@@ -126,7 +126,7 @@ try {
   )
 
   // ---- 2. a content-only edit to a catalogue -------------------------------
-  // SPEC.md §4.4: the emitted map must be a function of routes and handler
+  // Path referentiality: the emitted map must be a function of routes and handler
   // *paths*, never of catalogue content. Nitro never re-runs `writeTypes` on a
   // `change` event, so anything that resolved values at emit time would go
   // stale here with no watcher that would ever fix it.

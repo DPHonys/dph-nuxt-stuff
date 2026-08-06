@@ -5,7 +5,7 @@ import type { InternalApi } from 'nitropack/types'
 import { authErrors } from '#shared/errors/auth'
 import { userErrors } from '#shared/errors/user'
 // The one place the playground reaches into the module package's own suite.
-// `Equal` and `Expect` are fixed vocabulary (SPEC.md §9.5) and a second copy
+// `Equal` and `Expect` are fixed vocabulary and a second copy
 // here could drift from the one every other assertion uses; the path is ugly,
 // and that is the cheaper cost.
 import type { Equal, Expect } from '../../../../test/types/vocabulary'
@@ -32,7 +32,7 @@ const handler = defineTypedEventHandler(
 export default handler
 
 // ---------------------------------------------------------------------------
-// Layer 3 (SPEC.md §9.1)
+// Layer 3
 //
 // These two assertions run against the **actually generated**
 // `.nuxt/types/nitro-routes.d.ts`, so what they check is Nitro's real opinion
@@ -43,13 +43,13 @@ export default handler
 // ---------------------------------------------------------------------------
 
 /**
- * **Nitro's own `InternalApi` entry for this route is untouched** (SPEC.md §1,
- * §3.1). Nitro computes it as `Simplify<Serialize<Awaited<ReturnType<…>>>>`
+ * **Nitro's own `InternalApi` entry for this route is untouched.**
+ * Nitro computes it as `Simplify<Serialize<Awaited<ReturnType<…>>>>`
  * over the handler's *call signature*, while the declared union rides a sibling
  * property — disjoint positions, so nothing leaks. Vanilla
  * `useFetch('/api/users/1')` therefore still types `data` as exactly this.
  *
- * This is the spelling SPEC.md §3.1 records the claim as having been measured
+ * This is the spelling the claim was measured
  * in, made against the generated file rather than reproduced from it.
  */
 type _routeStaysVanilla = Expect<
@@ -61,13 +61,13 @@ type _routeStaysVanilla = Expect<
 
 /**
  * The route is still an ordinary event handler, so Nitro, the router and every
- * h3 utility keep treating it as one (SPEC.md §4.1).
+ * h3 utility keep treating it as one.
  */
 const _routeIsAPlainEventHandler: EventHandler = handler
 
 /**
  * **The generated map keys this route, and its entry is this route's own
- * declared union** (SPEC.md §4.2).
+ * declared union**.
  *
  * Two things are claimed at once and both need the real build. The *index*
  * claims the augmentation bound in the **server** program, which it reaches only

@@ -1,5 +1,5 @@
 /**
- * A route file, shaped exactly like a real one (SPEC.md §3.1).
+ * A route file, shaped exactly like a real one.
  *
  * It exists as its own fixture rather than inline in `./extractor.ts` because
  * two different assertions need it and they need it in two different forms:
@@ -24,7 +24,7 @@ import {
  *
  * The `until: Date` is the point of the third variant: `Serialize` turns it
  * into a `string`, which is what makes a `Date`-carrying payload honest at the
- * client for free (SPEC.md §4.2).
+ * client for free.
  */
 export const routeErrors = defineErrors({
   'user-not-found': { status: 404, payload: payload<{ userId: string }>() },

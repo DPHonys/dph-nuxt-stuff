@@ -5,13 +5,13 @@ import type { TypedApiErrors } from '@dphonys/nuxt-handler-errors/types'
  * Context 3 of 3: a consumer's `shared/` directory, which is the context the
  * subpath exports exist for. The bare `.` specifier is import-protected here by
  * Nuxt, so `/types` and `/shared` are the only hand-writable way in
- * (SPEC.md §3).
+ *.
  */
 type _SharedContextErrorMap = TypedApiErrors
 
 /**
  * And the augmentation binds here too, which it does through
- * `addTypeTemplate`'s `shared: true` (SPEC.md §4.2). Indexing a real route key
+ * `addTypeTemplate`'s `shared: true`. Indexing a real route key
  * rather than merely naming the interface is what makes this an assertion:
  * without that flag the augmentation never reaches this context, the published
  * interface stays empty, and this line is `TS2339`.

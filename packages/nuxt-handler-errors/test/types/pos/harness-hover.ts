@@ -1,5 +1,5 @@
 /**
- * Hover targets for the harness's own self-test (SPEC.md §9.3).
+ * Hover targets for the harness's own self-test.
  *
  * A structural assertion is constitutionally blind to the regression class the
  * length budgets protect: the prototype's residue defect shipped while the
@@ -41,7 +41,7 @@ declare const _hoverVerbose: {
  * Resolves only through `ambient/harness-self-test.d.ts`, and mapped rather
  * than referenced so that it renders its shape instead of echoing the interface
  * name back. Rendering anything other than the real shape here means the
- * renderer was handed less than the whole program (SPEC.md §9.9 trap 4).
+ * renderer was handed less than the whole program.
  */
 declare const _hoverAmbient: {
   [K in keyof HarnessSelfTest.AmbientProbe]: HarnessSelfTest.AmbientProbe[K]

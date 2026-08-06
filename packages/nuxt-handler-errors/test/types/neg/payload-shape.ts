@@ -1,6 +1,6 @@
 /**
  * Deliberately does not compile. Excluded from the package's `tsconfig` and
- * from lint (SPEC.md §9.9 trap 1).
+ * from lint.
  *
  * The payload handed to `fail` must match the variant's declared payload.
  * Asserted: `TS2322`, naming the field that is wrong — a payload checked only

@@ -1,6 +1,6 @@
 /**
  * What arrived at a callee, restricted to the fixture replacer's one marker
- * header (SPEC.md §3.6's thunk claim, asserted in `test/wire.test.ts`).
+ * header (the thunk claim asserted in `test/wire.test.ts`).
  *
  * Called through `event.$typedFetch` from `/api/fetch-replacer-probe`, the
  * marker reports whether the internal hop went through the `event.$fetch`

@@ -2,11 +2,11 @@ import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
 import type { DeclaredErrorsOf, Fail } from '@dphonys/nuxt-handler-errors/types'
 import { chainErrors } from '#shared/errors/chain'
 // The same reach into the module package's own suite the other route files
-// make: `Equal` and `Expect` are fixed vocabulary (SPEC.md §9.5).
+// make: `Equal` and `Expect` are fixed vocabulary.
 import type { Equal, Expect, IsNever } from '../../../../test/types/vocabulary'
 
 /**
- * Hop 1 of 3 — the outermost route of SPEC.md §6.6's chain.
+ * Hop 1 of 3 — the outermost route of the A→B→C chain.
  *
  * **Depth is linear and non-accumulating**, and the two halves of that claim
  * are both here. The `switch` below is exhaustive over *B's* union — both
@@ -15,7 +15,7 @@ import type { Equal, Expect, IsNever } from '../../../../test/types/vocabulary'
  * `c-gone` is reachable from B, because B declared it, and is unreachable from
  * A, because A did not.
  *
- * The explicit return annotation is SPEC.md §6.6's cycle again — see
+ * The explicit return annotation is Nitro's `InternalApi` cycle again — see
  * `./b.get.ts`.
  */
 export default defineTypedEventHandler(
@@ -48,7 +48,7 @@ export default defineTypedEventHandler(
 )
 
 // ---------------------------------------------------------------------------
-// Layer 3 (SPEC.md §9.1): non-accumulation, against the real generated map
+// Layer 3: non-accumulation, against the real generated map
 // ---------------------------------------------------------------------------
 
 /**
@@ -56,7 +56,7 @@ export default defineTypedEventHandler(
  *
  * A route's declared union is exactly what it wrote in `errors: [...]`. Where a
  * variant is *produced* — in the body, in a helper, or forwarded from a callee
- * — is invisible to the client and is not a design question (SPEC.md §3.6).
+ * — is invisible to the client and is not a design question.
  */
 type _cGoneIsUnreachableFromA = Expect<
   IsNever<Extract<DeclaredErrorsOf<'/api/chain/a'>, { tag: 'c-gone' }>>
@@ -66,7 +66,7 @@ type _cGoneIsUnreachableFromA = Expect<
  * The control, and it is doing real work: `c-gone` **is** in B's union, because
  * B declared it in order to forward it. Without this line the assertion above
  * would pass just as well against a lookup that had stopped resolving anything
- * at all — which is the failure mode SPEC-AMENDMENTS item 9 measured.
+ * at all — a measured failure mode.
  */
 type _cGoneIsReachableFromB = Expect<
   Equal<

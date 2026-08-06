@@ -7,7 +7,7 @@
  * inside it — and a second copy of the spawn/poll/teardown dance would be free
  * to drift from the first while both kept printing numbers.
  *
- * Nothing here is gated (SPEC.md §9.6). See `dev-race.ts` for why. These run as
+ * Nothing here is gated. See `dev-race.ts` for why. These run as
  * TypeScript directly under Node's type stripping, which every Node line in the
  * package's `engines` range ships enabled — so the relative import below must
  * spell the real `.ts` extension, and everything here stays erasable syntax.

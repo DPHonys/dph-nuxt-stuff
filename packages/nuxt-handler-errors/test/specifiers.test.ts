@@ -8,7 +8,7 @@ import { DECLARED_ERROR_KEY, declaredError } from '../src/runtime/shared'
  * package that consumes the module through its *published* specifiers, so this
  * suite exercises the real `exports` map rather than a relative source import.
  * That is why the package-level `turbo.json` gives `test` a dependency on this
- * package's own `build` (SPEC.md §8.2).
+ * package's own `build`.
  *
  * What is under test is resolution, not the wire key, so the expectations are
  * derived from the constant rather than restating its value.
@@ -34,7 +34,7 @@ describe('the published specifiers', async () => {
   })
 
   it('carry the reader to a call site that never imported it', async () => {
-    // SPEC.md §3.7's auto-import half, which only a real app can show: `app.vue`
+    // The auto-import half, which only a real app can show: `app.vue`
     // calls `useDeclaredError` with **no import statement**, so the module's
     // `addImports` registration is the only thing that can resolve the name.
     // The compile-time half of that is `vue-tsc` over `playground/tsconfig.json`
@@ -55,10 +55,10 @@ describe('the published specifiers', async () => {
   })
 
   it('carry the composable to a call site that never imported it', async () => {
-    // SPEC.md §3.4's composable, and the *only* contract it has: it calls
+    // The composable, and the *only* contract it has: it calls
     // `useFetch`, which lives behind `#app`, so it cannot sit on any of
-    // SPEC.md §3's three published specifiers and `addImports` is the whole
-    // registration (SPEC-AMENDMENTS item 29). `app.vue` writes no import for it.
+    // the three published specifiers and `addImports` is the whole
+    // registration. `app.vue` writes no import for it.
     //
     // What is rendered is the union narrowed exhaustively in a `shared/` helper
     // — so this one line covers the composable running under SSR, its error ref
@@ -70,10 +70,10 @@ describe('the published specifiers', async () => {
   })
 
   it('carry the merged headers to a route outside /api/**', async () => {
-    // **SPEC.md §3.8, run rather than reasoned about.** `/status` echoes the
+    // **The header merge, run rather than reasoned about.** `/status` echoes the
     // two headers it was called with back inside its declared payload, so this
-    // is the merge's real output on the SSR path — the path §3.8 exists for,
-    // and the one that reaches h3's `fetchWithEvent`.
+    // is the merge's real output on the SSR path — the path the merge exists
+    // for, and the one that reaches h3's `fetchWithEvent`.
     //
     // Three mutations were measured against this one line, and each renders a
     // different failure:
@@ -84,10 +84,10 @@ describe('the published specifiers', async () => {
     // | a naive `{ accept, ...opts.headers }` spread | `application/json/none` |
     // | `accept` not set at all | `none/kept` |
     //
-    // Row 1 is SPEC-AMENDMENTS item 30: `fetchWithEvent` merges by object
+    // Row 1: `fetchWithEvent` merges by object
     // spread, and a `Headers` instance has no own enumerable properties, so it
     // discards the caller's headers *and* this module's own `accept`. Row 2 is
-    // the shipped-defect-class bug SPEC.md §3.8 names, with the caller passing
+    // the named shipped-defect-class bug, with the caller passing
     // the legal `Headers` form. Row 3 is the header genuinely not arriving by
     // any other route.
     //
@@ -95,14 +95,14 @@ describe('the published specifiers', async () => {
     // the response was JSON: measured, `@nuxt/test-utils`' own client forwards
     // `sec-fetch-mode: cors` through `getProxyRequestHeaders`, which satisfies
     // `isJsonRequest` on its own and makes the JSON/HTML consequence
-    // unobservable from here (SPEC-AMENDMENTS item 31).
+    // unobservable from here.
     const html = await $fetch<string>('/')
 
     expect(html).toContain('payment-required/application/json/kept')
   })
 
   it('carry the global $typedFetch to a client call site', async () => {
-    // SPEC.md §3.5's global, in `<script setup>` with **no import and no
+    // The global, in `<script setup>` with **no import and no
     // auto-import**: `app.vue` writes `$typedFetch.safe(…)` the way it would
     // write `$fetch`. The type comes from the `declare global` in `/types`,
     // which the emitted map pulls into every program; the value comes from the
@@ -119,14 +119,14 @@ describe('the published specifiers', async () => {
     // And the other half of `.safe`'s one sentence: a route that declared
     // nothing throws, exactly as vanilla does. Its result type has already
     // collapsed to the one-arm form, so the `ok: false` branch a caller would
-    // need is not even expressible — which is SPEC.md §6.1's degradation lock
+    // need is not even expressible — which is the degradation lock
     // and the reason the collapse is mandatory on this surface.
     expect(html).toContain('/threw')
   })
 
   it('carry the global $typedFetch into a Nitro handler', async () => {
-    // SPEC.md §3.5's *"callable inside a Nitro handler with no new entry
-    // point"*, which is the criterion the whole global-versus-auto-import
+    // The global, *callable inside a Nitro handler with no new entry
+    // point* — the criterion the whole global-versus-auto-import
     // decision exists to satisfy. `server/api/typed-fetch-probe.get.ts` imports
     // no fetch of any kind.
     const body = await $fetch<{
@@ -138,7 +138,7 @@ describe('the published specifiers', async () => {
 
     expect(body).toEqual({
       // `.safe` answered the false arm with the callee's flat variant, which a
-      // `shared/` helper then narrowed exhaustively — SPEC.md §3.6's blessed
+      // `shared/` helper then narrowed exhaustively — the blessed
       // server-to-server shape, one ticket early and with no new API.
       declared: 'user-suspended until 2026-12-31',
 
@@ -147,7 +147,7 @@ describe('the published specifiers', async () => {
       // `.safe` that reported every failure as declared would satisfy neither.
       undeclared: 'threw undeclared',
 
-      // SPEC.md §3.8's global merge, on the wire, on a route outside `/api/**`
+      // The global merge, on the wire, on a route outside `/api/**`
       // — the only place `accept` decides whether a declared failure comes back
       // as JSON at all. `/status` echoes back what it received.
       //
@@ -159,14 +159,14 @@ describe('the published specifiers', async () => {
 
       // `create`'s defaults combine losslessly with the module's own header:
       // the instance's `x-probe` reached the wire and `accept` was still added
-      // on top (SPEC.md §3.8).
+      // on top.
       instance: 'application/json/from-instance',
     })
   })
 
   it('forward the request’s context through event.$typedFetch', async () => {
-    // **SPEC.md §3.6's entire value proposition, with its own control in the
-    // same response.** The global `$typedFetch` already works verbatim inside a
+    // **The event-bound member's entire value proposition, with its own control
+    // in the same response.** The global `$typedFetch` already works verbatim inside a
     // Nitro handler (the test above runs it), so context forwarding is the only
     // thing this member adds — and the probe makes both calls to the same
     // callee, in the same request, so the difference is measured rather than
@@ -205,11 +205,11 @@ describe('the published specifiers', async () => {
       // Three of the five differ from the global's answer and two do not, which
       // is what makes this a measurement of *forwarding* rather than of "the
       // wrapper works". `accept` matches because this module sets it on both
-      // surfaces (SPEC.md §3.8), and `middleware` matches because both are a
+      // surfaces, and `middleware` matches because both are a
       // **full app pass** — h3 runs the internal request through Nitro's own
       // node listener, so middleware, the router and the error handler all run
       // and the body is the same serialized body a real client would get. That
-      // is why SPEC.md §3.6 needs no second wire format and no normalisation:
+      // is why this member needs no second wire format and no normalisation:
       // there is no path on which a declared failure arrives as an unserialized
       // thrown object.
       context: 'chocolate/kept/application/json/ran/from-outer',
@@ -220,7 +220,7 @@ describe('the published specifiers', async () => {
       global: 'none/none/application/json/ran/none',
 
       // The callee's flat variant, narrowed exhaustively by a `shared/` helper
-      // whose parameter is `DeclaredErrorsOf<'/api/users/:id'>` — SPEC.md §3.6's
+      // whose parameter is `DeclaredErrorsOf<'/api/users/:id'>` — the
       // blessed server-to-server shape.
       declared: 'user-suspended until 2026-12-31',
 
@@ -228,7 +228,7 @@ describe('the published specifiers', async () => {
       // what it threw was not a declared failure.
       undeclared: 'threw undeclared',
 
-      // **SPEC.md §3.8's event-bound merge, on the wire.** `/status` sits
+      // **The event-bound merge, on the wire.** `/status` sits
       // outside `/api/**`, which is the only place `accept` decides whether a
       // declared failure comes back as JSON at all, and it echoes back the two
       // headers it received. `from-caller` rather than `kept` is the discriminator:
@@ -240,7 +240,7 @@ describe('the published specifiers', async () => {
     })
   })
 
-  it('keep the chain linear over three hops (SPEC.md §6.6)', async () => {
+  it('keep the chain linear over three hops', async () => {
     // A→B→C, each hop through `event.$typedFetch`, with the outermost request's
     // cookie read off the **deepest** handler's own event and carried back up
     // in the payloads. So this one line covers depth, context forwarding across
@@ -270,7 +270,7 @@ describe('the published specifiers', async () => {
     // makes forwarding an explicit act of publication. A still remaps, so the
     // client still sees only A's union — the expect-error directive in
     // `playground/server/api/chain/a.get.ts` is the compile-time half of that,
-    // spelled out here rather than quoted, per SPEC.md §9.9 trap 3.
+    // spelled out here rather than quoted.
     const forwarded = await chainRejection('/api/chain/a?mode=forward')
 
     expect(declaredError(forwarded)).toEqual({
@@ -292,8 +292,8 @@ describe('the published specifiers', async () => {
       server: `server:${DECLARED_ERROR_KEY}`,
       shared: `shared:${DECLARED_ERROR_KEY}`,
       // The reader itself **running** inside Nitro, over a real server-to-server
-      // failure caught in a `catch` — the third context SPEC.md §3.7 puts the
-      // value form on the side-agnostic specifier for, and the one no
+      // failure caught in a `catch` — the third context the value form
+      // sits on the side-agnostic specifier for, and the one no
       // client-side call site can stand in for now that `/shared` carries a
       // `vue` import.
       caught: 'user-suspended',

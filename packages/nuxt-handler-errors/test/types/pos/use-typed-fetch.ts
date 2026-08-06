@@ -1,9 +1,9 @@
 /**
- * `useTypedFetch` at layer 1 (SPEC.md §9.1): the composable against Nuxt's
+ * `useTypedFetch` at layer 1: the composable against Nuxt's
  * **real** `#app` types, in a program whose `InternalApi` is empty.
  *
  * An empty route interface is not a limitation here, it is the fixture: every
- * route is an undeclared route, so this is where SPEC.md §6.1's degradation
+ * route is an undeclared route, so this is where the degradation
  * lock can be stated as *"byte-identical to vanilla"* and meant literally. The
  * declared side needs a generated map and is asserted at layer 3, in
  * `test/generated-map.test.ts` and `playground/app.vue`.
@@ -12,9 +12,9 @@
  * `tsconfig.json` rather than `tsconfig.fixtures.json`, because `#app` resolves
  * only through the `paths` the module builder generates. That config excludes
  * the two fixtures which augment `InternalApi`, which is what keeps the route
- * interface empty here (SPEC-AMENDMENTS item 18).
+ * interface empty here.
  *
- * Must compile with **zero** diagnostics (SPEC.md §9.5 rule 3).
+ * Must compile with **zero** diagnostics.
  */
 
 import type { AvailableRouterMethod, NitroFetchRequest } from 'nitropack/types'
@@ -30,17 +30,17 @@ import type { TypedErrorRef } from '../../../src/runtime/app/use-typed-fetch'
 import type { Equal, Expect } from '../vocabulary'
 
 // ---------------------------------------------------------------------------
-// SPEC.md §8.3(b): the declaration shape, as a rendering pair
+// The declaration shape, as a rendering pair
 // ---------------------------------------------------------------------------
 
 /**
- * The good half of SPEC.md §9.3's first budget: a named `interface` renders as
+ * The good half of the hover budget: a named `interface` renders as
  * its own name, so the five overloads cost the hover nothing.
  */
 const _useTypedFetch = useTypedFetch
 
 /**
- * The bad half, and the reason §8.3(b) is a mandate rather than a style note:
+ * The bad half, and the reason the interface shape is a mandate rather than a style note:
  * the **same signature** written as a bare `function` declaration, which is
  * what an implementer reaching for the obvious spelling would produce.
  *
@@ -75,7 +75,7 @@ declare function bareUseTypedFetch<
 const _bareUseTypedFetch = bareUseTypedFetch
 
 // ---------------------------------------------------------------------------
-// SPEC.md §6.1: the degradation lock, stated as byte-identity
+// The degradation lock, stated as byte-identity
 // ---------------------------------------------------------------------------
 
 const _typedLiteral = useTypedFetch('/api/undeclared')
@@ -99,7 +99,7 @@ type _undeclaredDataIsVanillas = Expect<
 /**
  * `NitroFetchRequest` terminates in `(string & {})` and admits a `Request`
  * object, so vanilla accepts an arbitrary runtime-built path and a request
- * object alike (SPEC.md §6.1). Constraining the route to the map's own keys
+ * object alike. Constraining the route to the map's own keys
  * would reject both, which is exactly what the lock forbids.
  */
 declare const builtPath: string
@@ -134,7 +134,7 @@ type _refAndGetterAgree = Expect<
  * `test/types/use-typed-fetch.test.ts` renders against its uncollapsed twin.
  *
  * `NuxtError<never>` would be *narrower* than vanilla's `NuxtError<unknown>`,
- * leaving `error.value.data` uninhabited (SPEC.md §6.1).
+ * leaving `error.value.data` uninhabited.
  */
 type _CollapsedError = TypedErrorRef<'/api/undeclared', 'get'>
 
@@ -146,12 +146,12 @@ type _collapseGivesVanillasEnvelope = Expect<
 >
 
 // ---------------------------------------------------------------------------
-// SPEC.md §3.4: all five overloads, and every vanilla option
+// All five overloads, and every vanilla option
 // ---------------------------------------------------------------------------
 
 /**
  * **Every claim below is pairwise against vanilla**, with the identical
- * arguments passed to both. That is what SPEC.md §3.4's *"adds typings only"*
+ * arguments passed to both. That is what *"adds typings only"*
  * means as an assertion: not that the data type matches some expectation
  * written here, but that it is whatever `useFetch` says it is — including
  * wherever vanilla's own answer is surprising.
@@ -160,7 +160,7 @@ type _collapseGivesVanillasEnvelope = Expect<
 /**
  * Overloads 1 and 2 — `opts` **required**, carrying a `transform`. That is the
  * pair `UseFetchOptionsWithTransform` selects, and dropping either would leave
- * a legal call shape as a compile error, which SPEC.md §6.1's lock forbids.
+ * a legal call shape as a compile error, which the degradation lock forbids.
  */
 const _typedTransform = useTypedFetch('/api/undeclared', {
   transform: (input: unknown) => ({ wrapped: input }),
@@ -175,7 +175,7 @@ type _transformIsVanillas = Expect<
 
 /**
  * Overloads 3 and 4 — `opts` optional. **`default` is the sole driver of the
- * data ref's absent member** (SPEC.md §3.4), and mirroring the overloads
+ * data ref's absent member**, and mirroring the overloads
  * verbatim is what preserves that; the two pairs below differ only in whether
  * it was supplied. That the absent member is `undefined` rather than `null`
  * needs a route with a real success type and is asserted in
@@ -201,7 +201,7 @@ type _defaultIsVanillas = Expect<
 
 /**
  * `pick`, `lazy`, `immediate`, `server`, `watch`, `key`, `deep` and `dedupe` —
- * the rest of SPEC.md §3.4's list, in one call each. None can interact with the
+ * the rest of the vanilla option list, in one call each. None can interact with the
  * error typing, because the error is computed from the request and the method
  * alone and never touches the data type.
  */
@@ -243,7 +243,7 @@ type _everyOptionLeavesTheErrorAlone = Expect<
 
 /**
  * **`ResT` keeps generic position #1.** That is what deleting the `ErrorT` slot
- * rather than reordering it buys (SPEC.md §3.4): vanilla's #2 was `ErrorT`, and
+ * rather than reordering it buys: vanilla's #2 was `ErrorT`, and
  * hoisting `ReqT` to the front — which is the other way to make the error type
  * default from the request — would cost `ResT` this position and with it this
  * call shape. Nothing is lost by the deletion, because passing #2 explicitly

@@ -1,6 +1,6 @@
 /**
  * The harness's positive self-test fixture. It must compile with **zero**
- * diagnostics (SPEC.md §9.5 rule 3), and it is asserted that way rather than
+ * diagnostics, and it is asserted that way rather than
  * "no errors mentioning X", because a positive fixture that stops compiling for
  * an unrelated reason is the classic way a type-test suite goes green while
  * proving nothing.

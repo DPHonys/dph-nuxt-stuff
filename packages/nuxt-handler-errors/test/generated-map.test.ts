@@ -22,7 +22,7 @@ import {
 import type { Compilation } from './types/harness'
 
 /**
- * Layer 3 (SPEC.md §9.1): the map, produced by a **real Nuxt build** rather
+ * Layer 3: the map, produced by a **real Nuxt build** rather
  * than by calling the emitter.
  *
  * This is the layer nothing else substitutes for. Every other assertion in this
@@ -36,7 +36,7 @@ import type { Compilation } from './types/harness'
  * is itself the e2e fixture. Two reasons for the copy, and neither of them is
  * fastidiousness:
  *
- * - SPEC.md §4.4's path-referentiality claim can only be made by **editing a
+ * - The path-referentiality claim can only be made by **editing a
  *   catalogue and rebuilding**, and `test/specifiers.test.ts` boots a server out
  *   of the same directory. Mutating tracked sources under a sibling suite's feet
  *   is a race, and the alternative — serialising the whole suite — would slow
@@ -54,8 +54,8 @@ import type { Compilation } from './types/harness'
  * does not resolve inside a `.d.ts` produces **no diagnostic** under
  * `skipLibCheck`, which every Nuxt-generated tsconfig sets: the entry becomes
  * TypeScript's error type, which renders as `any` but satisfies every
- * `Expect<Equal<…>>` and every `IsAny` check made against it
- * (SPEC-AMENDMENTS items 8 and 9). Measured for this ticket by emitting the map
+ * `Expect<Equal<…>>` and every `IsAny` check made against it.
+ * Measured for this ticket by emitting the map
  * one directory too high — the whole playground compiled clean apart from the
  * single *control-flow* assertion in `app.vue`. So the claim made here is that
  * the union **renders with this route's real tags**: the harness refuses to
@@ -102,7 +102,7 @@ const GENERATED_TSCONFIGS = [
  * The `/// <reference>` each context reaches the map through, and the
  * `addTypeTemplate` flag that puts it there.
  *
- * Naming the flag beside the file is the point: SPEC.md §4.2's own snippet
+ * Naming the flag beside the file is the point: the obvious snippet
  * passes `{ nitro: true }`, which buys the third row and silently drops the
  * other two.
  */
@@ -126,40 +126,38 @@ const EXPECTED_ROUTE_KEYS = [
   "'/api/users/:id': {",
 ]
 
-/** The tags of the three variants `/api/users/:id` declares (SPEC.md §1). */
+/** The tags of the three variants `/api/users/:id` declares. */
 const DECLARED_TAGS = ['user-not-found', 'user-suspended', 'forbidden']
 
 /**
  * The hover a caller consults while writing their `switch`, budgeted against
- * the **real** generated map (SPEC.md §8.3's ✅ row, §9.3).
+ * the **real** generated map.
  *
  * measured 182 flat / 353 as the `SerializeObject` residue the same union
- * renders outside the `if (failure)` guard — set at ~1.5× the good value, per
- * SPEC.md §9.3.
+ * renders outside the `if (failure)` guard — set at ~1.5× the good value.
  */
 const READER_VARIANT_BUDGET = 275
 
 /**
- * SPEC.md §9.3's `H_error`, which ticket 05 deferred to the first surface where
- * the union arrives through an *instantiated generic* (SPEC.md §8.3(a)).
+ * The error-hover budget `H_error`, which ticket 05 deferred to the first
+ * surface where the union arrives through an *instantiated generic*.
  *
- * **The number is §9.3's own, unchanged.** measured 212 with SPEC.md §8.3(a)'s
+ * measured 212 with
  * `Flatten` inside `TypedErrorRef`'s body / 371 as the `SerializeObject`
  * residue without it — see the assertion for why the *position* `Flatten` is
- * written in is the whole of the mandate, and SPEC-AMENDMENTS item 32 for what
- * that corrects in items 4 and 23.
+ * written in is the whole of the mandate.
  */
 const H_ERROR_BUDGET = 260
 
 /**
  * `$typedFetch.safe`'s **whole result** — the hover a caller lands on first on
  * this surface, since the discriminant lives inside the object rather than
- * beside it (SPEC.md §8.3(a), §9.3).
+ * beside it.
  *
- * measured 273 with SPEC.md §8.3(a)'s `Flatten` inside `TypedResult`'s body /
+ * measured 273 with `Flatten` inside `TypedResult`'s body /
  * 432 as the `SerializeObject` residue without it. Set at ~1.25× the good
- * value, which is the ratio SPEC.md §9.3's `H_error` also lands on: a 1.58×
- * spread is thin by its 2–20× standard, so the categorical half of the
+ * value, which is the ratio `H_error` also lands on: a 1.58×
+ * spread is thin by the 2–20× standard, so the categorical half of the
  * assertion carries the weight.
  */
 const SAFE_RESULT_BUDGET = 340
@@ -168,9 +166,9 @@ const SAFE_RESULT_BUDGET = 340
  * `event.$typedFetch.safe`'s whole result, hovered in the **server** program.
  *
  * `Event$TypedFetch.safe` is the same `TypedFetchSafe` the global carries
- * (SPEC.md §3.6 — the surface adds context forwarding, not a second type), and
+ * (the surface adds context forwarding, not a second type), and
  * the measurement agrees: **273 flat here, the global's own number** / 432 as
- * the `SerializeObject` residue that spelling measured without §8.3(a)'s
+ * the `SerializeObject` residue that spelling measured without
  * `Flatten`. Budgeted separately at the same ~1.25× anyway — the two programs
  * render through different `paths` and different ambient declarations, and one
  * number standing for both would hide which program regressed.
@@ -179,7 +177,7 @@ const EVENT_SAFE_RESULT_BUDGET = 340
 
 /**
  * The tags `/api/method-fallback`'s `default` handler declares, which a `GET`
- * reaches only through SPEC.md §4.3's presence-based fallback.
+ * reaches only through the presence-based fallback.
  */
 const FALLBACK_TAGS = ['unauthorized', 'forbidden']
 
@@ -189,7 +187,7 @@ const FALLBACK_TAGS = ['unauthorized', 'forbidden']
  * Every specifier in the file is relative to `.nuxt/types`, so redirecting the
  * one directory they all traverse points every one of them at nothing — which
  * is precisely what emitting the file to the wrong place would do, and what
- * `pathe.relative` returning a bare name would do (SPEC-AMENDMENTS item 11).
+ * `pathe.relative` returning a bare name would do.
  */
 const BROKEN_SPECIFIER_REWRITE = {
   from: `'../../server/`,
@@ -236,7 +234,7 @@ function probeSource(): string {
     ``,
     `declare module '${TYPES_SPECIFIER}' {`,
     `  interface TypedApiErrors {`,
-    // SPEC.md §4.5's transient state, declared rather than raced for: this map
+    // The transient state, declared rather than raced for: this map
     // lands ~26 ms *ahead* of Nitro's, so for that window it holds a key
     // `InternalApi` does not.
     `    '/api/ghost': { get: { tag: 'ghost', status: 404 } }`,
@@ -261,7 +259,7 @@ function probeSource(): string {
     // The key the map holds and `InternalApi` does not, one layer up from
     // `Ghost` above.
     `export type LookupGhost = DeclaredErrorsOf<'/api/ghost'>`,
-    // SPEC-AMENDMENTS item 16, at the lookup: Nuxt keys `/__nuxt_island/**` to
+    // The island-renderer case, at the lookup: Nuxt keys `/__nuxt_island/**` to
     // `#internal/nuxt/island-renderer`, which `resolveNitroPath` does not
     // resolve, so this entry is TypeScript's error type and `MatchedRoutes`
     // reaches it. Rendered rather than asserted, because the error type
@@ -281,8 +279,8 @@ function probeSource(): string {
     ``,
     // ---- ticket 09, the reader -------------------------------------------
     //
-    // The hover SPEC.md §8.3's legibility table calls *"the flat variant
-    // union"* and grades ✅, measured against the **real** generated map rather
+    // The *"flat variant
+    // union"* hover, measured against the **real** generated map rather
     // than a hand-written union — the only place the `Simplify<Serialize<…>>`
     // the emitter writes is the thing being rendered.
     `declare const declaredFailure:`,
@@ -291,17 +289,16 @@ function probeSource(): string {
     // The union as a caller reaches it: *inside* the `if (failure)` guard,
     // which is the only place it is inhabited and the only place a `switch`
     // gets written. `ReaderReturn` itself is `… | undefined`, and that union
-    // wrapper is what stops the printer expanding the alias
-    // (SPEC-AMENDMENTS item 23).
+    // wrapper is what stops the printer expanding the alias.
     `export type ReaderVariant = NonNullable<typeof ReaderReturn>`,
     // The reader is a path, not a transform: what comes back is the map's own
     // union, unchanged. Vacuous against a broken map for the usual reason, and
     // the renders above are what are not.
     `type _readerReturnsTheLookup = Expect<`,
     `  Equal<typeof ReaderReturn, DeclaredErrorsOf<'/api/users/42'> | undefined>>`,
-    // SPEC.md §9.5 rule 1: `Equal` passes with `any` on either side, and this is
+    // `Equal` passes with `any` on either side, and this is
     // the one file where a collapse to TypeScript's error type is a *measured*
-    // history rather than a hypothetical (SPEC-AMENDMENTS items 8, 9 and 21).
+    // history rather than a hypothetical.
     // The render below is the primary guard; this is the cheap second one.
     `type _readerVariantIsNotAny = Expect<Equal<IsAny<ReaderVariant>, false>>`,
     ``,
@@ -309,12 +306,12 @@ function probeSource(): string {
     //
     // Reached through `#imports`, which is what a consumer's own call site
     // resolves: the composable imports `useFetch` from `#app`, so it cannot sit
-    // on any of SPEC.md §3's three published specifiers and its `addImports`
-    // registration is the whole contract (SPEC-AMENDMENTS item 29). This is
+    // on any of the three published specifiers and its `addImports`
+    // registration is the whole contract. This is
     // therefore also the assertion that the registration happened at all.
     // **The two framework names are imported for the render's sake**, not for
     // an assertion: a name the fixture does not import renders as
-    // `import("…").Name`, and SPEC.md §9.3's budgets were taken in an editor,
+    // `import("…").Name`, and the budgets were taken in an editor,
     // where a call site's own file has them in scope. The alias below is what
     // keeps the imports used, and it names no route so a broken map cannot
     // reach it.
@@ -328,13 +325,13 @@ function probeSource(): string {
     // assertions are blind to a map that has stopped meaning anything — into a
     // file that no longer demonstrates it.
     `const typed = await useTypedFetch('/api/users/42')`,
-    // SPEC.md §8.3's ⚠️ row, the envelope-shaped hover, and its ✅ row reached
+    // The envelope-shaped hover, and the flat variant union reached
     // through this composable rather than through a hand-declared carrier.
     `export type TypedErrorValue = NonNullable<typeof typed.error.value>`,
     `export const TypedReaderReturn = declaredError(typed.error.value)`,
     `export type TypedReaderVariant = NonNullable<typeof TypedReaderReturn>`,
     ``,
-    // SPEC.md §6.1's degradation lock against the app's **real** `InternalApi`,
+    // The degradation lock against the app's **real** `InternalApi`,
     // where `MatchedRoutes` has this app's seven keys to score rather than
     // none. `/api/boom` is a plain `defineEventHandler`.
     `const typedUndeclared = await useTypedFetch('/api/boom')`,
@@ -342,7 +339,7 @@ function probeSource(): string {
     `export const TypedUndeclaredError = typedUndeclared.error`,
     `export const VanillaUndeclaredError = vanillaUndeclared.error`,
     ``,
-    // SPEC.md §4.3's presence-based method fallback, reached through the
+    // The presence-based method fallback, reached through the
     // composable's own `Method` type parameter rather than through the lookup
     // directly — which is the only thing that proves the composable forwards
     // the method at all. Row 2: `post` is present and unbranded, so the error
@@ -371,7 +368,7 @@ function probeSource(): string {
     // inside `if (!safe.ok)` and writing the `switch`.
     `export type SafeResult = typeof safe`,
     `export type SafeError = Extract<typeof safe, { ok: false }>['error']`,
-    // SPEC.md §6.1's collapse against the app's real `InternalApi`: an
+    // The degradation collapse against the app's real `InternalApi`: an
     // undeclared route's result has one arm, so `ok` is the literal `true`.
     // **Rendered, not asserted structurally** — an `Expect<Equal<…, true>>`
     // here goes red against the broken-specifier fork below, where `/api/boom`
@@ -390,7 +387,7 @@ function probeSource(): string {
 }
 
 /**
- * The playground files that reach into this suite for SPEC.md §9.5's fixed
+ * The playground files that reach into this suite for the fixed
  * assertion vocabulary, with the relative spelling each one uses.
  *
  * Listed rather than globbed so that a file quietly losing the import is a
@@ -409,7 +406,7 @@ const SUITE_IMPORTERS = [
  *
  * Those imports are written relative to the playground, which lands nowhere out
  * of a copy in the system temp directory. Left alone each is a `TS2307`
- * standing between this file and SPEC.md §9.5 rule 3, which is worth more than
+ * standing between this file and a clean program, which is worth more than
  * the edit costs: without a clean-program assertion a fixture that stopped
  * compiling for an unrelated reason would pass while proving nothing.
  */
@@ -627,7 +624,7 @@ beforeAll(() => {
 
 describe('the generated map, in a real Nuxt app', () => {
   it('compiles the whole app clean, with the map in the program', () => {
-    // SPEC.md §9.5 rule 3, and the reason every claim below can be believed:
+    // The clean-program assertion, and the reason every claim below can be believed:
     // without it a probe that stopped compiling for an unrelated reason would
     // take the rendering assertions down with it silently. Nothing is filtered
     // by file — a positive fixture whose *app* stopped compiling is not a
@@ -637,14 +634,14 @@ describe('the generated map, in a real Nuxt app', () => {
 
   it('lands in Nitro’s own types directory, under the build directory', () => {
     // `buildApp` throws if it is not there, so this records what the file is.
-    // The directory is not a preference (SPEC.md §4.2): every specifier in the
+    // The directory is not a preference: every specifier in the
     // file is relative to it, and moving the file one level up leaves the whole
     // map resolving to nothing with no diagnostic anywhere.
     expect(app.map).toContain('Generated by @dphonys/nuxt-handler-errors')
   })
 
   it('seeds a cold start with the same file shell it later replaces', () => {
-    // SPEC.md §4.2's third reason for a type template: `nuxi dev` races
+    // The third reason for a type template: `nuxi dev` races
     // `writeTypes` against `buildNuxt`, so the template can be asked for its
     // contents before `nitro:init` has fired, and a `/// <reference>` to a file
     // that is not a module is a dangling one.
@@ -671,7 +668,7 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('augments the module’s own specifier, and closes as a module', () => {
-    // Never Nitro's namespace (SPEC.md §4.2): a future Nitro release owning
+    // Never Nitro's namespace: a future Nitro release owning
     // this name would break consumers silently, and `TypedApiErrors` appears in
     // every wrapper signature, so declaring it there would hand this module's
     // public surface a second owner.
@@ -681,7 +678,7 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('is hoisted onto every generated tsconfig', () => {
-    // SPEC.md §4.2's second load-bearing string, asserted through its effect.
+    // A load-bearing string, asserted through its effect.
     // Removing `typescript.hoist.push(…)` empties all three of these.
     for (const config of GENERATED_TSCONFIGS) {
       expect(readFileSync(join(app.root, '.nuxt', config), 'utf8')).toContain(
@@ -702,7 +699,7 @@ describe('the generated map, in a real Nuxt app', () => {
   it('resolves: the declared union carries this route’s real tags', () => {
     // The assertion this whole file exists for. Tags render **double**-quoted:
     // they are synthesised by the checker out of an object literal's inferred
-    // type rather than written in an annotation (SPEC-AMENDMENTS item 7).
+    // type rather than written in an annotation.
     const rendered = app.compilation.renderHover('Declared')
 
     for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
@@ -710,7 +707,7 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('keys the divergence case as a default plus an unbranded sibling', () => {
-    // What makes SPEC.md §4.3's three rows observable at all: one route, two
+    // What makes the method-fallback's three rows observable at all: one route, two
     // handler files, one of them branded and keyed `default`.
     expect(app.map).toContain(
       `typeof import('../../server/api/method-fallback').default`
@@ -733,7 +730,7 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('resolves: a GET reaches the default handler’s union by presence', () => {
-    // SPEC.md §4.3's row 1, rendered. The three rows are asserted structurally
+    // The fallback's row 1, rendered. The three rows are asserted structurally
     // in `playground/server/api/method-fallback.ts`, beside the handlers; this
     // is the half that proves the union on the other side of the fallback is a
     // real one rather than TypeScript's error type.
@@ -754,16 +751,16 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('renders the reader’s variant flat, in budget, against the real map', () => {
-    // SPEC.md §8.3's legibility table grades this row ✅ — *"the reader's
-    // return | the flat variant union | this is what callers read"* — and this
-    // is that grade taken as a measurement rather than inherited as a claim.
+    // The legibility grade for this row — *"the reader's
+    // return | the flat variant union | this is what callers read"* —
+    // taken as a measurement rather than inherited as a claim.
     //
     // **Why the narrowed spelling.** `ReaderReturn` is `… | undefined`, and
     // measured on this app that union wrapper is worth 171 characters: the
     // printer expands a top-level alias and echoes a nested one, so the
     // pre-narrowing hover is 353 characters of `SerializeObject` residue while
-    // the same type inside the `if (failure)` guard is 182 and flat
-    // (SPEC-AMENDMENTS item 23). The guard is where a `switch` gets written, so
+    // the same type inside the `if (failure)` guard is 182 and
+    // flat. The guard is where a `switch` gets written, so
     // the guard is what is budgeted.
     const rendered = assertHoverBudget(app.compilation, {
       name: 'ReaderVariant',
@@ -773,12 +770,12 @@ describe('the generated map, in a real Nuxt app', () => {
     for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
     expect(rendered).toContain('requiredRole')
     // Length alone would pass a residue that happened to be short; this is the
-    // regression SPEC.md §8.3(a) names, by name.
+    // known residue regression, checked by name.
     expect(rendered).not.toContain('SerializeObject')
   })
 
-  it('renders the composable’s error ref flat, in SPEC.md §9.3’s budget', () => {
-    // **SPEC.md §9.3's `H_error`, written at last** — ticket 05 deferred this
+  it('renders the composable’s error ref flat, in budget', () => {
+    // **The `H_error` measurement, written at last** — ticket 05 deferred this
     // measurement to the first surface where the union arrives through an
     // *instantiated generic* rather than a hand-written annotation, and this is
     // it. Measured against the real playground map, in the fixture's own
@@ -791,19 +788,18 @@ describe('the generated map, in a real Nuxt app', () => {
     // | no `Flatten` | **371** | `Simplify<SerializeObject<…>>` residue |
     // | `Flatten` passed in as `TypedErrorRef`'s third argument | 380 | residue |
     //
-    // §8.3(a)'s mandate reproduces exactly, and row 3 is why SPEC-AMENDMENTS
-    // items 4 and 23 concluded it did not: `Flatten` written where the printer
+    // The flat-render mandate reproduces exactly, and row 3 is why it once
+    // seemed not to: `Flatten` written where the printer
     // can still see its alias — as a type argument, or by hand in the
     // annotation being rendered — echoes `Flatten<Simplify<…>>` and is one name
     // *longer* than doing nothing. Written inside the alias body it is resolved
-    // during instantiation and there is nothing left to echo. See
-    // SPEC-AMENDMENTS item 32.
+    // during instantiation and there is nothing left to echo.
     //
-    // The budget is §9.3's own number, untouched. The harness emits
+    // The budget is the original number, untouched. The harness emits
     // `import("…")` prefixes for names this probe does not import and
     // canonicalizes their specifiers before measuring, which is what lands
     // the measurement back on 212 machine-stably. **The length is the
-    // weaker half of the assertion** — a 1.75× spread is thin by §9.3's 2–20×
+    // weaker half of the assertion** — a 1.75× spread is thin by the 2–20×
     // standard — so the categorical half is checked too: `SerializeObject`
     // present or absent.
     const rendered = assertHoverBudget(app.compilation, {
@@ -815,13 +811,13 @@ describe('the generated map, in a real Nuxt app', () => {
     expect(rendered).toContain('DeclaredErrorBody')
     expect(rendered).not.toContain('SerializeObject')
     // And it is this route's real union rather than TypeScript's error type,
-    // which is the claim an `Expect<Equal<…>>` cannot make (items 8 and 9).
+    // which is the claim an `Expect<Equal<…>>` cannot make.
     for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
     expect(rendered).toContain('requiredRole')
   })
 
   it('renders the composable’s variant flat, in budget, through the reader', () => {
-    // SPEC.md §8.3's ✅ row — *"the reader's return | the flat variant union |
+    // The flat variant union — *"the reader's return | the flat variant union |
     // this is what callers read"* — reached the way a caller reaches it: out of
     // `useTypedFetch`'s own error ref rather than out of a hand-declared
     // carrier. The pair is **182 flat / 431 as the envelope-shaped hover
@@ -838,7 +834,7 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('leaves an undeclared route byte-identical to vanilla, in a real app', () => {
-    // SPEC.md §6.1's degradation lock where `MatchedRoutes` has this app's
+    // The degradation lock where `MatchedRoutes` has this app's
     // seven real keys to score rather than none — which is the half
     // `test/types/use-typed-fetch.ts` cannot reach, and the half where a
     // route-matching mistake would show.
@@ -848,7 +844,7 @@ describe('the generated map, in a real Nuxt app', () => {
     expect(typed).toContain('NuxtError<unknown>')
     expect(typed).not.toContain('DeclaredErrorBody')
 
-    // Row 2 of SPEC.md §4.3's method table, through the composable: `post` is
+    // Row 2 of the method table, through the composable: `post` is
     // present on this route and unbranded, so it collapses back to vanilla's
     // envelope rather than inheriting the `default` handler's union.
     expect(app.compilation.renderHover('TypedPostError')).toBe(typed)
@@ -864,21 +860,21 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('renders `.safe`’s result flat, in budget, against the real map', () => {
-    // SPEC.md §8.3(a) on the imperative surface. Measured against the real
-    // playground map, on the hover a caller lands on first:
+    // The flat-render mandate on the imperative surface. Measured against the
+    // real playground map, on the hover a caller lands on first:
     //
     // | spelling | chars | shape |
     // | --- | --- | --- |
     // | `Flatten<D>` inside `TypedResult`'s body — shipped | **273** | flat |
     // | no `Flatten` anywhere | **432** | `Simplify<SerializeObject<…>>` |
-    // | SPEC.md §3.5's own `TypedResult<…, Flatten<…>>` argument | 333 | flat |
+    // | a `TypedResult<…, Flatten<…>>` argument | 333 | flat |
     //
-    // Row 3 is SPEC-AMENDMENTS item 32 from a third position, and it costs an
+    // Row 3 is the alias-echo pitfall from a third position, and it costs an
     // extra name here because `D`'s constraint then has to be met by the
     // argument (`Flatten<…> & AnyVariant`). Written in the body the checker
     // resolves it during instantiation and there is no alias left to echo.
     //
-    // **The length is the weaker half**: 1.58× is thin by SPEC.md §9.3's 2–20×
+    // **The length is the weaker half**: 1.58× is thin by the 2–20×
     // standard, so the categorical half is checked too.
     const rendered = assertHoverBudget(app.compilation, {
       name: 'SafeResult',
@@ -894,8 +890,8 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('renders `.safe`’s false arm as the flat variant union', () => {
-    // The hover a caller consults while writing the `switch`. SPEC.md §8.3's ✅
-    // row, reached through `.safe` rather than through the reader — which is
+    // The hover a caller consults while writing the `switch` — the flat variant
+    // union, reached through `.safe` rather than through the reader — which is
     // the point of the false arm carrying the variant rather than the envelope:
     // there is nothing to unwrap and no `| undefined` in the way.
     const rendered = app.compilation.renderHover('SafeError')
@@ -907,7 +903,7 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('collapses an undeclared route’s `.safe` result to one arm', () => {
-    // SPEC.md §6.1 on this surface, and the reason the collapse is mandatory
+    // The degradation collapse on this surface, and it is mandatory
     // for a *different* reason than the composable needed it: a union member
     // whose property is `never` is not itself `never`, so without it `ok` stays
     // `boolean` and `data` is unreachable without a branch that can never be
@@ -924,20 +920,20 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('answers `never` for a key the map holds and Nitro’s does not', () => {
-    // SPEC.md §4.5's convergence window, one layer up from `Ghost` below: the
-    // unreachable key degrades to §6.1's documented silent default rather than
+    // The convergence window, one layer up from `Ghost` below: the
+    // unreachable key degrades to the documented silent default rather than
     // to the union the map is holding for it.
     expect(app.compilation.renderHover('LookupGhost')).toBe('never')
   })
 
   it('cannot answer for a route whose handler resolves to nothing', () => {
-    // SPEC-AMENDMENTS item 16, recorded as a measurement rather than inherited
+    // The island-renderer case, recorded as a measurement rather than inherited
     // as a warning. Nuxt registers its island renderer as
     // `#internal/nuxt/island-renderer`; `resolveNitroPath` does not resolve that
     // alias, so the emitter faithfully writes a specifier pointing at no file
     // and the entry becomes TypeScript's error type — which `MatchedRoutes`
-    // reaches, and which no `IsAny` guard can see (item 9). The only fix would
-    // be a filesystem read inside the pure emitter, which SPEC.md §4.6 forbids.
+    // reaches, and which no `IsAny` guard can see. The only fix would
+    // be a filesystem read inside the pure emitter, which its purity forbids.
     //
     // Asserted here so that the day it *stops* being true — Nuxt resolving the
     // alias, or the emitter learning to skip such handlers — is a visible
@@ -947,16 +943,16 @@ describe('the generated map, in a real Nuxt app', () => {
     )
   })
 
-  it('holds a key Nitro’s interface does not, unreachably (SPEC.md §9.6)', () => {
+  it('holds a key Nitro’s interface does not, unreachably', () => {
     // The dev-server race, asserted structurally rather than statistically. The
     // probe declares `/api/ghost` on the map and nothing declares it on
     // `InternalApi` — the shape the convergence window produces — and
     // `MatchedRoutes` derives its key universe from `keyof InternalApi`, so the
-    // key is unreachable by construction. That is why SPEC.md §4.5 measured
-    // `misattributed: 0` rather than merely "few", and why no guard machinery
-    // ships. `pnpm dev-race` is where the clock gets watched (SPEC.md §9.6).
+    // key is unreachable by construction. That is why the race measurement
+    // recorded `misattributed: 0` rather than merely "few", and why no guard
+    // machinery ships. `pnpm dev-race` is where the clock gets watched.
     //
-    // §9.6 asks for this hermetically, and it *is* hermetic — in
+    // The same claim is made hermetically in
     // `test/types/unreachable-map-key.test.ts`. Re-taken here because this
     // program resolves it against the app's **real generated `InternalApi`**
     // rather than a hand-written stand-in, and the program was already built.
@@ -979,15 +975,15 @@ describe('event.$typedFetch, in the real server program', () => {
   }, 600_000)
 
   it('compiles the server probe clean, with the map in the program', () => {
-    // SPEC.md §9.5 rule 3 for this program, and the license for the render
+    // The clean-program assertion for this program, and the license for the render
     // below: a hover out of a program that did not compile clean is a guess.
     assertNoDiagnostics(server)
   })
 
   it('renders `.safe`’s result flat, in budget, with the callee’s real tags', () => {
-    // SPEC.md §8.3(a) taken through `event.$typedFetch` — the hover a handler
+    // The flat-render mandate taken through `event.$typedFetch` — the hover a handler
     // author lands on first, on the surface whose whole point is being called
-    // from other handlers (SPEC.md §3.6). The tags are the resolution half:
+    // from other handlers. The tags are the resolution half:
     // the map entry's handler specifier resolved from *this* program, or the
     // harness would have refused the render as `any`.
     const rendered = assertHoverBudget(server, {
@@ -1015,8 +1011,8 @@ describe('the lookup, over a map whose specifiers resolve to nothing', () => {
    * an unresolved `import("…")` inside a `.d.ts` produces **no diagnostic**
    * under `skipLibCheck`, which every Nuxt-generated tsconfig sets.
    *
-   * The two `it`s below are the two halves of SPEC-AMENDMENTS items 8, 9 and
-   * 16, taken at the *lookup* rather than at the raw map entry: the structural
+   * The two `it`s below are
+   * taken at the *lookup* rather than at the raw map entry: the structural
    * assertions in the probe stay green while being false, and only the render
    * catches it.
    */
@@ -1057,7 +1053,7 @@ describe('the lookup, over a map whose specifiers resolve to nothing', () => {
   })
 })
 
-describe('path-referentiality, in a real Nuxt app (SPEC.md §4.4)', () => {
+describe('path-referentiality, in a real Nuxt app', () => {
   /** The same app with one variant added to a catalogue. No route changes. */
   let edited: BuiltApp
 
@@ -1081,8 +1077,8 @@ describe('path-referentiality, in a real Nuxt app (SPEC.md §4.4)', () => {
   }, 600_000)
 
   it('leaves the emitted file byte-identical after a content-only edit', () => {
-    // SPEC.md §4.4's mandate, in the real app rather than only in the pure
-    // function. Nitro never re-runs `writeTypes` on a `change` event and gets
+    // The path-referentiality mandate, in the real app rather than only in the
+    // pure function. Nitro never re-runs `writeTypes` on a `change` event and gets
     // away with it only because its output is an import expression the compiler
     // re-resolves on every edit; anything that resolved *values* at emit time
     // would go stale here with no watcher that would ever fix it.
