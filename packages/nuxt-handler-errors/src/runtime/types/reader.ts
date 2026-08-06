@@ -13,7 +13,7 @@ import type { AnyVariant } from './catalogue'
  * import.
  */
 export type DeclaredErrorKey =
-  (typeof import('../shared'))['DECLARED_ERROR_KEY']
+  (typeof import('../shared/wire'))['DECLARED_ERROR_KEY']
 
 /**
  * Nitro's production error body with the marker inside `data` — the only

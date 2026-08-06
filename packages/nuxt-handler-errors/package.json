@@ -28,7 +28,7 @@
         "./dist/runtime/types/index.d.ts"
       ],
       "shared": [
-        "./dist/runtime/shared.d.ts"
+        "./dist/runtime/shared/index.d.ts"
       ]
     }
   },
@@ -42,8 +42,8 @@
       "import": "./dist/runtime/types/index.js"
     },
     "./shared": {
-      "types": "./dist/runtime/shared.d.ts",
-      "import": "./dist/runtime/shared.js"
+      "types": "./dist/runtime/shared/index.d.ts",
+      "import": "./dist/runtime/shared/index.js"
     }
   },
   "publishConfig": {

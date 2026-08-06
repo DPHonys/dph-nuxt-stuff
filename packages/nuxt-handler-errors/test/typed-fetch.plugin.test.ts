@@ -1,10 +1,10 @@
 import { afterEach, expect, it } from 'vitest'
 import plugin from '../src/runtime/app/typed-fetch.plugin'
-import { $typedFetch } from '../src/runtime/typed-fetch'
+import { $typedFetch } from '../src/runtime/shared/typed-fetch'
 
 /**
  * The client plugin's one assignment: executing it puts *the*
- * `$typedFetch` — the same object `src/runtime/typed-fetch` exports — onto
+ * `$typedFetch` — the same object `src/runtime/shared/typed-fetch` exports — onto
  * `globalThis`. Identity, not shape: a plugin that installed a lookalike
  * would pass every shape check and still be a second instance, with the
  * instance-identity problem that brings.

@@ -73,7 +73,7 @@ export default defineNuxtModule<ModuleOptions>({
     // bindings are one module instance. Deliberately not `addServerImports` —
     // `useDeclaredError` is a Vue composable.
     const resolver = createResolver(import.meta.url)
-    const shared = resolver.resolve('./runtime/shared')
+    const shared = resolver.resolve('./runtime/shared/index')
 
     addImports([
       { name: 'declaredError', from: shared },

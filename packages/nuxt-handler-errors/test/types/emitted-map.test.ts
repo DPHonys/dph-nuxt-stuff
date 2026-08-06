@@ -257,7 +257,7 @@ function buildAppTree(spec: AppSpec): AppTree {
               join(PACKAGE_ROOT, 'src/runtime/types/index.ts'),
             ],
             '@dphonys/nuxt-handler-errors/shared': [
-              join(PACKAGE_ROOT, 'src/runtime/shared.ts'),
+              join(PACKAGE_ROOT, 'src/runtime/shared/index.ts'),
             ],
           },
         },

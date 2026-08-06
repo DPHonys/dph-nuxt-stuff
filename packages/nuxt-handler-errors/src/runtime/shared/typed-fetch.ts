@@ -2,11 +2,15 @@
  * `$typedFetch` and `$typedFetch.safe` — the imperative surface at run time:
  * one header merge, one try/catch, one cast. Side-agnostic on purpose —
  * nothing here imports `#app`, which is what lets the value be installed as a
- * global on both sides. The type-level half lives in `./types`.
+ * global on both sides. The type-level half lives in `../types`.
+ *
+ * Under `shared/` for that side-agnosticism, but deliberately absent from
+ * `./index`: this value reaches call sites as `globalThis.$typedFetch`, never
+ * through the published specifier.
  */
 
-import { declaredError } from './shared'
-import type { $TypedFetch, AnyVariant } from './types'
+import type { $TypedFetch, AnyVariant } from '../types'
+import { declaredError } from './reader'
 
 // ---------------------------------------------------------------------------
 // What this wrapper needs of the thing underneath it

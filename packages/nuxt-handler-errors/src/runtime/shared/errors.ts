@@ -1,35 +1,23 @@
 /**
- * The `@dphonys/nuxt-handler-errors/shared` entry point: side-agnostic
- * runtime values, importable from the client, the server and a consumer's
- * `shared/` directory. The hand-writable specifier is the contract;
- * auto-imports are sugar. The `vue` import stays a plain caret-ranged
- * dependency for instance identity: two physical copies of Vue are two
- * reactivity systems, and a `computed` from one does not track a ref owned by
- * the other.
+ * The raise path: declaring a catalogue, and declaring the handler that draws
+ * from one. The two stay in one file because they share `INTERNALS` — a
+ * *module-private* symbol, which is what keeps the catalogue's runtime view
+ * out of public API. Splitting them would demote it to an export.
+ *
+ * The only file in the package importing `h3`.
  */
 
 import { createError, defineEventHandler } from 'h3'
-import { computed } from 'vue'
-import type { Ref } from 'vue'
 import type {
   AnyCatalogue,
   AnyVariant,
-  DeclaredErrorReader,
   DefineErrors,
   DefinePayload,
   DefineTypedEventHandler,
   ErrorCatalogue,
-  UseDeclaredError,
   VariantDef,
-} from './types'
-
-/**
- * The reserved key a declared failure travels under, inside the error body's
- * `data`. Frozen wire protocol: its presence *is* the evidence the server
- * declared this failure, its value *is* the variant, and versioning is by key
- * rename. Deliberately does not track the package name.
- */
-export const DECLARED_ERROR_KEY = '__declaredError__'
+} from '../types'
+import { DECLARED_ERROR_KEY } from './wire'
 
 /**
  * Marks a variant's payload type. The runtime value is inert — only the type
@@ -37,51 +25,6 @@ export const DECLARED_ERROR_KEY = '__declaredError__'
  * serialization (see `SerializablePayload`).
  */
 export const payload: DefinePayload = () => ({})
-
-// ---------------------------------------------------------------------------
-// Reading
-// ---------------------------------------------------------------------------
-
-/**
- * The guard, and the whole of the wire's shape floor. Presence of the marker
- * is not enough — the floor (string `tag`, number `status`) is checked too,
- * so a present-but-malformed marker reads as *undeclared*, the direction
- * every consumer already handles. `typeof`-based deliberately: it rejects a
- * function carrying the two properties, and the explicit `!== null` stops
- * `typeof null === 'object'` from reaching the property reads.
- */
-function readFloor(error: unknown): AnyVariant | undefined {
-  const marker = (
-    error as { data?: { data?: Record<string, unknown> } } | null | undefined
-  )?.data?.data?.[DECLARED_ERROR_KEY]
-
-  return typeof marker === 'object' &&
-    marker !== null &&
-    typeof (marker as AnyVariant).tag === 'string' &&
-    typeof (marker as AnyVariant).status === 'number'
-    ? (marker as AnyVariant)
-    : undefined
-}
-
-/**
- * Read the declared variant out of an error value, or `undefined` — "not a
- * declared failure" — if there is not one. Overloads, `undefined`'s meaning
- * and deploy skew are documented on {@link DeclaredErrorReader}.
- *
- * The assertion is to the interface itself rather than through `never`: the
- * implementation is still checked for comparability, so a `readFloor` that
- * stopped answering the floor would fail here. `as never` would not.
- */
-export const declaredError: DeclaredErrorReader =
-  readFloor as DeclaredErrorReader
-
-/**
- * The reactive sibling of {@link declaredError}, for templates. Narrow on a
- * local `const current = failure.value` — see {@link UseDeclaredError} for
- * why that is not a style preference.
- */
-export const useDeclaredError: UseDeclaredError = ((error: Ref<unknown>) =>
-  computed(() => readFloor(error.value))) as UseDeclaredError
 
 // ---------------------------------------------------------------------------
 // Raising
