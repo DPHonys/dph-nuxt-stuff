@@ -21,12 +21,6 @@ allowBuilds:
   esbuild@0.25.12 || 0.28.1: true
   unrs-resolver: true
 
-# Give tsc and TypeScript-powered tooling the native checker through one
-# compatible package identity. Keep this exact prerelease in sync with the
-# catalog and package.json; prereleases do not advance through caret ranges.
-overrides:
-  typescript: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
-
 catalog:
   '@clack/prompts': ^1.7.0
   '@nuxt/devtools': ^3.3.1
@@ -50,15 +44,11 @@ catalog:
   pkg-types: ^2.3.0
   publint: ^0.3.22
   scule: ^1.3.0
-  typescript: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
-  # Stock TypeScript under an alias, for the consumer-compiler test row
-  # (nuxt-handler-errors SPEC.md §9.8). The override above keys on the
-  # dependency alias, never on the package inside the `npm:` spec, so this
-  # entry escapes it and resolves real TS — never rename the alias to
-  # `typescript`, or it gets rewritten to the bridge. The caret floats on
-  # purpose: a new stock minor breaking the type suites is the divergence
-  # signal the second compiler row exists to catch.
-  typescript-stock: npm:typescript@^5
+  # Stock TypeScript — the compiler every downstream consumer of the emitted
+  # `.d.ts` runs, and therefore the one this repo checks with. The caret floats
+  # on purpose: a new minor breaking the type suites is a consumer-divergence
+  # signal, delivered as a red Renovate PR.
+  typescript: ^5.9.3
   vitest: ^4.1.10
   # Ranged with a major ceiling, for the same instance-identity reason as `h3`
   # (SPEC.md §7.2): Vue's reactivity is module-global, so a second physical copy

@@ -61,7 +61,7 @@
     "prepack": "pnpm run build",
     "pretest": "nuxt-module-build prepare",
     "publint": "publint",
-    "test": "NUXT_HANDLER_ERRORS_STOCK_TS=1 vitest run",
+    "test": "vitest run",
     "test:watch": "vitest watch",
     "typecheck": "nuxt-module-build prepare && nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json && vue-tsc --noEmit --project playground/server/tsconfig.json"
   },
@@ -81,7 +81,6 @@
     "nuxt": "catalog:",
     "publint": "catalog:",
     "typescript": "catalog:",
-    "typescript-stock": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "catalog:"
   },

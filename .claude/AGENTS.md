@@ -19,21 +19,21 @@ dph-nuxt-stuff/
 
 ## Tech Stack
 
-| Tool                         | Purpose                                                  |
-| ---------------------------- | -------------------------------------------------------- |
-| **pnpm**                     | Package manager                                          |
-| **Turborepo**                | Monorepo task orchestration                              |
-| **Oxlint**                   | Fast correctness linting                                 |
-| **@antfu/eslint-config**     | Project conventions                                      |
-| **Oxfmt**                    | Formatting and import order                              |
-| **pnpm release management**  | Independent Release intents, versions, and changelogs    |
-| **Husky + commitlint**       | Enforce conventional commits                             |
-| **Vitest**                   | Per-package (each package owns its tests)                |
-| **typescript-native-bridge** | TypeScript 7 native checking with TS 6 API compatibility |
-| **Renovate**                 | Automated dependency PRs                                 |
-| **publint**                  | Validate package exports before publish                  |
-| **pkg-pr-new**               | Preview releases on PRs                                  |
-| **knip**                     | Dead code / unused dep detection                         |
+| Tool                        | Purpose                                               |
+| --------------------------- | ----------------------------------------------------- |
+| **pnpm**                    | Package manager                                       |
+| **Turborepo**               | Monorepo task orchestration                           |
+| **Oxlint**                  | Fast correctness linting                              |
+| **@antfu/eslint-config**    | Project conventions                                   |
+| **Oxfmt**                   | Formatting and import order                           |
+| **pnpm release management** | Independent Release intents, versions, and changelogs |
+| **Husky + commitlint**      | Enforce conventional commits                          |
+| **Vitest**                  | Per-package (each package owns its tests)             |
+| **TypeScript**              | Stock TS 5 — the compiler consumers run               |
+| **Renovate**                | Automated dependency PRs                              |
+| **publint**                 | Validate package exports before publish               |
+| **pkg-pr-new**              | Preview releases on PRs                               |
+| **knip**                    | Dead code / unused dep detection                      |
 
 ## Dev Commands
 
