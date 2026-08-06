@@ -309,9 +309,7 @@ as ordinary.
 
 An earlier iteration shipped `body`/`query`/`params` Standard Schema validation
 on the same options object; it was cut as a second product with its own caveat
-surface and survives as the parked, unpublished sibling
-[`@dphonys/nuxt-handler-validation`](../nuxt-handler-validation). Validate in
-the handler body and `fail` with your own variant.
+surface. Validate in the handler body and `fail` with your own variant.
 
 ---
 
