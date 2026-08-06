@@ -254,7 +254,7 @@ function buildAppTree(spec: AppSpec): AppTree {
         compilerOptions: {
           paths: {
             '@dphonys/nuxt-handler-errors/types': [
-              join(PACKAGE_ROOT, 'src/runtime/types.ts'),
+              join(PACKAGE_ROOT, 'src/runtime/types/index.ts'),
             ],
             '@dphonys/nuxt-handler-errors/shared': [
               join(PACKAGE_ROOT, 'src/runtime/shared.ts'),
