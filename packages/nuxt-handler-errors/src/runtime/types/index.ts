@@ -12,13 +12,12 @@
  * never consult the export map, so those names stay exported from their own
  * modules without being published here.
  *
- * Two personas are served, and the second is why the list is not shorter still.
- * An app author writes `DeclaredErrorsOf` and the read-side types. A *wrapper*
- * author restates the definer signature to layer something onto it, and needs
- * the composition vocabulary to do it: `AnyCatalogue`, `UnionOfCatalogues`,
- * `ConflictGuard` and `TypedHandlerContext`. That is not hypothetical —
- * `@dphonys/nuxt-handler-validation` names all four to put schemas on top of
- * `defineTypedEventHandler` without this package knowing about them.
+ * The composition vocabulary a *wrapper* author would need to restate the
+ * definer signature — `AnyCatalogue`, `UnionOfCatalogues`, `ConflictGuard`,
+ * `TypedHandlerContext` — is deliberately not among them. It was published
+ * briefly for a sibling package that has since been removed, and publishing on
+ * spec is what this barrel is trying to stop doing: a name here is public API
+ * for good, so it is added when something real names it, not before.
  *
  * What is *declared* here rather than in a sibling is everything that touches
  * a scope this package does not own: `TypedApiErrors`, which the build-time
@@ -33,21 +32,9 @@ import type { RouterMethod } from 'h3'
 import type { MatchedRoutes } from 'nitropack/types'
 import type { $TypedFetch, Event$TypedFetch } from './fetch'
 
-export type {
-  AnyCatalogue,
-  AnyVariant,
-  ConflictGuard,
-  ErrorCatalogue,
-  UnionOfCatalogues,
-  VariantsOf,
-} from './catalogue'
+export type { AnyVariant, ErrorCatalogue, VariantsOf } from './catalogue'
 
-export type {
-  ExtractErrorsSafe,
-  Fail,
-  TypedEventHandler,
-  TypedHandlerContext,
-} from './handler'
+export type { ExtractErrorsSafe, Fail, TypedEventHandler } from './handler'
 
 export type { DeclaredErrorBody } from './reader'
 
