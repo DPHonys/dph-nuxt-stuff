@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createEventTypedFetch,
   EventFetchUnavailableError,
-} from '../src/runtime/server/event-typed-fetch'
+} from '../src/runtime/server/lib/event-typed-fetch'
 import { declaredFailure, settled } from './failure-channel'
 
 /**

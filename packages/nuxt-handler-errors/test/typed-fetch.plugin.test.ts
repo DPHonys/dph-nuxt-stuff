@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest'
-import plugin from '../src/runtime/app/typed-fetch.plugin'
+import plugin from '../src/runtime/app/plugins/typed-fetch.client'
 import { $typedFetch } from '../src/runtime/shared/typed-fetch'
 
 /**

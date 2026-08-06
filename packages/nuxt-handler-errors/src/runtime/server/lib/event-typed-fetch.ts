@@ -5,9 +5,9 @@
  * underneath is a parameter the tests can model with nothing booted.
  */
 
-import type { RawTypedResult } from '../shared/typed-fetch'
-import { toTypedResult } from '../shared/typed-fetch'
-import type { Event$TypedFetch } from '../types'
+import type { RawTypedResult } from '../../shared/typed-fetch'
+import { toTypedResult } from '../../shared/typed-fetch'
+import type { Event$TypedFetch } from '../../types'
 
 // ---------------------------------------------------------------------------
 // What this wrapper needs of the thing underneath it

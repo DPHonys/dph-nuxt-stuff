@@ -19,7 +19,7 @@ import type {
   DeclaredErrorBody,
   DeclaredErrorsOf,
   Flatten,
-} from '../types'
+} from '../../types'
 
 // ---------------------------------------------------------------------------
 // The error type

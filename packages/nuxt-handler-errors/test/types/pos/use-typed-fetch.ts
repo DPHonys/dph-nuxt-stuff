@@ -25,8 +25,8 @@ import type { AsyncData, KeysOf, PickFrom } from '#app/composables/asyncData'
 import {
   useLazyTypedFetch,
   useTypedFetch,
-} from '../../../src/runtime/app/use-typed-fetch'
-import type { TypedErrorRef } from '../../../src/runtime/app/use-typed-fetch'
+} from '../../../src/runtime/app/composables/use-typed-fetch'
+import type { TypedErrorRef } from '../../../src/runtime/app/composables/use-typed-fetch'
 import type { Equal, Expect } from '../vocabulary'
 
 // ---------------------------------------------------------------------------

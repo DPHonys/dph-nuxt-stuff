@@ -3,7 +3,7 @@ import { ref, toValue } from 'vue'
 import {
   useLazyTypedFetch,
   useTypedFetch,
-} from '../src/runtime/app/use-typed-fetch'
+} from '../src/runtime/app/composables/use-typed-fetch'
 import { calls } from './doubles/nuxt-app'
 
 /**

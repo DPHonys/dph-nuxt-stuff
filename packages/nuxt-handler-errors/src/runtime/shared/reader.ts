@@ -9,7 +9,11 @@
 
 import { computed } from 'vue'
 import type { Ref } from 'vue'
-import type { AnyVariant, DeclaredErrorReader, UseDeclaredError } from '../types'
+import type {
+  AnyVariant,
+  DeclaredErrorReader,
+  UseDeclaredError,
+} from '../types'
 import { DECLARED_ERROR_KEY } from './wire'
 
 /**

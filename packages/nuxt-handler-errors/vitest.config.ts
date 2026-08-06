@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config'
 /**
  * One alias, for one reason.
  *
- * `src/runtime/app/use-typed-fetch.ts` imports `useFetch` from `#app`, which
+ * `src/runtime/app/composables/use-typed-fetch.ts` imports `useFetch` from `#app`, which
  * only exists inside a Nuxt **app** build — so under a plain `vitest run` the
  * module cannot be loaded at all, and the SSR header merge would be
  * reachable only through a full e2e build. That is where its end-to-end proof

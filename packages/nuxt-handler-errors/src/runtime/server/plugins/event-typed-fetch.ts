@@ -22,8 +22,8 @@
  */
 
 import { defineNitroPlugin } from 'nitropack/runtime'
-import { createEventTypedFetch } from './event-typed-fetch'
-import type { RawEventFetch } from './event-typed-fetch'
+import { createEventTypedFetch } from '../lib/event-typed-fetch'
+import type { RawEventFetch } from '../lib/event-typed-fetch'
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', (event) => {

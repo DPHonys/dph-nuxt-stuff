@@ -94,7 +94,7 @@ function nextInstanceHeaders(current: Headers, defaults: RawOptions): Headers {
  * error untouched**. `ok: false` means "a declared failure the route
  * promised"; the reader decides, and everything without the shape floor
  * rethrows. One function rather than inlined into `.safe`, because
- * `./server/event-typed-fetch` needs exactly this and a second copy could
+ * `../server/lib/event-typed-fetch` needs exactly this and a second copy could
  * drift — the rethrow suite is a claim about both surfaces at once.
  */
 export async function toTypedResult(

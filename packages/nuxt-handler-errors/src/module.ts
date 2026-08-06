@@ -83,7 +83,9 @@ export default defineNuxtModule<ModuleOptions>({
     // The composable pair, app-side only — it imports `#app`, which the Nitro
     // build does not have, so this registration is the whole contract for
     // these two names; an explicit import is `#imports`.
-    const composables = resolver.resolve('./runtime/app/use-typed-fetch')
+    const composables = resolver.resolve(
+      './runtime/app/composables/use-typed-fetch'
+    )
 
     addImports([
       { name: 'useTypedFetch', from: composables },
@@ -106,17 +108,17 @@ export default defineNuxtModule<ModuleOptions>({
     // pass. The wrapper reads `globalThis.$fetch` at *call* time, so neither
     // plugin depends on running after the thing it wraps.
     addPlugin({
-      src: resolver.resolve('./runtime/app/typed-fetch.plugin'),
+      src: resolver.resolve('./runtime/app/plugins/typed-fetch.client'),
       mode: 'client',
     })
-    addServerPlugin(resolver.resolve('./runtime/server/typed-fetch.plugin'))
+    addServerPlugin(resolver.resolve('./runtime/server/plugins/typed-fetch'))
 
     // `event.$typedFetch`, a per-request closure over the event's own
     // `$fetch`. A second plugin rather than a second assignment in the first,
     // so each is deletable on its own with a mutation that reddens its own
     // tests and nothing else.
     addServerPlugin(
-      resolver.resolve('./runtime/server/event-typed-fetch.plugin')
+      resolver.resolve('./runtime/server/plugins/event-typed-fetch')
     )
 
     // Captured here and read by `getContents`. Deliberately not `useNitro()`

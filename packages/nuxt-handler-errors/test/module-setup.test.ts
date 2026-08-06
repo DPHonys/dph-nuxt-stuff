@@ -94,12 +94,16 @@ describe('module setup wiring', () => {
     expect(entries).toEqual([
       {
         name: 'useTypedFetch',
-        source: expect.stringMatching(/\/runtime\/app\/use-typed-fetch$/),
+        source: expect.stringMatching(
+          /\/runtime\/app\/composables\/use-typed-fetch$/
+        ),
         argumentLength: 3,
       },
       {
         name: 'useLazyTypedFetch',
-        source: expect.stringMatching(/\/runtime\/app\/use-typed-fetch$/),
+        source: expect.stringMatching(
+          /\/runtime\/app\/composables\/use-typed-fetch$/
+        ),
         argumentLength: 3,
       },
     ])
@@ -117,7 +121,7 @@ describe('module setup wiring', () => {
     // registered client plugin in a real browser is upstream's contract and
     // deliberately not protected.
     const entries = nuxt.options.plugins.filter((plugin) =>
-      /\/runtime\/app\/typed-fetch\.plugin(?:\.\w+)?$/.test(
+      /\/runtime\/app\/plugins\/typed-fetch\.client(?:\.\w+)?$/.test(
         typeof plugin === 'string' ? plugin : plugin.src
       )
     )
