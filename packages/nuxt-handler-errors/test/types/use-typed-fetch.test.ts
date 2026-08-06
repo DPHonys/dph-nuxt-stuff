@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { COMPILERS } from './compilers'
 import {
   assertHoverBudget,
   assertNoDiagnostics,
@@ -38,8 +38,8 @@ const PACKAGE_TSCONFIG = fileURLToPath(
  *
  * **measured 25 as a named `interface` / 560 as a bare `function` declaration**
  * — with the `import("…")` specifier canonicalized before measuring, which is
- * what makes the good value identical under both compilers (raw it is 64 on
- * the bridge and 118 on stock, all of the spread being path). The bad half
+ * what keeps the good value machine-stable (raw it is 118, nearly all of the
+ * spread being checkout-specific path). The bad half
  * writes out only *one* of the five overloads, so it understates the
  * regression roughly fivefold rather than flattering it. The prototype's pair
  * was 55 / 1075 on a bigger signature; vanilla `useFetch` renders 94 for
@@ -50,63 +50,59 @@ const PACKAGE_TSCONFIG = fileURLToPath(
  */
 const USE_TYPED_FETCH_BUDGET = 50
 
-describe.each(COMPILERS)(
-  'useTypedFetch, against Nuxt’s real types, on %s',
-  (_label, compiler, dialect) => {
-    const harness = createTypeHarness({
-      ts: compiler,
-      dialect,
-      rootDir: fileURLToPath(new URL('../..', import.meta.url)),
-      tsconfigPath: PACKAGE_TSCONFIG,
+describe('useTypedFetch, against Nuxt’s real types', () => {
+  const harness = createTypeHarness({
+    ts,
+    rootDir: fileURLToPath(new URL('../..', import.meta.url)),
+    tsconfigPath: PACKAGE_TSCONFIG,
+  })
+
+  it('holds every claim SPEC.md §3.4 makes about the call surface', () => {
+    // Every claim in the fixture is an `Expect<…>` alias or a call that has to
+    // resolve, so the whole assertion is that it compiles clean
+    // (SPEC.md §9.5 rule 3). Nothing is filtered by file: the fixture calls
+    // both wrappers *and* vanilla with identical arguments, so a diagnostic
+    // anywhere in the program is a reason to disbelieve the pairs.
+    assertNoDiagnostics(harness.compileAlone(FIXTURE))
+  })
+
+  it('renders as its own interface name, not as its signature', () => {
+    const compilation = harness.compileAlone(FIXTURE)
+
+    const rendered = assertHoverBudget(compilation, {
+      name: '_useTypedFetch',
+      max: USE_TYPED_FETCH_BUDGET,
     })
 
-    it('holds every claim SPEC.md §3.4 makes about the call surface', () => {
-      // Every claim in the fixture is an `Expect<…>` alias or a call that has to
-      // resolve, so the whole assertion is that it compiles clean
-      // (SPEC.md §9.5 rule 3). Nothing is filtered by file: the fixture calls
-      // both wrappers *and* vanilla with identical arguments, so a diagnostic
-      // anywhere in the program is a reason to disbelieve the pairs.
-      assertNoDiagnostics(harness.compileAlone(FIXTURE))
-    })
+    expect(rendered).toContain('UseTypedFetch')
 
-    it('renders as its own interface name, not as its signature', () => {
-      const compilation = harness.compileAlone(FIXTURE)
+    // The mutation, committed rather than described: the identical signature as
+    // a bare `function` declaration is in the same fixture, and this is what
+    // it costs. Without SPEC.md §8.3(b)'s mandate the line above renders this.
+    expect(
+      compilation.renderHover('_bareUseTypedFetch').length
+    ).toBeGreaterThan(USE_TYPED_FETCH_BUDGET)
+  })
 
-      const rendered = assertHoverBudget(compilation, {
-        name: '_useTypedFetch',
-        max: USE_TYPED_FETCH_BUDGET,
-      })
+  it('leaves an undeclared route’s error channel byte-identical to vanilla', () => {
+    // SPEC.md §6.1's degradation lock, and the strongest form the claim has:
+    // not "assignable to", not "equal by `Equal<…>`" — the same characters.
+    //
+    // `Equal<…>` over the same pair is in the fixture and is the cheaper guard;
+    // this is the one that also catches the two types being structurally equal
+    // while the wrapper's answer has grown an alias a caller would have to
+    // read through.
+    const compilation = harness.compileAlone(FIXTURE)
 
-      expect(rendered).toContain('UseTypedFetch')
+    const typed = compilation.renderHover('_typedUndeclaredError')
+    const vanilla = compilation.renderHover('_vanillaUndeclaredError')
 
-      // The mutation, committed rather than described: the identical signature as
-      // a bare `function` declaration is in the same fixture, and this is what
-      // it costs. Without SPEC.md §8.3(b)'s mandate the line above renders this.
-      expect(
-        compilation.renderHover('_bareUseTypedFetch').length
-      ).toBeGreaterThan(USE_TYPED_FETCH_BUDGET)
-    })
-
-    it('leaves an undeclared route’s error channel byte-identical to vanilla', () => {
-      // SPEC.md §6.1's degradation lock, and the strongest form the claim has:
-      // not "assignable to", not "equal by `Equal<…>`" — the same characters.
-      //
-      // `Equal<…>` over the same pair is in the fixture and is the cheaper guard;
-      // this is the one that also catches the two types being structurally equal
-      // while the wrapper's answer has grown an alias a caller would have to
-      // read through.
-      const compilation = harness.compileAlone(FIXTURE)
-
-      const typed = compilation.renderHover('_typedUndeclaredError')
-      const vanilla = compilation.renderHover('_vanillaUndeclaredError')
-
-      expect(typed).toBe(vanilla)
-      // And it is vanilla's own envelope rather than a lookalike: `unknown` is
-      // what makes `error.value.data` reachable at all. Measured, the collapse
-      // deleted: `NuxtError<DeclaredErrorBody<never>>`, which is *narrower* than
-      // this and leaves that payload uninhabited.
-      expect(typed).toContain('NuxtError<unknown>')
-      expect(typed).not.toContain('DeclaredErrorBody')
-    })
-  }
-)
+    expect(typed).toBe(vanilla)
+    // And it is vanilla's own envelope rather than a lookalike: `unknown` is
+    // what makes `error.value.data` reachable at all. Measured, the collapse
+    // deleted: `NuxtError<DeclaredErrorBody<never>>`, which is *narrower* than
+    // this and leaves that payload uninhabited.
+    expect(typed).toContain('NuxtError<unknown>')
+    expect(typed).not.toContain('DeclaredErrorBody')
+  })
+})

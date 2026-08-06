@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { COMPILERS } from './compilers'
 import {
   assertHoverBudget,
   assertNoDiagnostics,
@@ -34,39 +34,34 @@ const FIXTURE = fileURLToPath(new URL('pos/reader.ts', import.meta.url))
  */
 const READER_RETURN_BUDGET = 290
 
-describe.each(COMPILERS)(
-  'reading a declared variant out of an error value, on %s',
-  (_label, compiler, dialect) => {
-    const harness = createTypeHarness({ ts: compiler, dialect })
+describe('reading a declared variant out of an error value', () => {
+  const harness = createTypeHarness({ ts })
 
-    it('holds every claim SPEC.md §3.7 makes, against a framework replica', () => {
-      // Every claim in the fixture is an `Expect<…>` alias, an exhaustive
-      // `switch` or a consumed `@ts-expect-error`, so the whole assertion is
-      // that it compiles clean (SPEC.md §9.5 rule 3).
-      assertNoDiagnostics(harness.compileAlone(FIXTURE))
+  it('holds every claim SPEC.md §3.7 makes, against a framework replica', () => {
+    // Every claim in the fixture is an `Expect<…>` alias, an exhaustive
+    // `switch` or a consumed `@ts-expect-error`, so the whole assertion is
+    // that it compiles clean (SPEC.md §9.5 rule 3).
+    assertNoDiagnostics(harness.compileAlone(FIXTURE))
+  })
+
+  it('renders the reader’s return as the flat variant union, in budget', () => {
+    const compilation = harness.compileAlone(FIXTURE)
+
+    const rendered = assertHoverBudget(compilation, {
+      name: '_readerReturn',
+      max: READER_RETURN_BUDGET,
     })
 
-    it('renders the reader’s return as the flat variant union, in budget', () => {
-      const compilation = harness.compileAlone(FIXTURE)
-
-      const rendered = assertHoverBudget(compilation, {
-        name: '_readerReturn',
-        max: READER_RETURN_BUDGET,
-      })
-
-      // Length alone would pass against a union that had lost its payloads, so
-      // the render is also checked for the thing the caller reads it for. Tags
-      // are written in a type annotation in this fixture, so the bridge
-      // renders them **single**-quoted (SPEC-AMENDMENTS item 7) — and stock
-      // double-quotes the same position, the measured quote-style divergence.
-      const quote = dialect === 'stock' ? '"' : `'`
-      expect(rendered).toContain(`${quote}user-not-found${quote}`)
-      expect(rendered).toContain('userId')
-      expect(rendered).toContain('requiredRole')
-      // Flat: no intersection survives into the hover, and no `Serialize`
-      // residue.
-      expect(rendered).not.toContain('} & {')
-      expect(rendered).not.toContain('Serialize')
-    })
-  }
-)
+    // Length alone would pass against a union that had lost its payloads, so
+    // the render is also checked for the thing the caller reads it for. Tags
+    // are written in a type annotation in this fixture, and stock renders
+    // that position double-quoted (harness header, behaviour 2).
+    expect(rendered).toContain(`"user-not-found"`)
+    expect(rendered).toContain('userId')
+    expect(rendered).toContain('requiredRole')
+    // Flat: no intersection survives into the hover, and no `Serialize`
+    // residue.
+    expect(rendered).not.toContain('} & {')
+    expect(rendered).not.toContain('Serialize')
+  })
+})

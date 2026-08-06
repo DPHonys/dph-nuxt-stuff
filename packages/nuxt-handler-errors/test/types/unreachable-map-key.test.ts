@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import { describe, it } from 'vitest'
-import { COMPILERS } from './compilers'
 import { assertNoDiagnostics, createTypeHarness } from './harness'
 
 /**
@@ -24,15 +24,12 @@ const FIXTURE = fileURLToPath(
   new URL('pos/unreachable-map-key.ts', import.meta.url)
 )
 
-describe.each(COMPILERS)(
-  'a key the map holds and Nitro’s interface does not, on %s',
-  (_label, compiler, dialect) => {
-    const harness = createTypeHarness({ ts: compiler, dialect })
+describe('a key the map holds and Nitro’s interface does not', () => {
+  const harness = createTypeHarness({ ts })
 
-    it('is unreachable through MatchedRoutes, with a reachable control', () => {
-      // Both claims are `Expect<…>` aliases in the fixture, so the whole
-      // assertion is that it compiles clean (SPEC.md §9.5 rule 3).
-      assertNoDiagnostics(harness.compileAlone(FIXTURE))
-    })
-  }
-)
+  it('is unreachable through MatchedRoutes, with a reachable control', () => {
+    // Both claims are `Expect<…>` aliases in the fixture, so the whole
+    // assertion is that it compiles clean (SPEC.md §9.5 rule 3).
+    assertNoDiagnostics(harness.compileAlone(FIXTURE))
+  })
+})

@@ -2,9 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type ts from 'typescript'
+import ts from 'typescript'
 import { afterAll, describe, expect, it } from 'vitest'
-import { COMPILERS } from './compilers'
 import { assertNoDiagnostics, createTypeHarness } from './harness'
 import type { TypeScriptModule } from './harness'
 
@@ -35,7 +34,9 @@ const FIXTURE_CONFIG = join(TYPE_SUITE, 'tsconfig.fixtures.json')
  * — `verbatimModuleSyntax`, `isolatedModules` and `noUncheckedIndexedAccess`
  * all change what a fixture proves — and the drift would be invisible.
  */
-function emitOptions(compiler: TypeScriptModule): ts.CompilerOptions {
+function emitOptions(
+  compiler: TypeScriptModule
+): import('typescript').CompilerOptions {
   const read = compiler.readConfigFile(FIXTURE_CONFIG, compiler.sys.readFile)
   const parsed = compiler.parseJsonConfigFileContent(
     read.config,
@@ -45,12 +46,12 @@ function emitOptions(compiler: TypeScriptModule): ts.CompilerOptions {
     FIXTURE_CONFIG
   )
 
-  // `configFilePath` is dropped deliberately. The pinned bridge re-reads the
-  // config from it — which is how a fixture program picks up `include` without
-  // being told to (see `./harness.ts`) — and that re-read puts the config's own
-  // `noEmit: true` back, silently skipping emit. Measured here: with the field
-  // left in, this emits nothing at all once another program has been built in
-  // the same process.
+  // `configFilePath` is dropped deliberately. The tsgo bridge this repo once
+  // checked with re-read the config from it and put the config's own
+  // `noEmit: true` back, silently skipping emit (measured then: with the
+  // field left in, this emitted nothing at all once another program had been
+  // built in the same process). Stock does no such re-read, so the drop is
+  // now pure hygiene — the field is metadata, not an option.
   const { configFilePath: _configFilePath, ...options } = parsed.options
 
   return {
@@ -125,129 +126,126 @@ function reanchor(declaration: string, emittedFor: string): string {
   )
 }
 
-describe.each(COMPILERS)(
-  'the extractor, on %s',
-  (_label, compiler, dialect) => {
-    const harness = createTypeHarness({ ts: compiler, dialect })
+describe('the extractor', () => {
+  const harness = createTypeHarness({ ts })
 
-    describe('reading a route’s declared union back off its type', () => {
-      it('holds every positive claim, with zero diagnostics', () => {
-        assertNoDiagnostics(harness.compileAlone('pos/extractor.ts'))
-      })
-
-      it('leaves the route fixture itself an ordinary, clean route', () => {
-        // It is the declaration-emit source as well as the extractor's subject,
-        // so a diagnostic in it would make both assertions vacuous.
-        assertNoDiagnostics(harness.compileAlone('pos/branded-route.ts'))
-      })
+  describe('reading a route’s declared union back off its type', () => {
+    it('holds every positive claim, with zero diagnostics', () => {
+      assertNoDiagnostics(harness.compileAlone('pos/extractor.ts'))
     })
 
-    describe('the Flatten mandate (SPEC.md §8.3(a))', () => {
-      it('collapses a variant’s intersection into one rendered object', () => {
-        // A matched pair, so the assertion proves it can fail as well as pass:
-        // the two declarations are the same variant, and the only difference is
-        // the mandate. `} & {` is the whole tell — an intersection rendered as
-        // an intersection is what puts a variant's payload behind a second brace
-        // pair in every hover and every diagnostic that shows it.
-        const compilation = harness.compileAlone('pos/extractor.ts')
+    it('leaves the route fixture itself an ordinary, clean route', () => {
+      // It is the declaration-emit source as well as the extractor's subject,
+      // so a diagnostic in it would make both assertions vacuous.
+      assertNoDiagnostics(harness.compileAlone('pos/branded-route.ts'))
+    })
+  })
 
-        expect(compilation.renderHover('_hoverRawVariant')).toContain('} & {')
-        expect(compilation.renderHover('_hoverFlatVariant')).not.toContain(
-          '} & {'
-        )
-      })
+  describe('the Flatten mandate (SPEC.md §8.3(a))', () => {
+    it('collapses a variant’s intersection into one rendered object', () => {
+      // A matched pair, so the assertion proves it can fail as well as pass:
+      // the two declarations are the same variant, and the only difference is
+      // the mandate. `} & {` is the whole tell — an intersection rendered as
+      // an intersection is what puts a variant's payload behind a second brace
+      // pair in every hover and every diagnostic that shows it.
+      const compilation = harness.compileAlone('pos/extractor.ts')
 
-      it('renders the envelope as the flat variants, not a Serialize residue', () => {
-        // SPEC.md §8.3(a)'s own subject, measured rather than assumed: a union
-        // forwarded on as a type argument to `DeclaredErrorBody`.
-        //
-        // MEASURED, and it does not match what §8.3(a) records — see the
-        // implementation effort's SPEC-AMENDMENTS entry. On the pinned bridge
-        // `Simplify<Serialize<…>>` is already evaluated and a nested type
-        // argument renders as its alias chain, so no `Serialize` residue is
-        // reachable here in either spelling and `Flatten` makes the render one
-        // name longer rather than shorter. What is asserted is therefore the
-        // property that actually holds and that would be a real regression if it
-        // stopped: no residue reaches the envelope's rendering.
-        //
-        // No length budget: the two spellings measure 289 and 304 characters, a
-        // 5% spread, and SPEC.md §9.3's budgets are calibrated for the 2–20×
-        // regressions they were decided on. Ticket 10 owns the `H_error` budget
-        // and must re-take this measurement against the real playground under
-        // `vue-tsc`, where the union arrives through an instantiated generic
-        // rather than a hand-written annotation.
-        const compilation = harness.compileAlone('pos/extractor.ts')
-        const rendered = compilation.renderHover('_hoverEnvelope')
-
-        expect(rendered).not.toContain('SerializeObject')
-        expect(rendered).toContain('DeclaredErrorBody<')
-      })
+      expect(compilation.renderHover('_hoverRawVariant')).toContain('} & {')
+      expect(compilation.renderHover('_hoverFlatVariant')).not.toContain(
+        '} & {'
+      )
     })
 
-    describe('the brand surviving declaration emit', () => {
-      const emitted = mkdtempSync(join(tmpdir(), 'nuxt-handler-errors-emit-'))
+    it('renders the envelope as the flat variants, not a Serialize residue', () => {
+      // SPEC.md §8.3(a)'s own subject, measured rather than assumed: a union
+      // forwarded on as a type argument to `DeclaredErrorBody`.
+      //
+      // MEASURED, and it does not match what §8.3(a) records — see the
+      // implementation effort's SPEC-AMENDMENTS entry. As compiled here,
+      // `Simplify<Serialize<…>>` is already evaluated and a nested type
+      // argument renders as its alias chain, so no `Serialize` residue is
+      // reachable here in either spelling and `Flatten` makes the render one
+      // name longer rather than shorter. What is asserted is therefore the
+      // property that actually holds and that would be a real regression if it
+      // stopped: no residue reaches the envelope's rendering.
+      //
+      // No length budget: the two spellings measure 289 and 304 characters, a
+      // 5% spread, and SPEC.md §9.3's budgets are calibrated for the 2–20×
+      // regressions they were decided on. Ticket 10 owns the `H_error` budget
+      // and must re-take this measurement against the real playground under
+      // `vue-tsc`, where the union arrives through an instantiated generic
+      // rather than a hand-written annotation.
+      const compilation = harness.compileAlone('pos/extractor.ts')
+      const rendered = compilation.renderHover('_hoverEnvelope')
 
-      afterAll(() => {
-        rmSync(emitted, { recursive: true, force: true })
-      })
-
-      it('keeps the union readable out of the emitted .d.ts', () => {
-        const declaration = emitDeclaration(compiler, ROUTE_FIXTURE)
-
-        // The brand rides a named interface, so the emitted declaration has to
-        // still name it — erasure to a bare `EventHandler` would unbrand every
-        // handler a consumer imports from a layer or a package.
-        expect(declaration).toContain('TypedEventHandler<')
-
-        writeFileSync(
-          join(emitted, 'route.d.ts'),
-          reanchor(declaration, ROUTE_FIXTURE)
-        )
-
-        // The consumer is generated rather than committed because the only
-        // module specifier that can reach the emitted file is one computed after
-        // the temporary directory exists.
-        const consumer = join(emitted, 'consumer.ts')
-        writeFileSync(
-          consumer,
-          [
-            `import type { ExtractErrorsSafe } from '${join(PACKAGE_ROOT, 'src/runtime/types')}'`,
-            `import type { Equal, Expect, IsAny, IsNever } from '${join(TYPE_SUITE, 'vocabulary')}'`,
-            `import type handler from './route.js'`,
-            ``,
-            `export type Declared = ExtractErrorsSafe<typeof handler>`,
-            ``,
-            `type _tags = Expect<Equal<Declared['tag'],`,
-            `  'user-not-found' | 'user-suspended' | 'quota-exceeded'>>`,
-            `type _payload = Expect<`,
-            `  Equal<Extract<Declared, { tag: 'user-not-found' }>['userId'], string>>`,
-            `type _notCollapsed = Expect<Equal<IsAny<Declared>, false>>`,
-            `type _notEmpty = Expect<Equal<IsNever<Declared>, false>>`,
-            ``,
-          ].join('\n')
-        )
-
-        const compilation = harness.compileAlone(consumer)
-        assertNoDiagnostics(compilation)
-
-        // Direct evidence, alongside the `Expect<Equal<…>>` claims above: the
-        // union really is *in* the emitted declaration, tags and payload fields
-        // and all. It is what would have caught the `import("…")` trap in
-        // `reanchor` had it been written first.
-        const rendered = compilation.renderHover('Declared')
-
-        expect(rendered).toContain('"user-not-found"')
-        expect(rendered).toContain('"user-suspended"')
-        expect(rendered).toContain('"quota-exceeded"')
-        expect(rendered).toContain('userId: string')
-        // Two whole TypeScript programs — a declaration emit and a compile of the
-        // generated consumer — so Vitest's 5 s default is a measure of how busy
-        // the box is rather than of anything this test claims. Alone it runs in
-        // ~3 s; with the file suite saturating eight workers it reached ~7 s once
-        // SPEC.md §3.3's types joined the graph the emit walks. Explicit, in the
-        // style `test/generated-map.test.ts` already uses for its `nuxt prepare`
-        // builds.
-      }, 60_000)
+      expect(rendered).not.toContain('SerializeObject')
+      expect(rendered).toContain('DeclaredErrorBody<')
     })
-  }
-)
+  })
+
+  describe('the brand surviving declaration emit', () => {
+    const emitted = mkdtempSync(join(tmpdir(), 'nuxt-handler-errors-emit-'))
+
+    afterAll(() => {
+      rmSync(emitted, { recursive: true, force: true })
+    })
+
+    it('keeps the union readable out of the emitted .d.ts', () => {
+      const declaration = emitDeclaration(ts, ROUTE_FIXTURE)
+
+      // The brand rides a named interface, so the emitted declaration has to
+      // still name it — erasure to a bare `EventHandler` would unbrand every
+      // handler a consumer imports from a layer or a package.
+      expect(declaration).toContain('TypedEventHandler<')
+
+      writeFileSync(
+        join(emitted, 'route.d.ts'),
+        reanchor(declaration, ROUTE_FIXTURE)
+      )
+
+      // The consumer is generated rather than committed because the only
+      // module specifier that can reach the emitted file is one computed after
+      // the temporary directory exists.
+      const consumer = join(emitted, 'consumer.ts')
+      writeFileSync(
+        consumer,
+        [
+          `import type { ExtractErrorsSafe } from '${join(PACKAGE_ROOT, 'src/runtime/types')}'`,
+          `import type { Equal, Expect, IsAny, IsNever } from '${join(TYPE_SUITE, 'vocabulary')}'`,
+          `import type handler from './route.js'`,
+          ``,
+          `export type Declared = ExtractErrorsSafe<typeof handler>`,
+          ``,
+          `type _tags = Expect<Equal<Declared['tag'],`,
+          `  'user-not-found' | 'user-suspended' | 'quota-exceeded'>>`,
+          `type _payload = Expect<`,
+          `  Equal<Extract<Declared, { tag: 'user-not-found' }>['userId'], string>>`,
+          `type _notCollapsed = Expect<Equal<IsAny<Declared>, false>>`,
+          `type _notEmpty = Expect<Equal<IsNever<Declared>, false>>`,
+          ``,
+        ].join('\n')
+      )
+
+      const compilation = harness.compileAlone(consumer)
+      assertNoDiagnostics(compilation)
+
+      // Direct evidence, alongside the `Expect<Equal<…>>` claims above: the
+      // union really is *in* the emitted declaration, tags and payload fields
+      // and all. It is what would have caught the `import("…")` trap in
+      // `reanchor` had it been written first.
+      const rendered = compilation.renderHover('Declared')
+
+      expect(rendered).toContain('"user-not-found"')
+      expect(rendered).toContain('"user-suspended"')
+      expect(rendered).toContain('"quota-exceeded"')
+      expect(rendered).toContain('userId: string')
+      // Two whole TypeScript programs — a declaration emit and a compile of the
+      // generated consumer — so Vitest's 5 s default is a measure of how busy
+      // the box is rather than of anything this test claims. Alone it runs in
+      // ~3 s; with the file suite saturating eight workers it reached ~7 s once
+      // SPEC.md §3.3's types joined the graph the emit walks. Explicit, in the
+      // style `test/generated-map.test.ts` already uses for its `nuxt prepare`
+      // builds.
+    }, 60_000)
+  })
+})

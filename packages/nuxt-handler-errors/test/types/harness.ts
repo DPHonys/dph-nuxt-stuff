@@ -7,23 +7,22 @@
  * are matched on **code plus a message substring**, and a type is **rendered**
  * the way an editor would render it so its length can be budgeted.
  *
- * ## Why a compiler-API harness is not stock `tsc` in disguise
+ * ## The compiler is the consumer's
  *
- * `createProgram` + `getPreEmitDiagnostics` are taken from this repo's pinned
- * `typescript-native-bridge`, a drop-in `typescript` whose checker runs
- * in-process on tsgo. That is the canonical gate's own checker, reached
- * programmatically (SPEC.md §9.0).
+ * `createProgram` + `getPreEmitDiagnostics` are taken from the workspace's
+ * `typescript` — stock TypeScript, the compiler every downstream consumer of
+ * the emitted `.d.ts` actually runs (SPEC.md §9.8). That is the canonical
+ * gate's own checker, reached programmatically (SPEC.md §9.0).
  *
  * ## The compiler is a parameter
  *
- * Nothing here imports `typescript` at the top level; `createTypeHarness` takes
- * the module. That is what lets `./compilers.ts` hand every suite a second row:
- * the same fixtures, compiled by the stock TypeScript consumers actually run
- * (SPEC.md §9.8). Where the two compilers genuinely diverge, the divergence is
- * declared at the call site — `DiagnosticExpectation.stock` overrides a code or
- * message for the stock row, and `assertHoverBudget` canonicalizes `import("…")`
- * specifiers before measuring, because stock renders them as absolute,
- * checkout-specific paths no fixed budget could survive.
+ * Nothing here imports `typescript` at the top level; `createTypeHarness`
+ * takes the module. The parameter is what once carried a second compiler row
+ * (SPEC.md §9.8's dissolved dual-compiler era) and is kept because it keeps
+ * the harness dependency-explicit and the suites uniform. One artefact of
+ * that era stays load-bearing: `assertHoverBudget` canonicalizes
+ * `import("…")` specifiers before measuring, because stock renders them as
+ * absolute, checkout-specific paths no fixed budget could survive.
  *
  * ## Four traps this file exists to keep closed
  *
@@ -47,26 +46,29 @@
  *   passes explicit `compilerOptions` per file regardless, so the exclusion
  *   costs the fixtures nothing.
  *
- * ## Three bridge behaviours later tickets will trip over
+ * ## Two compiler behaviours later tickets will trip over
  *
- * All three were measured here, and each is handled inside this file — they are
- * recorded because they shape what an assertion may say.
+ * Both were measured here, and each is handled inside this file — they are
+ * recorded because they shape what an assertion may say. (Both entered as
+ * behaviours of the tsgo bridge this repo once checked with; the handling is
+ * correct-or-harmless on stock and stays.)
  *
- * 1. **A new program invalidates every older one.** `getSourceFile` on the
- *    older program starts answering `undefined`. `renderHover` rebuilds when it
- *    notices, so a `Compilation` stays usable, but nothing outside this file
- *    should hold a raw `Program`.
- * 2. **A diagnostic's own `file` has an empty `text`**, so positions have to be
- *    taken from the program's copy of that file.
- * 3. **Rendered types quote string literals with single quotes**
- *    (`{ tag: 'forbidden' }`), while *diagnostic messages* quote them with
- *    double quotes (`type '"forbidden"'`). Expected strings must match the
- *    surface they come from — and within a rendered type the rule is narrower
- *    than it looks: single quotes are what a literal *written in a type
- *    annotation* keeps, while one the checker synthesised (`keyof` over an
- *    object literal's inferred type, which is where every `tag` in this package
- *    comes from) renders with double quotes in the same program. Measure it,
- *    do not assume it.
+ * 1. **A `Compilation` never trusts an old `Program`.** On the bridge,
+ *    creating a program invalidated every older one — `getSourceFile` started
+ *    answering `undefined`. Stock keeps old programs alive, but `renderHover`
+ *    still rebuilds when anything else has compiled since (~13ms): the
+ *    defensive rebuild costs little and nothing outside this file should hold
+ *    a raw `Program` either way. Diagnostics are read eagerly for the same
+ *    reason, and positions are taken from the program's copy of a file, never
+ *    from the diagnostic's own `file` (whose `text` the bridge left empty).
+ * 2. **String literals render double-quoted.** Stock quotes a literal with
+ *    double quotes both inside a rendered type (`{ tag: "forbidden" }`) and
+ *    inside a diagnostic message (`type '"forbidden"'`) — whether the literal
+ *    was written in an annotation or synthesised by the checker (`keyof` over
+ *    an object literal's inferred type, which is where every `tag` in this
+ *    package comes from). The bridge single-quoted annotation-written
+ *    literals in rendered types; that divergence dissolved with it. Measure
+ *    it, do not assume it.
  */
 
 import { readFileSync } from 'node:fs'
@@ -76,16 +78,6 @@ import { fileURLToPath } from 'node:url'
 
 /** The compiler module, taken as a parameter rather than imported. */
 export type TypeScriptModule = typeof import('typescript')
-
-/**
- * Which of the two compilers a harness is running under.
- *
- * Not a version string on purpose: expectations key on the *dialect* — the
- * pinned bridge versus whatever `typescript-stock`'s caret currently resolves —
- * so a stock patch release does not invalidate every override written against
- * the row.
- */
-export type CompilerDialect = 'bridge' | 'stock'
 
 /** One pre-emit diagnostic, flattened to the parts assertions may match on. */
 export interface HarnessDiagnostic {
@@ -110,15 +102,6 @@ export interface HarnessDiagnostic {
 export interface DiagnosticExpectation {
   readonly code: number
   readonly message: string
-  /**
-   * What the **stock** compiler reports where it genuinely diverges from the
-   * bridge — a different code, a different message, or both. Absent fields
-   * fall back to the bridge expectation, so both compilers stay fully
-   * asserted and the divergence is legible right where the claim is made.
-   * Measured example: `neg/unserializable-payload.ts` is TS2741 on the bridge
-   * and TS2344 on stock, the same red through a different door.
-   */
-  readonly stock?: Partial<Pick<DiagnosticExpectation, 'code' | 'message'>>
 }
 
 /**
@@ -138,11 +121,6 @@ export interface HoverBudget {
 export interface TypeHarnessOptions {
   /** The compiler module. See "The compiler is a parameter" above. */
   readonly ts: TypeScriptModule
-  /**
-   * Which dialect `ts` is, for resolving per-compiler expectation overrides.
-   * Defaults to `'bridge'`, the pinned gate.
-   */
-  readonly dialect?: CompilerDialect
   /** Fixture paths resolve against this. Defaults to this file's directory. */
   readonly rootDir?: string
   /**
@@ -161,8 +139,6 @@ export interface TypeHarnessOptions {
 export interface Compilation {
   /** Absolute path of the fixture, for failure messages. */
   readonly fixture: string
-  /** The dialect this fixture was compiled under. */
-  readonly dialect: CompilerDialect
   /** Every root file the program was seeded with, fixture first. */
   readonly rootNames: readonly string[]
   /** Every pre-emit diagnostic in the whole program, unfiltered. */
@@ -256,13 +232,7 @@ export function assertDiagnostic(
   compilation: Compilation,
   expected: DiagnosticExpectation
 ): HarnessDiagnostic {
-  // The stock override, resolved here so a divergence is one field at the
-  // call site rather than a second assertion. On the bridge row the override
-  // is inert.
-  const { code, message } =
-    compilation.dialect === 'stock' && expected.stock !== undefined
-      ? { ...expected, ...expected.stock }
-      : expected
+  const { code, message } = expected
 
   const match = compilation.diagnostics.find(
     (diagnostic) =>
@@ -272,8 +242,7 @@ export function assertDiagnostic(
   if (match === undefined) {
     fail([
       `Expected TS${code} whose message contains`,
-      `${JSON.stringify(message)} in ${compilation.fixture}`,
-      `(${compilation.dialect} compiler).`,
+      `${JSON.stringify(message)} in ${compilation.fixture}.`,
       ...describeDiagnostics(compilation),
     ])
   }
@@ -299,11 +268,10 @@ export function assertNoDiagnostics(compilation: Compilation): void {
 /**
  * A rendered `import("…")` prefix, whatever specifier it carries.
  *
- * The specifier inside is machine noise, not measurement: the bridge renders
- * it relative, stock renders it as an absolute checkout-specific path roughly
- * twice as long, and neither length says anything about the mandate a budget
- * asserts. Canonicalized to the literal fixed token `import("…")` before
- * measuring, under **both** compilers, so one budget per hover holds
+ * The specifier inside is machine noise, not measurement: stock renders it as
+ * an absolute checkout-specific path, and its length says nothing about the
+ * mandate a budget asserts. Canonicalized to the literal fixed token
+ * `import("…")` before measuring, so one budget per hover holds
  * machine-stably everywhere.
  */
 const IMPORT_SPECIFIER = /import\("[^"]*"\)/g
@@ -335,7 +303,7 @@ export function assertHoverBudget(
     fail([
       `Hover budget blown for \`${budget.name}\` in ${compilation.fixture}:`,
       `${rendered.length} characters against a budget of ${budget.max}`,
-      `(${compilation.dialect} compiler, import specifiers canonicalized).`,
+      `(import specifiers canonicalized).`,
       rendered,
     ])
   }
@@ -349,22 +317,19 @@ interface Built {
 }
 
 /**
- * Measured on the pinned bridge: creating a program **invalidates every program
- * created before it** — the older one keeps its root file names but
- * `getSourceFile` starts answering `undefined` for all of them. Diagnostics are
- * therefore read eagerly, and a hover rebuilds its program whenever anything
- * else has compiled since (~13ms). Without this, a fixture compiled in a
- * `describe` body silently loses its program the moment a neighbouring test
- * compiles anything.
+ * See behaviour 1 in the header: a hover rebuilds its program whenever
+ * anything else has compiled since (~13ms), so a fixture compiled in a
+ * `describe` body never reads types out of a program a compiler may have
+ * invalidated behind its back.
  *
- * The counter is process-wide rather than per-harness because the invalidation
- * belongs to the compiler, not to the harness that called it.
+ * The counter is process-wide rather than per-harness because the
+ * invalidation, where a compiler performs it, belongs to the compiler — not
+ * to the harness that called it.
  */
 let programGeneration = 0
 
 export function createTypeHarness(options: TypeHarnessOptions): TypeHarness {
   const { ts } = options
-  const dialect = options.dialect ?? 'bridge'
   const rootDir = options.rootDir ?? dirname(fileURLToPath(import.meta.url))
   const tsconfigPath = resolveFrom(
     rootDir,
@@ -428,11 +393,9 @@ export function createTypeHarness(options: TypeHarnessOptions): TypeHarness {
     // The fixture comes first and the config's own file list follows. Both
     // halves matter: alone, so diagnostics cannot mask each other; with the
     // rest of the program, so lookups do not silently resolve to a residue of
-    // whatever was missing.
-    //
-    // The bridge happens to re-expand the config's `include` from
-    // `configFilePath` on its own, so naming the files here is belt-and-braces
-    // there — and load-bearing on the stock row, which does no such re-read.
+    // whatever was missing. Naming the files explicitly is load-bearing:
+    // stock `createProgram` compiles exactly the root files it is handed and
+    // does no re-read of the config's `include`.
     const rootNames = [...new Set([fixturePath, ...parsed.fileNames])]
 
     let built = build(rootNames)
@@ -443,7 +406,6 @@ export function createTypeHarness(options: TypeHarnessOptions): TypeHarness {
 
     return {
       fixture: fixturePath,
-      dialect,
       rootNames,
       diagnostics,
       renderHover: (name) => {
@@ -477,9 +439,8 @@ function toHarnessDiagnostic(
 ): HarnessDiagnostic {
   const fileName = diagnostic.file?.fileName
 
-  // The bridge hands back a diagnostic whose `file` carries the name but an
-  // empty `text`, so asking *it* for a position answers line 0 every time. The
-  // program's copy of the same file has the text.
+  // Positions come from the program's copy of the file, never the
+  // diagnostic's own `file` — see behaviour 1 in the header.
   const sourceFile =
     fileName === undefined ? undefined : program.getSourceFile(fileName)
   const position =
