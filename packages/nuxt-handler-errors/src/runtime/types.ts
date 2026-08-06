@@ -449,8 +449,8 @@ export interface DefineTypedEventHandler {
  * `DeclaredErrorBody<…>` and `NuxtError<…>` declaration does — leaves
  * `Simplify<Serialize<…>>` unevaluated and renders the wrapper's `Serialize`
  * residue, and that this alias is the fix. Re-measured through the compile-time
- * harness on the pinned `typescript-native-bridge`, **that fix does not
- * reproduce**: `Simplify<Serialize<…>>` is already evaluated, and a type
+ * harness, **that fix does not reproduce**: `Simplify<Serialize<…>>` is
+ * already evaluated, and a type
  * argument renders as its alias chain either way, so wrapping it makes the
  * render one name *longer*. The intersection collapse above is the one
  * rendering effect that does reproduce. The full measurement, and what ticket

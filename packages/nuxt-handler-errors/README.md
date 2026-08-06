@@ -788,48 +788,29 @@ TypeScript's error type — which renders as `any` and satisfies whatever it mee
 forbidden by design. The route is Nuxt-internal and the state is pinned by a test,
 so the day it changes is visible rather than silent.
 
-### The consumer compiler runs too
+### The gate's compiler is the consumer's compiler
 
-This repo type-checks on a pinned tsgo bridge, and that is the gate's contract.
-Downstream projects compile the emitted `.d.ts` with stock TypeScript — so every
-compile-time assertion suite runs **twice**: the `test/types/*` fixtures, the
+This repo type-checks with stock TypeScript 5 — the same compiler every
+downstream project runs over the emitted `.d.ts` — and that is the gate's
+contract: `pnpm typecheck` (via `vue-tsc`), every `test/types/*` fixture, the
 emitted-map suite, and the generated-map suite (a real prepared app compiling
-probes through the published exports map) are each a `describe.each` over both
-compilers. The stock row resolves through the `typescript-stock` devDependency
-(`npm:typescript@^5` — 5.9.3 at wiring time), whose caret **floats
-deliberately**: a new stock minor breaking this suite is precisely the
-consumer-divergence signal the row exists to catch. `pnpm test` — and therefore
-CI and `pnpm check` — always runs both compilers via the
-`NUXT_HANDLER_ERRORS_STOCK_TS` flag the script sets; `pnpm test:watch` leaves it
-unset, keeping iteration on the ~15×-faster bridge. Measured at wiring time
-(stock 5.9.3, 8-thread box): the full suite is 18s bridge-only and 63s with the
-stock row; the generated-map suite alone is 7s → 18s, its `nuxt prepare` builds
-shared across the rows so each row pays only for its own probe compilations.
+probes through the published exports map) all resolve the one workspace
+`typescript`, whose caret **floats deliberately**: a new stock minor breaking
+these suites is a consumer-divergence signal, delivered as a red Renovate PR
+rather than discovered downstream.
 
-Where the compilers genuinely diverge, both stay fully asserted — the
-expectation carries a stock-side override at the call site rather than an
-exemption. Three divergence classes are known:
+The repo once checked on a pinned tsgo bridge instead, with stock as a second
+`describe.each` row behind a `typescript-stock` alias and a
+`NUXT_HANDLER_ERRORS_STOCK_TS` flag (SPEC.md §9.8 records the era and its
+reversal). The dual matrix was dissolved when the bridge went: one compiler,
+one row, no per-compiler expectation overrides. One artefact of that era
+remains load-bearing on its own merits — hovers that render an `import("…")`
+prefix carry an absolute, checkout-specific specifier, so the harness
+canonicalizes it to a fixed token before measuring hover budgets, which is
+what keeps one budget per hover machine-stable.
 
-- **Diagnostic codes.** `neg/unserializable-payload.ts` is TS2741 on the bridge
-  and TS2344 on stock — the same red through a different door, with the
-  offending field named in both messages.
-- **Union ordering in messages.** The bridge sorts union members
-  alphabetically; stock lists them in declaration order.
-- **Quote style in rendered types.** A literal written in a type annotation
-  renders single-quoted on the bridge and double-quoted on stock (synthesised
-  literals are double-quoted on both).
-
-A fourth was dissolved rather than asserted: hovers that render an
-`import("…")` prefix get a relative specifier on the bridge and an absolute,
-checkout-specific one on stock, so the harness canonicalizes the specifier to a
-fixed token before measuring hover budgets — after which every budgeted render
-measures **byte-identical** under both compilers, and one budget per hover
-holds everywhere.
-
-What remains exempt: the `vue-tsc` typecheck step still runs the bridge only
-(the workspace-wide `typescript` override is repo tooling; SPEC.md §12.1), and
-the language-service surfaces §9.7 names were never in scope for either
-compiler.
+The language-service surfaces §9.7 names remain out of scope, as they always
+were.
 
 ### What is deliberately not protected
 
@@ -963,8 +944,8 @@ The recommendation is to admit it, at `0.1.0` rather than `0.0.1` — the surfac
 is deliberately smaller than `SPEC.md` (see the pruning note below), it is
 complete against this README, and the version should say _usable, not yet
 stable_. Weigh the coverage gaps above first; the consumer-compiler gap that
-used to sit beside them is closed — the suite now runs under stock TypeScript
-as well as the bridge.
+used to sit beside them is closed — the whole gate now runs under stock
+TypeScript, the compiler consumers run.
 **The call belongs to the repository owner**; until `private` is removed the
 package is not a Publishable package and owes no Release intent, so its first
 intent is the one that accompanies its admission.

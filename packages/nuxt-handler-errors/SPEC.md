@@ -1894,6 +1894,11 @@ flattened message text**. The bridge is *"a drop-in `typescript` whose type chec
 tsgo via the NAPI bridge"* — so a compiler-API harness is **not stock tsc in disguise**. It is the
 gate's own checker, reached programmatically. Every decision below rests on this.
 
+> **⟳ The identity survives the bridge's removal (§9.8's second ⟳ note).** The workspace
+> `typescript` is now stock TypeScript 5, and the same import is therefore still the gate's own
+> checker reached programmatically — the property this section establishes — with the harness now
+> being stock tsc *openly* rather than needing the defence.
+
 ### 9.1 The layers — four as designed, ⟳ five as shipped
 
 | # | Layer | Fixture | Runs under | Cost | Uniquely catches |
@@ -2105,7 +2110,9 @@ Stated plainly, because inheriting a silent gap is worse than inheriting a known
    Actual completions are a language-service surface (`getCompletionsAtPosition`) and nothing asserts
    them. Upgrade path if ever wanted: `ts.createLanguageService` over the same fixture files — the
    same harness, one more entry point.
-2. **Stock-tsc behaviour** — see §9.8.
+2. **Stock-tsc behaviour** — see §9.8. **⟳ Dissolved entirely in the bridge-removal effort: stock
+   TypeScript is now the workspace compiler, so everything the gate compiles is stock behaviour by
+   construction.**
 3. **Dev-server wall-clock timing** — the invariant is tested, the clock is not (§9.6).
 4. **Editor experience beyond rendered strings** — go-to-definition, quick-info layout, error squiggle
    placement. Out of reach of any harness this repo would maintain.
@@ -2159,6 +2166,23 @@ wired up now.
 > §10's "neither observation is now under test" are both narrowed by this: stock-tsc behaviour of
 > everything the harness compiles *is* now under test, and only the `vue-tsc` typecheck step
 > remains bridge-only (§12.1's repo-tooling item, unchanged).
+
+> **⟳⟳ Reversed in the bridge-removal effort: the bridge is gone and stock TypeScript is the
+> workspace's one compiler.** The dual-row era above closed the consumer gap but at a standing
+> cost — a hand-pinned prerelease no caret could advance, a workspace-wide override the
+> `typescript-stock` alias had to tunnel under, per-compiler expectation overrides at call sites,
+> and a gate that paid for both rows on every run. The reversal collapses all of it: the
+> workspace `typescript` is `npm:typescript@^5` (caret floating for the same divergence-signal
+> reason, now delivered by Renovate), every suite runs one row through a plain `import ts from
+> 'typescript'`, `CompilerDialect`, the `stock` expectation override and the
+> `NUXT_HANDLER_ERRORS_STOCK_TS` flag are deleted, and `test/types/compilers.ts` no longer
+> exists. The measured divergences resolved into base expectations (TS2344 on
+> `neg/unserializable-payload.ts`, declaration-order unions, double-quoted literals). What the
+> era leaves behind on its own merits: the harness still takes `ts` as a parameter, and hover
+> budgets still canonicalize `import("…")` specifiers — stock's absolute checkout-specific paths
+> are why. The `vue-tsc` step now runs stock too, closing §12.1's repo-tooling caveat. What is
+> given up, knowingly: nothing checks this package on tsgo anymore; the day the ecosystem moves
+> to TypeScript 7 native, that is a fresh evaluation rather than a maintained row.
 
 ### 9.9 Six implementation traps handed forward (18 §9)
 
@@ -2228,13 +2252,21 @@ Each was hit by a probe session and would otherwise cost an hour.
     program built from `parseJsonConfigFileContent(...)` with `noEmit: false` layered on top emits
     **nothing** once any other program has been built in the same process — the re-read wins.
     Deleting `configFilePath` from the options fixes it. Same mechanism as the `include`
-    re-expansion the harness already records, seen from the other side.
+    re-expansion the harness already records, seen from the other side. **⟳ Historical since the
+    bridge's removal (§9.8): stock does no such re-read. The deletion stays as hygiene, and the
+    explicit root-file list the `include` half mandated is load-bearing on stock outright.**
 
 ---
 
 ## 10. The `TS2321` record — two observations, both recorded
 
 This section exists because a single-sentence inheritance would be wrong in one direction or the other.
+
+> **⟳ Historical since the bridge-removal effort (§9.8's second ⟳ note).** `TS2321` here is a
+> tsgo-side phenomenon — §10.1 itself records real TypeScript reporting none of it — and the gate
+> no longer runs tsgo anywhere. The record stays for the day a native-TS evaluation is reopened,
+> and the spelling fixes §9.9 traps 8 and 9 recorded remain in the shipped source on their own
+> merits.
 
 ### 10.1 What research 02 measured
 
@@ -2477,6 +2509,9 @@ Verbatim from the map. These never graduate; they return only as a fresh effort.
   `overrides: typescript: npm:typescript-native-bridge@…` forcing *every* `typescript` in the repo —
   including `packages/*` and the `vue-tsc` they typecheck with — onto the bridge, and narrowing it
   touches `scaffolder`, `release/*` and the root gate. Returns as repo work.
+  **⟳ Returned, and done as exactly that: the bridge-removal effort took the whole repo — override,
+  root gate, `scaffolder`, `release/*` and `packages/*` alike — onto stock TypeScript in one move
+  (§9.8's second ⟳ note), so no per-package narrowing was ever needed.**
 
 ### 12.2 Genuinely open — the implementation effort inherits these
 
@@ -2600,4 +2635,6 @@ artifact** — an implementation effort that wants the prototype should recover 
   > closed — every harness suite now runs under stock TypeScript beside the bridge (§9.8's ⟳ note) —
   > and the coverage-gap list is down to one deliberate remainder: whether upstream still *fires*
   > `types:extend`, observable only from a live dev server and ungated by design (§9.6). The
-  > recommendation stands with nothing left to weigh beyond that remainder.
+  > recommendation stands with nothing left to weigh beyond that remainder. **⟳⟳ Strengthened by
+  > the bridge-removal effort: stock TypeScript is now the gate's only compiler (§9.8's second ⟳
+  > note), so the consumer-compiler property holds by construction rather than by a second row.**
