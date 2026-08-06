@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createEventTypedFetch } from '../src/runtime/server/event-typed-fetch'
+import {
+  createEventTypedFetch,
+  EventFetchUnavailableError,
+} from '../src/runtime/server/event-typed-fetch'
 import { declaredFailure, settled } from './failure-channel'
 
 /**
@@ -167,7 +170,7 @@ describe('the header merge — the EVENT-BOUND form (SPEC.md §3.8)', () => {
   it.each(inputs)(
     'keeps %s and merges it into what h3 forwards',
     async (_name, headers, expected) => {
-      await createEventTypedFetch(fakeEventFetch())(
+      await createEventTypedFetch(fakeEventFetch)(
         '/api/anything',
         headers === undefined ? undefined : { headers }
       )
@@ -182,7 +185,7 @@ describe('the header merge — the EVENT-BOUND form (SPEC.md §3.8)', () => {
     // asserts exactly that; here the same value would spread to nothing, so the
     // wrapper must hand over something a spread can see. SPEC.md §3.8's title
     // — *one shared helper would be a defect* — is this pair of assertions.
-    await createEventTypedFetch(fakeEventFetch())('/api/anything', {
+    await createEventTypedFetch(fakeEventFetch)('/api/anything', {
       headers: new Headers({ authorization: 'Bearer t' }),
     })
 
@@ -199,7 +202,7 @@ describe('the header merge — the EVENT-BOUND form (SPEC.md §3.8)', () => {
     // h3 spreads `init?.headers` **after** the forwarded set, so a per-call
     // header wins per key. Asserted because the flatten is what makes it true:
     // an unflattened `Headers` loses this too, silently.
-    await createEventTypedFetch(fakeEventFetch())('/api/anything', {
+    await createEventTypedFetch(fakeEventFetch)('/api/anything', {
       headers: { cookie: 'session=override' },
     })
 
@@ -214,7 +217,7 @@ describe('the header merge — the EVENT-BOUND form (SPEC.md §3.8)', () => {
     // straight through and `init` is spread, so anything h3 or a caller adds
     // passes through untouched. `context` is named because it is the one h3
     // reads to decide whether the callee inherits the caller's context object.
-    await createEventTypedFetch(fakeEventFetch())('/api/anything', {
+    await createEventTypedFetch(fakeEventFetch)('/api/anything', {
       method: 'POST',
       query: { page: 2 },
       context: { tenant: 'acme' },
@@ -237,7 +240,7 @@ describe('the namespace is the bare call signature plus .safe (SPEC.md §3.6)', 
     // completion list *longer* than vanilla's, offering calls that cannot be
     // made. The type-level half is in `test/types/pos/event-typed-fetch.ts`;
     // this is the value really having nothing there.
-    const typed = createEventTypedFetch(fakeEventFetch())
+    const typed = createEventTypedFetch(fakeEventFetch)
 
     expect('safe' in typed).toBe(true)
     expect('raw' in typed).toBe(false)
@@ -258,7 +261,7 @@ describe('.safe is the global’s, not a second copy (SPEC.md §3.6)', () => {
     outcome = { resolve: { id: '7' } }
 
     expect(
-      await createEventTypedFetch(fakeEventFetch()).safe('/api/anything')
+      await createEventTypedFetch(fakeEventFetch).safe('/api/anything')
     ).toEqual({ ok: true, data: { id: '7' } })
   })
 
@@ -268,7 +271,7 @@ describe('.safe is the global’s, not a second copy (SPEC.md §3.6)', () => {
     outcome = { reject: declaredFailure(variant) }
 
     expect(
-      await createEventTypedFetch(fakeEventFetch()).safe('/api/anything')
+      await createEventTypedFetch(fakeEventFetch).safe('/api/anything')
     ).toEqual({ ok: false, error: variant })
   })
 
@@ -281,7 +284,7 @@ describe('.safe is the global’s, not a second copy (SPEC.md §3.6)', () => {
     outcome = { reject: stripped }
 
     const missed = await settled(() =>
-      createEventTypedFetch(fakeEventFetch()).safe('/api/anything')
+      createEventTypedFetch(fakeEventFetch).safe('/api/anything')
     )
 
     expect(missed).toEqual({ threw: true, value: stripped })
@@ -292,7 +295,7 @@ describe('.safe is the global’s, not a second copy (SPEC.md §3.6)', () => {
 
     expect(
       await settled(() =>
-        createEventTypedFetch(fakeEventFetch()).safe('/api/anything')
+        createEventTypedFetch(fakeEventFetch).safe('/api/anything')
       )
     ).toEqual({
       threw: false,
@@ -303,7 +306,7 @@ describe('.safe is the global’s, not a second copy (SPEC.md §3.6)', () => {
   it('applies the same header merge as the throwing form', async () => {
     outcome = { reject: declaredFailure({ tag: 't', status: 404 }) }
 
-    await createEventTypedFetch(fakeEventFetch()).safe('/api/anything', {
+    await createEventTypedFetch(fakeEventFetch).safe('/api/anything', {
       headers: new Headers({ 'x-trace': '7' }),
     })
 
@@ -323,8 +326,56 @@ describe('.safe is the global’s, not a second copy (SPEC.md §3.6)', () => {
 
     expect(
       await settled(() =>
-        createEventTypedFetch(fakeEventFetch())('/api/anything')
+        createEventTypedFetch(fakeEventFetch)('/api/anything')
       )
     ).toEqual({ threw: true, value: thrown })
+  })
+})
+
+describe('the skew guard: event.$fetch gone at runtime', () => {
+  /**
+   * The consumer-side version-skew case: `event.$fetch` is `@experimental`, so
+   * a nitro/h3 newer than this module was built against may stop assigning it.
+   * The guard turns the bare `event.$fetch is not a function` a caller would
+   * otherwise hit into a named error that says what happened.
+   */
+  it('throws the named error, and nothing reaches the wire', async () => {
+    const typed = createEventTypedFetch(() => undefined)
+
+    const result = await settled(() => typed('/api/anything'))
+
+    expect(result.threw).toBe(true)
+    expect(result.value).toBeInstanceOf(EventFetchUnavailableError)
+    expect((result.value as Error).name).toBe('EventFetchUnavailableError')
+    expect((result.value as Error).message).toMatch(/version skew/)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('rejects through .safe rather than answering an arm', async () => {
+    // Skew is not a declared failure: it must leave through `throw` like every
+    // other undeclared error, so `ok: false` keeps meaning one thing only.
+    const typed = createEventTypedFetch(() => undefined)
+
+    const result = await settled(() => typed.safe('/api/anything'))
+
+    expect(result.threw).toBe(true)
+    expect(result.value).toBeInstanceOf(EventFetchUnavailableError)
+  })
+
+  it('checks once: a verified wrapper does not re-police later replacements', async () => {
+    // The check exists to name the skew that removed the property, not to
+    // guard every read — after one successful call a replacement that breaks
+    // `event.$fetch` fails as vanilla would, not with the skew error.
+    let base: ReturnType<typeof fakeEventFetch> | undefined = fakeEventFetch()
+    const typed = createEventTypedFetch(() => base)
+
+    await typed('/api/anything')
+
+    base = undefined
+
+    const result = await settled(() => typed('/api/anything'))
+
+    expect(result.threw).toBe(true)
+    expect(result.value).not.toBeInstanceOf(EventFetchUnavailableError)
   })
 })

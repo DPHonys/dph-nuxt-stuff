@@ -40,8 +40,8 @@ import type { RawEventFetch } from './event-typed-fetch'
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', (event) => {
-    event.$typedFetch = createEventTypedFetch((request, init) =>
-      (event.$fetch as unknown as RawEventFetch)(request, init)
+    event.$typedFetch = createEventTypedFetch(
+      () => event.$fetch as unknown as RawEventFetch | undefined
     )
   })
 })

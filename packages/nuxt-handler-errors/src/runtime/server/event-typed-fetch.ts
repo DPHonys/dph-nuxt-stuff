@@ -122,7 +122,36 @@ function withAcceptJson(init: RawInit | undefined): RawInit {
 // ---------------------------------------------------------------------------
 
 /**
+ * Thrown when `event.$fetch` is not a function at call time.
+ *
+ * This module rides Nitro's `@experimental` `event.$fetch`. A consumer running
+ * a newer nitro/h3 than this module was built against may find the property
+ * gone at runtime — without this guard the failure is a bare
+ * `event.$fetch is not a function` with nothing pointing at the version skew
+ * that caused it.
+ */
+export class EventFetchUnavailableError extends Error {
+  override name = 'EventFetchUnavailableError'
+
+  constructor() {
+    super(
+      'event.$typedFetch: `event.$fetch` is not a function on this event. ' +
+        'nuxt-handler-errors wraps Nitro’s experimental `event.$fetch`, and the ' +
+        'installed nitro/h3 no longer provides it — the runtime is newer than ' +
+        'the versions this module supports (version skew). Upgrade ' +
+        'nuxt-handler-errors, or pin nitro/h3 to a supported version.'
+    )
+  }
+}
+
+/**
  * Build the event-bound namespace over the event's own fetch (SPEC.md §3.6).
+ *
+ * `getBase` is a thunk so the wrapper composes with anything that replaces
+ * `event.$fetch` later in the same hook chain. The first call checks the thunk
+ * really answers a function and throws {@link EventFetchUnavailableError} when
+ * it does not — once, not per call, because the check exists only to name the
+ * nitro/h3 skew that removed the property, not to police later replacements.
  *
  * Two members, because that is what `event.$fetch` has plus one: the call
  * signature forwards, and `.safe` runs `toTypedResult` over it. **No second
@@ -137,9 +166,21 @@ function withAcceptJson(init: RawInit | undefined): RawInit {
  * member of the callee's declared union, which is SPEC.md §6.4's documented
  * deploy-skew tail.
  */
-export function createEventTypedFetch(base: RawEventFetch): Event$TypedFetch {
-  const call = (request: unknown, init?: RawInit): Promise<unknown> =>
-    base(request, withAcceptJson(init))
+export function createEventTypedFetch(
+  getBase: () => RawEventFetch | undefined
+): Event$TypedFetch {
+  let verified = false
+
+  const call = (request: unknown, init?: RawInit): Promise<unknown> => {
+    const base = getBase()
+
+    if (!verified) {
+      if (typeof base !== 'function') throw new EventFetchUnavailableError()
+      verified = true
+    }
+
+    return (base as RawEventFetch)(request, withAcceptJson(init))
+  }
 
   return Object.assign(call, {
     safe: (request: unknown, init?: RawInit): Promise<RawTypedResult> =>
