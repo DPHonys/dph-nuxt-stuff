@@ -1,9 +1,9 @@
-import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
+import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/server'
 import type { TypedApiErrors } from '@dphonys/nuxt-handler-errors/types'
 import type { EventHandler } from 'h3'
 import type { InternalApi } from 'nitropack/types'
-import { authErrors } from '#shared/errors/auth'
-import { userErrors } from '#shared/errors/user'
+import { authErrors } from '~~/server/errors/auth'
+import { userErrors } from '~~/server/errors/user'
 // The one place the playground reaches into the module package's own suite.
 // `Equal` and `Expect` are fixed vocabulary and a second copy
 // here could drift from the one every other assertion uses; the path is ugly,

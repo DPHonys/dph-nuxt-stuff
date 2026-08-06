@@ -4,8 +4,9 @@ import type { TypedApiErrors } from '@dphonys/nuxt-handler-errors/types'
 /**
  * Context 3 of 3: a consumer's `shared/` directory, which is the context the
  * subpath exports exist for. The bare `.` specifier is import-protected here by
- * Nuxt, so `/types` and `/shared` are the only hand-writable way in
- *.
+ * Nuxt and `/server` is barred by the directory itself — a `shared/` file
+ * compiles into the client program too, and `/server` reaches `h3` — so
+ * `/types` and `/shared` are the only hand-writable way in.
  */
 type _SharedContextErrorMap = TypedApiErrors
 

@@ -1,14 +1,13 @@
 import type { H3Error, H3Event } from 'h3'
 import { describe, expect, it } from 'vitest'
 import { computed, ref } from 'vue'
+import { useDeclaredError } from '../../src/runtime/app/composables/use-declared-error'
 import {
-  DECLARED_ERROR_KEY,
-  declaredError,
   defineErrors,
   defineTypedEventHandler,
   payload,
-  useDeclaredError,
-} from '../../src/runtime/shared'
+} from '../../src/runtime/server'
+import { DECLARED_ERROR_KEY, declaredError } from '../../src/runtime/shared'
 
 /**
  * The reader's runtime guard.

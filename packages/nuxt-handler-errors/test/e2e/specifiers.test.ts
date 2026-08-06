@@ -292,10 +292,11 @@ describe('the published specifiers', async () => {
       server: `server:${DECLARED_ERROR_KEY}`,
       shared: `shared:${DECLARED_ERROR_KEY}`,
       // The reader itself **running** inside Nitro, over a real server-to-server
-      // failure caught in a `catch` — the third context the value form
-      // sits on the side-agnostic specifier for, and the one no
-      // client-side call site can stand in for now that `/shared` carries a
-      // `vue` import.
+      // failure caught in a `catch` — the third context the value form sits on
+      // the side-agnostic specifier for, and the one no client-side call site
+      // can stand in for. `/shared` no longer reaches `vue` at all (the
+      // reactive reader moved to `app/composables/`), so what this executes is
+      // that the specifier resolves and runs with nothing app-side behind it.
       caught: 'user-suspended',
     })
   })

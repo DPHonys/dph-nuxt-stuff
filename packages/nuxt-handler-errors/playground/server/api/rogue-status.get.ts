@@ -2,7 +2,7 @@ import {
   defineErrors,
   defineTypedEventHandler,
   payload,
-} from '@dphonys/nuxt-handler-errors/shared'
+} from '@dphonys/nuxt-handler-errors/server'
 
 /**
  * A catalogue with a status h3 will refuse to put on the wire.

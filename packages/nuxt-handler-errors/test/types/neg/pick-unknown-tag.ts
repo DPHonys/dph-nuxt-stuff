@@ -8,7 +8,7 @@
  * exact dishonesty `.pick()` exists to prevent.
  */
 
-import { defineErrors, payload } from '../../../src/runtime/shared'
+import { defineErrors, payload } from '../../../src/runtime/server'
 
 const authErrors = defineErrors({
   unauthorized: { status: 401 },

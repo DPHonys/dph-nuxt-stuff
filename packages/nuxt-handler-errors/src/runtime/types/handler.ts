@@ -1,7 +1,12 @@
 /**
  * The server declaration surface: the brand a typed handler carries, the
  * extractor that reads it back out, and the three callable interfaces
- * `./../shared/errors` implements.
+ * `../server/lib/errors` implements.
+ *
+ * Only `ExtractErrorsSafe`, `Fail` and `TypedEventHandler` reach `./index`.
+ * The three `Define*` interfaces exist to keep hovers short and are named by
+ * nothing a consumer writes, so they stay here and are reached by relative
+ * path.
  */
 
 import type {

@@ -1,19 +1,16 @@
 /**
- * The read path: one guard, and the two surfaces over it.
+ * The read path's guard, and the non-reactive surface over it.
  *
- * The only file in the package importing `vue`, which is what keeps the
- * dependency's blast radius visible — it stays a plain caret-ranged dependency
- * for instance identity: two physical copies of Vue are two reactivity
- * systems, and a `computed` from one does not track a ref owned by the other.
+ * Side-agnostic in the strict sense — no `vue`, no `h3`, no `#app` — which is
+ * what lets `./typed-fetch` reach it from both Nitro plugins. The reactive
+ * sibling lives in `../app/composables/use-declared-error`, alone with the
+ * `vue` import: `useDeclaredError` is a Vue composable, and colocating the two
+ * here put Vue's reactivity system in every Nitro bundle for a `computed` the
+ * server never calls.
  */
 
-import { computed } from 'vue'
-import type { Ref } from 'vue'
-import type {
-  AnyVariant,
-  DeclaredErrorReader,
-  UseDeclaredError,
-} from '../types'
+import type { AnyVariant } from '../types/catalogue'
+import type { DeclaredErrorReader } from '../types/reader'
 import { DECLARED_ERROR_KEY } from './wire'
 
 /**
@@ -23,8 +20,11 @@ import { DECLARED_ERROR_KEY } from './wire'
  * every consumer already handles. `typeof`-based deliberately: it rejects a
  * function carrying the two properties, and the explicit `!== null` stops
  * `typeof null === 'object'` from reaching the property reads.
+ *
+ * Exported for the reactive sibling alone. It reaches no published specifier,
+ * so it stays an implementation detail of the two readers over it.
  */
-function readFloor(error: unknown): AnyVariant | undefined {
+export function readFloor(error: unknown): AnyVariant | undefined {
   const marker = (
     error as { data?: { data?: Record<string, unknown> } } | null | undefined
   )?.data?.data?.[DECLARED_ERROR_KEY]
@@ -48,11 +48,3 @@ function readFloor(error: unknown): AnyVariant | undefined {
  */
 export const declaredError: DeclaredErrorReader =
   readFloor as DeclaredErrorReader
-
-/**
- * The reactive sibling of {@link declaredError}, for templates. Narrow on a
- * local `const current = failure.value` — see {@link UseDeclaredError} for
- * why that is not a style preference.
- */
-export const useDeclaredError: UseDeclaredError = ((error: Ref<unknown>) =>
-  computed(() => readFloor(error.value))) as UseDeclaredError

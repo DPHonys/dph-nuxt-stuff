@@ -19,11 +19,12 @@ If this page does not make the idea obvious, that is a defect in this page.
 
 ### What the endpoint author writes
 
-A catalogue, once, anywhere — `shared/` is the documented default:
+A catalogue, once, in `server/` — it is server-side vocabulary, and the client
+never needs it:
 
 ```ts
-// shared/errors/user.ts
-import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/shared'
+// server/errors/user.ts
+import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/server'
 
 export const userErrors = defineErrors({
   'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
@@ -32,8 +33,8 @@ export const userErrors = defineErrors({
 ```
 
 ```ts
-// shared/errors/auth.ts
-import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/shared'
+// server/errors/auth.ts
+import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/server'
 
 export const authErrors = defineErrors({
   unauthorized: { status: 401 },
@@ -50,9 +51,9 @@ that:
 
 ```ts
 // server/api/users/[id].get.ts
-import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
-import { authErrors } from '#shared/errors/auth'
-import { userErrors } from '#shared/errors/user'
+import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/server'
+import { authErrors } from '~~/server/errors/auth'
+import { userErrors } from '~~/server/errors/user'
 
 export default defineTypedEventHandler(
   { errors: [userErrors, authErrors.pick('forbidden')] },
@@ -269,11 +270,13 @@ export const userErrors = defineErrors({
 - **Duplicate tags across composed catalogues are a compile error** naming the
   colliding tag. Two catalogues declaring an _identical_ member are correctly
   not flagged — only a genuine divergence in status or payload trips it.
-- **Catalogues are location-agnostic** — the union travels via the brand, so the
-  module never looks at where a catalogue lives. `shared/` is the documented
-  default: it keeps the value reachable from client code later, and a `shared/`
-  catalogue imported only by server code is tree-shaken out of the client
-  bundle.
+- **Catalogues are server-side**, and `server/errors/` is the documented
+  default. The module never looks at where one lives, but `/server` reaches
+  `h3`, so a catalogue cannot sit in a consumer's `shared/` directory — that
+  directory compiles into the client program too. Nothing is lost by this: a
+  route's declared union reaches the client through the generated map, keyed by
+  route path, so the catalogue value itself has no client-side role at either
+  the value or the type level.
 - **An array-valued payload field must be a NAMED interface**, not an inline
   object literal. Nitro's `Simplify` short-circuits on arrays, so naming the
   element type is what keeps the consumer's hover short
@@ -466,8 +469,8 @@ no `create` — because that is exactly what `event.$fetch` is.
 
 ```ts
 // server/api/chain/b.get.ts
-import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
-import { chainErrors } from '#shared/errors/chain'
+import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/server'
+import { chainErrors } from '~~/server/errors/chain'
 
 export default defineTypedEventHandler(
   { errors: [chainErrors.pick('b-upstream')] },
@@ -525,31 +528,48 @@ tag is in the caller's own list.
 
 ## Specifiers, and what is auto-imported
 
-Three published specifiers. The bare `.` is import-protected by Nuxt in every
-context including `shared/`, so it is never hand-written:
+Each specifier answers "who is this for", and each carries exactly the
+dependency that question implies. The bare `.` is import-protected by Nuxt in
+every context including `shared/`, so it is never hand-written:
 
-| Specifier                             | Holds                                                                                          |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `@dphonys/nuxt-handler-errors`        | the Nuxt module itself, for `nuxt.config.ts`                                                   |
-| `@dphonys/nuxt-handler-errors/types`  | the public type surface, and the build-time augmentation target for the generated error map    |
-| `@dphonys/nuxt-handler-errors/shared` | side-agnostic runtime values, importable from the client, the server and your `shared/` folder |
+| Specifier                             | Holds                                                                                       | Reaches   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------- | --------- |
+| `@dphonys/nuxt-handler-errors`        | the Nuxt module itself, for `nuxt.config.ts`                                                | —         |
+| `@dphonys/nuxt-handler-errors/server` | the declaration surface, for route files and `server/`                                      | `h3`      |
+| `@dphonys/nuxt-handler-errors/shared` | genuinely side-agnostic values — client, server and your `shared/` folder alike             | nothing   |
+| `@dphonys/nuxt-handler-errors/types`  | the public type surface, and the build-time augmentation target for the generated error map | type-only |
 
-`/shared` carries `defineErrors`, `payload`, `defineTypedEventHandler`,
-`declaredError`, `useDeclaredError` and `DECLARED_ERROR_KEY`.
+`/server` carries `defineErrors`, `payload` and `defineTypedEventHandler`. It is
+server-only because `defineTypedEventHandler` calls h3's `defineEventHandler`,
+and importing it from a `shared/` file would pull `h3` into your client bundle.
 
-`/types` carries `TypedApiErrors`, `DeclaredErrorsOf`, `DeclaredErrorBody`,
-`ErrorCatalogue`, `VariantsOf`, `Payload`, `TypedEventHandler`, `Flatten`,
-`TypedResult` and the rest of the public type surface.
+`/shared` carries `declaredError` and `DECLARED_ERROR_KEY`. "Side-agnostic" here
+is a claim about the import graph, not a label: nothing reachable from it
+imports `vue`, `h3` or `#app`.
 
-**Auto-imports are additive sugar, never the contract** — with the one forced
-exception noted above:
+`/types` carries `DeclaredErrorsOf`, `TypedApiErrors`, `AnyVariant`,
+`DeclaredErrorBody`, `TypedResult`, `ErrorCatalogue`, `VariantsOf`, `Fail`,
+`TypedEventHandler`, `Flatten`, `$TypedFetch`, `Event$TypedFetch` and
+`ExtractErrorsSafe`. That is the list of names you have reason to _write_ — the
+guards, the payload machinery and the hover-shortening `Define*` interfaces are
+internal and deliberately unpublished.
 
-| Name                                 | How it is reached                                           |
-| ------------------------------------ | ----------------------------------------------------------- |
-| `declaredError`, `useDeclaredError`  | auto-imported app-side; `/shared` is the contract           |
-| `useTypedFetch`, `useLazyTypedFetch` | auto-import **is** the contract; `#imports` to write it out |
-| `$typedFetch`                        | a real `globalThis` property, on both sides                 |
-| `event.$typedFetch`                  | on the event, server-side only                              |
+**Auto-imports are additive sugar, except app-side, where they are the whole
+contract.** Nothing in `app/` can sit on a published specifier — `useTypedFetch`
+imports `#app`, and a `/app` entry point holding `useDeclaredError` alone would
+never gain the siblings it belongs beside:
+
+| Name                                                     | How it is reached                                             |
+| -------------------------------------------------------- | ------------------------------------------------------------- |
+| `useTypedFetch`, `useLazyTypedFetch`, `useDeclaredError` | auto-import **is** the contract; `#imports` to write them out |
+| `declaredError`                                          | `/shared`, hand-written — not auto-imported                   |
+| `$typedFetch`                                            | a real `globalThis` property, on both sides                   |
+| `event.$typedFetch`                                      | on the event, server-side only                                |
+
+`declaredError` is deliberately absent from the auto-imports: its callers are
+the server and your `shared/` directory, where app-side auto-imports do not
+reach anyway, and in a component `$typedFetch.safe` already hands back the flat
+variant while `useTypedFetch` pairs with the reactive reader.
 
 `DeclaredErrorsOf` is worth naming explicitly, because remapping a callee's
 failure is the blessed server-to-server shape:

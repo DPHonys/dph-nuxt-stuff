@@ -1,6 +1,6 @@
-import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
+import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/server'
 import type { DeclaredErrorsOf, Fail } from '@dphonys/nuxt-handler-errors/types'
-import { chainErrors } from '#shared/errors/chain'
+import { chainErrors } from '~~/server/errors/chain'
 // The same reach into the module package's own suite the other route files
 // make: `Equal` and `Expect` are fixed vocabulary.
 import type { Equal, Expect, IsNever } from '../../../../test/types/vocabulary'

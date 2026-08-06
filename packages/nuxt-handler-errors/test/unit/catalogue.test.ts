@@ -1,11 +1,11 @@
 import type { H3Event } from 'h3'
 import { describe, expect, it } from 'vitest'
 import {
-  DECLARED_ERROR_KEY,
   defineErrors,
   defineTypedEventHandler,
   payload,
-} from '../../src/runtime/shared'
+} from '../../src/runtime/server'
+import { DECLARED_ERROR_KEY } from '../../src/runtime/shared'
 
 /**
  * The catalogue's *runtime* behaviour, with no server in the way.

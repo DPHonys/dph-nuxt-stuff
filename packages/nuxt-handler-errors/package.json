@@ -27,6 +27,9 @@
       "types": [
         "./dist/runtime/types/index.d.ts"
       ],
+      "server": [
+        "./dist/runtime/server/index.d.ts"
+      ],
       "shared": [
         "./dist/runtime/shared/index.d.ts"
       ]
@@ -40,6 +43,10 @@
     "./types": {
       "types": "./dist/runtime/types/index.d.ts",
       "import": "./dist/runtime/types/index.js"
+    },
+    "./server": {
+      "types": "./dist/runtime/server/index.d.ts",
+      "import": "./dist/runtime/server/index.js"
     },
     "./shared": {
       "types": "./dist/runtime/shared/index.d.ts",

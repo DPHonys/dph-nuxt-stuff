@@ -1,8 +1,5 @@
-import {
-  DECLARED_ERROR_KEY,
-  defineErrors,
-  payload,
-} from '@dphonys/nuxt-handler-errors/shared'
+import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/server'
+import { DECLARED_ERROR_KEY } from '@dphonys/nuxt-handler-errors/shared'
 import { createEvent } from 'h3'
 import type { EventHandler, H3Event } from 'h3'
 import type { IncomingMessage, ServerResponse } from 'node:http'

@@ -14,7 +14,7 @@ import {
   defineErrors,
   defineTypedEventHandler,
   payload,
-} from '../../../src/runtime/shared'
+} from '../../../src/runtime/server'
 import type { Equal, Expect } from '../vocabulary'
 
 const billing = defineErrors({

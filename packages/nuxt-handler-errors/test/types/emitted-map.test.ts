@@ -60,7 +60,7 @@ afterAll(() => {
 
 /** Two catalogues for the same path, declaring genuinely different failures. */
 const CATALOGUE_A = [
-  `import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/shared'`,
+  `import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/server'`,
   ``,
   `export const userErrors = defineErrors({`,
   `  'user-not-found': { status: 404, payload: payload<{ userId: string, until: Date }>() },`,
@@ -72,7 +72,7 @@ const CATALOGUE_A = [
 ].join('\n')
 
 const CATALOGUE_B = [
-  `import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/shared'`,
+  `import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/server'`,
   ``,
   `export const userErrors = defineErrors({`,
   `  'account-locked': { status: 423, payload: payload<{ userId: string, until: Date }>() },`,
@@ -94,11 +94,11 @@ const CATALOGUE_B = [
  */
 function appFiles(catalogue: string): Record<string, string> {
   return {
-    'shared/errors/user.ts': catalogue,
+    'server/errors/user.ts': catalogue,
 
     'server/api/users/[id].get.ts': [
-      `import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'`,
-      `import { firstTag, userErrors } from '../../../shared/errors/user'`,
+      `import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/server'`,
+      `import { firstTag, userErrors } from '../../errors/user'`,
       ``,
       `export default defineTypedEventHandler(`,
       `  { errors: [userErrors] },`,
@@ -114,8 +114,8 @@ function appFiles(catalogue: string): Record<string, string> {
     // A `default`-keyed route: no method in the file name, so the
     // presence-based fallback is what a `GET` caller resolves through.
     'server/api/y.ts': [
-      `import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'`,
-      `import { userErrors } from '../../shared/errors/user'`,
+      `import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/server'`,
+      `import { userErrors } from '../errors/user'`,
       ``,
       `export default defineTypedEventHandler(`,
       `  { errors: [userErrors] },`,
@@ -255,6 +255,9 @@ function buildAppTree(spec: AppSpec): AppTree {
           paths: {
             '@dphonys/nuxt-handler-errors/types': [
               join(PACKAGE_ROOT, 'src/runtime/types/index.ts'),
+            ],
+            '@dphonys/nuxt-handler-errors/server': [
+              join(PACKAGE_ROOT, 'src/runtime/server/index.ts'),
             ],
             '@dphonys/nuxt-handler-errors/shared': [
               join(PACKAGE_ROOT, 'src/runtime/shared/index.ts'),

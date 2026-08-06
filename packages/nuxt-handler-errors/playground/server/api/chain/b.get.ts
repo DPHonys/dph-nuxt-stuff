@@ -1,5 +1,5 @@
-import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
-import { chainErrors } from '#shared/errors/chain'
+import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/server'
+import { chainErrors } from '~~/server/errors/chain'
 
 /**
  * Hop 2 of 3 — the middle of the A→B→C chain, and the one that shows

@@ -72,12 +72,18 @@ const looked = describeUserFailure({
 })
 
 // ---------------------------------------------------------------------------
-// The readers, in the context they were designed for.
+// The reactive reader, in the context it was designed for.
 //
-// **Neither name is imported.** Both arrive through the module's `addImports`
-// registration, which is the sugar half of the design — the hand-writable
-// `/shared` specifier stays the contract, and `#shared/reader-probe.ts` above
-// exercises that half. Delete the registration and this file stops compiling.
+// **The name is not imported.** It arrives through the module's `addImports`
+// registration, which for this name is the whole contract: `useDeclaredError`
+// is on no published specifier, because a `/app` entry point would carry it
+// alone — the composables it belongs beside import `#app` and can never join
+// it. Delete the registration and this file stops compiling.
+//
+// Its non-reactive sibling `declaredError` is *not* auto-imported and is not
+// used here: `$typedFetch.safe` hands back the flat variant already. Its
+// callers are the server and `shared/`, and `#shared/reader-probe.ts` above
+// exercises that half through the published `/shared` specifier.
 // ---------------------------------------------------------------------------
 
 /**

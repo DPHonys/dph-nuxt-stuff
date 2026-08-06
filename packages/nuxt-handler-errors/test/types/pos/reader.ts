@@ -15,7 +15,8 @@
  */
 
 import type { ComputedRef, Ref, ShallowRef } from 'vue'
-import { declaredError, useDeclaredError } from '../../../src/runtime/shared'
+import { useDeclaredError } from '../../../src/runtime/app/composables/use-declared-error'
+import { declaredError } from '../../../src/runtime/shared'
 import type { AnyVariant, DeclaredErrorBody } from '../../../src/runtime/types'
 import type { NuxtError } from '../replica'
 import type { Equal, Expect, IsAny } from '../vocabulary'

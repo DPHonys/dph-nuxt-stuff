@@ -1,9 +1,24 @@
 /**
  * The `@dphonys/nuxt-handler-errors/types` entry point: the emitter's
- * augmentation target and the whole public type surface. A real module — a
- * non-exported ambient `unique symbol` does not survive declaration emit —
- * and every name re-exported below is public API for good, because an emitted
- * catalogue `.d.ts` carries them unevaluated into every consumer.
+ * augmentation target and the public type surface. Every name below is public
+ * API for good, so the list is the names a consumer has reason to *write*, not
+ * every name the package declares.
+ *
+ * That distinction is what shrank this barrel. Only one exported name is
+ * forced here by the emitter — the generated `.d.ts` imports `ExtractErrorsSafe`
+ * and nothing else of ours. The rest of the vocabulary (the `Define*`
+ * hover-shorteners, the payload machinery, the reader and fetch internals) is
+ * reached by declaration emit through *relative* paths inside `dist`, which
+ * never consult the export map, so those names stay exported from their own
+ * modules without being published here.
+ *
+ * Two personas are served, and the second is why the list is not shorter still.
+ * An app author writes `DeclaredErrorsOf` and the read-side types. A *wrapper*
+ * author restates the definer signature to layer something onto it, and needs
+ * the composition vocabulary to do it: `AnyCatalogue`, `UnionOfCatalogues`,
+ * `ConflictGuard` and `TypedHandlerContext`. That is not hypothetical —
+ * `@dphonys/nuxt-handler-validation` names all four to put schemas on top of
+ * `defineTypedEventHandler` without this package knowing about them.
  *
  * What is *declared* here rather than in a sibling is everything that touches
  * a scope this package does not own: `TypedApiErrors`, which the build-time
@@ -18,51 +33,25 @@ import type { RouterMethod } from 'h3'
 import type { MatchedRoutes } from 'nitropack/types'
 import type { $TypedFetch, Event$TypedFetch } from './fetch'
 
-export { ERRORS, PAYLOAD } from './catalogue'
-
 export type {
   AnyCatalogue,
   AnyVariant,
   ConflictGuard,
-  DuplicateTags,
   ErrorCatalogue,
-  ErrorStatus,
-  Payload,
-  PayloadArgs,
-  PayloadOf,
-  SerializablePayload,
   UnionOfCatalogues,
-  UnserializablePayloadFields,
-  VariantDef,
   VariantsOf,
 } from './catalogue'
 
 export type {
-  DefineErrors,
-  DefinePayload,
-  DefineTypedEventHandler,
   ExtractErrorsSafe,
   Fail,
   TypedEventHandler,
   TypedHandlerContext,
-  TypedHandlerFn,
 } from './handler'
 
-export type {
-  DeclaredErrorBody,
-  DeclaredErrorCarrier,
-  DeclaredErrorKey,
-  DeclaredErrorReader,
-  UseDeclaredError,
-} from './reader'
+export type { DeclaredErrorBody } from './reader'
 
-export type {
-  $TypedFetch,
-  Base$TypedFetch,
-  Event$TypedFetch,
-  TypedFetchSafe,
-  TypedResult,
-} from './fetch'
+export type { $TypedFetch, Event$TypedFetch, TypedResult } from './fetch'
 
 export type { Flatten } from './utils'
 

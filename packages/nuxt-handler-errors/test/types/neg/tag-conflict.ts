@@ -19,7 +19,7 @@ import {
   defineErrors,
   defineTypedEventHandler,
   payload,
-} from '../../../src/runtime/shared'
+} from '../../../src/runtime/server'
 
 const authErrors = defineErrors({
   unauthorized: { status: 401 },

@@ -2,7 +2,7 @@ import {
   defineErrors,
   defineTypedEventHandler,
   payload,
-} from '@dphonys/nuxt-handler-errors/shared'
+} from '@dphonys/nuxt-handler-errors/server'
 
 /**
  * A declared failure on a route **outside `/api/**`** whose payload echoes the

@@ -30,9 +30,10 @@ export default defineEventHandler(async (): Promise<SpecifierProbe> => {
     // The value form's own first use case — *"imperative code,
     // catch blocks, server-to-server"* — run rather than compiled. This is the
     // third of the three contexts the ticket's side-agnostic criterion names,
-    // and the only one no client-side call site can stand in for: `/shared` now
-    // carries a `vue` import, so *"it still resolves
-    // and still runs inside Nitro"* is a claim that has to be executed.
+    // and the only one no client-side call site can stand in for. Nothing
+    // reachable from `/shared` imports `vue`, `h3` or `#app` any more, so
+    // *"it still resolves and still runs inside Nitro"* is the claim, and it
+    // has to be executed rather than reasoned about.
     //
     // `.safe()` is the shape to prefer here; it does not exist yet
     // (ticket 11), and this is what the shape looks like without it.

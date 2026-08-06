@@ -4,7 +4,8 @@
  * `IsAny` is exported so `./catalogue` and `./handler` can share one copy, and
  * is deliberately **absent from `./index`'s re-exports**: every name the barrel
  * publishes is public API for good, and this one is an implementation detail of
- * two guards.
+ * two guards. `Flatten` is published, because it is what renders a variant flat
+ * and a consumer writing a helper over one has reason to name it.
  */
 
 /**

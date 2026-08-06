@@ -1,4 +1,4 @@
-import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/shared'
+import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/server'
 
 /**
  * The three-hop chain's catalogue.

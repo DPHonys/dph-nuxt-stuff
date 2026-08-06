@@ -12,7 +12,7 @@
  * reason — a branded marker type renders as its own name and says nothing.
  */
 
-import { defineErrors, payload } from '../../../src/runtime/shared'
+import { defineErrors, payload } from '../../../src/runtime/server'
 
 export const billing = defineErrors({
   'payment-required': {

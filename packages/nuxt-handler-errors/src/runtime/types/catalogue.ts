@@ -1,8 +1,15 @@
 /**
  * The vocabulary a catalogue is written in: the phantom slots, one variant's
  * declaration, the serialization guard that constrains a payload, and the
- * catalogue type itself. Everything here is reachable from a consumer's
- * `defineErrors` call, and so is public API for good.
+ * catalogue type itself.
+ *
+ * Three names reach `./index` and are public API for good: `AnyVariant` (the
+ * wire's shape floor, which every generic read path is written against),
+ * `ErrorCatalogue` and `VariantsOf` — the latter because it is the only way to
+ * name a *catalogue's* union, which the route-keyed `DeclaredErrorsOf` cannot
+ * express. The rest is the vocabulary a catalogue is written *in* rather than
+ * one written *down*: it is inferred at every `defineErrors` call site, so it
+ * is reached by relative path and stays off the published barrel.
  */
 
 import type { Serialize } from 'nitropack/types'

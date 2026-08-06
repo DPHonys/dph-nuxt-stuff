@@ -68,29 +68,35 @@ export default defineNuxtModule<ModuleOptions>({
     // `exports`. The string comes from the emitter so it cannot drift.
     nuxt.options.typescript.hoist.push(TYPES_SPECIFIER)
 
-    // The reader pair, auto-imported app-side; the `/shared` specifier is the
-    // contract. `from` resolves against this module's own file so both
-    // bindings are one module instance. Deliberately not `addServerImports` —
-    // `useDeclaredError` is a Vue composable.
+    // The app-side composables. `from` resolves against this module's own file
+    // so every binding is one module instance, and all three are deliberately
+    // *not* `addServerImports`: `useDeclaredError` is a Vue composable, and the
+    // fetch pair reaches `#app`, which the Nitro build does not have.
+    //
+    // For the fetch pair this registration is the whole contract — `#app` bars
+    // them from any published specifier — and `useDeclaredError` joins them
+    // rather than taking an entry point of its own: a `/app` specifier would
+    // carry that one function forever, because the siblings it belongs beside
+    // can never join it. An explicit import is `#imports` for all three.
     const resolver = createResolver(import.meta.url)
-    const shared = resolver.resolve('./runtime/shared/index')
-
-    addImports([
-      { name: 'declaredError', from: shared },
-      { name: 'useDeclaredError', from: shared },
-    ])
-
-    // The composable pair, app-side only — it imports `#app`, which the Nitro
-    // build does not have, so this registration is the whole contract for
-    // these two names; an explicit import is `#imports`.
     const composables = resolver.resolve(
       './runtime/app/composables/use-typed-fetch'
+    )
+    const reader = resolver.resolve(
+      './runtime/app/composables/use-declared-error'
     )
 
     addImports([
       { name: 'useTypedFetch', from: composables },
       { name: 'useLazyTypedFetch', from: composables },
+      { name: 'useDeclaredError', from: reader },
     ])
+
+    // `declaredError` is deliberately *not* auto-imported. Its callers are the
+    // server and a consumer's `shared/` directory, where app-side auto-imports
+    // do not reach and `/shared` is the only way in; app-side it has almost
+    // nothing to do, because `$typedFetch.safe` hands back the flat variant
+    // already and `useTypedFetch` pairs with the reactive reader above.
 
     // A wrapper is invisible to Nuxt's per-call-site key injection unless
     // registered here — without these two lines duplicate fetches collapse

@@ -1060,7 +1060,7 @@ describe('path-referentiality, in a real Nuxt app', () => {
   beforeAll(() => {
     edited = probeApp(
       ensureBuiltTree('content-edit', (root) => {
-        const path = join(root, 'shared/errors/user.ts')
+        const path = join(root, 'server/errors/user.ts')
 
         writeFileSync(
           path,

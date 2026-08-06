@@ -4,20 +4,30 @@
  * *module-private* symbol, which is what keeps the catalogue's runtime view
  * out of public API. Splitting them would demote it to an export.
  *
- * The only file in the package importing `h3`.
+ * The only file in the package importing `h3`, and the reason this directory
+ * rather than `../../shared`: `defineTypedEventHandler` calls h3's
+ * `defineEventHandler`, so it is server-only by construction, and `INTERNALS`
+ * welds `defineErrors` to it. Nothing client-side reads a catalogue — a
+ * route's declared union reaches the client through the generated map, which
+ * is derived from the *handler's* type, never from the catalogue value.
  */
 
 import { createError, defineEventHandler } from 'h3'
+import { DECLARED_ERROR_KEY } from '../../shared/wire'
+// Reached by module rather than through `../../types`: the vocabulary a
+// catalogue is *built* from is not what a consumer writes, so it stays off the
+// published barrel and is imported where it is declared.
 import type {
   AnyCatalogue,
   AnyVariant,
+  ErrorCatalogue,
+  VariantDef,
+} from '../../types/catalogue'
+import type {
   DefineErrors,
   DefinePayload,
   DefineTypedEventHandler,
-  ErrorCatalogue,
-  VariantDef,
-} from '../types'
-import { DECLARED_ERROR_KEY } from './wire'
+} from '../../types/handler'
 
 /**
  * Marks a variant's payload type. The runtime value is inert — only the type

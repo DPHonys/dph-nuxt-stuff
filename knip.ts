@@ -24,9 +24,9 @@ const nuxtModuleWorkspace = {
 
     // The runtime tree. Two different things live here and both arrive by path:
     //   - published subpath specifiers, which are declaration-emitted out of
-    //     this directory — `./types` is `dist/runtime/types/index.js` and
-    //     `./shared` is `dist/runtime/shared/index.js`, so together with
-    //     `src/module.ts` this covers the whole export map;
+    //     this directory — each is the `index` of its own directory, so
+    //     `dist/runtime/{types,server,shared}/index.js` together with
+    //     `src/module.ts` covers the whole export map;
     //   - anything the module hands to Nuxt at setup — `addPlugin`,
     //     `addServerHandler`, `addImports`, `addTemplate` — which reaches the
     //     consumer's app through registration rather than through an import.

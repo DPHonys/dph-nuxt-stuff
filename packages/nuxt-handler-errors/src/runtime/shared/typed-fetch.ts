@@ -10,7 +10,7 @@
  */
 
 import type { $TypedFetch, AnyVariant } from '../types'
-import { declaredError } from './reader'
+import { declaredError } from './read-floor'
 
 // ---------------------------------------------------------------------------
 // What this wrapper needs of the thing underneath it

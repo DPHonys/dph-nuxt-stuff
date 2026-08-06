@@ -17,11 +17,11 @@
  */
 
 import {
-  DECLARED_ERROR_KEY,
   defineErrors,
   defineTypedEventHandler,
   payload,
-} from '@dphonys/nuxt-handler-errors/shared'
+} from '@dphonys/nuxt-handler-errors/server'
+import { DECLARED_ERROR_KEY } from '@dphonys/nuxt-handler-errors/shared'
 import { createError, getQuery, getRouterParams, readBody } from 'h3'
 import type { H3Event } from 'h3'
 import type {

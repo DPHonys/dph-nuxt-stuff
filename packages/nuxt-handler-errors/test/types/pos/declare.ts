@@ -18,7 +18,7 @@ import {
   defineErrors,
   defineTypedEventHandler,
   payload,
-} from '../../../src/runtime/shared'
+} from '../../../src/runtime/server'
 import type { AnyVariant, ErrorCatalogue } from '../../../src/runtime/types'
 import type { Equal, Expect, IsAny, IsNever } from '../vocabulary'
 

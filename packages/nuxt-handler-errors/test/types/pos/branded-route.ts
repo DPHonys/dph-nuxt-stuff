@@ -17,7 +17,7 @@ import {
   defineErrors,
   defineTypedEventHandler,
   payload,
-} from '../../../src/runtime/shared'
+} from '../../../src/runtime/server'
 
 /**
  * Exported so the emitted declaration can never need a name it does not have.

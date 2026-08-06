@@ -14,7 +14,7 @@
  * budgets (the `ValidationIssue` named-interface rendering mandate).
  */
 
-import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/shared'
+import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/server'
 import { defineValidatedEventHandler, invalidInput } from '../src/index'
 import type { StandardSchemaV1, ValidationIssue } from '../src/index'
 

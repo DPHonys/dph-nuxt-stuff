@@ -1,4 +1,4 @@
-import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/shared'
+import { defineErrors, payload } from '@dphonys/nuxt-handler-errors/server'
 
 /**
  * A second catalogue, so a route can compose two and narrow one with `.pick()`

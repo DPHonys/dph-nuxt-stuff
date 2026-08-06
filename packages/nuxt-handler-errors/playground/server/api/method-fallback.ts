@@ -1,6 +1,6 @@
-import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/shared'
+import { defineTypedEventHandler } from '@dphonys/nuxt-handler-errors/server'
 import type { DeclaredErrorsOf } from '@dphonys/nuxt-handler-errors/types'
-import { authErrors } from '#shared/errors/auth'
+import { authErrors } from '~~/server/errors/auth'
 // The same reach into the module package's own suite `users/[id].get.ts`
 // makes, and for the same reason: `Equal`, `Expect` and `IsNever` are fixed
 // vocabulary and a second copy here could drift.
