@@ -24,9 +24,9 @@ const nuxtModuleWorkspace = {
 
     // The runtime tree. Two different things live here and both arrive by path:
     //   - published subpath specifiers, which are declaration-emitted out of
-    //     this directory — `./types` is `dist/runtime/types.js` and `./shared`
-    //     is `dist/runtime/shared.js`, so together with `src/module.ts` this
-    //     covers the whole export map;
+    //     this directory — `./types` is `dist/runtime/types/index.js` and
+    //     `./shared` is `dist/runtime/shared/index.js`, so together with
+    //     `src/module.ts` this covers the whole export map;
     //   - anything the module hands to Nuxt at setup — `addPlugin`,
     //     `addServerHandler`, `addImports`, `addTemplate` — which reaches the
     //     consumer's app through registration rather than through an import.
@@ -80,7 +80,8 @@ export default {
 
       // Not the scaffold's pair: `@nuxt/schema` is dropped from the inherited
       // list because this package *does* import it from source —
-      // `test/module-setup.test.ts` types the loaded Nuxt instance with it —
+      // `test/unit/module-setup.test.ts` types the loaded Nuxt instance with
+      // it —
       // so the scaffold-shape exemption would suppress nothing here and the
       // hint promoted above would fail the run.
       ignoreDependencies: ['@nuxt/devtools'],
