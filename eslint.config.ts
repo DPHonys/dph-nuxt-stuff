@@ -45,6 +45,12 @@ export default antfuConfig(
       // Oxfmt keeps short content on one line and self-closes void elements.
       'vue/singleline-html-element-content-newline': 'off',
       'vue/html-self-closing': 'off',
+
+      // Doc comments here use Markdown emphasis, and a line whose content
+      // starts with `*word*` reads to this rule as a doubled asterisk. Its
+      // autofix then eats the opening `*`, silently corrupting the emphasis —
+      // `*after*` becomes `after*` — across any `lint:fix` run.
+      'jsdoc/no-multi-asterisks': 'off',
     },
   },
 
