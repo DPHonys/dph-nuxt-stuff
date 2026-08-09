@@ -12,13 +12,15 @@ module. Types only, in `sandbox/`, until the way it reads is settled.
 pnpm --filter @dphonys/nuxt-known-errors typecheck
 ```
 
-Three files, and no more than three. Reasoning lives here, not in comments.
+Five files, and no more. Reasoning lives here, not in comments.
 
-| File                    | What it is                                                                |
-| ----------------------- | ------------------------------------------------------------------------- |
-| `sandbox/matcher.ts`    | **the design.** `matchError` and the fetch, asyncData and server surfaces |
-| `sandbox/call-sites.ts` | **the evidence.** Every agreed call style, with assertions                |
-| `sandbox/fixtures.ts`   | framework replicas + three fictional routes. Not the design               |
+| File                              | What it is                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `sandbox/matcher.ts`              | **the design.** `matchError` and the fetch, asyncData and server surfaces                   |
+| `sandbox/call-sites.ts`           | **the evidence.** Every agreed call style, with assertions                                  |
+| `sandbox/fixtures.ts`             | framework replicas + three fictional routes. Not the design                                 |
+| `sandbox/glue/p2-array-spread.ts` | **the definition surface.** `defineError`, the errors slot, the brand, the raise contract — design and evidence in one file, folded into the main three when step 6 starts |
+| `sandbox/glue/shared.ts`          | the pieces the glue redesign held fixed (`payload`, `fail`, the variant vocabulary)         |
 
 Earlier sandbox files — `api.ts` and the guard-based sketches, `alternatives.ts`,
 `fetch.ts`, `map.ts`, `replica.ts` — have been deleted. Everything they
@@ -368,6 +370,81 @@ one typed channel into `useAsyncData`'s generics.
   failed inference under the `E`-generic form. Measured as a strict widening:
   the entire pre-existing evidence passes unchanged. See §6.
 
+### The definition surface — `defineError` and the errors slot
+
+```ts
+// shared/errors.ts — or anywhere; the values travel, no registry exists
+export const userErrors = defineError({
+  'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
+  'user-suspended': { status: 403, payload: payload<{ until: string }>() },
+})
+
+export const forbidden = defineError('forbidden', {
+  status: 403,
+  payload: payload<{ requiredRole: 'admin' | 'owner' }>(),
+})
+
+// server/api/users/[id].get.ts
+export default defineTypedEventHandler(
+  { errors: [...userErrors.pick('user-not-found'), forbidden] },
+  async (event, { fail }) => {
+    // …
+    return fail('user-not-found', { userId })
+  }
+)
+```
+
+`payload` and `fail` survive from the old package unchanged; what was
+redesigned is the **glue** between defining an error and listing it on a
+handler. The old catalogue was an opaque container resolved by tag —
+module-private internals, a foreign-copy runtime guard, composition-order
+rules. The new unit is the **variant as a value**; a group is nothing but an
+array of those values.
+
+- **`defineError` is one function for one or many.** `(tag, def)` returns a
+  single `KnownError`; a defs record returns a `KnownErrorGroup` — an array
+  of singles carrying `.pick()`. Arity separates the two overloads, so
+  neither can win on shape (§6's standing rule).
+
+- **The slot is an array of singles, and spread is the only composition
+  operator.** `[...users, ...orders, forbidden]` — groups spread, singles sit
+  in place, and the declared union is read off the element union by one
+  distributing conditional. Four sibling glues were built alongside this one
+  and rejected on comparison — see §4.
+
+- **`.pick()` is permissive.** Any number of tags; repetition and emptiness
+  absorbed rather than rejected — `K[number]` is a union and a union dedupes
+  itself, so a tag picked twice _is_ the tag picked once. Only a tag the
+  group never declared is a compile error. The uniqueness lives in the
+  return: **standing runtime requirement — `pick()` and the handler's
+  resolved errors list hold one error per distinct tag**, which also covers
+  the JavaScript callers no type guard reaches. A compile-time uniqueness
+  guard was built, measured, and deleted (§4).
+
+- **Divergence, not repetition, is guarded.** The same tag declared again
+  identically collapses when the union forms — no diagnostic, composition
+  stays free. The same tag with a different status or payload survives as
+  two union members sharing one discriminant, which breaks `fail`'s payload
+  lookup and the matcher's arms alike — a genuine bug, so `ConflictGuard`
+  (an `IsUnion`-per-tag pass, intersected FIRST per the old truncation
+  lesson) reports it as a missing property naming the tag verbatim.
+
+- **The handler carries its union out as `__knownErrors__?`** — an optional
+  phantom, so a plain event handler still inhabits the type — and this brand
+  is the only channel the emitter has: the generated map is derived from
+  handler types, so without it the whole client surface reads `never`.
+  `KnownErrorsOfHandler` reads it back, guarded so that both degradations —
+  an unbranded handler and `any` — land on `never`, the honest "declares
+  none". Measured findings behind the guard in §6.
+
+- **The raise contract is structural.** `KnownRaiseInput` is what the
+  implementation's raise may hand `createError`: `statusCode`, `message`,
+  the marker under `data` — and `statusMessage?: never`, which turns step
+  2's standing constraint into a compile error at the one place it could
+  regress. `message` MAY carry the tag: the prod handler scrubs it on any
+  escape (§5), so it only ever reaches the route's own client, which knows
+  the tag already.
+
 ### Why the two surfaces read differently
 
 `<script setup>` uses a bare `matchError(error, …)`; a function wraps it in
@@ -396,6 +473,8 @@ with its own antonym.
 | `DeclaredErrorsOf`                 | `KnownErrorsOf`                                |
 | `DeclaredErrorBody`                | `KnownErrorBody`                               |
 | `__declaredError__`                | `__knownError__`                               |
+| `__declaredErrors__` (handler)     | `__knownErrors__`                              |
+| `defineErrors` + catalogue types   | `defineError` — one call for one or many       |
 | `useTypedFetch` / `$typedFetch`    | unchanged — "typed" modifies _fetch_, honestly |
 
 **failure** is the noun for the thing; **known / unknown** is the distinction.
@@ -462,6 +541,11 @@ Do not re-propose these without new information.
 | **An optional fallback that throws when absent**                                                                   | Would make the function's control-flow contract depend on argument count — the two-channels-by-presence defect for the third time. Worse here specifically: `.try` exists to end the throw channel. `(err) => { throw err }` is available, explicit and greppable                                                                                                                                       |
 | **A route-parameter `useAsyncData` wrapper** (`useTypedAsyncData<'/api/…'>(handler)`)                              | Rejection types do not exist in TypeScript, so a custom handler's throw cannot carry the union; a route type parameter is the route-restating defect again — the arms would describe whatever route was _typed_, not whatever the handler fetches. The locked `useTypedAsyncData` (§2) is a different shape: no route parameter, the union inferred off the `.try` results the handler actually returns |
 | **Exporting a body type for vanilla's `NuxtErrorDataT` generic** — `useAsyncData<T, KnownFetchError<'/api/…'>>(…)` | Measured working, and rejected as a second, worse spelling of the same thing: the generic is a manual assertion the compiler cannot check against the handler's fetches — the restating defect in vanilla clothing. With the return-channel `useTypedAsyncData` locked, the honest inference path exists, so shipping a lying-capable twin buys nothing                                                 |
+| **Record group into an object slot** — `errors: { ...users, forbidden }`, pick by destructuring                    | Glue proposal 1. Native syntax does everything, but the slot's keys are ignored — a key can lie about the tag under it — and object spread dedupes a colliding tag silently, last one wins, no diagnostic. The two silent failures outweigh the zero-API charm                                                                                                                                            |
+| **Unified sets passed whole** — `errors: [users, orders]`, a single is a set of one                                | Glue proposal 3. One concept and no operator, but the set is opaque — no member is reachable as a value, so `.pick()` strings are the only subset door. The old catalogue's shape with less machinery, and the same distance from the values                                                                                                                                                             |
+| **Record group with member access** — `errors: [users, forbidden]`, pick is `users['user-not-found']`              | Glue proposal 4. Language-checked picking (a typo is TS2339, no strings restated) is the strongest subset story, but the slot accepts two shapes and picking several members lists each one. Array+spread won on one element shape and one composition operator                                                                                                                                          |
+| **The hybrid group** — array ∧ record ∧ `.pick()`, every style compiles                                            | Glue proposal 5. Flexibility measured as hazard: no spelling is canonical, hovers render a triple intersection, and the record half shares a namespace with `ReadonlyArray`'s members — a tag named `pick`, `map` or `length` intersects with a built-in instead of standing alone                                                                                                                       |
+| **A compile-time unique-pick guard** — `K & UniquePickGuard<K>` rejecting a repeated tag                           | Built and measured (the `ConflictGuard` idiom ported to a rest position; readable diagnostic naming the tag), then deleted: repetition is a harmless redundancy the union dedupes for free, and the guard only ever yelled at TypeScript callers while a JavaScript caller sailed past. Uniqueness became the return's contract instead — one error per distinct tag, enforced at runtime (§2)          |
 | **Mirroring the full `$TypedFetch` on the event**                                                                  | Nitro's own `event.$fetch` types `.raw` and `.create` it never assigns (§5). Copying the interface copies the lie; the event surface is the seam exactly, and `.create` has nothing to mean on an instance that _is_ the per-request customisation                                                                                                                                                      |
 
 ---
@@ -705,6 +789,23 @@ KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
   `E` has no inference site at all any more, so the arms argument can never
   pin anything — the `NoInfer` class of bug loses its foothold.
 
+- **An optional phantom brand on a VALUE is a weak type every object
+  matches.** `KnownError` with `[VARIANT]?: E` would let any extraction
+  conditional (`T extends KnownError<infer E>`) match records, arrays and
+  garbage alike, inferring `unknown` and silently poisoning the slot's
+  union. The brand on values is therefore **required** — the implementation
+  attaches a marker or casts, as the old catalogue did. The brand on the
+  **handler** stays optional deliberately (a plain `EventHandler` must
+  inhabit `TypedEventHandler`), which is safe only because the extractor is
+  the single reader and it guards.
+
+- **An unbranded function matched against `{ __knownErrors__?: infer E }`
+  infers `E = undefined`, not `unknown`.** So `Exclude<E, undefined>` is the
+  entire unbranded guard — the old package's spelling, now measured rather
+  than trusted. An `unknown extends E` belt was added on top and measured
+  dead: this position never produces `unknown`. `IsAny` is still required
+  and separate — `any` matches everything with `E` unresolved.
+
 - **`@ts-expect-error` anchors on the arms argument** — when the error argument
   is well-typed and only the arms are wrong. When the error argument is
   `unknown` (a `catch`), _both_ overloads fail and the diagnostic is a
@@ -733,12 +834,14 @@ KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
    common case, vanilla's own options over the unwrapped success, the keyless
    form via `keyedComposables` (§5). Carried the matcher to a carrier-generic
    typed overload so multi-route unions infer (§6)
-4. **Lock the error definition and the handler** — `defineErrors`, `payload`,
-   `.pick()`, `defineTypedEventHandler`. Candidate: variants as values rather
-   than catalogues, which would make `.pick()` and the duplicate-tag guard
-   evaporate. Standing constraint from step 2: **the tag must not ride
-   `statusMessage`** — an escaped server-to-server throw forwards the reason
-   phrase (§5), which is exactly how the old package leaked
+4. ~~Lock the error definition and the handler~~ — done, §2 ("The definition
+   surface"): variants as values via one `defineError` (one or many by
+   arity), groups as spreadable arrays with a permissive `.pick()`,
+   divergence-only `ConflictGuard`, the `__knownErrors__` brand with its
+   guarded extractor, and `KnownRaiseInput` making the `statusMessage`
+   constraint structural. `payload` and `fail` carried over unchanged. Five
+   glue shapes were compared in-sandbox; the four losers and the deleted
+   unique-pick guard are §4 rows. Evidence lives in `sandbox/glue/`
 5. **Naming pass over the whole surface** — once every call site and
    definition exists, before implementation begins. Known open items: what the
    signature and docs call the fallback's second parameter (§3, now with two
@@ -746,7 +849,10 @@ KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
    order of the twins and mirrors (`useLazyTypedFetch`,
    `useLazyTypedAsyncData`, `useRequestTypedFetch` all put `Typed` where
    vanilla's own modifier sits, §2) and the helper names
-   `TrySource`/`SuccessOf`/`FailureOf`; and
+   `TrySource`/`SuccessOf`/`FailureOf`; the definition surface's names
+   (`defineError`, `KnownErrorGroup`, `pick`, `__knownErrors__`,
+   `KnownErrorsOfHandler`, `KnownRaiseInput`, `ConflictGuard` /
+   `DivergentTags`); and
    the fallback's error parameter type — `NuxtError` is the client's word for
    a carrier both runtimes produce, and `status` vs `statusCode` honesty
    across them needs one answer. Low stakes elsewhere — callers bind their own
@@ -754,4 +860,4 @@ KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
 6. **Then the internals** — emitter, wire, runtime. There are standing
    requirements for v1 to be stated at that point
 
-Nothing past step 3 is designed yet, and nothing at all is implemented.
+Nothing past step 4 is designed yet, and nothing at all is implemented.
