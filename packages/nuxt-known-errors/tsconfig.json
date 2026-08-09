@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    // The sandbox is deliberately dependency-free — no `vue`, no `h3`, no
+    // `#app`. `Ref` and `NuxtError` are replicated in `sandbox/replica.ts`, so
+    // nothing here needs `@types/node` either.
+    "types": []
+  },
+  // The root config excludes `packages`, which would swallow this whole
+  // directory — `exclude` is replaced rather than extended.
+  "exclude": ["node_modules"],
+  "include": ["sandbox"]
+}
