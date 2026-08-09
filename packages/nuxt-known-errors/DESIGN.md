@@ -884,7 +884,99 @@ KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
 
 ---
 
-## 7. Roadmap
+## 7. The internals step — requirements, stated
+
+Roadmap step 6's promised moment: the requirements for the implementation,
+settled in discussion on top of the old package's internals inventory
+(`INTERNALS-ANALYSIS.md`, the per-piece take / adapt / drop verdicts — the
+emitter and wiring schedule carry nearly whole; the catalogue runtime carries
+as ideas; `statusMessage: tag` and `.safe`'s rethrow semantics are dead).
+
+### Payload schemas — standardSchema, inference-only
+
+The payload position accepts a Standard Schema (`zod`, `valibot`, anything
+carrying `~standard`) as an alternative to `payload<T>()`, which stays as the
+no-library door. The payload type is read via `InferOutput`; the
+serializability constraint applies to the inferred output exactly as it does
+to the phantom's argument. **The schema is never executed by this package** —
+decided deliberately, not deferred: client-side execution would need the defs
+at the call site (the rejected catalogue-as-matcher defect), raise-site
+execution poses the error-while-erroring problem, and the planned validation
+package is the natural owner of runtime checking. `@standard-schema/spec` is
+types-only, so the dependency costs nothing at runtime. The emitter,
+`ConflictGuard` and the brand are untouched — they consume the payload
+*type*, however it was obtained.
+
+### Channel gating — strip the marker for callers that are not the app
+
+A token, set by the consumer (runtimeConfig/env), that every fetch surface of
+this package attaches as a custom `x-` request header — the same
+attach-a-header machinery as the load-bearing `accept` merge, in all three
+merge forms. Server-side, a response to a request without the token has the
+marker **stripped at serialization**: third parties calling the API directly
+get an ordinary error response; the app's own calls (which always carry the
+header, browser and SSR alike) get the full wire.
+
+- **The thrown error always carries the marker; only the serialized response
+  is ever stripped.** This is the Sentry-stability requirement: observability
+  sees tags on every known failure or on none, never depending on who
+  called. Raise-site stripping was considered and rejected for exactly that
+  inconsistency.
+- **The token is a channel tag, not a secret.** It ships in the client
+  bundle and is visible in devtools; it marks first-party intent and stops
+  casual consumers, and the docs must frame it as that, never as
+  authentication. Accepted deliberately.
+- Enabled by the token's presence; absent means today's behavior. No
+  `ModuleOptions` entry needed.
+- **To measure before it is a fact:** the stripping seam. The candidate is a
+  prepended entry in Nitro's `errorHandlers` chain — the chain Nuxt itself
+  prepends to (§5) — rewriting the body for tokenless requests and deferring
+  otherwise. Owning `nitro.errorHandler` wholesale stays off the table.
+
+### Core / module layering — structure now, extraction later
+
+The package is built in two layers from the first commit: a **core** (wire,
+raise path, matcher runtime, definition surface, recognizer) that imports
+nothing from `@nuxt/kit`, `#app`, or the Nitro runtime, and a **module**
+layer (plugins, composables, emitter wiring) consuming it. The planned
+sibling packages — params/body validation, OpenAPI generation — and the
+umbrella module that composes all three are why the boundary exists; the
+**extraction into published packages waits until the second consumer is
+real**. That order is the §2 barrel lesson applied: the handler-composition
+seam (one definer carrying errors *and* validation) is the hard design
+problem, and it gets designed against two real consumers with veto power,
+not one real and one imagined. Noted for then: the OpenAPI package needs
+schema *values* at build time — a different channel than the type map, whose
+never-catalogue-content rule is unchanged — and a shared core makes the
+foreign-copy runtime guard more load-bearing, not less.
+
+### Observability — a recognizer, and the integration decides
+
+Nitro's `captureError` fires the `error` hook unconditionally and the fan-out
+has no cancellation, so the module suppresses nothing and never will. What it
+ships is a server-side **recognizer** over the wire floor — the variant or
+`undefined` — handling **both marker depths** (`data.__knownError__` on the
+server's own thrown error, `data.data.__knownError__` on a fetched carrier),
+plus the documented recipe: filter in Sentry's `beforeSend` or the consumer's
+own `error` hook, keyed on the recognizer **and** `unhandled === false` — so
+a route's own declared failure is filterable while an escaped callee failure
+still reports as the caller bug it is. Whether known failures appear in
+Sentry is the integration's one-line choice, made once, stable by the
+always-marked rule above.
+
+### The old open questions, dispositioned
+
+- **Observability** — resolved above.
+- **The foreign wire marker on the degraded reader** — accepted and
+  documented for v1: a forged marker is no worse than a forged success
+  payload, and the degraded fallback types only the floor. Revisitable
+  compatibly.
+- **The catalogue-driven skew-safe match helper** — out of v1, recorded as
+  future work; the `unrecognized` fallback already handles skew honestly.
+
+---
+
+## 8. Roadmap
 
 1. ~~Lock the client call sites~~ — done, §2: `useCheckedFetch`, `$checkedFetch`,
    `$checkedFetch.try`, and the bare-`catch` floor. Completed after step 3 by a
@@ -919,7 +1011,13 @@ KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
    `NuxtError` + `status` as the one answer on both layers (with the
    server-normalization standing requirement), and the package taking back
    `nuxt-handler-errors`'s name, module name, and `handlerErrors` configKey
-6. **Then the internals** — emitter, wire, runtime. There are standing
-   requirements for v1 to be stated at that point
+6. **Then the internals** — emitter, wire, runtime. The standing requirements
+   are stated: §7 (payload schemas inference-only, channel gating stripped at
+   serialization, core/module layering with deferred extraction, the
+   observability recognizer), on top of the take / adapt / drop inventory in
+   `INTERNALS-ANALYSIS.md`. Two measurements remain before implementation:
+   the `errorHandlers`-chain stripping seam, and the recognizer against both
+   marker depths
 
-Nothing past step 5 is designed yet, and nothing at all is implemented.
+Nothing at all is implemented; step 6's requirements are stated and its two
+measurements are pending.
