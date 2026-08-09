@@ -100,7 +100,7 @@ export type ConflictGuard<A extends ReadonlyArray<KnownError<KnownVariant>>> = [
  * the only channel the emitter has: the generated map (`KnownApiErrors` in
  * the fixtures) is derived from handler types, so without it the whole
  * client surface reads `never`. */
-export interface TypedEventHandler<Response, E extends KnownVariant> {
+export interface CheckedEventHandler<Response, E extends KnownVariant> {
   (event: H3Event): Promise<Awaited<Response>>
   __knownErrors__?: E
 }
@@ -119,14 +119,14 @@ export type KnownErrorsOfHandler<T> =
       ? Exclude<E, undefined>
       : never
 
-export interface DefineTypedEventHandler {
+export interface DefineCheckedEventHandler {
   <A extends ReadonlyArray<KnownError<KnownVariant>>, Response>(
     options: ConflictGuard<A> & { errors: A },
     handler: (event: H3Event, ctx: HandlerContext<ErrorsOfArray<A>>) => Response
-  ): TypedEventHandler<Response, ErrorsOfArray<A>>
+  ): CheckedEventHandler<Response, ErrorsOfArray<A>>
 }
 
-export declare const defineTypedEventHandler: DefineTypedEventHandler
+export declare const defineCheckedEventHandler: DefineCheckedEventHandler
 
 // --- The raise-site wire contract ------------------------------------------
 
@@ -186,7 +186,7 @@ export type AssertPayload = Expect<
   >
 >
 
-export const wholeGroups = defineTypedEventHandler(
+export const wholeGroups = defineCheckedEventHandler(
   { errors: routeErrors },
   (event, { fail }) => {
     if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
@@ -204,7 +204,7 @@ export const wholeGroups = defineTypedEventHandler(
   }
 )
 
-export const pickedSubset = defineTypedEventHandler(
+export const pickedSubset = defineCheckedEventHandler(
   { errors: [...userErrors.pick('user-not-found'), forbidden] },
   (event, { fail }) => {
     if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
@@ -231,7 +231,7 @@ export type AssertOverlapDedupes = Expect<
   >
 >
 
-export const pickedSeveral = defineTypedEventHandler(
+export const pickedSeveral = defineCheckedEventHandler(
   { errors: overlappingErrors },
   (event, { fail }) => {
     if (event.path === 'a') return fail('order-cancelled', { orderId: 'o1' })
@@ -300,7 +300,7 @@ const userErrorsAgain = defineError({
   'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
 })
 
-export const identicalRedeclarationPasses = defineTypedEventHandler(
+export const identicalRedeclarationPasses = defineCheckedEventHandler(
   { errors: [...userErrors, ...userErrorsAgain] },
   (event, { fail }) => {
     if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
@@ -323,7 +323,7 @@ const conflictingUserErrors = defineError({
 })
 
 export const divergentRedeclarationIsCaught = (): void => {
-  defineTypedEventHandler(
+  defineCheckedEventHandler(
     // @ts-expect-error — `__divergentErrorTag__` names `user-not-found`
     { errors: [...userErrors, ...conflictingUserErrors] },
     () => ({ ok: true })

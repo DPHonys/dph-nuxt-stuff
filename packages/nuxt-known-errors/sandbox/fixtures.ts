@@ -19,7 +19,7 @@ export declare function watch<T>(
 
 /** h3's `H3Event`, reduced to existence. The real class is generic and
  * declared in h3's own resolvable `dist/index.d.ts`, which is what makes the
- * `$typedFetch` augmentation in `matcher.ts` possible — see DESIGN §5. */
+ * `$checkedFetch` augmentation in `matcher.ts` possible — see DESIGN §5. */
 export interface H3Event {
   path: string
 }

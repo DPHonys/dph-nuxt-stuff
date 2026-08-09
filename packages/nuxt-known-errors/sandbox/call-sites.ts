@@ -13,16 +13,16 @@ import {
   useAsyncData,
   watch,
 } from './fixtures'
-import type { KnownVariant, TypedFetch } from './matcher'
+import type { KnownVariant, CheckedFetch } from './matcher'
 import {
-  $typedFetch,
+  $checkedFetch,
   matchError,
   useFetch,
-  useLazyTypedAsyncData,
-  useLazyTypedFetch,
-  useRequestTypedFetch,
-  useTypedAsyncData,
-  useTypedFetch,
+  useLazyCheckedAsyncData,
+  useLazyCheckedFetch,
+  useRequestCheckedFetch,
+  useCheckedAsyncData,
+  useCheckedFetch,
 } from './matcher'
 
 interface User {
@@ -45,7 +45,7 @@ declare function render(user: User): void
 // The shape, whole. One call, no guard, no nesting, no reader. `data` goes to
 // the template, which the sandbox cannot model, so only `error` is read here.
 export async function composable(): Promise<void> {
-  const { error } = await useTypedFetch('/api/users/:id')
+  const { error } = await useCheckedFetch('/api/users/:id')
 
   matchError(
     error,
@@ -54,8 +54,8 @@ export async function composable(): Promise<void> {
       'user-not-found': (e) => notFound(e.userId),
       'user-suspended': (e) => blocked(e.until),
     },
-    (err, unrecognised) => {
-      if (unrecognised) return report(`unknown failure: ${unrecognised.tag}`)
+    (err, unrecognized) => {
+      if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
       showError(err)
     }
   )
@@ -63,7 +63,7 @@ export async function composable(): Promise<void> {
 
 /** Missing an arm is a compile error — that is what makes the fallback mean one thing. */
 export async function composableExhaustiveness(): Promise<void> {
-  const { error } = await useTypedFetch('/api/users/:id')
+  const { error } = await useCheckedFetch('/api/users/:id')
 
   matchError(
     error,
@@ -81,7 +81,7 @@ export async function composableExhaustiveness(): Promise<void> {
 // they may disagree freely — a navigating arm beside a plain one, and a
 // navigating fallback, which under an inferred `R` broke every `void` arm.
 export async function composableArmsMayDisagree(): Promise<void> {
-  const { error } = await useTypedFetch('/api/users/:id')
+  const { error } = await useCheckedFetch('/api/users/:id')
 
   matchError(
     error,
@@ -102,7 +102,7 @@ export async function composableArmsMayDisagree(): Promise<void> {
  * accepted, and usually wanted, difference from the one-shot style.
  */
 export async function composableReactive(): Promise<void> {
-  const { error } = await useTypedFetch('/api/users/:id')
+  const { error } = await useCheckedFetch('/api/users/:id')
 
   watch(
     error,
@@ -122,7 +122,7 @@ export async function composableReactive(): Promise<void> {
 
 /** The matcher is a statement, so it cannot be tested for truthiness. */
 export async function composableIsNotAnExpression(): Promise<void> {
-  const { error } = await useTypedFetch('/api/boom')
+  const { error } = await useCheckedFetch('/api/boom')
 
   // @ts-expect-error — TS1345: an expression of type 'void' cannot be tested
   if (matchError(error, {}, showError)) report('unreachable')
@@ -130,7 +130,7 @@ export async function composableIsNotAnExpression(): Promise<void> {
 
 /** Arm parameters are the real variant, not `never` and not `any`. */
 export async function composableArmParameters(): Promise<void> {
-  const { error } = await useTypedFetch('/api/users/:id')
+  const { error } = await useCheckedFetch('/api/users/:id')
 
   matchError(
     error,
@@ -150,9 +150,9 @@ export async function composableArmParameters(): Promise<void> {
       },
       'user-suspended': (e) => blocked(e.until),
     },
-    (err, unrecognised) => {
+    (err, unrecognized) => {
       const status: number | undefined = err.status
-      const skew: KnownVariant | undefined = unrecognised
+      const skew: KnownVariant | undefined = unrecognized
       report(`${status ?? 0}: ${skew?.tag ?? 'no marker'}`)
     }
   )
@@ -160,10 +160,10 @@ export async function composableArmParameters(): Promise<void> {
 
 /** A route that declares nothing degrades to vanilla — still callable. */
 export async function composableUndeclaredRoute(): Promise<void> {
-  const { error } = await useTypedFetch('/api/boom')
+  const { error } = await useCheckedFetch('/api/boom')
 
-  matchError(error, {}, (err, unrecognised) => {
-    if (unrecognised) return report(unrecognised.tag)
+  matchError(error, {}, (err, unrecognized) => {
+    if (unrecognized) return report(unrecognized.tag)
     showError(err)
   })
 }
@@ -172,8 +172,8 @@ export async function composableUndeclaredRoute(): Promise<void> {
 export async function composableVanilla(): Promise<void> {
   const { error } = await useFetch('/api/users/:id')
 
-  matchError(error, {}, (err, unrecognised) => {
-    if (unrecognised) return report(unrecognised.tag)
+  matchError(error, {}, (err, unrecognized) => {
+    if (unrecognized) return report(unrecognized.tag)
     showError(err)
   })
 }
@@ -183,7 +183,7 @@ export async function composableVanilla(): Promise<void> {
  * route: a single arm, and the fallback still catches everything else.
  */
 export async function composablePlainValue(): Promise<void> {
-  const { error } = await useTypedFetch('/api/chain/c')
+  const { error } = await useCheckedFetch('/api/chain/c')
 
   matchError(error.value, { 'c-gone': (e) => report(e.resource) }, (err) =>
     showError(err)
@@ -193,7 +193,7 @@ export async function composablePlainValue(): Promise<void> {
 /** The lazy twin carries the same union; the error arrives after setup, so
  * the reactive composition is the read that fits it. */
 export async function composableLazyTwin(): Promise<void> {
-  const { error } = await useLazyTypedFetch('/api/users/:id')
+  const { error } = await useLazyCheckedFetch('/api/users/:id')
 
   watch(
     error,
@@ -217,7 +217,7 @@ export async function composableLazyTwin(): Promise<void> {
 
 /** The shape, whole. The guard narrows `data`; the function decides the exit. */
 export async function imperative(): Promise<void> {
-  const { data, error } = await $typedFetch.try('/api/users/:id')
+  const { data, error } = await $checkedFetch.try('/api/users/:id')
 
   if (error) {
     matchError(
@@ -227,8 +227,8 @@ export async function imperative(): Promise<void> {
         'user-not-found': (e) => notFound(e.userId),
         'user-suspended': (e) => blocked(e.until),
       },
-      (err, unrecognised) => {
-        if (unrecognised) return report(`unknown failure: ${unrecognised.tag}`)
+      (err, unrecognized) => {
+        if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
         showError(err)
       }
     )
@@ -241,7 +241,7 @@ export async function imperative(): Promise<void> {
 // A util that returns data. The matcher handles the failure; the function
 // decides what it returns, and the compiler keeps those two jobs apart.
 export async function utilReturningData(): Promise<User | null> {
-  const { data, error } = await $typedFetch.try('/api/users/:id')
+  const { data, error } = await $checkedFetch.try('/api/users/:id')
 
   if (error) {
     matchError(
@@ -261,7 +261,7 @@ export async function utilReturningData(): Promise<User | null> {
 
 /** The narrowing comes from the guard; `matchError` returns nothing. */
 export async function imperativeNeedsTheGuard(): Promise<User> {
-  const { data, error } = await $typedFetch.try('/api/users/:id')
+  const { data, error } = await $checkedFetch.try('/api/users/:id')
 
   matchError(
     error,
@@ -282,7 +282,7 @@ declare function guardShapedMatcher(e: unknown): e is NuxtError
 
 /** Why the matcher is not a guard: a predicate does not narrow the sibling. */
 export async function guardWouldNotHaveNarrowed(): Promise<User> {
-  const { data, error } = await $typedFetch.try('/api/users/:id')
+  const { data, error } = await $checkedFetch.try('/api/users/:id')
   if (guardShapedMatcher(error)) throw error
 
   // @ts-expect-error — a user-declared predicate narrows `error` and nothing else
@@ -292,7 +292,7 @@ export async function guardWouldNotHaveNarrowed(): Promise<User> {
 
 /** `.try` carries the same union the composable's error ref does. */
 export async function imperativeArmParameters(): Promise<void> {
-  const { error } = await $typedFetch.try('/api/users/:id')
+  const { error } = await $checkedFetch.try('/api/users/:id')
   if (!error) return
 
   matchError(
@@ -313,7 +313,7 @@ export async function imperativeArmParameters(): Promise<void> {
 
 /** The fallback is required; omitting it could only ever silence the 500. */
 export async function fallbackIsRequired(): Promise<void> {
-  const { error } = await $typedFetch.try('/api/users/:id')
+  const { error } = await $checkedFetch.try('/api/users/:id')
 
   // @ts-expect-error — two arguments is no longer a call
   matchError(error, {
@@ -327,11 +327,11 @@ export async function fallbackIsRequired(): Promise<void> {
 export async function imperativeUndeclaredRoute(): Promise<{
   fine: boolean
 } | null> {
-  const { data, error } = await $typedFetch.try('/api/boom')
+  const { data, error } = await $checkedFetch.try('/api/boom')
 
   if (error) {
-    matchError(error, {}, (err, unrecognised) => {
-      if (unrecognised) return report(unrecognised.tag)
+    matchError(error, {}, (err, unrecognized) => {
+      if (unrecognized) return report(unrecognized.tag)
       showError(err)
     })
     return null
@@ -342,7 +342,7 @@ export async function imperativeUndeclaredRoute(): Promise<{
 
 /** `.create` keeps the typed interface, so `.try` survives one level down. */
 export async function imperativeCreate(): Promise<{ ok: true } | null> {
-  const api = $typedFetch.create({ baseURL: '/v2' })
+  const api = $checkedFetch.create({ baseURL: '/v2' })
   const { data, error } = await api.try('/api/chain/c')
 
   if (error) {
@@ -359,10 +359,10 @@ export async function imperativeCreate(): Promise<{ ok: true } | null> {
 
 /** `.raw` has no `.try`, deliberately. */
 export async function imperativeRawHasNoTry(): Promise<number> {
-  const res = await $typedFetch.raw('/api/users/:id')
+  const res = await $checkedFetch.raw('/api/users/:id')
 
   // @ts-expect-error — `.raw` already returns without throwing
-  await $typedFetch.raw.try('/api/users/:id')
+  await $checkedFetch.raw.try('/api/users/:id')
 
   return res.status
 }
@@ -370,10 +370,10 @@ export async function imperativeRawHasNoTry(): Promise<number> {
 /** `.native` is the bare fetch, passed through untouched — a `Response`, and
  * nothing on it to type. */
 export async function imperativeNativePassesThrough(): Promise<number> {
-  const res: Response = await $typedFetch.native('/api/users/:id')
+  const res: Response = await $checkedFetch.native('/api/users/:id')
 
   // @ts-expect-error — no `.try` on the bare fetch either
-  await $typedFetch.native.try('/api/users/:id')
+  await $checkedFetch.native.try('/api/users/:id')
 
   return res.status
 }
@@ -382,7 +382,7 @@ export async function imperativeNativePassesThrough(): Promise<number> {
  * seam exactly — on the server vanilla hands back the bare `event.$fetch`
  * closure, so anything more would be typed and absent. */
 export async function requestBoundImperative(): Promise<User | null> {
-  const fetcher = useRequestTypedFetch()
+  const fetcher = useRequestCheckedFetch()
 
   // @ts-expect-error — no `.raw` on the request-bound instance
   await fetcher.raw('/api/users/:id')
@@ -409,13 +409,13 @@ export async function requestBoundImperative(): Promise<User | null> {
 // The throwing path — vanilla, and honest about the floor
 // ===========================================================================
 
-/** `$typedFetch` throws as `$fetch` does; the `catch` reads the floor. */
+/** `$checkedFetch` throws as `$fetch` does; the `catch` reads the floor. */
 export async function throwingPath(): Promise<void> {
   try {
-    render(await $typedFetch('/api/users/:id'))
+    render(await $checkedFetch('/api/users/:id'))
   } catch (e) {
-    matchError(e, {}, (err, unrecognised) => {
-      if (unrecognised) return report(`unknown failure: ${unrecognised.tag}`)
+    matchError(e, {}, (err, unrecognized) => {
+      if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
       showError(err)
     })
   }
@@ -428,7 +428,7 @@ export async function throwingPath(): Promise<void> {
  */
 export async function catchCannotMatchTags(): Promise<void> {
   try {
-    await $typedFetch('/api/users/:id')
+    await $checkedFetch('/api/users/:id')
   } catch (e) {
     // @ts-expect-error — degraded only; restating the route here was rejected
     matchError(e, { forbidden: () => snack('nope') }, (err) => showError(err))
@@ -446,7 +446,7 @@ export async function catchCannotMatchTags(): Promise<void> {
 // callee's error escape: the framework would scrub the variant and forward
 // the callee's status line, answering with a status this route never meant.
 export const serverHandler = defineEventHandler(async (event) => {
-  const { data, error } = await event.$typedFetch.try('/api/chain/c')
+  const { data, error } = await event.$checkedFetch.try('/api/chain/c')
 
   if (error) {
     matchError(
@@ -473,11 +473,11 @@ export const serverHandler = defineEventHandler(async (event) => {
  * assigns on `event.$fetch` do not exist here to be reached for. */
 export const serverEventSurfaceIsTheSeam = defineEventHandler(async (event) => {
   // @ts-expect-error — no `.raw` on the event-bound instance
-  await event.$typedFetch.raw('/api/users/:id')
+  await event.$checkedFetch.raw('/api/users/:id')
   // @ts-expect-error — no `.create` either
-  event.$typedFetch.create({ baseURL: '/v2' })
+  event.$checkedFetch.create({ baseURL: '/v2' })
 
-  render(await event.$typedFetch('/api/users/:id'))
+  render(await event.$checkedFetch('/api/users/:id'))
 })
 
 // ===========================================================================
@@ -486,7 +486,7 @@ export const serverEventSurfaceIsTheSeam = defineEventHandler(async (event) => {
 
 // A `shared/` util that lets its caller choose the request context names the
 // seam as a parameter. The arms are the same arms as everywhere else.
-async function sharedGetUser(fetcher: TypedFetch): Promise<User | null> {
+async function sharedGetUser(fetcher: CheckedFetch): Promise<User | null> {
   const { data, error } = await fetcher.try('/api/users/:id')
 
   if (error) {
@@ -507,16 +507,16 @@ async function sharedGetUser(fetcher: TypedFetch): Promise<User | null> {
 
 /** …fed the context-forwarding instance on the server… */
 export const sharedFromServer = defineEventHandler((event) =>
-  sharedGetUser(event.$typedFetch)
+  sharedGetUser(event.$checkedFetch)
 )
 
-/** …and the global everywhere else — `$TypedFetch extends TypedFetch`. */
+/** …and the global everywhere else — `$CheckedFetch extends CheckedFetch`. */
 export function sharedFromApp(): Promise<User | null> {
-  return sharedGetUser($typedFetch)
+  return sharedGetUser($checkedFetch)
 }
 
 // ===========================================================================
-// `useTypedAsyncData` — the union rides the handler's return type
+// `useCheckedAsyncData` — the union rides the handler's return type
 // ===========================================================================
 
 // Components rarely spell routes; they call a repository that wraps `.try`.
@@ -524,13 +524,13 @@ export function sharedFromApp(): Promise<User | null> {
 // annotated. (Fixture routes carry no params, so `id` goes unused; the real
 // package forwards fetch options.)
 const userRepo = {
-  get: (_id: string) => $typedFetch.try('/api/users/:id'),
+  get: (_id: string) => $checkedFetch.try('/api/users/:id'),
 }
 
 /** A repository over the seam, for `shared/` — same inference, caller picks
  * the context by choosing the instance. */
 // eslint-disable-next-line ts/explicit-function-return-type -- the inferred type IS the demonstration
-export function createChainRepo(fetcher: TypedFetch) {
+export function createChainRepo(fetcher: CheckedFetch) {
   return {
     c: () => fetcher.try('/api/chain/c'),
   }
@@ -544,7 +544,7 @@ async function getUserWithChain() {
   const user = await userRepo.get('42')
   if (user.error) return user
 
-  const c = await createChainRepo($typedFetch).c()
+  const c = await createChainRepo($checkedFetch).c()
   if (c.error) return c
 
   return { data: { user: user.data, c: c.data }, error: undefined }
@@ -553,7 +553,7 @@ async function getUserWithChain() {
 /** The shape, whole: one key, one repository call, zero annotations — and the
  * matcher gets the route's full union. */
 export async function throughARepository(): Promise<void> {
-  const { data, error } = await useTypedAsyncData('user', () =>
+  const { data, error } = await useCheckedAsyncData('user', () =>
     userRepo.get('42')
   )
 
@@ -570,8 +570,8 @@ export async function throughARepository(): Promise<void> {
       'user-not-found': (e) => notFound(e.userId),
       'user-suspended': (e) => blocked(e.until),
     },
-    (err, unrecognised) => {
-      if (unrecognised) return report(`unknown failure: ${unrecognised.tag}`)
+    (err, unrecognized) => {
+      if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
       showError(err)
     }
   )
@@ -580,7 +580,7 @@ export async function throughARepository(): Promise<void> {
 /** Keyless, exactly as vanilla — the module registers the name in
  * `optimization.keyedComposables`, so the compiler injects the key. */
 export async function keylessForm(): Promise<void> {
-  const { error } = await useTypedAsyncData(() => userRepo.get('42'))
+  const { error } = await useCheckedAsyncData(() => userRepo.get('42'))
 
   matchError(
     error,
@@ -597,7 +597,7 @@ export async function keylessForm(): Promise<void> {
  * composition is exactly what a lazy fetch needs — the error arrives after
  * setup, `immediate` covers it. */
 export async function lazyTwin(): Promise<void> {
-  const { error } = await useLazyTypedAsyncData('user', () =>
+  const { error } = await useLazyCheckedAsyncData('user', () =>
     userRepo.get('42')
   )
 
@@ -619,7 +619,7 @@ export async function lazyTwin(): Promise<void> {
 
 /** Exhaustiveness survives the wrapper. */
 export async function wrapperKeepsExhaustiveness(): Promise<void> {
-  const { error } = await useTypedAsyncData('user', () => userRepo.get('42'))
+  const { error } = await useCheckedAsyncData('user', () => userRepo.get('42'))
 
   matchError(
     error,
@@ -636,7 +636,7 @@ export async function wrapperKeepsExhaustiveness(): Promise<void> {
  * are exhaustive over BOTH routes' tags, and each payload narrows. This is
  * what the carrier-generic matcher buys. */
 export async function multiRouteRepository(): Promise<void> {
-  const { data, error } = await useTypedAsyncData('user-and-c', () =>
+  const { data, error } = await useCheckedAsyncData('user-and-c', () =>
     getUserWithChain()
   )
 
@@ -661,7 +661,7 @@ export async function multiRouteRepository(): Promise<void> {
 /** Dropping the second route's only tag is a compile error — cross-route
  * exhaustiveness, not just per-route. */
 export async function multiRouteExhaustiveness(): Promise<void> {
-  const { error } = await useTypedAsyncData('user-and-c', () =>
+  const { error } = await useCheckedAsyncData('user-and-c', () =>
     getUserWithChain()
   )
 
@@ -680,7 +680,7 @@ export async function multiRouteExhaustiveness(): Promise<void> {
 /** Vanilla's options work on the UNWRAPPED data: `transform` sees plain
  * success, `default` replaces `undefined`, exactly as vanilla types them. */
 export async function vanillaOptionsSurvive(): Promise<void> {
-  const { data } = await useTypedAsyncData(
+  const { data } = await useCheckedAsyncData(
     'user-name',
     () => userRepo.get('42'),
     {
@@ -696,7 +696,7 @@ export async function vanillaOptionsSurvive(): Promise<void> {
 
 /** `pick`, the other half of vanilla's data shaping. */
 export async function vanillaPickSurvives(): Promise<void> {
-  const { data } = await useTypedAsyncData(
+  const { data } = await useCheckedAsyncData(
     'user-id',
     () => userRepo.get('42'),
     { pick: ['id'] }
@@ -708,7 +708,7 @@ export async function vanillaPickSurvives(): Promise<void> {
 
 /** `status` and `refresh` are vanilla's own — underneath it IS vanilla. */
 export async function vanillaMembersSurvive(): Promise<void> {
-  const { status, refresh } = await useTypedAsyncData('user', () =>
+  const { status, refresh } = await useCheckedAsyncData('user', () =>
     userRepo.get('42')
   )
 
@@ -721,22 +721,22 @@ export async function vanillaMembersSurvive(): Promise<void> {
 /** A route that declares nothing degrades through the wrapper exactly as it
  * degrades everywhere else. */
 export async function degradedRouteThroughTheWrapper(): Promise<void> {
-  const { error } = await useTypedAsyncData('boom', () =>
-    $typedFetch.try('/api/boom')
+  const { error } = await useCheckedAsyncData('boom', () =>
+    $checkedFetch.try('/api/boom')
   )
 
-  matchError(error, {}, (err, unrecognised) => {
-    if (unrecognised) return report(unrecognised.tag)
+  matchError(error, {}, (err, unrecognized) => {
+    if (unrecognized) return report(unrecognized.tag)
     showError(err)
   })
 }
 
 /** Forgetting `.try` is a compile error, not a silent degradation: a bare
- * `$typedFetch` resolves to plain data, which is not a try-shape. The wrapper
+ * `$checkedFetch` resolves to plain data, which is not a try-shape. The wrapper
  * turns the discipline into a constraint. */
 export async function forgettingTryCannotCompile(): Promise<void> {
   // @ts-expect-error — the handler must return a try-shape, not raw data
-  await useTypedAsyncData('user', () => $typedFetch('/api/users/:id'))
+  await useCheckedAsyncData('user', () => $checkedFetch('/api/users/:id'))
 }
 
 // ===========================================================================
@@ -747,21 +747,21 @@ export async function forgettingTryCannotCompile(): Promise<void> {
  * A handler's rejection carries no type, so the union cannot ride it and the
  * matcher degrades. Nothing is lost at runtime: the framework's own
  * `createError` copy carries the marker into the error ref, where the
- * degraded matcher hands it to the fallback as `unrecognised`.
+ * degraded matcher hands it to the fallback as `unrecognized`.
  */
 export async function asyncDataCustomHandler(): Promise<void> {
   const { error } = await useAsyncData('user-and-c', async () => {
     const [user, c] = await Promise.all([
-      $typedFetch('/api/users/:id'),
-      $typedFetch('/api/chain/c'),
+      $checkedFetch('/api/users/:id'),
+      $checkedFetch('/api/chain/c'),
     ])
     return { user, c }
   })
 
-  matchError(error, {}, (err, unrecognised) => {
-    if (unrecognised)
+  matchError(error, {}, (err, unrecognized) => {
+    if (unrecognized)
       return report(
-        `known to the server, not to this call: ${unrecognised.tag}`
+        `known to the server, not to this call: ${unrecognized.tag}`
       )
     showError(err)
   })
@@ -770,7 +770,7 @@ export async function asyncDataCustomHandler(): Promise<void> {
 /** Typed arms cannot ride along — the same whole-call TS2769 as a bare `catch`. */
 export async function asyncDataCannotMatchTags(): Promise<void> {
   const { error } = await useAsyncData('user', () =>
-    $typedFetch('/api/users/:id')
+    $checkedFetch('/api/users/:id')
   )
 
   // @ts-expect-error — degraded only; a wrapper restating the route was rejected

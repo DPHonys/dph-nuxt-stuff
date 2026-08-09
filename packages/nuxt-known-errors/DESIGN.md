@@ -14,13 +14,13 @@ pnpm --filter @dphonys/nuxt-known-errors typecheck
 
 Five files, and no more. Reasoning lives here, not in comments.
 
-| File                              | What it is                                                                                  |
-| --------------------------------- | ------------------------------------------------------------------------------------------- |
-| `sandbox/matcher.ts`              | **the design.** `matchError` and the fetch, asyncData and server surfaces                   |
-| `sandbox/call-sites.ts`           | **the evidence.** Every agreed call style, with assertions                                  |
-| `sandbox/fixtures.ts`             | framework replicas + three fictional routes. Not the design                                 |
+| File                              | What it is                                                                                                                                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sandbox/matcher.ts`              | **the design.** `matchError` and the fetch, asyncData and server surfaces                                                                                                  |
+| `sandbox/call-sites.ts`           | **the evidence.** Every agreed call style, with assertions                                                                                                                 |
+| `sandbox/fixtures.ts`             | framework replicas + three fictional routes. Not the design                                                                                                                |
 | `sandbox/glue/p2-array-spread.ts` | **the definition surface.** `defineError`, the errors slot, the brand, the raise contract — design and evidence in one file, folded into the main three when step 6 starts |
-| `sandbox/glue/shared.ts`          | the pieces the glue redesign held fixed (`payload`, `fail`, the variant vocabulary)         |
+| `sandbox/glue/shared.ts`          | the pieces the glue redesign held fixed (`payload`, `fail`, the variant vocabulary)                                                                                        |
 
 Earlier sandbox files — `api.ts` and the guard-based sketches, `alternatives.ts`,
 `fetch.ts`, `map.ts`, `replica.ts` — have been deleted. Everything they
@@ -67,7 +67,7 @@ code, mismatched model.
 ### The matcher
 
 ```ts
-const { data, error } = await useTypedFetch('/api/users/:id')
+const { data, error } = await useCheckedFetch('/api/users/:id')
 
 matchError(
   error,
@@ -76,8 +76,8 @@ matchError(
     'user-not-found': (e) => notFound(e.userId),
     'user-suspended': (e) => blocked(e.until),
   },
-  (err, unrecognised) => {
-    if (unrecognised) return report(`unknown failure: ${unrecognised.tag}`)
+  (err, unrecognized) => {
+    if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
     showError(err)
   }
 )
@@ -104,7 +104,7 @@ One call. No guard, no nesting, no reader, no `.safe`. `matchError` absorbs the
   method key in the generated map. A positional argument has no collision
   surface.
 
-- **The fallback's second parameter is the unrecognised variant.** Optional, so
+- **The fallback's second parameter is the unrecognized variant.** Optional, so
   `(err) => showError(err)` is untouched. See §3.
 
 - **The fallback itself is required.** It was optional; the two-argument form
@@ -133,7 +133,7 @@ One call. No guard, no nesting, no reader, no `.safe`. `matchError` absorbs the
     §6 trap cannot recur.
 
 - **The ref is read once, at call time.** Correct right after
-  `await useTypedFetch(…)`; stale across a `refresh()`. The reactive form is
+  `await useCheckedFetch(…)`; stale across a `refresh()`. The reactive form is
   **composition, not a new function** — read-at-call-time is exactly what makes
   `watch(error, () => matchError(error, …), { immediate: true })` correct on
   every change, and `immediate` also covers the non-awaited (lazy) fetch, where
@@ -143,10 +143,10 @@ One call. No guard, no nesting, no reader, no `.safe`. `matchError` absorbs the
   a one-liner. Cost, accepted: side-effect arms re-fire on every failed
   refetch — usually wanted, and the visible difference between the two styles.
 
-### The imperative surface — `$typedFetch.try`
+### The imperative surface — `$checkedFetch.try`
 
 ```ts
-const { data, error } = await $typedFetch.try('/api/users/:id')
+const { data, error } = await $checkedFetch.try('/api/users/:id')
 
 if (error) {
   matchError(
@@ -156,8 +156,8 @@ if (error) {
       'user-not-found': (e) => notFound(e.userId),
       'user-suspended': (e) => blocked(e.until),
     },
-    (err, unrecognised) => {
-      if (unrecognised) return report(`unknown failure: ${unrecognised.tag}`)
+    (err, unrecognized) => {
+      if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
       showError(err)
     }
   )
@@ -172,7 +172,7 @@ route literal is on the _call_; there is no channel from a call expression into
 a sibling `catch` block. A return type is the only position that can carry the
 declared union. `.try` exists for that reason and no other.
 
-- **`$typedFetch(…)` is vanilla, unchanged.** It throws, and the `catch` reads
+- **`$checkedFetch(…)` is vanilla, unchanged.** It throws, and the `catch` reads
   the floor through the degraded matcher. That path stays honest rather than
   pretending — see the rejected route-restating escape hatch in §4.
 
@@ -208,7 +208,7 @@ declared union. `.try` exists for that reason and no other.
   `safe` carried a different contract in the old package, and reusing the name
   for a changed one is a migration hazard. Verified legal as a property name in
   an interface, an object literal and a bare reference. This also settles
-  `event.$typedFetch.try` for the server-to-server session: one word per
+  `event.$checkedFetch.try` for the server-to-server session: one word per
   concept means it is forced, not open.
 
 ### The remaining vanilla mirrors
@@ -217,28 +217,28 @@ Found by sweeping Nuxt's exported client surface against the locked one; each
 is a one-line reuse of an existing decision, recorded so the sweep does not
 need re-running.
 
-- **`useLazyTypedFetch`** mirrors `useLazyFetch`: the same surface as
-  `useTypedFetch` with `lazy` pre-set, exactly as the asyncData twin. The
+- **`useLazyCheckedFetch`** mirrors `useLazyFetch`: the same surface as
+  `useCheckedFetch` with `lazy` pre-set, exactly as the asyncData twin. The
   error arrives after setup, and the reactive matcher composition
   (`watch` + `immediate`, §2) is the read that fits it.
 
-- **`useRequestTypedFetch()`** mirrors `useRequestFetch()`, the SSR-safe
-  imperative fetch for app code — without it, a bare `$typedFetch` call in a
+- **`useRequestCheckedFetch()`** mirrors `useRequestFetch()`, the SSR-safe
+  imperative fetch for app code — without it, a bare `$checkedFetch` call in a
   composable forwards no cookies during SSR. The seam is its honest type:
   vanilla returns the global on the client and the **bare** `event.$fetch`
   closure on the server (§5), so anything beyond the call and `.try` would be
-  typed and absent — the same reasoning that shaped `event.$typedFetch`.
+  typed and absent — the same reasoning that shaped `event.$checkedFetch`.
 
-- **`$typedFetch.native`** is ofetch's bare-`fetch` member, passed through
+- **`$checkedFetch.native`** is ofetch's bare-`fetch` member, passed through
   untouched. A `Response` has no error channel to type, and dropping a
   vanilla member from the object we shadow would break the mirror — the
   omission would otherwise be the only undocumented difference.
 
-### The server surface — `event.$typedFetch`
+### The server surface — `event.$checkedFetch`
 
 ```ts
 export default defineEventHandler(async (event) => {
-  const { data, error } = await event.$typedFetch.try('/api/chain/c')
+  const { data, error } = await event.$checkedFetch.try('/api/chain/c')
 
   if (error) {
     matchError(
@@ -275,11 +275,11 @@ export default defineEventHandler(async (event) => {
   `.create` also has nothing to mean here: an event-bound instance _is_ the
   customisation.
 
-- **One seam interface** — `TypedFetch`, the call plus `.try` (the name
-  belongs to the step-5 naming pass). The global `$TypedFetch` extends it with
+- **One seam interface** — `CheckedFetch`, the call plus `.try`. The global
+  `$CheckedFetch` extends it with
   `.raw` and `.create`; the event-bound instance is it exactly. A `shared/`
   util that lets its caller choose the request context accepts the seam as a
-  parameter and is handed `event.$typedFetch` on the server and `$typedFetch`
+  parameter and is handed `event.$checkedFetch` on the server and `$checkedFetch`
   everywhere else — the same arms serve both. The global itself stays
   reachable in `shared/` exactly as Nitro's own `$fetch` global is, with the
   same context-less semantics: the mirror-of-vanilla rule, not a new decision.
@@ -301,17 +301,19 @@ export default defineEventHandler(async (event) => {
   honestly.** Rejection types do not exist in TypeScript, so no typing can
   ride a handler's throw (§4). Nothing is lost at runtime: the framework's own
   `createError` copy carries the marker into the error ref (§5), where the
-  degraded matcher hands it to the fallback as `unrecognised`. The typed path
+  degraded matcher hands it to the fallback as `unrecognized`. The typed path
   is the next section — the handler returns instead of throwing.
 
-### The asyncData surface — `useTypedAsyncData`
+### The asyncData surface — `useCheckedAsyncData`
 
 ```ts
 const userRepo = {
-  get: (id: string) => $typedFetch.try('/api/users/:id'),
+  get: (id: string) => $checkedFetch.try('/api/users/:id'),
 }
 
-const { data, error } = await useTypedAsyncData('user', () => userRepo.get(id))
+const { data, error } = await useCheckedAsyncData('user', () =>
+  userRepo.get(id)
+)
 
 matchError(
   error,
@@ -340,7 +342,7 @@ one typed channel into `useAsyncData`'s generics.
   for `shared/` take the seam as a parameter, as everywhere.
 
 - **Forgetting `.try` is a compile error, not a silent degradation.** The
-  handler's constraint is the try-shape; a bare `$typedFetch` call resolves to
+  handler's constraint is the try-shape; a bare `$checkedFetch` call resolves to
   plain data and does not satisfy it. The discipline the shape needs is
   enforced by the signature, not taught by docs.
 
@@ -352,10 +354,9 @@ one typed channel into `useAsyncData`'s generics.
 
 - **The keyless form works exactly as vanilla's**, because Nuxt's key
   injection is a module-extensible registry, not a hardcoded list (§5) — the
-  module registers `useTypedAsyncData` in `optimization.keyedComposables` and
-  the compiler injects the key. **The lazy twin `useLazyTypedAsyncData` is the
-  same surface with `lazy` pre-set**, mirroring vanilla's own twin; the word
-  order is a step-5 naming item.
+  module registers `useCheckedAsyncData` in `optimization.keyedComposables` and
+  the compiler injects the key. **The lazy twin `useLazyCheckedAsyncData` is the
+  same surface with `lazy` pre-set**, mirroring vanilla's own twin.
 
 - **The runtime is unwrap-or-rethrow, and the carrier survives untouched.**
   The wrapper delegates to vanilla `useAsyncData` with
@@ -385,7 +386,7 @@ export const forbidden = defineError('forbidden', {
 })
 
 // server/api/users/[id].get.ts
-export default defineTypedEventHandler(
+export default defineCheckedEventHandler(
   { errors: [...userErrors.pick('user-not-found'), forbidden] },
   async (event, { fail }) => {
     // …
@@ -455,10 +456,10 @@ its `data` is a `Ref` handed to a template that copes with `undefined`
 natively. A function can return, and wants to, because it goes on to use `data`
 in the same scope.
 
-|                     | can `return`? | shape                                         |
-| ------------------- | ------------- | --------------------------------------------- |
-| `<script setup>`    | no            | `useTypedFetch` + bare `matchError(error, …)` |
-| inside any function | yes           | `$typedFetch.try` + `if (error) { … return }` |
+|                     | can `return`? | shape                                           |
+| ------------------- | ------------- | ----------------------------------------------- |
+| `<script setup>`    | no            | `useCheckedFetch` + bare `matchError(error, …)` |
+| inside any function | yes           | `$checkedFetch.try` + `if (error) { … return }` |
 
 ### Vocabulary — one word per concept
 
@@ -466,23 +467,91 @@ The old package spent three words on one idea: _handler-errors_ / _declared_ /
 _typed_. "Known" wins because it is about the caller's situation and it comes
 with its own antonym.
 
-| Old                                | New                                            |
-| ---------------------------------- | ---------------------------------------------- |
-| `nuxt-handler-errors`              | `nuxt-known-errors`                            |
-| `useDeclaredError`/`declaredError` | gone — `matchError` is the only read path      |
-| `DeclaredErrorsOf`                 | `KnownErrorsOf`                                |
-| `DeclaredErrorBody`                | `KnownErrorBody`                               |
-| `__declaredError__`                | `__knownError__`                               |
-| `__declaredErrors__` (handler)     | `__knownErrors__`                              |
-| `defineErrors` + catalogue types   | `defineError` — one call for one or many       |
-| `useTypedFetch` / `$typedFetch`    | unchanged — "typed" modifies _fetch_, honestly |
+| Old                                | New                                                                                                        |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `nuxt-handler-errors`              | unchanged — the rewrite replaces it in place; `nuxt-known-errors` is the design sandbox's placeholder only |
+| `useDeclaredError`/`declaredError` | gone — `matchError` is the only read path                                                                  |
+| `DeclaredErrorsOf`                 | `KnownErrorsOf`                                                                                            |
+| `DeclaredErrorBody`                | `KnownErrorBody`                                                                                           |
+| `__declaredError__`                | `__knownError__`                                                                                           |
+| `__declaredErrors__` (handler)     | `__knownErrors__`                                                                                          |
+| `defineErrors` + catalogue types   | `defineError` — one call for one or many                                                                   |
+| `useTypedFetch` / `$typedFetch`    | `useCheckedFetch` / `$checkedFetch` — see the naming pass                                                  |
 
-**failure** is the noun for the thing; **known / unknown** is the distinction.
-`error` stays Nuxt's word for the envelope.
+**failure** is the noun for the thing; **known / unknown** is the distinction;
+**checked** is the modifier for the surfaces — a checked surface is one whose
+failure path the compiler enforces. `error` stays Nuxt's word for the envelope.
+
+### The naming pass — step 5's record
+
+The whole surface was inventoried (~60 names across six stickiness tiers, from
+wire keys down to parameter names) and settled in one sitting. The decisions,
+each with its reason:
+
+- **`checked` replaces `typed` as the surface modifier.** Two reasons. Honesty:
+  vanilla `$fetch` is _already_ typed — its data channel has carried the
+  route's response type all along, so "typed" claimed a distinction vanilla
+  half-owns; what this package adds is a compiler-**checked** failure path
+  (checked as in checked exceptions — handling the compiler forces). Migration:
+  §2's own `safe` lesson — reusing a name while changing its contract migrates
+  silently; a renamed surface forces migrators to read the new docs. The full
+  family: `useCheckedFetch`, `useLazyCheckedFetch`, `useRequestCheckedFetch`,
+  `$checkedFetch`, `event.$checkedFetch`, `useCheckedAsyncData`,
+  `useLazyCheckedAsyncData`, `defineCheckedEventHandler`; types `CheckedFetch`
+  (the seam), `$CheckedFetch`, `CheckedEventHandler`.
+
+- **Word order of the twins: vanilla's modifier keeps vanilla's position,
+  `Checked` stays glued to the noun it modifies** — `useLazyCheckedFetch`, not
+  `useCheckedLazyFetch`. `useCheckedFetch` is the unit being mirrored, and
+  vanilla's own convention puts _its_ modifier immediately after `use`
+  (`useLazyFetch`, `useRequestFetch`). The alternative bought
+  `useChecked…`-prefix autocomplete at the cost of breaking vanilla's
+  word-order mirror; the mirror won.
+
+- **`known` stays the word for failures, and the whole family is confirmed
+  unchanged**: `KnownVariant`, `KnownError`, `KnownErrorGroup`,
+  `KnownErrorBody`, `KnownErrorCarrier`, `KnownErrorsOf`,
+  `KnownErrorsOfHandler`, `KnownRaiseInput`, the wire marker `__knownError__`
+  and the handler brand `__knownErrors__`. Likewise `matchError`,
+  `defineError`, `payload`, `fail`, `ConflictGuard` / `DivergentTags`, and the
+  asyncData helpers `TrySource` / `SuccessOf` / `FailureOf`.
+
+- **`.pick` stays.** Vanilla-adjacent precedent in this very package's options
+  (`AsyncDataOptions.pick` subsets keys; this subsets tags — the same
+  gesture), and the word's looseness matches the deliberately permissive
+  semantics. `only` was the runner-up and not enough better to spend a
+  divergence.
+
+- **The fallback's second parameter is `unrecognized`.** The word is accurate
+  for both producers (§3) — the call site fails to recognize it, whatever the
+  reason. Spelling is American, per ecosystem convention (`normalize`,
+  `serialize`); the British spelling was the only defect in the working name.
+
+- **The fallback's error parameter stays `NuxtError`.** The client's word,
+  structurally true of both runtimes (§5: every Nuxt-only member is optional,
+  so an `H3Error` satisfies it). A package-owned alias would spend a new
+  exported name to fix a cosmetic hover; the package's best feature is
+  spending no novelty where vanilla has a word.
+
+- **`status` is the one word for the status, on both layers.** The variant's
+  wire floor says `status`, and Nuxt 4.5's `NuxtError` itself deprecates
+  `statusCode` in favor of `status` / `statusText` — the two layers agree,
+  and §2's `err.status ?? 0` was already the honest read. **Standing
+  requirement for the implementation (roadmap 6): the server-side `.try`
+  normalization must populate `status` on the carrier it hands out** — a bare
+  `H3Error` sets only `statusCode`, and the `NuxtError` face must be
+  runtime-true on both runtimes, not merely structurally satisfied.
+
+- **The package takes back the old package's identity.** It ships as
+  `@dphonys/nuxt-handler-errors`, module name `nuxt-handler-errors`, configKey
+  `handlerErrors` — robbed from the package it replaces. `nuxt-known-errors`
+  never publishes; it is the sandbox's placeholder. The generated-map
+  interface (`KnownApiErrors` in the fixtures) and the emitter's virtual
+  module id are step-6 items and follow the known vocabulary.
 
 ---
 
-## 3. `unrecognised` is about deploys, not about you
+## 3. `unrecognized` is about deploys, not about you
 
 Exhaustive arms fully cover "I forgot to handle a known error". The second
 fallback parameter is a **different** case: the server is running a newer build
@@ -500,7 +569,7 @@ rather than inheriting it. The old README:
 > `const _never: never = failure` stays compile-valid while being
 > runtime-reachable.
 
-With the matcher, an unrecognised tag cannot reach an arm — arms are keyed by
+With the matcher, an unrecognized tag cannot reach an arm — arms are keyed by
 tags that were actually declared — so it lands in the fallback typed honestly as
 the floor, `{ tag: string; status: number }`.
 
@@ -509,14 +578,14 @@ vanilla `useFetch`, a custom `useAsyncData` handler, a bare `catch` — there ar
 no typed arms at all, and the framework's `createError` copy still carries a
 marker when one was thrown (§5). There it lands in the fallback the same way:
 any marked variant, because the call site has no typed route knowledge to
-recognise it against. So the parameter's one honest meaning across both
+recognize it against. So the parameter's one honest meaning across both
 producers is "**known to the server, not to this call site**" — deploy skew on
 a typed call, missing type knowledge on a degraded one.
 
-Open: the name, deferred to the roadmap's naming pass. `unrecognised` is
-accurate for both producers; `skew` says _why_ for only one of them, which now
-argues against it. `unknownTag` was tried and is actively misleading — it
-reads as "you forgot one".
+Resolved in the naming pass (§2): **`unrecognized`**, American spelling. The
+word is accurate for both producers; `skew` says _why_ for only one of them,
+which argued against it, and `unknownTag` was tried and is actively misleading
+— it reads as "you forgot one".
 
 ---
 
@@ -524,29 +593,29 @@ reads as "you forgot one".
 
 Do not re-propose these without new information.
 
-| Direction                                                                                                          | Why not                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Relax "never touch vanilla"** — add `.safe` to `$fetch`, `failure` to `AsyncData`                                | **Technically blocked.** See §5. The shadow names are forced, not precious                                                                                                                                                                                                                                                                                                                              |
-| **Result type** — no error channel, one `ok\|known\|crashed` union                                                 | Abandons Nuxt's `data`/`error`/`status` contract instead of extending it; nothing in the ecosystem composes with it                                                                                                                                                                                                                                                                                     |
-| **Error classes + `instanceof`**                                                                                   | Errors must ship in the client bundle; no exhaustiveness; needs a runtime tag→class registry                                                                                                                                                                                                                                                                                                            |
-| **Catalogue as the client matcher** (`userErrors.match(...)`)                                                      | Deletes the emitter, which is tempting — but the call site then knows the failures of whatever catalogue it _remembered to import_, not of the route                                                                                                                                                                                                                                                    |
-| **Handlers as fetch options** (`known: { … }`)                                                                     | Handlers cannot return into the calling scope; re-fire on every refetch; nothing forces a call site to consider failure. Also largely reachable already via `onResponseError`                                                                                                                                                                                                                           |
-| **Template-first** (per-tag refs, `<KnownError>` slots)                                                            | Slot names are untyped — `#user-nof-found` is silently a slot nobody renders. Also does not exist outside a component                                                                                                                                                                                                                                                                                   |
-| **Guard + `matchError`** (`isKnownError(e)` then match)                                                            | Superseded — the matcher absorbs the guard, so `isKnownError` never needs to be public                                                                                                                                                                                                                                                                                                                  |
-| **Type-level flattening** — a guard narrowing to `carrier & E` so `error.tag` works                                | Reads best of everything tried and is **false at runtime**: the variant lives at `err.data.data.__knownError__`. Was demoed as `variant4Unsound` and rejected deliberately                                                                                                                                                                                                                              |
-| **`.safe` as it was** — declared failures as values, everything else thrown                                        | §1's root cause a second time: one concept split across a value channel and a throw channel by presence. Handling a route completely needed **both** a `try/catch` and an `if (!res.ok)`. Superseded by `.try`, which catches everything                                                                                                                                                                |
-| **`matchError` as a type predicate**, so `if (matchError(…)) return` narrows `data`                                | Measured: a user-declared predicate does **not** narrow a destructured sibling (§5), so the guard form would not have narrowed `data` either. All cost — the return value dies, and with it the expression form — for no gain. Recorded as `guardWouldNotHaveNarrowed` in `call-sites.ts`                                                                                                               |
-| **Restating the route in a `catch`** — `matchError<'/api/users/:id'>(e, …)`                                        | The §4 catalogue defect respelled: the call site would know the failures of whatever route it _remembered to type_, not the one it called. Change the URL in the `try` and the arms keep compiling about a different endpoint, with no backstop. Degrading to the floor is worse ergonomics that cannot lie                                                                                             |
-| **Aggregating the arms' return types** so the matcher is an expression                                             | Locked, then overturned. There is nothing to aggregate: an arm handles a failure, and handling has no result. The union plus an unconditional `\| undefined` leaked into every util that wrote `return matchError(…)` — see §6. `void` costs `const message = matchError(…)`, recoverable by assigning to a ref inside the arms                                                                         |
-| **An optional fallback that throws when absent**                                                                   | Would make the function's control-flow contract depend on argument count — the two-channels-by-presence defect for the third time. Worse here specifically: `.try` exists to end the throw channel. `(err) => { throw err }` is available, explicit and greppable                                                                                                                                       |
-| **A route-parameter `useAsyncData` wrapper** (`useTypedAsyncData<'/api/…'>(handler)`)                              | Rejection types do not exist in TypeScript, so a custom handler's throw cannot carry the union; a route type parameter is the route-restating defect again — the arms would describe whatever route was _typed_, not whatever the handler fetches. The locked `useTypedAsyncData` (§2) is a different shape: no route parameter, the union inferred off the `.try` results the handler actually returns |
-| **Exporting a body type for vanilla's `NuxtErrorDataT` generic** — `useAsyncData<T, KnownFetchError<'/api/…'>>(…)` | Measured working, and rejected as a second, worse spelling of the same thing: the generic is a manual assertion the compiler cannot check against the handler's fetches — the restating defect in vanilla clothing. With the return-channel `useTypedAsyncData` locked, the honest inference path exists, so shipping a lying-capable twin buys nothing                                                 |
+| Direction                                                                                                          | Why not                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Relax "never touch vanilla"** — add `.safe` to `$fetch`, `failure` to `AsyncData`                                | **Technically blocked.** See §5. The shadow names are forced, not precious                                                                                                                                                                                                                                                                                                                                |
+| **Result type** — no error channel, one `ok\|known\|crashed` union                                                 | Abandons Nuxt's `data`/`error`/`status` contract instead of extending it; nothing in the ecosystem composes with it                                                                                                                                                                                                                                                                                       |
+| **Error classes + `instanceof`**                                                                                   | Errors must ship in the client bundle; no exhaustiveness; needs a runtime tag→class registry                                                                                                                                                                                                                                                                                                              |
+| **Catalogue as the client matcher** (`userErrors.match(...)`)                                                      | Deletes the emitter, which is tempting — but the call site then knows the failures of whatever catalogue it _remembered to import_, not of the route                                                                                                                                                                                                                                                      |
+| **Handlers as fetch options** (`known: { … }`)                                                                     | Handlers cannot return into the calling scope; re-fire on every refetch; nothing forces a call site to consider failure. Also largely reachable already via `onResponseError`                                                                                                                                                                                                                             |
+| **Template-first** (per-tag refs, `<KnownError>` slots)                                                            | Slot names are untyped — `#user-nof-found` is silently a slot nobody renders. Also does not exist outside a component                                                                                                                                                                                                                                                                                     |
+| **Guard + `matchError`** (`isKnownError(e)` then match)                                                            | Superseded — the matcher absorbs the guard, so `isKnownError` never needs to be public                                                                                                                                                                                                                                                                                                                    |
+| **Type-level flattening** — a guard narrowing to `carrier & E` so `error.tag` works                                | Reads best of everything tried and is **false at runtime**: the variant lives at `err.data.data.__knownError__`. Was demoed as `variant4Unsound` and rejected deliberately                                                                                                                                                                                                                                |
+| **`.safe` as it was** — declared failures as values, everything else thrown                                        | §1's root cause a second time: one concept split across a value channel and a throw channel by presence. Handling a route completely needed **both** a `try/catch` and an `if (!res.ok)`. Superseded by `.try`, which catches everything                                                                                                                                                                  |
+| **`matchError` as a type predicate**, so `if (matchError(…)) return` narrows `data`                                | Measured: a user-declared predicate does **not** narrow a destructured sibling (§5), so the guard form would not have narrowed `data` either. All cost — the return value dies, and with it the expression form — for no gain. Recorded as `guardWouldNotHaveNarrowed` in `call-sites.ts`                                                                                                                 |
+| **Restating the route in a `catch`** — `matchError<'/api/users/:id'>(e, …)`                                        | The §4 catalogue defect respelled: the call site would know the failures of whatever route it _remembered to type_, not the one it called. Change the URL in the `try` and the arms keep compiling about a different endpoint, with no backstop. Degrading to the floor is worse ergonomics that cannot lie                                                                                               |
+| **Aggregating the arms' return types** so the matcher is an expression                                             | Locked, then overturned. There is nothing to aggregate: an arm handles a failure, and handling has no result. The union plus an unconditional `\| undefined` leaked into every util that wrote `return matchError(…)` — see §6. `void` costs `const message = matchError(…)`, recoverable by assigning to a ref inside the arms                                                                           |
+| **An optional fallback that throws when absent**                                                                   | Would make the function's control-flow contract depend on argument count — the two-channels-by-presence defect for the third time. Worse here specifically: `.try` exists to end the throw channel. `(err) => { throw err }` is available, explicit and greppable                                                                                                                                         |
+| **A route-parameter `useAsyncData` wrapper** (`useCheckedAsyncData<'/api/…'>(handler)`)                            | Rejection types do not exist in TypeScript, so a custom handler's throw cannot carry the union; a route type parameter is the route-restating defect again — the arms would describe whatever route was _typed_, not whatever the handler fetches. The locked `useCheckedAsyncData` (§2) is a different shape: no route parameter, the union inferred off the `.try` results the handler actually returns |
+| **Exporting a body type for vanilla's `NuxtErrorDataT` generic** — `useAsyncData<T, KnownFetchError<'/api/…'>>(…)` | Measured working, and rejected as a second, worse spelling of the same thing: the generic is a manual assertion the compiler cannot check against the handler's fetches — the restating defect in vanilla clothing. With the return-channel `useCheckedAsyncData` locked, the honest inference path exists, so shipping a lying-capable twin buys nothing                                                 |
 | **Record group into an object slot** — `errors: { ...users, forbidden }`, pick by destructuring                    | Glue proposal 1. Native syntax does everything, but the slot's keys are ignored — a key can lie about the tag under it — and object spread dedupes a colliding tag silently, last one wins, no diagnostic. The two silent failures outweigh the zero-API charm                                                                                                                                            |
-| **Unified sets passed whole** — `errors: [users, orders]`, a single is a set of one                                | Glue proposal 3. One concept and no operator, but the set is opaque — no member is reachable as a value, so `.pick()` strings are the only subset door. The old catalogue's shape with less machinery, and the same distance from the values                                                                                                                                                             |
-| **Record group with member access** — `errors: [users, forbidden]`, pick is `users['user-not-found']`              | Glue proposal 4. Language-checked picking (a typo is TS2339, no strings restated) is the strongest subset story, but the slot accepts two shapes and picking several members lists each one. Array+spread won on one element shape and one composition operator                                                                                                                                          |
-| **The hybrid group** — array ∧ record ∧ `.pick()`, every style compiles                                            | Glue proposal 5. Flexibility measured as hazard: no spelling is canonical, hovers render a triple intersection, and the record half shares a namespace with `ReadonlyArray`'s members — a tag named `pick`, `map` or `length` intersects with a built-in instead of standing alone                                                                                                                       |
-| **A compile-time unique-pick guard** — `K & UniquePickGuard<K>` rejecting a repeated tag                           | Built and measured (the `ConflictGuard` idiom ported to a rest position; readable diagnostic naming the tag), then deleted: repetition is a harmless redundancy the union dedupes for free, and the guard only ever yelled at TypeScript callers while a JavaScript caller sailed past. Uniqueness became the return's contract instead — one error per distinct tag, enforced at runtime (§2)          |
-| **Mirroring the full `$TypedFetch` on the event**                                                                  | Nitro's own `event.$fetch` types `.raw` and `.create` it never assigns (§5). Copying the interface copies the lie; the event surface is the seam exactly, and `.create` has nothing to mean on an instance that _is_ the per-request customisation                                                                                                                                                      |
+| **Unified sets passed whole** — `errors: [users, orders]`, a single is a set of one                                | Glue proposal 3. One concept and no operator, but the set is opaque — no member is reachable as a value, so `.pick()` strings are the only subset door. The old catalogue's shape with less machinery, and the same distance from the values                                                                                                                                                              |
+| **Record group with member access** — `errors: [users, forbidden]`, pick is `users['user-not-found']`              | Glue proposal 4. Language-checked picking (a typo is TS2339, no strings restated) is the strongest subset story, but the slot accepts two shapes and picking several members lists each one. Array+spread won on one element shape and one composition operator                                                                                                                                           |
+| **The hybrid group** — array ∧ record ∧ `.pick()`, every style compiles                                            | Glue proposal 5. Flexibility measured as hazard: no spelling is canonical, hovers render a triple intersection, and the record half shares a namespace with `ReadonlyArray`'s members — a tag named `pick`, `map` or `length` intersects with a built-in instead of standing alone                                                                                                                        |
+| **A compile-time unique-pick guard** — `K & UniquePickGuard<K>` rejecting a repeated tag                           | Built and measured (the `ConflictGuard` idiom ported to a rest position; readable diagnostic naming the tag), then deleted: repetition is a harmless redundancy the union dedupes for free, and the guard only ever yelled at TypeScript callers while a JavaScript caller sailed past. Uniqueness became the return's contract instead — one error per distinct tag, enforced at runtime (§2)            |
+| **Mirroring the full `$CheckedFetch` on the event**                                                                | Nitro's own `event.$fetch` types `.raw` and `.create` it never assigns (§5). Copying the interface copies the lie; the event surface is the seam exactly, and `.create` has nothing to mean on an instance that _is_ the per-request customisation                                                                                                                                                        |
 
 ---
 
@@ -589,7 +658,7 @@ running an SFC through @vue/compiler-sfc 3.5.40: `'return' outside of function`.
 The block is parsed as a module body before it is spliced into the generated
 `setup()`, so the `return` dies in the parser. Not a lint rule, not a footgun —
 the component does not build. Top-level `await` is fine, which is why
-`await useTypedFetch(…)` works at all.
+`await useCheckedFetch(…)` works at all.
 
 **Vanilla `$fetch` resolves to `TypedInternalResponse<R, T, M>`** — plain `T`,
 no `null`, no wrapper (nitropack `dist/types/index.d.ts:130`). Contrast
@@ -656,8 +725,8 @@ normalising through `createError` yields `error.data.data.__knownError__` at
 exactly the client chain's depth, and one matcher serves both runtimes with no
 adaptation. (Structurally, an `H3Error` also satisfies the `NuxtError`
 interface — every Nuxt-only member is optional — which is why the sandbox can
-reuse one carrier type; whether the _implementation_ should keep Nuxt's name on
-the server is a step-5 item.)
+reuse one carrier type; the naming pass (§2) kept Nuxt's name on both runtimes,
+with the `status`-population standing requirement making the face runtime-true.)
 
 **A carrier rethrown into `useAsyncData` lands in the error ref identical.**
 Nuxt assigns `asyncData.error.value = createError(error)` on a handler
@@ -666,7 +735,7 @@ its own errors — `if (isError(input)) return input`, where `isError` checks
 `input?.constructor?.__h3_error__ === true` (h3 `dist/index.mjs:140,68`). So a
 handler that rethrows a `.try` carrier hands vanilla's machinery the exact
 object the error ref will hold: no re-wrap, no depth change. This is what
-makes `useTypedAsyncData`'s runtime nothing but unwrap-or-rethrow.
+makes `useCheckedAsyncData`'s runtime nothing but unwrap-or-rethrow.
 
 **Nuxt's key injection is a module-extensible registry.** The keyless
 `useAsyncData(handler)` form works because the compiler injects a key for
@@ -674,7 +743,7 @@ every function listed in `nuxt.options.optimization.keyedComposables` — an
 array of `KeyedFunction { name, source, argumentLength }` (@nuxt/schema
 `dist/index.d.mts:1559,3079`) that vanilla itself merely registers into, and
 modules push onto. The injected key is appended as a trailing argument and
-popped at runtime. Registering `useTypedAsyncData` and its lazy twin there
+popped at runtime. Registering `useCheckedAsyncData` and its lazy twin there
 gives the keyless form for free, as vanilla, no fork of the mechanism.
 
 **Hydration preserves the marker.** AsyncData errors ride the payload as
@@ -780,7 +849,7 @@ argument for keeping the sandbox ahead of the implementation.
 - **An overload generic over `E` fails on a union of carriers.** With
   `<E>(error: KnownErrorCarrier<E>, arms: Arms<E>, …)`, a multi-route error —
   `NuxtError<BodyA> | NuxtError<BodyB>`, exactly what a two-fetch
-  `useTypedAsyncData` handler produces — inferred `E` from one member only and
+  `useCheckedAsyncData` handler produces — inferred `E` from one member only and
   rejected the whole call. Inferring the carrier itself and extracting the
   union with a naked conditional (`VariantOf<C> = C extends
 KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
@@ -796,7 +865,7 @@ KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
   union. The brand on values is therefore **required** — the implementation
   attaches a marker or casts, as the old catalogue did. The brand on the
   **handler** stays optional deliberately (a plain `EventHandler` must
-  inhabit `TypedEventHandler`), which is safe only because the extractor is
+  inhabit `CheckedEventHandler`), which is safe only because the extractor is
   the single reader and it guards.
 
 - **An unbranded function matched against `{ __knownErrors__?: infer E }`
@@ -817,19 +886,19 @@ KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
 
 ## 7. Roadmap
 
-1. ~~Lock the client call sites~~ — done, §2: `useTypedFetch`, `$typedFetch`,
-   `$typedFetch.try`, and the bare-`catch` floor. Completed after step 3 by a
-   sweep of Nuxt's exported surface: `useLazyTypedFetch`,
-   `useRequestTypedFetch`, `.native` (§2, "The remaining vanilla mirrors") —
+1. ~~Lock the client call sites~~ — done, §2: `useCheckedFetch`, `$checkedFetch`,
+   `$checkedFetch.try`, and the bare-`catch` floor. Completed after step 3 by a
+   sweep of Nuxt's exported surface: `useLazyCheckedFetch`,
+   `useRequestCheckedFetch`, `.native` (§2, "The remaining vanilla mirrors") —
    and the measured fact that hydration preserves the marker (§5)
-2. ~~Lock the server-side call sites~~ — done, §2: `event.$typedFetch` is the
+2. ~~Lock the server-side call sites~~ — done, §2: `event.$checkedFetch` is the
    seam exactly, handlers translate through `.try` + throwing arms, `shared/`
    accepts the seam, a throwing `useAsyncData` handler degrades honestly. The
    old "prefer `.safe` server-to-server" question resolved to a measured rule:
    an escape cannot smuggle the variant (the framework scrubs it, §5) but
    answers with the callee's status line, so `.try` + translation is the only
    shape written
-3. ~~Lock the asyncData surface~~ — done, §2: `useTypedAsyncData` and its lazy
+3. ~~Lock the asyncData surface~~ — done, §2: `useCheckedAsyncData` and its lazy
    twin, handlers returning `.try` results, repositories as the expected
    common case, vanilla's own options over the unwrapped success, the keyless
    form via `keyedComposables` (§5). Carried the matcher to a carrier-generic
@@ -842,22 +911,15 @@ KnownErrorCarrier<infer E> ? E : never`, which distributes) accepts the
    constraint structural. `payload` and `fail` carried over unchanged. Five
    glue shapes were compared in-sandbox; the four losers and the deleted
    unique-pick guard are §4 rows. Evidence lives in `sandbox/glue/`
-5. **Naming pass over the whole surface** — once every call site and
-   definition exists, before implementation begins. Known open items: what the
-   signature and docs call the fallback's second parameter (§3, now with two
-   producers); the seam interface's name (`TypedFetch` for now, §2); the word
-   order of the twins and mirrors (`useLazyTypedFetch`,
-   `useLazyTypedAsyncData`, `useRequestTypedFetch` all put `Typed` where
-   vanilla's own modifier sits, §2) and the helper names
-   `TrySource`/`SuccessOf`/`FailureOf`; the definition surface's names
-   (`defineError`, `KnownErrorGroup`, `pick`, `__knownErrors__`,
-   `KnownErrorsOfHandler`, `KnownRaiseInput`, `ConflictGuard` /
-   `DivergentTags`); and
-   the fallback's error parameter type — `NuxtError` is the client's word for
-   a carrier both runtimes produce, and `status` vs `statusCode` honesty
-   across them needs one answer. Low stakes elsewhere — callers bind their own
-   parameter names, so only exported names and keys are sticky
+5. ~~Naming pass over the whole surface~~ — done, §2 ("The naming pass"): the
+   whole surface inventoried by stickiness tier, `checked` replacing `typed`
+   on every surface name, the twins keeping vanilla's word order, the `known`
+   family / `defineError` / `.pick` / the helpers confirmed unchanged,
+   `unrecognized` (Americanized) as the fallback's second parameter,
+   `NuxtError` + `status` as the one answer on both layers (with the
+   server-normalization standing requirement), and the package taking back
+   `nuxt-handler-errors`'s name, module name, and `handlerErrors` configKey
 6. **Then the internals** — emitter, wire, runtime. There are standing
    requirements for v1 to be stated at that point
 
-Nothing past step 4 is designed yet, and nothing at all is implemented.
+Nothing past step 5 is designed yet, and nothing at all is implemented.

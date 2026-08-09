@@ -47,8 +47,8 @@ export type Arms<E extends KnownVariant> = {
   [K in E['tag']]: (variant: Extract<E, { tag: K }>) => void
 }
 
-/** `unrecognised` is a deploy-skew tag this client has never heard of. See §3. */
-export type Fallback = (error: NuxtError, unrecognised?: KnownVariant) => void
+/** `unrecognized` is a deploy-skew tag this client has never heard of. See §3. */
+export type Fallback = (error: NuxtError, unrecognized?: KnownVariant) => void
 
 // --- The matcher -----------------------------------------------------------
 
@@ -93,7 +93,7 @@ export declare function useFetch<R extends string>(
 }>
 
 /** The typed mirror: same shape, `error` carries the route's union. */
-export declare function useTypedFetch<R extends string>(
+export declare function useCheckedFetch<R extends string>(
   url: R
 ): Promise<{
   data: Ref<ResponseOf<R> | undefined>
@@ -102,7 +102,7 @@ export declare function useTypedFetch<R extends string>(
 
 /** The lazy twin, mirroring vanilla's `useLazyFetch`: same surface, `lazy`
  * pre-set. The reactive matcher composition is what reads its late error. */
-export declare const useLazyTypedFetch: typeof useTypedFetch
+export declare const useLazyCheckedFetch: typeof useCheckedFetch
 
 // --- The imperative surface ------------------------------------------------
 
@@ -120,7 +120,7 @@ export interface RawResponse<R extends string> {
 /** The seam: the call and `.try`, nothing else. Every instance satisfies it,
  * and a `shared/` util that lets its caller choose the request context accepts
  * this and not a concrete instance. See §2. */
-export interface TypedFetch {
+export interface CheckedFetch {
   /** Vanilla, under our name. Throws, and the `catch` gets `unknown`. */
   <R extends string>(url: R): Promise<ResponseOf<R>>
 
@@ -129,7 +129,7 @@ export interface TypedFetch {
 }
 
 /** The app-global: the seam plus ofetch's own extras. */
-export interface $TypedFetch extends TypedFetch {
+export interface $CheckedFetch extends CheckedFetch {
   /** No `.try`: it already returns `status` and `_data` without throwing. */
   raw: <R extends string>(url: R) => Promise<RawResponse<R>>
 
@@ -138,15 +138,15 @@ export interface $TypedFetch extends TypedFetch {
   native: (request: string, init?: RequestInit) => Promise<Response>
 
   /** Must return the typed interface, or `.try` vanishes one level down. */
-  create: (defaults: Record<string, unknown>) => $TypedFetch
+  create: (defaults: Record<string, unknown>) => $CheckedFetch
 }
 
-export declare const $typedFetch: $TypedFetch
+export declare const $checkedFetch: $CheckedFetch
 
 /** The request-bound instance for SSR-safe imperative calls in app code —
  * vanilla's `useRequestFetch()`, mirrored. The seam is its honest type: on the
  * server vanilla hands back the bare `event.$fetch` closure (§5). */
-export declare function useRequestTypedFetch(): TypedFetch
+export declare function useRequestCheckedFetch(): CheckedFetch
 
 // --- The asyncData surface ---------------------------------------------------
 
@@ -175,7 +175,7 @@ export type FailureOf<T extends TrySource> = NonNullable<T['error']>
  * own, over the UNWRAPPED success (`transform` and `pick` see plain data).
  * See §2; the runtime is unwrap-or-rethrow, measured in §5.
  */
-export interface UseTypedAsyncData {
+export interface UseCheckedAsyncData {
   <
     T extends TrySource,
     DataT = SuccessOf<T>,
@@ -204,14 +204,14 @@ export interface UseTypedAsyncData {
   >
 }
 
-export declare const useTypedAsyncData: UseTypedAsyncData
+export declare const useCheckedAsyncData: UseCheckedAsyncData
 
 /** The lazy twin, mirroring vanilla's: the same surface with `lazy` pre-set. */
-export declare const useLazyTypedAsyncData: UseTypedAsyncData
+export declare const useLazyCheckedAsyncData: UseCheckedAsyncData
 
 // --- The server surface ------------------------------------------------------
 
-// `event.$typedFetch` is the seam *exactly* — no `.raw`, no `.create`, because
+// `event.$checkedFetch` is the seam *exactly* — no `.raw`, no `.create`, because
 // Nitro assigns `event.$fetch` as a bare closure while typing it as the full
 // interface, and mirroring the type would inherit the lie (§5). Declared by
 // module augmentation, the same move the real package makes against 'h3';
@@ -219,6 +219,6 @@ export declare const useLazyTypedAsyncData: UseTypedAsyncData
 // (A relative specifier is legal here — measured on TS 5.9.3.)
 declare module './fixtures' {
   interface H3Event {
-    $typedFetch: TypedFetch
+    $checkedFetch: CheckedFetch
   }
 }
