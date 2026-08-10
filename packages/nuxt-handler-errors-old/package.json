@@ -1,0 +1,97 @@
+{
+  "name": "@dphonys/nuxt-handler-errors-old",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Declare a Nitro handler’s expected failures once and infer them at every call site from the route path.",
+  "keywords": [
+    "nuxt",
+    "nuxt-handler-errors",
+    "nuxt-module"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DPHonys/dph-nuxt-stuff.git",
+    "directory": "packages/nuxt-handler-errors-old"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ],
+      "types": [
+        "./dist/runtime/types/index.d.ts"
+      ],
+      "server": [
+        "./dist/runtime/server/index.d.ts"
+      ],
+      "shared": [
+        "./dist/runtime/shared/index.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./types": {
+      "types": "./dist/runtime/types/index.d.ts",
+      "import": "./dist/runtime/types/index.js"
+    },
+    "./server": {
+      "types": "./dist/runtime/server/index.d.ts",
+      "import": "./dist/runtime/server/index.js"
+    },
+    "./shared": {
+      "types": "./dist/runtime/shared/index.d.ts",
+      "import": "./dist/runtime/shared/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "nuxt-module-build build",
+    "dev": "pnpm run dev:prepare && nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "pnpm run build && nuxt prepare playground",
+    "dev-race": "pnpm run dev:prepare && node scripts/dev-race.ts",
+    "dev-race:direction": "pnpm run dev:prepare && node scripts/dev-race-direction.ts",
+    "lint": "eslint .",
+    "prebuild": "nuxt-module-build prepare",
+    "prepack": "pnpm run build",
+    "pretest": "nuxt-module-build prepare",
+    "publint": "publint",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "typecheck": "nuxt-module-build prepare && nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json && vue-tsc --noEmit --project playground/server/tsconfig.json"
+  },
+  "dependencies": {
+    "@nuxt/kit": "catalog:",
+    "h3": "catalog:",
+    "nitropack": "catalog:",
+    "pathe": "catalog:",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "catalog:",
+    "@nuxt/module-builder": "catalog:",
+    "@nuxt/schema": "catalog:",
+    "@nuxt/test-utils": "catalog:",
+    "@types/node": "catalog:",
+    "nuxt": "catalog:",
+    "publint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "vue-tsc": "catalog:"
+  },
+  "engines": {
+    "node": "^22.19.0 || ^24.11.0 || >=26.0.0"
+  }
+}

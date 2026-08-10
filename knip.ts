@@ -66,7 +66,7 @@ export default {
   workspaces: {
     'packages/*': nuxtModuleWorkspace,
 
-    'packages/nuxt-handler-errors': {
+    'packages/nuxt-handler-errors-old': {
       ...nuxtModuleWorkspace,
 
       // Not the scaffold's pair: `@nuxt/schema` is dropped from the inherited
