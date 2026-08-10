@@ -7,13 +7,13 @@ first, types only, in `sandbox/`:
 pnpm --filter @dphonys/nuxt-known-errors typecheck
 ```
 
-| File                              | What it is                                                                                                                                 |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sandbox/matcher.ts`              | **the design.** `matchError` and the fetch, asyncData and server surfaces                                                                  |
-| `sandbox/call-sites.ts`           | **the evidence.** Every agreed call style, with assertions                                                                                 |
-| `sandbox/fixtures.ts`             | framework replicas + three fictional routes. Not the design                                                                                |
+| File                              | What it is                                                                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sandbox/matcher.ts`              | **the design.** `matchError` and the fetch, asyncData and server surfaces                                                                   |
+| `sandbox/call-sites.ts`           | **the evidence.** Every agreed call style, with assertions                                                                                  |
+| `sandbox/fixtures.ts`             | framework replicas + three fictional routes. Not the design                                                                                 |
 | `sandbox/glue/p2-array-spread.ts` | **the definition surface.** `defineError`, the errors slot, the brand, the raise contract — folded into the main three when internals start |
-| `sandbox/glue/shared.ts`          | the pieces the glue redesign held fixed (`payload`, `fail`, the variant vocabulary)                                                        |
+| `sandbox/glue/shared.ts`          | the pieces the glue redesign held fixed (`payload`, `fail`, the variant vocabulary)                                                         |
 
 The full design log — the old package's diagnosis, every rejected alternative
 with its reason, and the decisions that were overturned along the way — lives
@@ -279,10 +279,10 @@ composable's `data` is a `Ref` handed to a template that copes with
 `undefined` natively; a function can return and goes on to use `data` in the
 same scope.
 
-|                  | can `return`? | shape                                           |
-| ---------------- | ------------- | ----------------------------------------------- |
-| `<script setup>` | no            | `useCheckedFetch` + bare `matchError(error, …)` |
-| inside any function | yes        | `$checkedFetch.try` + `if (error) { … return }` |
+|                     | can `return`? | shape                                           |
+| ------------------- | ------------- | ----------------------------------------------- |
+| `<script setup>`    | no            | `useCheckedFetch` + bare `matchError(error, …)` |
+| inside any function | yes           | `$checkedFetch.try` + `if (error) { … return }` |
 
 ### Vocabulary and names
 
