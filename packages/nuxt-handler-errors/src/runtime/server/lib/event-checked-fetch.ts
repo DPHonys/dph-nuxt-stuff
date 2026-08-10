@@ -87,5 +87,5 @@ export function createCheckedEventFetch(
 
       return toTryResult(() => call(request, init))
     },
-  }) as unknown as CheckedFetch
+  }) as CheckedFetch
 }

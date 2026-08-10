@@ -51,7 +51,7 @@ describe('the event installer', () => {
     // The `request` hook is the earliest point `event.$fetch` exists.
     const nitro = fakeNitroApp()
 
-    ;(eventPlugin as unknown as (app: unknown) => void)(nitro.app)
+    ;(eventPlugin as (app: unknown) => void)(nitro.app)
 
     expect(Object.keys(nitro.hooks)).toEqual(['request'])
 
@@ -69,7 +69,7 @@ describe('the event installer', () => {
     // in the same hook chain.
     const nitro = fakeNitroApp()
 
-    ;(eventPlugin as unknown as (app: unknown) => void)(nitro.app)
+    ;(eventPlugin as (app: unknown) => void)(nitro.app)
 
     const event: { $fetch?: unknown; $checkedFetch?: unknown } = {}
 
@@ -89,7 +89,7 @@ describe('the event installer', () => {
   it('names the skew when event.$fetch is not there at all', async () => {
     const nitro = fakeNitroApp()
 
-    ;(eventPlugin as unknown as (app: unknown) => void)(nitro.app)
+    ;(eventPlugin as (app: unknown) => void)(nitro.app)
 
     const event = {} as never
 
@@ -124,7 +124,7 @@ describe('the channel tag the event installer supplies', () => {
       },
     }
 
-    ;(eventPlugin as unknown as (app: unknown) => void)(app)
+    ;(eventPlugin as (app: unknown) => void)(app)
 
     const sent: unknown[] = []
     const event = {

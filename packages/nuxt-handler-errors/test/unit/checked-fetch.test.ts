@@ -81,7 +81,7 @@ function fakeFetch(defaults: FetchOptionsLike = {}) {
         send('raw', request, opts),
       create: (next: FetchOptionsLike) => fakeFetch({ ...defaults, ...next }),
       native: ((request: unknown, init?: FetchOptionsLike) =>
-        send('native', request, init)) as unknown as typeof globalThis.fetch,
+        send('native', request, init)) as typeof globalThis.fetch,
     }
   )
 }

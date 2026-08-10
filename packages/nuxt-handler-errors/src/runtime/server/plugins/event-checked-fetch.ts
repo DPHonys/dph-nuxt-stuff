@@ -6,7 +6,7 @@ import { createCheckedEventFetch } from '../lib/event-checked-fetch'
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', (event) => {
     event.$checkedFetch = createCheckedEventFetch(
-      () => event.$fetch as unknown as RawEventFetch | undefined,
+      () => event.$fetch as RawEventFetch | undefined,
       configuredChannelToken
     )
   })

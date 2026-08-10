@@ -122,13 +122,13 @@ export function createCheckedFetch(
         base.create(defaults),
         nextInstanceHeaders(instanceHeaders, defaults)
       ),
-  }) as unknown as $CheckedFetch
+  }) as $CheckedFetch
 }
 
 // `globalThis.$fetch` read at CALL time rather than captured, so the two
 // installing plugins are a single assignment each rather than an ordering
 // problem.
-const vanilla = (): RawFetch => globalThis.$fetch as unknown as RawFetch
+const vanilla = (): RawFetch => globalThis.$fetch as RawFetch
 
 const vanillaGlobal: RawFetch = Object.assign(
   (request: unknown, opts?: RawOptions): Promise<unknown> =>

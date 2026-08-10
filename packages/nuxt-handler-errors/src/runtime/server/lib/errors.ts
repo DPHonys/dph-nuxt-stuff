@@ -93,7 +93,7 @@ function buildGroup(
   return Object.assign(distinct.map(knownErrorValue), {
     pick: (...tags: readonly string[]) =>
       buildGroup(distinct.filter((entry) => tags.includes(entry.tag))),
-  }) as unknown as KnownErrorGroup<KnownVariant>
+  }) as KnownErrorGroup<KnownVariant>
 }
 
 /**
