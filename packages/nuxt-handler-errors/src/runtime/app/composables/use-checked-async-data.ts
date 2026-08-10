@@ -118,9 +118,6 @@ export interface UseCheckedAsyncData {
   ): AsyncData<PickFrom<DataT, PickKeys> | DefaultT, FailureOf<T> | undefined>
 }
 
-// TODO
-type VanillaUseAsyncData = (...args: unknown[]) => unknown
-
 // Decided by vanilla's own `_isAutoKeyNeeded` rule rather than "is argument 0
 // a function": a getter key is a function too, and the compiler appends the
 // injected auto-key LAST.
@@ -135,7 +132,7 @@ function handlerIndex(args: readonly unknown[]): 0 | 1 {
 }
 
 function wrapVanillaAsyncData(
-  vanilla: VanillaUseAsyncData
+  vanilla: typeof useAsyncData
 ): UseCheckedAsyncData {
   return ((...args: unknown[]) => {
     const at = handlerIndex(args)
@@ -153,7 +150,10 @@ function wrapVanillaAsyncData(
       return result.data
     }
 
-    return vanilla(...forwarded)
+    // Vanilla's public overloads omit its runtime signature - none of them
+    // admits the trailing injected auto-key - so delegation erases to
+    // variadic.
+    return (vanilla as (...args: unknown[]) => unknown)(...forwarded)
   }) as UseCheckedAsyncData
 }
 
@@ -169,9 +169,8 @@ function wrapVanillaAsyncData(
  * )
  * ```
  */
-export const useCheckedAsyncData: UseCheckedAsyncData = wrapVanillaAsyncData(
-  useAsyncData as unknown as VanillaUseAsyncData
-)
+export const useCheckedAsyncData: UseCheckedAsyncData =
+  wrapVanillaAsyncData(useAsyncData)
 
 /**
  * The lazy twin. Delegates to Nuxt's own `useLazyAsyncData` rather than
@@ -179,4 +178,4 @@ export const useCheckedAsyncData: UseCheckedAsyncData = wrapVanillaAsyncData(
  * correctly.
  */
 export const useLazyCheckedAsyncData: UseCheckedAsyncData =
-  wrapVanillaAsyncData(useLazyAsyncData as unknown as VanillaUseAsyncData)
+  wrapVanillaAsyncData(useLazyAsyncData)

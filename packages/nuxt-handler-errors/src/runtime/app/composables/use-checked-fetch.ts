@@ -202,24 +202,18 @@ function checkedHeaders(
   })
 }
 
-// TODO
-// Vanilla's runtime signature: the middle argument is either the options
-// object or the auto-key.
-type VanillaUseFetch = (
-  request: unknown,
-  arg1?: unknown,
-  arg2?: unknown
-) => unknown
-
-function wrapVanillaFetch(vanilla: VanillaUseFetch): UseCheckedFetch {
-  return ((request: unknown, arg1?: unknown, arg2?: unknown) => {
+function wrapVanillaFetch(vanilla: typeof useFetch): UseCheckedFetch {
+  // Vanilla's last overload is its runtime signature: the middle argument is
+  // either the options object or the auto-key.
+  return ((
+    request: NitroFetchRequest,
+    arg1?: string | UseFetchOptions<unknown>,
+    arg2?: string
+  ) => {
     const [opts, autoKey] =
       typeof arg1 === 'string'
         ? ([undefined, arg1] as const)
-        : ([
-            arg1 as Record<string, unknown> | undefined,
-            arg2 as string | undefined,
-          ] as const)
+        : ([arg1, arg2] as const)
 
     return vanilla(
       request,
@@ -237,14 +231,11 @@ function wrapVanillaFetch(vanilla: VanillaUseFetch): UseCheckedFetch {
  * `error` ref: `data` is what it always was, `error` still holds Nuxt's error
  * object, and `matchError(error, …)` is the one read path.
  */
-export const useCheckedFetch: UseCheckedFetch = wrapVanillaFetch(
-  useFetch as unknown as VanillaUseFetch
-)
+export const useCheckedFetch: UseCheckedFetch = wrapVanillaFetch(useFetch)
 
 /**
  * The lazy twin. Delegates to Nuxt's own `useLazyFetch` rather than passing
  * `lazy: true`, so Nuxt's dev-mode data diagnostics tag the call correctly.
  */
-export const useLazyCheckedFetch: UseCheckedFetch = wrapVanillaFetch(
-  useLazyFetch as unknown as VanillaUseFetch
-)
+export const useLazyCheckedFetch: UseCheckedFetch =
+  wrapVanillaFetch(useLazyFetch)
