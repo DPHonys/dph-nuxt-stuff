@@ -158,9 +158,16 @@ function wrapVanillaAsyncData(
 }
 
 /**
- * Vanilla's data composable with the handler's declared union on the error
- * ref: `data` is the unwrapped success, and `matchError(error, …)` is the one
+ * Drop-in `useAsyncData` whose handler returns `.try` results instead of
+ * throwing: the handler's declared union lands typed on the `error` ref,
+ * `data` is the unwrapped success, and `matchError(error, …)` is the one
  * read path.
+ *
+ * ```ts
+ * const { data, error } = await useCheckedAsyncData('user', () =>
+ *   $checkedFetch.try(`/api/users/${id}`)
+ * )
+ * ```
  */
 export const useCheckedAsyncData: UseCheckedAsyncData = wrapVanillaAsyncData(
   useAsyncData as unknown as VanillaUseAsyncData

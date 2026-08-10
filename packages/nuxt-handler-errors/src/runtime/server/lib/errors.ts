@@ -15,9 +15,10 @@ import type {
 } from '../../types/known-error'
 
 /**
- * Marks a variant's payload type. The runtime value is inert - only the type
- * argument matters, checked against what survives JSON serialization. A
- * Standard Schema may sit in the same position instead.
+ * Marks a variant's payload type: `payload<{ userId: string }>()`. The
+ * runtime value is inert - only the type argument matters, checked against
+ * what survives JSON serialization. A Standard Schema may sit in the same
+ * position instead.
  */
 export const payload: DefinePayload = () => ({})
 
@@ -98,6 +99,15 @@ function buildGroup(
 /**
  * Declare one expected failure, or several at once: a tag and a definition
  * give back a single value, a definition record a spreadable group.
+ *
+ * ```ts
+ * const forbidden = defineError('forbidden', { status: 403 })
+ *
+ * const userErrors = defineError({
+ *   'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
+ *   'user-suspended': { status: 403, payload: payload<{ until: string }>() },
+ * })
+ * ```
  */
 export const defineError: DefineError = ((
   tagOrDefs: string | Defs,
@@ -121,6 +131,18 @@ export const defineError: DefineError = ((
 /**
  * Declare the failures a route can produce, and get a `fail` scoped to
  * exactly those. The returned handler is an ordinary h3 `EventHandler`.
+ *
+ * ```ts
+ * export default defineCheckedEventHandler(
+ *   { errors: [...userErrors, forbidden] },
+ *   async (event, { fail }) => {
+ *     const userId = event.context.params?.id ?? ''
+ *     const user = await lookup(userId)
+ *     if (!user) return fail('user-not-found', { userId })
+ *     return user
+ *   }
+ * )
+ * ```
  */
 export const defineCheckedEventHandler: DefineCheckedEventHandler = (
   options,

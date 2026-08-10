@@ -38,6 +38,18 @@ export function readFloor(error: unknown): KnownVariant | undefined {
  * fallback otherwise. A nullish error is no failure - nothing is called at
  * all. The ref is read once, at call time; the reactive form is
  * `watch(error, () => matchError(error, …))`.
+ *
+ * ```ts
+ * const { data, error } = await useCheckedFetch('/api/users/:id')
+ *
+ * matchError(
+ *   error,
+ *   {
+ *     'user-not-found': (e) => notFound(e.userId),
+ *   },
+ *   (err) => showError(err)
+ * )
+ * ```
  */
 export const matchError: MatchError = (
   error: MaybeRef<unknown>,

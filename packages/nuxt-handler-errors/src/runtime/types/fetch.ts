@@ -94,7 +94,8 @@ export interface $CheckedFetch<
   /** ofetch's bare `fetch`, passed through untouched. */
   native: typeof globalThis.fetch
 
-  /** Must return the *checked* interface, or `.try` vanishes one level down. */
+  /** Like `$fetch.create`: a derived instance with defaults, keeping `.try`. */
+  // Must return the *checked* interface, or `.try` vanishes one level down.
   create: <T = DefaultT, R extends NitroFetchRequest = DefaultR>(
     defaults: FetchDefaults
   ) => $CheckedFetch<T, R>

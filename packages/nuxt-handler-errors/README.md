@@ -16,8 +16,10 @@ export default defineNuxtConfig({
 })
 ```
 
-The module has no options. Every wrapper mirrors its vanilla counterpart, and
-nothing about a route's failures is configured - it is declared, in the route.
+The module has one option, `channelToken` - see
+[Channel gating](#channel-gating). Every wrapper mirrors its vanilla
+counterpart, and nothing about a route's failures is configured - it is
+declared, in the route.
 
 ## Declaring what a route can fail with
 

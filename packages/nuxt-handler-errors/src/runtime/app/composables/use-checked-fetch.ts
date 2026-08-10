@@ -233,8 +233,8 @@ function wrapVanillaFetch(vanilla: VanillaUseFetch): UseCheckedFetch {
 }
 
 /**
- * Vanilla's fetch composable with the route's declared union on the error ref:
- * `data` is what it always was, `error` still holds the framework's error
+ * Drop-in `useFetch` with the route's declared error union typed on the
+ * `error` ref: `data` is what it always was, `error` still holds Nuxt's error
  * object, and `matchError(error, …)` is the one read path.
  */
 export const useCheckedFetch: UseCheckedFetch = wrapVanillaFetch(
@@ -242,7 +242,7 @@ export const useCheckedFetch: UseCheckedFetch = wrapVanillaFetch(
 )
 
 /**
- * The lazy sibling. Delegates to Nuxt's own `useLazyFetch` rather than passing
+ * The lazy twin. Delegates to Nuxt's own `useLazyFetch` rather than passing
  * `lazy: true`, so Nuxt's dev-mode data diagnostics tag the call correctly.
  */
 export const useLazyCheckedFetch: UseCheckedFetch = wrapVanillaFetch(

@@ -24,9 +24,10 @@ export type { Fallback, KnownErrorCarrier } from './matcher'
 export type { KnownErrorBody, KnownErrorKey } from '../shared/wire'
 
 /**
- * The generated route → declared-errors map, keyed exactly like Nitro's
- * `InternalApi`. The build-time emitter reopens this interface with
- * `declare module`; empty means no handler has declared anything yet.
+ * The generated map of every route's declared failures - you never write to
+ * this. Keyed exactly like Nitro's `InternalApi`; the build-time emitter
+ * reopens it with `declare module`, and empty means no handler has declared
+ * anything yet.
  */
 export interface KnownApiErrors {}
 
