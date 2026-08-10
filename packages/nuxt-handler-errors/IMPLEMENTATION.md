@@ -55,7 +55,7 @@ Orchestration bookkeeping for the rewrite. Working helper file; moved to
 | 2   | `matchError` (typed + degraded overloads, floor read)                                                               | done           |
 | 3   | Fetch surfaces (`$checkedFetch` + `.try`, `useCheckedFetch` family, `event.$checkedFetch`)                          | done           |
 | 4   | `useCheckedAsyncData` + lazy twin                                                                                   | done           |
-| 5   | Emitter + module wiring                                                                                             | pending        |
+| 5   | Emitter + module wiring                                                                                             | done           |
 | 6   | Channel gating + observability recognizer                                                                           | pending        |
 | 7   | Playground + e2e + repo-wide `pnpm check` + README                                                                  | pending        |
 | 8   | `to-delete/` + final cleanup                                                                                        | pending        |
@@ -70,16 +70,23 @@ Open items carried between phases:
   output too). Close by Phase 7 at the latest.
 - `typecheck` needs `pnpm --filter @dphonys/nuxt-handler-errors dev:prepare`
   once first (playground resolves the built module).
-- Phase 3 landed `KnownApiErrors` + `KnownErrorsOfRoute` in
-  `runtime/types/index.ts` (the fetch surfaces need the lookup now); Phase 5's
-  emitter augments that interface and must not redeclare it. The three plugins
-  and the two composables exist as files only — registering them in
-  `src/module.ts` is Phase 5.
-- Phase 4 added two more app composables that exist as files only:
-  `useCheckedAsyncData` / `useLazyCheckedAsyncData`. Phase 5 must both
-  auto-import them **and** push both names onto
-  `optimization.keyedComposables` — the keyless overloads are declared and
-  currently unbacked at runtime.
+- Phase 5 closed the Phase 3/4 registration items: all five app composables
+  are auto-imported, all four keyed composables are pushed onto
+  `optimization.keyedComposables` (`argumentLength: 3`, vanilla's own for both
+  `useFetch` and `useAsyncData`), and the three plugins are registered.
+- Phase 5 deferred the **rendering** half of the e2e map suite to Phase 7:
+  `test/e2e/generated-map.test.ts` makes the structural claims against a real
+  `nuxt prepare` (placement, route keys, hoist, the three context
+  references), and `test/types/emitted-map.test.ts` makes the resolution claim
+  against emitted trees. What waits on the playground is the render taken
+  through a _real_ app program — the old package's hover budgets, the
+  `event.$checkedFetch` server-program probe, and the broken-specifier fork of
+  a real build.
+- Phase 5 added `test/types/compile-harness.ts` (~170 lines) rather than
+  porting the old package's 595-line harness: it compiles a fixture alone and
+  renders one declaration, refusing to answer for a fixture that did not
+  compile clean or that renders `any`. Hover _budgets_ are not ported; if
+  Phase 7 wants them, that is where the measurements get retaken.
 - Phase 4 moved the type suites' route fixture (the `InternalApi` and
   `KnownApiErrors` stand-ins) to `test/types/routes.ts`: both are global
   declaration merges, so a second suite restating them merges into the same

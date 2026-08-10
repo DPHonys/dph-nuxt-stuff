@@ -75,6 +75,7 @@
     "@standard-schema/spec": "catalog:",
     "h3": "catalog:",
     "nitropack": "catalog:",
+    "pathe": "catalog:",
     "vue": "catalog:"
   },
   "devDependencies": {

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+
+  // The compiler options the emitted-map fixtures are compiled under. This
+  // config is never built as a project: `compile-harness.ts` reads it and hands
+  // `createProgram` the fixture plus the parsed file list. The temp trees
+  // extend it and add their own `paths` and `include`.
+  //
+  // `skipLibCheck` is set on purpose — every Nuxt-generated tsconfig sets it,
+  // and it is what makes an unresolved `import("…")` in a `.d.ts` silent. The
+  // suite that extends this config exists to catch exactly that.
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": []
+  }
+}
