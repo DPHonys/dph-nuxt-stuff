@@ -54,7 +54,7 @@ Orchestration bookkeeping for the rewrite. Working helper file; moved to
 | 1   | Core types + definition surface (`defineError`, `payload`, brand, `defineCheckedEventHandler`, `fail`, wire, raise) | done (758e7ec) |
 | 2   | `matchError` (typed + degraded overloads, floor read)                                                               | done           |
 | 3   | Fetch surfaces (`$checkedFetch` + `.try`, `useCheckedFetch` family, `event.$checkedFetch`)                          | done           |
-| 4   | `useCheckedAsyncData` + lazy twin                                                                                   | pending        |
+| 4   | `useCheckedAsyncData` + lazy twin                                                                                   | done           |
 | 5   | Emitter + module wiring                                                                                             | pending        |
 | 6   | Channel gating + observability recognizer                                                                           | pending        |
 | 7   | Playground + e2e + repo-wide `pnpm check` + README                                                                  | pending        |
@@ -75,6 +75,15 @@ Open items carried between phases:
   emitter augments that interface and must not redeclare it. The three plugins
   and the two composables exist as files only — registering them in
   `src/module.ts` is Phase 5.
+- Phase 4 added two more app composables that exist as files only:
+  `useCheckedAsyncData` / `useLazyCheckedAsyncData`. Phase 5 must both
+  auto-import them **and** push both names onto
+  `optimization.keyedComposables` — the keyless overloads are declared and
+  currently unbacked at runtime.
+- Phase 4 moved the type suites' route fixture (the `InternalApi` and
+  `KnownApiErrors` stand-ins) to `test/types/routes.ts`: both are global
+  declaration merges, so a second suite restating them merges into the same
+  interface. New type suites import it.
 
 ### Phase 1 — core types + definition surface
 

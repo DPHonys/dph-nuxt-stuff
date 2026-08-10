@@ -1,7 +1,8 @@
 import { defineEventHandler } from 'h3'
 import { it } from 'vitest'
 import { matchError } from '../../src/runtime/shared'
-import type { CheckedFetch, KnownApiErrors } from '../../src/runtime/types'
+import type { CheckedFetch } from '../../src/runtime/types'
+import type { User } from './routes'
 
 /**
  * The fetch surfaces' compile-time contract — the agreed call styles over a
@@ -20,46 +21,6 @@ type Equal<X, Y> =
     : false
 
 type Expect<T extends true> = T
-
-interface User {
-  id: string
-  name: string
-}
-
-/** What `/api/users/:id` declares, on `get`. */
-type UserVariants =
-  | { tag: 'forbidden'; status: 403; requiredRole: 'admin' | 'owner' }
-  | { tag: 'user-not-found'; status: 404; userId: string }
-  | { tag: 'user-suspended'; status: 403; until: string }
-
-/** What `/api/chain/c` declares — one variant, so a single arm is exhaustive. */
-interface ChainVariant {
-  tag: 'c-gone'
-  status: 410
-  resource: string
-}
-
-/** Nitro's own interface, standing in for a generated `nitro-routes.d.ts`. */
-declare module 'nitropack/types' {
-  interface InternalApi {
-    '/api/users/:id': { get: User }
-    '/api/chain/c': { get: { ok: true } }
-    '/api/boom': { get: { fine: boolean } }
-  }
-}
-
-/** This module's map, keyed exactly as Nitro keys the interface above. */
-declare module '../../src/runtime/types' {
-  interface KnownApiErrors {
-    '/api/users/:id': { get: UserVariants }
-    '/api/chain/c': { get: ChainVariant }
-    // The degradation lock's control: a route that declares nothing.
-    '/api/boom': { get: never }
-  }
-}
-
-/** Keeps the import above used; the augmentation needs the module named. */
-type _MapIsAugmented = KnownApiErrors
 
 declare function snack(message: string): void
 declare function report(message: string): void

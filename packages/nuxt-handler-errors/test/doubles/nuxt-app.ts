@@ -43,6 +43,29 @@ function record(name: RecordedCall['name']) {
 export const useFetch = record('useFetch')
 export const useLazyFetch = record('useLazyFetch')
 
+/**
+ * One recorded `useAsyncData` call, kept whole and variadic: unlike `useFetch`,
+ * vanilla decides which argument is the handler by inspecting all of them, and
+ * the wrapper's claim is about that same split.
+ */
+export interface RecordedAsyncDataCall {
+  readonly name: 'useAsyncData' | 'useLazyAsyncData'
+  readonly args: readonly unknown[]
+}
+
+export const asyncDataCalls: RecordedAsyncDataCall[] = []
+
+function recordAsyncData(name: RecordedAsyncDataCall['name']) {
+  return (...args: unknown[]): unknown => {
+    asyncDataCalls.push({ name, args })
+
+    return { data: { value: undefined }, error: { value: undefined } }
+  }
+}
+
+export const useAsyncData = recordAsyncData('useAsyncData')
+export const useLazyAsyncData = recordAsyncData('useLazyAsyncData')
+
 export const defineNuxtPlugin = <T>(plugin: T): T => plugin
 
 /** What `useRequestEvent()` answers next; `undefined` is the no-request case. */
