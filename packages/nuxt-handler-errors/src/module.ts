@@ -29,10 +29,10 @@ export interface ModuleOptions {
 const DEFAULT_CHANNEL_TOKEN = 'nuxt-handler-errors'
 
 // An alias rather than a published entry: the value only exists inside a
-// build — the module writes it as a template and points both builds at it.
+// build - the module writes it as a template and points both builds at it.
 const CHANNEL_TOKEN_SPECIFIER = '#nuxt-handler-errors/channel-token'
 
-// Must live under `types/` — Nitro's `typesDir` — because every handler
+// Must live under `types/` - Nitro's `typesDir` - because every handler
 // specifier the emitter computes is relative to it, and an unresolved
 // `import('…')` in a `.d.ts` produces no diagnostic.
 const TEMPLATE_FILENAME = 'types/nuxt-handler-errors.d.ts'
@@ -53,7 +53,7 @@ export default defineNuxtModule<ModuleOptions>({
     if (nuxt.options.nitro.errorHandler !== undefined) {
       logger.warn(
         '[nuxt-handler-errors] A custom `nitro.errorHandler` is set. Known ' +
-          'failures travel as `error.data` on ordinary HTTP errors — an error ' +
+          'failures travel as `error.data` on ordinary HTTP errors - an error ' +
           'handler that does not serialize `data` silently drops every ' +
           'declared payload, and checked call sites will read those failures ' +
           'as unknown. Make sure your handler keeps `data` in the response body.'
@@ -139,9 +139,9 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.alias[CHANNEL_TOKEN_SPECIFIER] = channelTokenTemplate.dst
 
     // The stripping seam: prepend to the error-handler array and preserve
-    // every existing entry — the chain runs in order with the builtin last.
+    // every existing entry - the chain runs in order with the builtin last.
     nuxt.hook('nitro:config', (nitroConfig) => {
-      // The Nitro half of the alias — `nuxt.options.alias` reaches the app
+      // The Nitro half of the alias - `nuxt.options.alias` reaches the app
       // build only.
       nitroConfig.alias = {
         ...nitroConfig.alias,
@@ -164,7 +164,7 @@ export default defineNuxtModule<ModuleOptions>({
       ]
     })
 
-    // Captured here and read by `getContents` — on a dev-server restart the
+    // Captured here and read by `getContents` - on a dev-server restart the
     // current instance and the hooked one are not the same object.
     let nitro: Nitro | undefined
 

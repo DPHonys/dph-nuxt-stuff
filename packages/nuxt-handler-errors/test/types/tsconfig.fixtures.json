@@ -6,7 +6,7 @@
   // `createProgram` the fixture plus the parsed file list. The temp trees
   // extend it and add their own `paths` and `include`.
   //
-  // `skipLibCheck` is set on purpose — every Nuxt-generated tsconfig sets it,
+  // `skipLibCheck` is set on purpose - every Nuxt-generated tsconfig sets it,
   // and it is what makes an unresolved `import("…")` in a `.d.ts` silent. The
   // suite that extends this config exists to catch exactly that.
   "compilerOptions": {

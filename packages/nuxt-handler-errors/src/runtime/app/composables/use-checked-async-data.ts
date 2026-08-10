@@ -14,7 +14,7 @@ import type {
 
 /**
  * What a handler must return: any try-shape. A bare `$checkedFetch` call
- * resolves to plain data and fails the constraint — forgetting `.try` is a
+ * resolves to plain data and fails the constraint - forgetting `.try` is a
  * compile error.
  */
 export interface TrySource {
@@ -22,13 +22,13 @@ export interface TrySource {
   error: NuxtError | undefined
 }
 
-/** The success half of the handler's union — what vanilla calls `ResT`. */
+/** The success half of the handler's union - what vanilla calls `ResT`. */
 export type SuccessOf<T extends TrySource> = Extract<
   T,
   { error: undefined }
 >['data']
 
-/** The failure half — every carrier the handler can produce, as a union. */
+/** The failure half - every carrier the handler can produce, as a union. */
 export type FailureOf<T extends TrySource> = NonNullable<T['error']>
 
 /**
