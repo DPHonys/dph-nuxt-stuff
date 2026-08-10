@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { ref } from 'vue'
 import type { NuxtError } from '#app'
 import {
   useCheckedAsyncData,
@@ -9,7 +10,7 @@ import { asyncDataCalls } from '../doubles/nuxt-app'
 // The wrapper must replace the right argument (vanilla's own split, not
 // "argument 0"), forward everything else by reference, and the substituted
 // handler must unwrap a success and rethrow the failure carrier *identically*
-// — a copy would change the marker's depth.
+// - a copy would change the marker's depth.
 
 interface User {
   id: string
@@ -39,7 +40,7 @@ beforeEach(() => {
   asyncDataCalls.length = 0
 })
 
-/** A key passed as a getter — vanilla's other key form. */
+/** A key passed as a getter - vanilla's other key form. */
 const getterKey = (): string => 'user'
 
 describe('unwrap-or-rethrow', () => {
@@ -113,6 +114,20 @@ describe('the delegation', () => {
     const last = asyncDataCalls.at(-1)
 
     expect(last?.args[2]).toBe('$auto')
+    await expect(substituted()()).resolves.toBe(user)
+  })
+
+  it('reads a ref key as a key, not as the handler', async () => {
+    const refKey = ref('user')
+
+    useCheckedAsyncData(refKey, async () => ({
+      data: user,
+      error: undefined,
+    }))
+
+    const last = asyncDataCalls.at(-1)
+
+    expect(last?.args[0]).toBe(refKey)
     await expect(substituted()()).resolves.toBe(user)
   })
 
