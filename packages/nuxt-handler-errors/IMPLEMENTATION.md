@@ -57,7 +57,7 @@ Orchestration bookkeeping for the rewrite. Working helper file; moved to
 | 4   | `useCheckedAsyncData` + lazy twin                                                                                   | done           |
 | 5   | Emitter + module wiring                                                                                             | done           |
 | 6   | Channel gating + observability recognizer                                                                           | done           |
-| 7   | Playground + e2e + repo-wide `pnpm check` + README                                                                  | pending        |
+| 7   | Playground + e2e + repo-wide `pnpm check` + README                                                                  | done           |
 | 8   | `to-delete/` + final cleanup                                                                                        | pending        |
 
 Statuses maintained by the orchestrator; a phase is `done` only after its
@@ -65,28 +65,18 @@ checks pass and its commit lands.
 
 Open items carried between phases:
 
-- Phase 1 deferred: the serializability constraint is not applied to a
-  Standard Schema's inferred output (DESIGN §5 wants it on the inferred
-  output too). Close by Phase 7 at the latest.
-- `typecheck` needs `pnpm --filter @dphonys/nuxt-handler-errors dev:prepare`
-  once first (playground resolves the built module).
 - Phase 5 closed the Phase 3/4 registration items: all five app composables
   are auto-imported, all four keyed composables are pushed onto
   `optimization.keyedComposables` (`argumentLength: 3`, vanilla's own for both
   `useFetch` and `useAsyncData`), and the three plugins are registered.
-- Phase 5 deferred the **rendering** half of the e2e map suite to Phase 7:
-  `test/e2e/generated-map.test.ts` makes the structural claims against a real
-  `nuxt prepare` (placement, route keys, hoist, the three context
-  references), and `test/types/emitted-map.test.ts` makes the resolution claim
-  against emitted trees. What waits on the playground is the render taken
-  through a _real_ app program — the old package's hover budgets, the
-  `event.$checkedFetch` server-program probe, and the broken-specifier fork of
-  a real build.
 - Phase 5 added `test/types/compile-harness.ts` (~170 lines) rather than
   porting the old package's 595-line harness: it compiles a fixture alone and
   renders one declaration, refusing to answer for a fixture that did not
-  compile clean or that renders `any`. Hover _budgets_ are not ported; if
-  Phase 7 wants them, that is where the measurements get retaken.
+  compile clean or that renders `any`. Phase 7 reuses it against the real
+  playground programs and did **not** retake the old package's hover
+  _budgets_ — the rendering claims there are categorical (the union names this
+  route's real tags) rather than numeric, and a number standing for two
+  programs would hide which one regressed.
 - Phase 6 names, now fixed: token at
   `runtimeConfig.public.handlerErrors.channelToken` (seeded with `''` by the
   module so `NUXT_PUBLIC_HANDLER_ERRORS_CHANNEL_TOKEN` applies), request header
@@ -101,6 +91,19 @@ Open items carried between phases:
   `KnownApiErrors` stand-ins) to `test/types/routes.ts`: both are global
   declaration merges, so a second suite restating them merges into the same
   interface. New type suites import it.
+- **Operational, measured in Phase 7**: `nuxt prepare playground` writes the
+  module's `addImports` declarations into `.nuxt/imports.d.ts` only when
+  `dist/` is a **real** build — after `--stub`, they are missing and every
+  checked composable in the playground reads as an undeclared route. `turbo`
+  gives `typecheck` and `test` a dependency on `build`, so the pipeline is
+  right; running `vue-tsc --project playground/tsconfig.json` by hand after
+  `dev:prepare` is not.
+- **Known, pre-existing, not this package's**: `pnpm knip` reports
+  `test/fixtures/basic/**` as unused files (they are reached by `nuxt prepare`,
+  not by an import) and `MapIsAugmented` in `test/types/routes.ts`; the
+  `nuxt-known-errors/sandbox` findings are expected. `pnpm test` at the root is
+  red on `@dphonys/scaffolder`'s acceptance test (`install-failed`), which
+  fails identically on the pre-Phase-7 tree.
 
 ### Phase 1 — core types + definition surface
 
@@ -191,10 +194,25 @@ options are vanilla `AsyncDataOptions` over the unwrapped success.
 
 ### Phase 7 — playground, e2e, check, README
 
-Playground routes exercising defineCheckedEventHandler / useCheckedFetch /
-`.try` / asyncData / server-to-server; e2e wire + generated-map tests (old
-package's e2e as reference); root `pnpm check` green; README rewritten for
-the checked surface.
+- Playground: one `app.vue` exercising `useCheckedFetch` + `matchError`,
+  `useCheckedAsyncData` over a `$checkedFetch.try` repository, the imperative
+  `.try` shape, a throwing `useAsyncData` handler and vanilla `useFetch` (both
+  degraded); routes for the multi-variant handler, the `.try` + translation-arm
+  chain, an escaped callee, a foreign error, a server-surface probe and an
+  `error`-hook observability log. Channel gating is **on** in the playground,
+  which is what makes the wire suite able to assert both channels.
+- `test/e2e/wire.test.ts` — the envelope, both marker depths, gating on and
+  off, the escape chain, translation arms, SSR render, hydration and the
+  observability recipe, against a real built server.
+- `test/e2e/app-program.test.ts` — the deferred rendering half: the map
+  rendered in the real **app** and **server** programs (`event.$checkedFetch`
+  included) plus the broken-specifier fork, which compiles clean and is caught
+  only by the rendering assertion.
+- The Phase 1 deferral is closed: `SerializableDef` / `SerializableDefs` in
+  `types/known-error.ts` apply the payload guard to `PayloadTypeOf<D>`, so a
+  Standard Schema's inferred output is held to exactly what `payload<T>()`
+  enforces (`Date` passes on both doors — `Serialize` maps it to `string`;
+  `bigint` fails on both). Asserted in `test/types/definition-surface.test.ts`.
 
 ### Phase 8 — cleanup
 
