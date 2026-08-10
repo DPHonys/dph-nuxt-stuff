@@ -774,6 +774,45 @@ always falsy. Measured on TS 5.9.3. So `if (matchError(…))` is writable and
 meaningless — a small attractive nuisance, and a second reason to keep the
 matcher from looking like a guard.
 
+**Nitro's error handler is a chain a module can join, and the builtin always
+terminates it.** `nitro.options.errorHandler` accepts an array;
+`resolveErrorOptions` (nitropack 2.13.4 `core/index.mjs:637-646`) normalises a
+single value to one and **appends the builtin prod/dev handler last**. The
+virtual `#nitro-internal-virtual/error-handler` runs the chain in order,
+stopping when `event.handled`, passing each handler
+`(error, event, { defaultHandler })` and swallowing a handler's own throw
+(`rollup/index.mjs:1690-1703`). `defaultHandler` **returns**
+`{ status, statusText, headers, body }` without sending — `body.data` is
+`error.data` (`runtime/internal/error/prod.mjs`) — so a prepended handler can
+render a modified body itself. Nuxt sets its own handler **only when the slot
+is empty** (`@nuxt/nitro-server` `dist/index.mjs:513`) and calls the
+`nitro:config` hook after that and before `createNitro` (lines 775/817), so a
+module that prepends there while preserving existing entries composes with
+both Nuxt's handler and a consumer's custom one. Measured live in the
+playground: a prepended stripper answered a tokenless declared failure with
+`data` gone and the status line intact, deferred a token-carrying request to
+the builtin untouched, and left a foreign error's own `data`
+(`/api/boom`) untouched. One dev-only wrinkle: the dev builtin's body carries
+`stack`, so a stripper that spreads `res.body` forwards it — prod's does not.
+
+**`captureError` fires the `error` hook before the error-handler chain runs.**
+`onError` is `captureError(...)` then `errorHandler(error, event)`
+(`runtime/internal/app.mjs:43-45`), so response-side stripping is
+structurally invisible to observability. Measured live: the `error` hook
+received the marker (`data.__declaredError__` present) on exactly the
+requests whose responses went out stripped.
+
+**The marker sits at two depths, and the recognizer must read both.**
+Raise-site: the server's own thrown `H3Error` carries it at
+`error.data.<marker>` — depth 1, and that is the shape the `error` hook sees
+for a route's own declared failure. Fetched carrier: a server-to-server
+failure carries it at `error.data.data.<marker>` — depth 2, measured
+identical on the raw `FetchError` and after h3's `createError` (which wraps
+the `FetchError` into a **new** `H3Error` — not the same instance, a
+`FetchError` is no `H3Error` — while copying `data` across). An escaped
+callee failure therefore reaches the hook at depth 2 with `unhandled` set,
+which is the pair the observability recipe keys on.
+
 The only route to vanilla spelling is **shadowing the auto-import**, which
 costs: explicit `import { useFetch } from '#app'` bypasses it, the overload
 mirror does not go away, type errors point into our wrapper, and installing the
@@ -928,10 +967,15 @@ header, browser and SSR alike) get the full wire.
   authentication. Accepted deliberately.
 - Enabled by the token's presence; absent means today's behavior. No
   `ModuleOptions` entry needed.
-- **To measure before it is a fact:** the stripping seam. The candidate is a
-  prepended entry in Nitro's `errorHandlers` chain — the chain Nuxt itself
-  prepends to (§5) — rewriting the body for tokenless requests and deferring
-  otherwise. Owning `nitro.errorHandler` wholesale stays off the table.
+- **The stripping seam is measured and holds** (§5): the module prepends an
+  entry to Nitro's `errorHandler` array at `nitro:config`, preserving
+  existing entries — composing with Nuxt's handler and a consumer's custom
+  one alike, with the builtin always appended last as the fallback. The
+  prepended handler renders `defaultHandler`'s body with the marker stripped
+  for tokenless marked requests and defers otherwise; foreign errors pass
+  untouched. Owning `nitro.errorHandler` wholesale stays off the table — and
+  is no longer needed. The hook ordering (`captureError` before the chain)
+  makes the Sentry-stability rule structural, confirmed live.
 
 ### Core / module layering — structure now, extraction later
 
@@ -960,7 +1004,10 @@ server's own thrown error, `data.data.__knownError__` on a fetched carrier),
 plus the documented recipe: filter in Sentry's `beforeSend` or the consumer's
 own `error` hook, keyed on the recognizer **and** `unhandled === false` — so
 a route's own declared failure is filterable while an escaped callee failure
-still reports as the caller bug it is. Whether known failures appear in
+still reports as the caller bug it is. Both depths are measured (§5): the
+hook sees depth 1 for a route's own raise and depth 2 (with `unhandled`) for
+an escaped callee failure — the two shapes are exactly the two cases the
+recipe distinguishes. Whether known failures appear in
 Sentry is the integration's one-line choice, made once, stable by the
 always-marked rule above.
 
@@ -1015,9 +1062,11 @@ always-marked rule above.
    are stated: §7 (payload schemas inference-only, channel gating stripped at
    serialization, core/module layering with deferred extraction, the
    observability recognizer), on top of the take / adapt / drop inventory in
-   `INTERNALS-ANALYSIS.md`. Two measurements remain before implementation:
-   the `errorHandlers`-chain stripping seam, and the recognizer against both
-   marker depths
+   `INTERNALS-ANALYSIS.md`. Both pre-implementation measurements are done
+   and recorded in §5: the `errorHandler`-chain stripping seam holds (array
+   slot, prepend at `nitro:config`, `defaultHandler` returns without
+   sending, hook-before-chain ordering), and the recognizer's two marker
+   depths are confirmed live
 
-Nothing at all is implemented; step 6's requirements are stated and its two
-measurements are pending.
+Nothing at all is implemented; the design and its measurements are complete,
+and implementation can start.
