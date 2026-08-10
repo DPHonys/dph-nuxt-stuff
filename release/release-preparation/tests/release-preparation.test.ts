@@ -109,11 +109,11 @@ afterAll(async () => {
   )
 })
 
-// Each test drives several real pnpm subprocesses against the local registry,
-// and runCommand already caps a single subprocess at 30_000. The per-test
-// timeouts clear that cap so a genuinely stuck subprocess reports its own
-// failure, and so the suite survives running alongside the rest of
-// `turbo run test` rather than losing a race for the CPU.
+// Each test drives several real pnpm subprocesses against the local registry.
+// `run` still caps every single subprocess at 30_000, so a genuinely stuck one
+// reports its own failure; the per-test timeouts only make room for several
+// such subprocesses in sequence, so the suite survives running alongside the
+// rest of `turbo run test` rather than losing a race for the CPU.
 describe('pnpm Independent package release preparation', () => {
   it('changes only the unrelated package named by one Release intent', async () => {
     const root = await createRepository([
