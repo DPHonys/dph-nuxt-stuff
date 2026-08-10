@@ -15,22 +15,12 @@ import { assertNoDiagnostics, compileFixture } from './compile-harness'
 import type { Compilation } from './compile-harness'
 
 /**
- * The emitted map, compiled.
- *
- * `test/unit/emit-map.test.ts` asserts what the emitter *writes*. Nothing
- * there can see whether the text it wrote **means** anything, and the gap is
- * not theoretical: an `import("…")` that does not resolve inside a `.d.ts`
- * produces no diagnostic under `skipLibCheck`, the declaration collapses
- * silently, and an `Expect<Equal<…>>` suite over it goes green having proved
- * nothing. So the claim made here is a **rendering** one — the union is read
- * back out of the map and its tags and payload fields are asserted present.
- * The `when it resolves to nothing` block emits the same map against a
- * deliberately wrong output directory and shows both halves of the trap.
- *
- * Everything is built in a temporary tree rather than committed, because the
- * emitted map's whole content is a set of paths relative to where it is
- * written — a committed fixture would have to hard-code an answer instead of
- * computing one.
+ * The emitted map, compiled — `test/unit/emit-map.test.ts` asserts what the
+ * emitter writes; this asserts the text *means* something. An unresolved
+ * `import("…")` in a `.d.ts` produces no diagnostic under `skipLibCheck` and
+ * collapses silently, so the claim here is a *rendering* one. Built in a
+ * temporary tree because the map's whole content is a set of paths relative
+ * to where it is written.
  */
 
 const TYPE_SUITE = fileURLToPath(new URL('.', import.meta.url))
@@ -75,12 +65,9 @@ const DEFINITIONS_B = [
 ].join('\n')
 
 /**
- * The route files of one app, keyed by path relative to its root.
- *
- * Every app below shares this layout and differs only in the definitions,
- * which is what makes the path-referentiality assertion a byte comparison. The
- * handler fails with whichever tag its module declares first, so the same
- * route file compiles against both.
+ * The route files of one app. Every app shares this layout and differs only
+ * in the definitions, which is what makes the path-referentiality assertion a
+ * byte comparison.
  */
 function appFiles(definitions: string): Record<string, string> {
   return {
@@ -101,8 +88,7 @@ function appFiles(definitions: string): Record<string, string> {
       ``,
     ].join('\n'),
 
-    // A `default`-keyed route: no method in the file name, so the
-    // presence-based fallback is what a `GET` caller resolves through.
+    // A `default`-keyed route: no method in the file name.
     'server/api/y.ts': [
       `import { defineCheckedEventHandler } from '@dphonys/nuxt-handler-errors/server'`,
       `import { userErrors } from '../errors/user'`,
@@ -114,8 +100,7 @@ function appFiles(definitions: string): Record<string, string> {
       ``,
     ].join('\n'),
 
-    // Unbranded, and keyed anyway. This is the arm that makes the lookup total
-    // without a "we chose not to key this" branch.
+    // Unbranded, and keyed anyway — what makes the lookup total.
     'server/api/legacy.get.ts': [
       `import { defineEventHandler } from 'h3'`,
       ``,
@@ -123,10 +108,9 @@ function appFiles(definitions: string): Record<string, string> {
       ``,
     ].join('\n'),
 
-    // A default export carrying an index signature satisfies
-    // `{ __knownErrors__?: infer E }` with `E = unknown`, which
-    // `KnownErrorsOfHandler` hands straight back — the one door its guards do
-    // not close. Keyed here so the map answers it with a measurement.
+    // An index signature satisfies `{ __knownErrors__?: infer E }` with
+    // `E = unknown` — the one door `KnownErrorsOfHandler`'s guards do not
+    // close. Keyed here so the map answers it with a measurement.
     'server/api/indexed.get.ts': [
       `const handler: { [key: string]: unknown } = {}`,
       ``,
@@ -136,12 +120,7 @@ function appFiles(definitions: string): Record<string, string> {
   }
 }
 
-/**
- * The handler records Nitro would have scanned for `appFiles`.
- *
- * Written by hand rather than by running Nitro, which is the point: these are
- * the records the module hands over, and the emitter never sees anything else.
- */
+/** The handler records Nitro would have scanned for `appFiles`. */
 function appHandlers(root: string): NitroEventHandler[] {
   return [
     {
@@ -187,23 +166,14 @@ interface App extends AppTree {
 }
 
 /**
- * Materialise one app: route files, the emitted map, and a tsconfig.
- *
- * Three resolution decisions, and none of them rewrites a byte of the emitted
- * text — the map is compiled exactly as the emitter produced it:
- *
- * - **`node_modules` is symlinked to the package's own.** The map imports
- *   `nitropack/types` by bare specifier, and a temp directory resolves nothing.
- *   In a real build the file sits in `.nuxt/types` inside the consumer's own
- *   tree, where that specifier resolves for exactly this reason.
- * - **This package's published specifiers are mapped to `src/`.** A consumer
- *   resolves them through its own `node_modules` to `dist/`; pointing them at
- *   source keeps this a unit-level check rather than one gated on a build.
- * - **`include` names the emitted declaration explicitly.** TypeScript's
- *   wildcard expansion skips dot-directories and `.nuxt` is one. Nothing
- *   imports the map — an augmentation reaches a program by membership alone —
- *   so if it were not named here it would simply be absent, and every
- *   assertion below would go green against an interface that stayed empty.
+ * Materialise one app: route files, the emitted map, and a tsconfig. Nothing
+ * rewrites a byte of the emitted text. `node_modules` is symlinked so the
+ * map's bare `nitropack/types` import resolves; the published specifiers are
+ * mapped to `src/` so this is not gated on a build; and `include` must name
+ * the emitted declaration explicitly — TypeScript's wildcard expansion skips
+ * dot-directories, and an augmentation reaches a program by membership alone,
+ * so an unnamed map would simply be absent and every assertion would go green
+ * against an empty interface.
  */
 function buildAppTree(spec: AppSpec): AppTree {
   const root = join(ROOT, spec.name)
@@ -276,11 +246,8 @@ function write(root: string, relativePath: string, contents: string): string {
   return path
 }
 
-/**
- * What every consumer fixture opens with: the map's interface, and the
- * assertion vocabulary inlined rather than imported, so a fixture is one file
- * with no reach back into this suite.
- */
+/** What every consumer fixture opens with; the assertion vocabulary is
+ * inlined so a fixture is one file with no reach back into this suite. */
 const CONSUMER_PRELUDE = [
   `import type { KnownApiErrors } from '@dphonys/nuxt-handler-errors/types'`,
   ``,
@@ -295,11 +262,8 @@ const CONSUMER_PRELUDE = [
 const TREE_A = buildAppTree({ name: 'app-a', definitions: DEFINITIONS_A })
 const TREE_B = buildAppTree({ name: 'app-b', definitions: DEFINITIONS_B })
 
-/**
- * The same emitter, the same app as `TREE_A`, one thing changed: the map is
- * written into `.nuxt/types` but emitted as though it were going somewhere
- * else, so every `import("…")` in it points at a file that is not there.
- */
+// Same app as `TREE_A`, but the map is emitted as though it were going
+// somewhere else, so every `import("…")` in it points at nothing.
 const TREE_BROKEN = buildAppTree({
   name: 'app-broken',
   definitions: DEFINITIONS_A,
@@ -337,9 +301,7 @@ describe('the emitted map', () => {
     })
 
     it('carries the route’s real tags and payload fields', () => {
-      // The one check that catches a map that resolved to nothing. Tags render
-      // **double**-quoted: they are synthesised by the checker out of an object
-      // literal's inferred type rather than written in an annotation.
+      // The one check that catches a map that resolved to nothing.
       const rendered = compilation.renderHover('Declared')
 
       expect(rendered).toContain('"user-not-found"')
@@ -348,39 +310,26 @@ describe('the emitted map', () => {
     })
 
     it('applies Serialize around the extractor, so a Date arrives as a string', () => {
-      // Direct evidence that the `Simplify<Serialize<…>>` the emitter writes
-      // around `KnownErrorsOfHandler` is doing work: the definition declares
-      // `until: Date`, and the map is the wire's view of it.
+      // The definition declares `until: Date`; the map is the wire's view.
       expect(compilation.renderHover('Declared')).toContain('until: string')
     })
 
     it('neutralises the index-signature leak at this position', () => {
-      // `KnownErrorsOfHandler` really does hand back `unknown` here — but the
-      // map never emits the extractor bare. `Serialize<unknown>` is `never`, so
-      // the wrapper mandated for wire-honesty closes this door as a side
-      // effect. No extra arm is needed in the extractor for anything reachable
-      // through the map.
+      // `KnownErrorsOfHandler` hands back `unknown` here, but the map never
+      // emits the extractor bare: `Serialize<unknown>` is `never`.
       expect(compilation.renderHover('Indexed')).toBe('never')
     })
 
     it('extracts nothing from an unbranded route, without special-casing it', () => {
-      // Keying every route costs nothing precisely because of this.
       expect(compilation.renderHover('Unbranded')).toBe('never')
     })
   })
 
   describe('the emitted map, when it resolves to nothing', () => {
-    /**
-     * `TREE_BROKEN`, compiled. **Nothing complains.** An unresolved
-     * `import("…")` yields TypeScript's *error type*, which renders as `any`
-     * but is not `any`: it propagates through every conditional it is fed to
-     * and satisfies whatever constraint it lands against. The fixture below
-     * pins that down the only way it can be pinned down — it asserts
-     * `IsAny<Declared>` is `false` **and** that it is `true`, in the same
-     * program, and the program compiles clean. No inhabited type satisfies
-     * both, so the extraction guard never fires and the entry stays `any` all
-     * the way to the call site.
-     */
+    // `TREE_BROKEN`, compiled — and nothing complains. An unresolved
+    // `import("…")` yields TypeScript's *error type*, which satisfies every
+    // constraint: the fixture asserts `IsAny<Declared>` is `false` AND `true`
+    // in the same program, and it compiles clean.
     const broken = attach(TREE_BROKEN)
 
     const compilation = broken.compile(
@@ -398,10 +347,6 @@ describe('the emitted map', () => {
     )
 
     it('is swallowed whole: the structural assertions are green and vacuous', () => {
-      // Every one of the four assertions above is false of this map, and not
-      // one of them fails. Two of them contradict each other outright, which is
-      // what makes this a measurement of the error type rather than a guess
-      // about it.
       assertNoDiagnostics(compilation)
     })
 
@@ -412,8 +357,8 @@ describe('the emitted map', () => {
     })
 
     it('and the contradiction is a real diagnostic when the map resolves', () => {
-      // The control for the experiment above. Without it, "both halves of a
-      // contradiction compiled" could just mean `Expect` never checks anything.
+      // The control: without it, "both halves compiled" could just mean
+      // `Expect` never checks anything.
       const control = APP_A.compile(
         'control.ts',
         [
@@ -448,11 +393,8 @@ describe('the emitted map', () => {
     )
 
     it('emits byte-identical text for two different definition modules', () => {
-      // The path-referentiality mandate, end to end. Two apps, the same routes
-      // at the same relative paths, definitions that share not one tag — and
-      // the emitted map is the same string. This is the property that lets
-      // Nitro never regenerate route types on a content change, and it is why
-      // no runtime value map may ever be emitted.
+      // The property that lets Nitro never regenerate route types on a
+      // content change, and why no runtime value map may ever be emitted.
       expect(APP_A.emitted).toBe(APP_B.emitted)
     })
 
@@ -461,10 +403,7 @@ describe('the emitted map', () => {
     })
 
     it('and the compiler still tells the two apart', () => {
-      // The half a string comparison cannot make: byte identity would be
-      // worthless if the type were stale too. It is not, because the emitted
-      // text is an import expression the compiler re-resolves against whatever
-      // is on disk now.
+      // Byte identity would be worthless if the type were stale too.
       const rendered = compilation.renderHover('Declared')
 
       expect(rendered).toContain('"account-locked"')

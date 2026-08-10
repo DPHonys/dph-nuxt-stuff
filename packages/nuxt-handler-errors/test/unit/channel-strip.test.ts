@@ -5,21 +5,10 @@ import { createChannelStripHandler } from '../../src/runtime/server/lib/channel-
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared/wire'
 
-/**
- * The response half of channel gating: the entry this module prepends to
- * Nitro's error-handler chain.
- *
- * The event is a **real** `H3Event` over fake node objects rather than a
- * hand-shaped stand-in, because every claim here is about h3's own helpers —
- * `getRequestHeader` reads a normalised header bag, `send` refuses to write
- * once `event.handled`, and "deferred" *means* nothing was written and the
- * chain runs on. A stubbed event would let the handler pass those tests by
- * accident.
- *
- * `defaultHandler` is likewise a fake, and its answer is Nitro's own measured
- * shape: `{ status, statusText, headers, body }` **returned, not sent** — which
- * is what lets a prepended entry render a modified body.
- */
+// The response half of channel gating. The event is a real `H3Event` over
+// fake node objects because every claim here is about h3's own helpers;
+// `defaultHandler` fakes Nitro's measured shape — `{ status, statusText,
+// headers, body }` returned, not sent.
 
 const TOKEN = 'first-party'
 
@@ -102,8 +91,7 @@ const marker = { [KNOWN_ERROR_KEY]: { tag: 'forbidden', status: 403 } }
 
 /**
  * Run the chain entry and answer what reached the builtin. `token` is `null`
- * for "the consumer configured none" — a sentinel rather than `undefined`, so
- * the configured case can stay the default.
+ * for "the consumer configured none".
  */
 async function run(
   event: H3Event,
@@ -131,8 +119,7 @@ describe('the tokenless, marked request', () => {
 
     const body = JSON.parse(sent().body ?? 'null') as Record<string, unknown>
 
-    // The status line is the builtin's, untouched: gating hides the *marker*,
-    // not the failure.
+    // Gating hides the *marker*, not the failure.
     expect(sent().status).toBe(403)
     expect(sent().statusMessage).toBe('Forbidden')
     expect(sent().headers['content-type']).toBe('application/json')
@@ -145,16 +132,14 @@ describe('the tokenless, marked request', () => {
       message: 'nope',
     })
 
-    // `data` gone entirely rather than left as `{}`: the payload rides inside
-    // the marker, so nothing else was ever in there.
+    // `data` gone entirely rather than left as `{}`.
     expect('data' in body).toBe(false)
   })
 
   it('never mutates the thrown error — observability sees every marker', async () => {
-    // The Sentry-stability requirement, and the one assertion that would fail
-    // for the obvious `delete body.data[KNOWN_ERROR_KEY]` implementation: the
-    // serializer hands `error.data` through **by reference**, and `captureError`
-    // has already fired by the time this runs.
+    // The serializer hands `error.data` through by reference, and
+    // `captureError` has already fired by the time this runs — so the obvious
+    // `delete body.data[KNOWN_ERROR_KEY]` implementation would break Sentry.
     const { event } = fakeEvent()
     const data = { [KNOWN_ERROR_KEY]: { tag: 'forbidden', status: 403 } }
     const error = { statusCode: 403, message: 'nope', data }
@@ -179,8 +164,8 @@ describe('the tokenless, marked request', () => {
   })
 
   it('strips the fetched-carrier depth too', async () => {
-    // A rethrown carrier: the outer `data` is the callee's whole body, so the
-    // marker sits one level deeper — the same two depths the recognizer reads.
+    // A rethrown carrier: the marker sits one level deeper — the same two
+    // depths the recognizer reads.
     const { event, sent } = fakeEvent()
     const data = { error: true, statusCode: 403, data: marker }
 
@@ -194,9 +179,6 @@ describe('the tokenless, marked request', () => {
   })
 
   it('forwards dev’s stack, because dev is what the developer asked for', async () => {
-    // The dev builtin's JSON body carries `stack`; a stripper that spreads
-    // `res.body` forwards it — measured, and deliberate: this entry changes the
-    // marker and nothing else about either builtin's answer.
     const { event, sent } = fakeEvent()
     const stack = ['at handler (server/api/x.ts:3:9)']
 

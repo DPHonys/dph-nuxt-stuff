@@ -6,18 +6,10 @@ import {
 } from '../../src/runtime/shared/checked-fetch'
 import { knownFailure, settled } from '../fetch-channel'
 
-/**
- * The normalisation `.try` is built on — **one** function, used by the global
- * and the event-bound surfaces alike, so what a failure looks like cannot
- * differ by which instance produced it.
- *
- * Two claims are enumerated rather than sampled. First, it
- * catches *everything*: `.try` has no rethrow channel, so any shape that escaped would
- * reach a caller who has already been told `error`'s presence is the whole
- * discriminant. Second, the carrier really carries `status` — a bare `H3Error`
- * sets only `statusCode`, and the `NuxtError` face has to be runtime-true on
- * the server too, where nothing else defines it.
- */
+// The normalisation `.try` is built on — one function shared by the global and
+// event-bound surfaces. It must catch *everything* (`.try` has no rethrow
+// channel) and the carrier must really carry `status`, which a bare `H3Error`
+// does not set.
 
 describe('toNuxtError', () => {
   const causes: readonly [name: string, cause: unknown][] = [
@@ -49,10 +41,8 @@ describe('toNuxtError', () => {
   )
 
   it('populates status from the failure’s own statusCode', () => {
-    // The standing requirement, on the shape it exists for: h3's `createError`
-    // copies `statusCode` off a `FetchError` and sets nothing else, so without
-    // this a server-side carrier answers `error.status === undefined` while the
-    // client's answers 404 — one matcher, two truths.
+    // h3's `createError` copies `statusCode` off a `FetchError` and sets
+    // nothing else — without this, `error.status` differs between runtimes.
     const error = toNuxtError(knownFailure({ tag: 't', status: 404 }))
 
     expect(error.status).toBe(404)
@@ -60,8 +50,6 @@ describe('toNuxtError', () => {
   })
 
   it('keeps the wire depth intact, so one matcher serves both runtimes', () => {
-    // `createError` copies `input.data` across wholesale, which is what puts a
-    // server-side carrier's variant at exactly the client chain's depth.
     const error = toNuxtError(knownFailure({ tag: 't', status: 404 }))
 
     expect((error.data as { data: Record<string, unknown> }).data).toEqual({
@@ -70,8 +58,6 @@ describe('toNuxtError', () => {
   })
 
   it('returns an error h3 already made, unwrapped', () => {
-    // `createError` short-circuits on its own errors — no re-wrap, no second
-    // envelope, no depth change.
     const raised = createError({ statusCode: 403, message: 'forbidden' })
 
     expect(toNuxtError(raised)).toBe(raised)
@@ -79,8 +65,6 @@ describe('toNuxtError', () => {
   })
 
   it('does not overwrite a status a NuxtError already defines', () => {
-    // A hydrated carrier arrives with Nuxt's own getters on it; redefining them
-    // would be this module deciding it knows better.
     const hydrated = Object.assign(createError({ statusCode: 500 }), {
       status: 418,
     })
@@ -98,8 +82,6 @@ describe('toTryResult', () => {
   })
 
   it('answers the failure arm with the carrier, not the flat variant', async () => {
-    // The arms of `matchError` take the *envelope*: the same carrier the
-    // composable's error ref holds, so one set of arms serves both surfaces.
     const result = await toTryResult(() =>
       Promise.reject(knownFailure({ tag: 'user-not-found', status: 404 }))
     )
@@ -116,10 +98,8 @@ describe('toTryResult', () => {
   })
 
   it('sets error to undefined on success, so the union discriminates', async () => {
-    // `if (error) return` narrows `data` only because the success arm really
-    // carries the property. A success that merely omitted `error` would type
-    // the same and narrow the same, but `'error' in result` is what a runtime
-    // consumer of the pair can rely on.
+    // The success arm must really carry the property: `'error' in result` is
+    // what a runtime consumer of the pair can rely on.
     const result = await toTryResult(() => Promise.resolve('ok'))
 
     expect('error' in result).toBe(true)
@@ -127,9 +107,6 @@ describe('toTryResult', () => {
   })
 
   it('swallows nothing and rethrows nothing', async () => {
-    // The `.safe` predecessor rethrew anything that was not a declared marker.
-    // That is dead: a caller told `error`'s presence is the discriminant has no
-    // second channel to watch.
     const result = await settled(() =>
       toTryResult(() => Promise.reject(new Error('boom')))
     )

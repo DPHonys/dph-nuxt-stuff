@@ -5,19 +5,11 @@ import { recognizeKnownError } from '../../src/runtime/server'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared/wire'
 
-/**
- * The wire, against a **real built server**.
- *
- * Every claim the envelope makes was derived from Nitro's and h3's source and
- * asserted at the type level; none of that runs it. This file runs it. The
- * playground is the fixture because it consumes the module through its real
- * published specifiers — which is also why this package's `turbo.json` gives
- * `test` a dependency on its own `build`.
- *
- * Expectations are derived from the two protocol constants rather than
- * restating them: the marker key and the channel header are frozen, and
- * nothing but their own declarations should ever spell them.
- */
+// The wire, against a real built server. The playground is the fixture
+// because it consumes the module through its real published specifiers —
+// which is why this package's `turbo.json` gives `test` a dependency on its
+// own `build`. Expectations derive from the two protocol constants rather
+// than restating them.
 
 /** What `playground/nuxt.config.ts` configures. Gating is on for this app. */
 const TOKEN = 'playground-channel'
@@ -44,9 +36,9 @@ describe('the known-failure wire', async () => {
 
     const body = await response.json()
 
-    // The whole body, so an extra key fails too. `statusMessage` is whatever
-    // the framework derived: the tag must never ride it, and asserting a
-    // literal here would make writing one look correct.
+    // The whole body, so an extra key fails too. The tag must never ride
+    // `statusMessage`, and asserting a literal there would make writing one
+    // look correct.
     expect(body).toEqual({
       error: true,
       url: expect.stringMatching(/\/api\/users\/suspended$/),
@@ -70,7 +62,7 @@ describe('the known-failure wire', async () => {
 
     expect(error, 'a known failure must reject, not resolve').toBeDefined()
 
-    // Depth 2, and both `data`s are the framework's: Nitro's serializer puts
+    // Depth 2, both `data`s the framework's: Nitro's serializer puts
     // `error.data` under `data`, and ofetch's `FetchError.data` is the whole
     // parsed body.
     expect(error.data.data[KNOWN_ERROR_KEY]).toEqual({
@@ -80,8 +72,7 @@ describe('the known-failure wire', async () => {
     })
 
     // `data` surviving at all is the observable half of "`fatal`/`unhandled`
-    // are left alone": this is a production build, and the prod serializer
-    // wipes `data` outright for either.
+    // are left alone": the prod serializer wipes `data` outright for either.
     expect(error.statusCode).toBe(404)
   })
 
@@ -96,15 +87,13 @@ describe('the known-failure wire', async () => {
     // response, not a broken one.
     expect(response.status).toBe(404)
     expect(body.statusCode).toBe(404)
-    // And nothing of the variant is left anywhere in it.
     expect(JSON.stringify(body)).not.toContain(KNOWN_ERROR_KEY)
     expect(body.data).toBeUndefined()
   })
 
   it('leaves a foreign error’s own data untouched on both channels', async () => {
-    // `/api/boom` throws a hand-rolled 403 — the same status a declared
-    // variant uses — carrying `data` of its own. The discriminator is marker
-    // presence, not status, and the stripper defers on anything unmarked.
+    // `/api/boom` throws a hand-rolled 403 carrying `data` of its own: the
+    // discriminator is marker presence, not status.
     for (const headers of [firstParty, { accept: 'application/json' }]) {
       const response = await fetch('/api/boom', { headers })
       const body = await response.json()
@@ -116,9 +105,8 @@ describe('the known-failure wire', async () => {
 
   it('scrubs an escaped callee’s variant and leaks its status line', async () => {
     // `/api/escaped-callee` lets a callee's known failure escape. h3 marks it
-    // `unhandled`, so the prod serializer wipes `data` and substitutes the
-    // message — while `status` passes through as this route's own answer.
-    // Server-to-server is `.try` plus translation arms for exactly this.
+    // `unhandled`, so the prod serializer wipes `data` — while `status`
+    // passes through as this route's own answer.
     const error = await rejectionOf('/api/escaped-callee', firstParty)
 
     expect(error).toBeDefined()
@@ -129,18 +117,17 @@ describe('the known-failure wire', async () => {
   })
 
   it('translates an upstream failure through the matcher’s arms', async () => {
-    // The DESIGN §1 server shape, run: `/api/chain/b` calls `/api/chain/c`
-    // with `.try`, and the `c-gone` arm throws this route's own 410.
+    // `/api/chain/b` calls `/api/chain/c` with `.try`, and the `c-gone` arm
+    // throws this route's own 410.
     const translated = await rejectionOf('/api/chain/b?mode=gone', firstParty)
 
     expect(translated.statusCode).toBe(410)
     expect(translated.data.message).toBe('upstream gone: gone')
-    // The callee's variant is not forwarded: what reaches the client is the
-    // caller's own answer.
+    // The callee's variant is not forwarded.
     expect(recognizeKnownError(translated)).toBeUndefined()
 
     // The success path of the same two hops, with the outer request's cookie
-    // read off the *deepest* handler's event — context forwarding, measured.
+    // read off the deepest handler's event — context forwarding, measured.
     expect(
       await $fetch('/api/chain/b', { headers: { cookie: 'probe=chocolate' } })
     ).toEqual({ ok: true, cookie: 'chocolate' })
@@ -154,12 +141,9 @@ describe('the known-failure wire', async () => {
       cookieViaGlobal: string
     }>('/api/probe', { headers: { cookie: 'probe=chocolate' } })
 
-    // One `toEqual`: the interesting mutations move more than one field, and
-    // separate expectations would stop at the first.
+    // One `toEqual`: the interesting mutations move more than one field.
     expect(body).toEqual({
-      // `.try` plus exhaustive arms, in a Nitro handler.
       declared: 'user-suspended until 2026-12-31',
-      // A failure with no marker reaches the fallback with no `unrecognized`.
       undeclared: 'unknown: 403',
       // The event-bound instance forwards the request's identity …
       cookieViaEvent: 'chocolate',
@@ -177,22 +161,18 @@ describe('the known-failure wire', async () => {
     expect(html).toContain('forbidden, needs owner')
     // The imperative shape: `.try` inside a function that can return.
     expect(html).toContain('c-gone: gone')
-    // A degraded call site — a throwing `useAsyncData` handler — with no arms
-    // at all, reading the tag off the fallback's second parameter, which is
-    // the only channel it has.
+    // A degraded call site — a throwing `useAsyncData` handler — reading the
+    // tag off the fallback's second parameter.
     expect(html).toContain('user-not-found/404')
-    // And vanilla `useFetch`, which attaches no channel tag: with gating
-    // configured its response comes back stripped, so the same failure reaches
-    // the same fallback with nothing recognized. The two lines together are
-    // what gating means for a call outside the checked family.
+    // Vanilla `useFetch` attaches no channel tag, so with gating on its
+    // response comes back stripped and nothing is recognized.
     expect(html).toContain('unknown: 404')
   })
 
   it('keeps the marker across hydration', async () => {
-    // AsyncData errors ride the payload as `_errors[key]`, serialized through
-    // `H3Error.toJSON()` (which includes `data`) and revived client-side
-    // through `createError`. So the marker is in the document, and the matcher
-    // works on a hydrated error unchanged.
+    // AsyncData errors ride the payload serialized through `H3Error.toJSON()`
+    // (which includes `data`) and revived client-side through `createError`,
+    // so the matcher works on a hydrated error unchanged.
     const html = await $fetch<string>('/')
 
     expect(html).toContain(KNOWN_ERROR_KEY)
@@ -200,10 +180,8 @@ describe('the known-failure wire', async () => {
   })
 
   it('reports to the error hook whatever the response withholds', async () => {
-    // The Sentry-stability rule: the thrown error always carries the marker
-    // and only the *serialized response* is ever stripped, so observability
-    // sees tags on every known failure or on none — never depending on who
-    // called.
+    // The Sentry-stability rule: the thrown error always carries the marker;
+    // only the serialized response is ever stripped.
     await fetch('/api/users/limited', {
       headers: { accept: 'application/json' },
     })
@@ -221,9 +199,8 @@ describe('the known-failure wire', async () => {
       unhandled: false,
     })
 
-    // And the documented recipe's discriminator: a route's own declared
-    // failure is `unhandled: false` and filterable, while the same variant
-    // escaping a caller reports as the caller bug it is.
+    // A route's own declared failure is `unhandled: false` and filterable; the
+    // same variant escaping a caller reports as the caller bug it is.
     expect(observed).toContainEqual({
       tag: 'user-not-found',
       status: 404,
@@ -241,10 +218,9 @@ describe('the known-failure wire', async () => {
 })
 
 /**
- * The rejected value of a fetch, as the client actually receives it.
- *
- * `any` because that is the honest type: this file checks what arrives at a
- * caller, so nothing here may lean on the shape it is proving.
+ * The rejected value of a fetch, as the client actually receives it. `any`
+ * because this file checks what arrives at a caller, so nothing here may lean
+ * on the shape it is proving.
  */
 async function rejectionOf(
   path: string,

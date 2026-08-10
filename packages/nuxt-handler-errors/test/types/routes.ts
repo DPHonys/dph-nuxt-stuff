@@ -1,11 +1,8 @@
 /**
- * The route fixture every type suite reads: Nitro's response map and this
- * module's declared-error map, hand-written where the emitter would generate
- * them.
- *
- * One file, because both are *global* declaration merges — two suites declaring
- * the same key would merge into the same interface, and the copies would have
- * to stay identical forever to keep merging.
+ * The route fixture every type suite reads, hand-written where the emitter
+ * would generate it. One file, because both maps are *global* declaration
+ * merges — two suites declaring the same key would merge into the same
+ * interface.
  */
 
 import type { KnownApiErrors } from '../../src/runtime/types'

@@ -8,21 +8,11 @@ import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { calls } from '../doubles/nuxt-app'
 
-/**
- * The header merge — the COMPOSABLE form — and the rest of what the wrapper
- * hands vanilla.
- *
- * The composable is app-side, so `vitest.config.ts` aliases `#app` to a double
- * that records the three arguments the wrapper passed on. That boundary is
- * exactly what the merge is a claim about; the composable *running*, against a
- * real built server, is the e2e tier.
- *
- * **Naive spreading is a shipped-defect-class bug, not a style issue**, and the
- * three input shapes below are why: a `Headers` instance has no own enumerable
- * properties and spreads to nothing, and a tuple array spreads to
- * `{"0": […], "1": […]}` and is corrupted outright. Both are legal, common
- * forms — the first is what `new Headers({ authorization: … })` produces.
- */
+// The header merge, composable form. The `#app` double records the three
+// arguments the wrapper passed on; the composable *running* against a real
+// server is the e2e tier. Naive spreading of headers is a real defect class: a
+// `Headers` instance spreads to nothing and a tuple array is corrupted to
+// `{"0": …}`.
 
 /** A stand-in for a caller's own `transform`, identified by reference. */
 const transform = (value: unknown): unknown => value
@@ -92,17 +82,10 @@ describe('the header merge', () => {
   })
 
   it('resolves a ref lazily, so a watched header stays watched', () => {
-    // Vanilla's option type is `ComputedOptions<HeadersInit>`: the whole value
-    // may be a ref or a getter, and `useFetch` puts the options object into a
-    // `reactive()` that `useAsyncData` watches — so a `headers: someRef`
-    // re-fetches when the ref changes. Resolving eagerly in the merge would
-    // freeze it at call time; this is what says the merge did not.
-    //
-    // It also covers the *inner* level of `ComputedOptions`: vanilla never has
-    // to unwrap a per-value ref, because it hands the raw object to
-    // `reactive()` and ofetch reads through that proxy. A merge reads the raw
-    // object first, so without an unwrap `ref('first')` arrives as
-    // `[object Object]`.
+    // `useFetch` puts the options into a `reactive()` that re-fetches when a
+    // ref changes; resolving eagerly in the merge would freeze it at call time.
+    // The merge also has to unwrap per-value refs itself — it reads the raw
+    // object, unlike vanilla, which hands it to `reactive()` whole.
     const token = ref('first')
 
     useCheckedFetch('/anything', { headers: { authorization: token } })
@@ -115,8 +98,6 @@ describe('the header merge', () => {
   })
 
   it('resolves a getter for the whole headers value', () => {
-    // The other half of `ComputedOptions<HeadersInit>`: the value itself may be
-    // a getter rather than a ref, which reaches `toValue` on a different path.
     useCheckedFetch('/anything', { headers: () => ({ 'x-trace': '7' }) })
 
     expect(sentHeaders()['x-trace']).toBe('7')
@@ -129,14 +110,9 @@ describe('the header merge', () => {
   })
 
   it('hands vanilla a plain object, never a Headers instance', () => {
-    // The half `sentHeaders` above is blind to, because it re-wraps whatever it
-    // is given in a `Headers` and so normalises the distinction away.
-    //
-    // `useFetch` swaps in `useRequestFetch()` — h3's `fetchWithEvent` — for
-    // every same-origin SSR request, and that merges headers by **object
-    // spread**. A `Headers` instance has no own enumerable properties, so
-    // handing one on discards the caller's headers *and* this module's
-    // `accept`.
+    // On same-origin SSR requests `useFetch` swaps in h3's `fetchWithEvent`,
+    // which merges headers by object spread — a `Headers` instance has no own
+    // enumerable properties, so handing one on discards everything.
     useCheckedFetch('/anything', {
       headers: new Headers({ authorization: 'Bearer t' }),
     })
@@ -153,8 +129,8 @@ describe('the header merge', () => {
 
 describe('what else reaches vanilla', () => {
   it('forwards every other option verbatim', () => {
-    // True by construction rather than by enumeration: `opts` is spread, so
-    // anything a future Nuxt adds passes through with no change here.
+    // True by construction: `opts` is spread, so anything a future Nuxt adds
+    // passes through.
     const watch = ref(0)
 
     useCheckedFetch('/anything', {
@@ -179,10 +155,8 @@ describe('what else reaches vanilla', () => {
   })
 
   it('splits vanilla’s (request, arg1, arg2) exactly as vanilla does', () => {
-    // Overload 5's call shape. The key is forwarded in vanilla's own third
-    // position — and because three arguments are *always* passed on, Nuxt's
-    // key-injection transform never appends a fourth to the wrapper's own call
-    // and collapses every call site onto one key.
+    // Three arguments are always passed on, so Nuxt's key-injection transform
+    // never appends a fourth and collapses every call site onto one key.
     useCheckedFetch('/anything', 'my-key')
 
     expect(calls.at(-1)?.autoKey).toBe('my-key')
@@ -195,10 +169,8 @@ describe('what else reaches vanilla', () => {
   })
 
   it('gives the lazy sibling Nuxt’s own lazy composable', () => {
-    // The lazy option is supplied at run time exactly as vanilla does it — by
-    // being Nuxt's `useLazyFetch` rather than by this module setting
-    // `lazy: true`, which would also lose Nuxt's own dev-mode data diagnostics
-    // tag.
+    // Being `useLazyFetch` rather than setting `lazy: true` keeps Nuxt's own
+    // dev-mode data diagnostics tag.
     useCheckedFetch('/anything')
     useLazyCheckedFetch('/anything')
 
@@ -207,10 +179,7 @@ describe('what else reaches vanilla', () => {
 })
 
 describe('the channel tag — the COMPOSABLE form', () => {
-  // The token is the build-time constant this surface imports itself — the
-  // double makes it settable, and it is module state, so every test clears it.
-  // Normalisation (`''` reads as no token) is the module's job at build, so
-  // the constant is either `undefined` or a real tag.
+  // The token is module state via the double, so every test clears it.
   afterEach(() => {
     setConfiguredChannelToken(undefined)
   })

@@ -7,15 +7,9 @@ import {
 } from '../../src/runtime/server'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared'
 
-/**
- * The definition surface's *runtime* behaviour, with no server in the way.
- *
- * Almost everything this module promises is compile-time, so this file covers
- * only the paths no type assertion can reach: the marked error `fail` raises,
- * the runtime half of `.pick()`, the one-per-distinct-tag rule (which exists
- * for JavaScript callers the guards never see), the foreign-copy check, and
- * the unknown-tag branch behind `fail`.
- */
+// The definition surface's runtime behaviour — only the paths no type
+// assertion can reach; the rest of the contract lives in
+// `test/types/definition-surface.test.ts`.
 describe('defined errors at runtime', () => {
   const authErrors = defineError({
     unauthorized: { status: 401 },
@@ -47,14 +41,13 @@ describe('defined errors at runtime', () => {
       },
     })
 
-    // The reason phrase is the one place a tag must never ride: it survives an
-    // escaped server-to-server throw untouched.
+    // The reason phrase survives an escaped server-to-server throw untouched,
+    // so the tag must never ride it.
     expect(
       (thrown as { statusMessage?: unknown }).statusMessage
     ).toBeUndefined()
 
-    // Left alone, so the framework's existing "expected error" convention
-    // holds and the production serializer keeps `data`.
+    // Left alone, so the production serializer keeps `data`.
     expect(thrown).toMatchObject({ fatal: false, unhandled: false })
   })
 
@@ -91,7 +84,7 @@ describe('defined errors at runtime', () => {
     })
 
     // `forbidden` is gone from the picked group at runtime too, not only in
-    // its type — otherwise `.pick()` would be a comment.
+    // its type.
     const dropped = catchThrown(
       defineCheckedEventHandler({ errors: [...picked] }, (_event, { fail }) =>
         (fail as (tag: string) => never)('forbidden')
@@ -120,15 +113,11 @@ describe('defined errors at runtime', () => {
   })
 
   it('refuses an error it did not create, at the moment it is declared', () => {
-    // An error value carries its runtime half under a module-private
-    // `Symbol()`, which is per module *instance* — so a second physical copy
-    // of the package produces values this copy cannot read. The shape is
-    // right, the brand is not, and the type level cannot see the difference.
-    //
-    // Skipping the entry is the worse failure: nothing is wrong until some
-    // later request raises that tag, which is then reported as *undeclared* —
-    // false, points away from the cause, and reaches the client as an
-    // unhandled 500 instead of the known failure the route promised.
+    // The runtime half rides a module-private `Symbol()`, so a second physical
+    // copy of the package produces values this copy cannot read — right shape,
+    // wrong brand. The throw must land at declaration, before the route has
+    // served anything; skipping the entry would surface later as a false
+    // "undeclared tag" 500.
     const foreign = {} as (typeof authErrors)[number]
 
     expect(() =>
@@ -138,16 +127,13 @@ describe('defined errors at runtime', () => {
       )
     ).toThrow(/errors\[2\] is not an error created by this copy/)
 
-    // The whole point of the throw is *when* it lands: at declaration, before
-    // the route has served anything.
     expect(() =>
       defineCheckedEventHandler({ errors: [...authErrors] }, () => 'ok')
     ).not.toThrow()
   })
 
   it('refuses an unknown tag without ever marking it', () => {
-    // Unreachable through the typed surface — `fail` is scoped to the declared
-    // union — so this is the only witness. A programming mistake must not
+    // Unreachable through the typed surface — a programming mistake must not
     // arrive at a client wearing the marker that means "the server declared
     // this".
     const thrown = catchThrown(
@@ -163,11 +149,7 @@ describe('defined errors at runtime', () => {
   })
 })
 
-/**
- * What a handler threw when invoked. `fail` needs nothing off the event, so an
- * empty object is the whole of what a request has to be here — the raise path
- * under test is `fail`'s, not h3's.
- */
+/** What a handler threw when invoked; `fail` needs nothing off the event. */
 function catchThrown(handler: (event: H3Event) => unknown): unknown {
   try {
     handler({} as H3Event)

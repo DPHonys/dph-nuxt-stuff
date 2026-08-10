@@ -8,15 +8,10 @@ import type { KnownVariant } from '../../src/runtime/types'
 import type { VariantOf } from '../../src/runtime/types/matcher'
 
 /**
- * The matcher's compile-time contract — the call styles the design agreed on,
- * with the assertions that keep them honest. Every assertion here is made by
- * the compiler under `pnpm typecheck`: an `Expect<Equal<…>>` that stops holding
- * is a type error, and a `@ts-expect-error` that stops being needed is TS2578.
- *
- * Narrowing is asserted with explicitly-typed consts rather than by using the
- * arm parameters: the `NoInfer` bug collapsed arm parameters to `never`, and
- * property access on `never` compiles, so every call site kept passing while
- * narrowing was gone.
+ * The matcher's compile-time contract, asserted by the compiler under
+ * `pnpm typecheck`. Narrowing is asserted with explicitly-typed consts rather
+ * than by using the arm parameters: property access on `never` compiles, so a
+ * call site can keep passing while narrowing is gone.
  */
 
 type Equal<X, Y> =
@@ -81,7 +76,7 @@ export type AssertReturnsVoid = Expect<
 // The typed call
 // ---------------------------------------------------------------------------
 
-/** The shape, whole. One call, no guard, no nesting, no reader. */
+/** One call, no guard, no nesting, no reader. */
 export function typedCall(): void {
   matchError(
     userError,
@@ -126,8 +121,7 @@ export function armParameters(): void {
 }
 
 /** Missing an arm is a compile error — that is what makes the fallback mean
- * one thing. The diagnostic anchors on the arms argument, because the error
- * argument is well-typed and only the arms are wrong. */
+ * one thing. The diagnostic anchors on the arms argument. */
 export function exhaustiveness(): void {
   matchError(
     userError,
@@ -141,8 +135,7 @@ export function exhaustiveness(): void {
 }
 
 /** Cross-route exhaustiveness: the carrier union arrives whole, so the second
- * route's only tag is required too. This is what the carrier-generic overload
- * buys — an `E`-generic one infers from one member and rejects the call. */
+ * route's only tag is required too. */
 export function unionOfCarriers(): void {
   matchError(
     unionError,
@@ -173,8 +166,7 @@ export function unionOfCarriersExhaustiveness(): void {
 }
 
 /** Arms handle; they do not produce. `void` absorbs whatever they return, so
- * they may disagree freely — under an inferred `R` a navigating arm beside a
- * plain one broke every `void` arm. */
+ * they may disagree freely. */
 export function armsMayDisagree(): void {
   matchError(
     userError,
@@ -194,8 +186,8 @@ export function plainValue(): void {
   )
 }
 
-/** The reactive form is composition, not a new function: the matcher reads the
- * ref at call time, so a watcher re-calling it is correct on every refetch. */
+/** The reactive form is composition: the matcher reads the ref at call time,
+ * so a watcher re-calling it is correct on every refetch. */
 export function reactiveComposition(): void {
   watch(
     userError,
@@ -227,8 +219,8 @@ export function fallbackIsRequired(): void {
 // The degraded call
 // ---------------------------------------------------------------------------
 
-/** A route that declares nothing, and vanilla `useFetch`: no typed arms at
- * all, and every marked variant reaches the fallback as `unrecognized`. */
+/** No typed arms at all; every marked variant reaches the fallback as
+ * `unrecognized`. */
 export function degraded(): void {
   matchError(vanillaError, {}, (err, unrecognized) => {
     if (unrecognized) return report(unrecognized.tag)
@@ -249,8 +241,7 @@ export function degradedCatch(): void {
 }
 
 /** Typed arms cannot ride along on an `unknown`: both overloads fail, so the
- * diagnostic is a whole-call TS2769 and the directive sits above the call
- * rather than above the arms. */
+ * diagnostic is a whole-call TS2769. */
 export function degradedCannotMatchTags(): void {
   try {
     report('work')
@@ -286,8 +277,7 @@ export function cannotReturnTheMatch(): string | null {
   return matchError(vanillaError, {}, (err) => showError(err))
 }
 
-/** The suite below is the marker keeping this file in vitest's inventory; it
- * asserts nothing the compiler has not already. */
+/** Keeps the file in vitest's inventory. */
 describe('the matcher surface', () => {
   it('is asserted by the compiler', () => {
     expect(matchError).toBeTypeOf('function')

@@ -4,14 +4,9 @@ import { createCheckedFetch } from '../../src/runtime/shared/checked-fetch'
 import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { knownFailure, settled } from '../fetch-channel'
 
-/**
- * The run-time half of `$checkedFetch`.
- *
- * Unlike the composable, this file needs no `#app` double: the value is
- * side-agnostic by construction, so the wrapper loads under a plain
- * `vitest run` and the thing underneath it is a parameter. That parameter is
- * the whole seam — what reaches it is exactly what would have reached ofetch.
- */
+// The run-time half of `$checkedFetch`. No `#app` double needed: the value is
+// side-agnostic, and the fetcher underneath is a parameter — that parameter is
+// the whole seam.
 
 /** Whatever ofetch would accept; only `headers` is read here. */
 interface FetchOptionsLike {
@@ -34,8 +29,8 @@ const calls: Recorded[] = []
 let outcome: { resolve: unknown } | { reject: unknown } = { resolve: 'ok' }
 
 /**
- * ofetch's own header merge, verbatim (`ofetch@1.5.1`): the instance's defaults
- * first, then every call header set over them — so a call header wins per key.
+ * ofetch's own header merge, verbatim (`ofetch@1.5.1`): instance defaults
+ * first, then every call header set over them.
  */
 function mergeLikeOfetch(
   input: HeadersInit | undefined,
@@ -51,17 +46,12 @@ function mergeLikeOfetch(
 }
 
 /**
- * A stand-in for vanilla's namespace, recording what it was handed **and what
- * ofetch would have sent**.
- *
- * The second half is the point. This wrapper's `create` closure exists only to
- * answer *"do the instance defaults already carry an `accept`?"*, and a fake
- * whose `create` threw its argument away could not tell a right answer from a
- * wrong one — with the defaults discarded, an instance that has lost its
- * `accept` inside ofetch and one that still has it are indistinguishable, and
- * the failure reads as a pass. So `create` here is ofetch's own shallow spread,
- * where a `headers` key replaces the instance's wholesale and a `create` naming
- * no headers leaves them alone.
+ * A stand-in for vanilla's namespace, recording what it was handed and what
+ * ofetch would have sent. `create` must really merge defaults — the wrapper's
+ * `create` closure exists to answer "do the instance defaults already carry an
+ * `accept`?", and a fake that discarded them could not tell a right answer
+ * from a wrong one. So `create` here is ofetch's own shallow spread, where a
+ * `headers` key replaces the instance's wholesale.
  */
 function fakeFetch(defaults: FetchOptionsLike = {}) {
   const settle = (): Promise<unknown> =>
@@ -123,9 +113,8 @@ describe('the header merge — the GLOBAL form', () => {
   })
 
   it('keeps a Headers instance, which a spread would drop whole', async () => {
-    // The shipped-defect-class bug: `new Headers({ authorization })` has no own
-    // enumerable properties, so `{ accept, ...opts.headers }` silently drops
-    // every header the caller set.
+    // `new Headers({ authorization })` has no own enumerable properties, so
+    // `{ accept, ...opts.headers }` silently drops every header the caller set.
     await createCheckedFetch(fakeFetch())('/anything', {
       headers: new Headers({ authorization: 'Bearer t' }),
     })
@@ -152,9 +141,6 @@ describe('the header merge — the GLOBAL form', () => {
   })
 
   it('honours a caller’s own accept, in every input shape', async () => {
-    // Overriding it forfeits the known-error channel for routes outside
-    // `/api/**` — a documentation note rather than something to prevent, since
-    // the caller asked.
     const checked = createCheckedFetch(fakeFetch())
 
     await checked('/anything', { headers: { accept: 'text/html' } })
@@ -174,14 +160,10 @@ describe('the header merge — the GLOBAL form', () => {
   })
 
   it('hands the fetcher a Headers instance, unflattened', async () => {
-    // **The categorical difference from the other two merges, and the reason
-    // one shared helper would be a defect.** What sits under this surface is an
-    // ofetch instance, whose `mergeHeaders` takes a `Headers` correctly.
-    // `event.$checkedFetch` reaches h3's `fetchWithEvent` instead, which merges
-    // by object spread and would discard a `Headers` whole, and
-    // `useCheckedFetch` reaches it too on the SSR path — so both of those
-    // flatten and this one must not. The correct fix for one is wrong for the
-    // others.
+    // The categorical difference from the other two merges: ofetch's
+    // `mergeHeaders` takes a `Headers` correctly, while the event-bound and
+    // composable surfaces reach h3's spread and must flatten. The correct fix
+    // for one is wrong for the others.
     await createCheckedFetch(fakeFetch())('/anything', {
       headers: { authorization: 'Bearer t' },
     })
@@ -190,8 +172,7 @@ describe('the header merge — the GLOBAL form', () => {
   })
 
   it('forwards every other option verbatim', async () => {
-    // True by construction rather than by enumeration: `opts` is spread, so
-    // anything a future ofetch adds passes through with no change here.
+    // True by construction: `opts` is spread.
     await createCheckedFetch(fakeFetch())('/anything', {
       method: 'POST',
       query: { page: 2 },
@@ -218,8 +199,6 @@ describe('the header merge — the GLOBAL form', () => {
   })
 
   it('leaves native alone — a bare fetch is not a Nitro request', async () => {
-    // `.native` is ofetch's own pass-through: no route typing, no error
-    // channel, and nothing this module has any business adding a header to.
     await createCheckedFetch(fakeFetch()).native('/anything')
 
     expect(calls.at(-1)?.member).toBe('native')
@@ -229,10 +208,8 @@ describe('the header merge — the GLOBAL form', () => {
 
 describe('create, and the instance half of the rule', () => {
   it('leaves an instance-level accept alone', async () => {
-    // The global rule is *set `accept` only when neither the call nor the
-    // instance defaults carry it*, and `create`'s closure is what checks the
-    // second half. Without it this module would silently override a content
-    // type the consumer configured for the whole instance.
+    // The rule: set `accept` only when neither the call nor the instance
+    // defaults carry it.
     const instance = createCheckedFetch(fakeFetch()).create({
       headers: { accept: 'application/vnd.api+json' },
     })
@@ -249,8 +226,6 @@ describe('create, and the instance half of the rule', () => {
 
     await instance('/anything', { headers: { accept: 'text/csv' } })
 
-    // ofetch's own `mergeHeaders(input, defaults)` is what makes the call win;
-    // this asserts the wrapper did not get in the way of it.
     expect(sentHeaders().accept).toBe('text/csv')
   })
 
@@ -265,14 +240,10 @@ describe('create, and the instance half of the rule', () => {
   })
 
   it('tracks a nested create the way ofetch really does', async () => {
-    // **The obvious spelling of this is a bug, and it was the one written
-    // first.** `create`'s defaults are merged by a *shallow* spread, so a
-    // `headers` key in the inner create replaces the outer's wholesale —
-    // ofetch has already dropped that `accept` by the time the request goes
-    // out. A closure that accumulated headers across creates would still
-    // believe it was there, suppress this module's own, and send the request
-    // with **no `accept` at all**: exactly the outcome the rule exists to
-    // prevent.
+    // ofetch merges `create` defaults by *shallow* spread, so a `headers` key
+    // in the inner create replaces the outer's wholesale. A closure that
+    // accumulated headers across creates would believe the `accept` was still
+    // there and send the request with none at all.
     const instance = createCheckedFetch(fakeFetch())
       .create({ headers: { accept: 'application/vnd.api+json' } })
       .create({ headers: { authorization: 'Bearer t' } })
@@ -286,9 +257,8 @@ describe('create, and the instance half of the rule', () => {
   })
 
   it('leaves an instance accept alone when a create names no headers', async () => {
-    // The other half of the same shallow spread, and the control for the row
-    // above: with no `headers` key in the inner create, the outer's survive
-    // inside ofetch — so this module must not overwrite what is still there.
+    // The other half of the same shallow spread: with no `headers` key, the
+    // outer's survive inside ofetch, so this module must not overwrite them.
     const instance = createCheckedFetch(fakeFetch())
       .create({ headers: { accept: 'application/vnd.api+json' } })
       .create({ retry: 3 } as never)
@@ -299,8 +269,6 @@ describe('create, and the instance half of the rule', () => {
   })
 
   it('keeps the sibling on a created instance', async () => {
-    // `create` returns the *checked* interface. The type-level half is in
-    // `test/types/fetch.test.ts`; this is the value being really there.
     outcome = { resolve: { id: '7' } }
 
     const result = await createCheckedFetch(fakeFetch())
@@ -344,9 +312,8 @@ describe('.try over this surface', () => {
   })
 
   it('leaves the throwing form throwing, known or not', async () => {
-    // The default entry point is a pure typings mirror: a declared failure
-    // throws through it exactly as it throws through vanilla `$fetch`, which is
-    // what keeps `useAsyncData(() => $checkedFetch(…))` working.
+    // A pure typings mirror of vanilla `$fetch`, which is what keeps
+    // `useAsyncData(() => $checkedFetch(…))` working.
     const thrown = knownFailure({ tag: 't', status: 404 })
 
     outcome = { reject: thrown }
@@ -357,8 +324,6 @@ describe('.try over this surface', () => {
   })
 
   it('leaves raw throwing too — it has no .try of its own', async () => {
-    // `raw`'s value is the response object, and ofetch throws on
-    // `!response.ok` there as well, so the sibling would have nothing to add.
     const thrown = knownFailure({ tag: 't', status: 404 })
 
     outcome = { reject: thrown }
@@ -370,9 +335,7 @@ describe('.try over this surface', () => {
 })
 
 describe('the channel tag — the GLOBAL form', () => {
-  // The token is the build-time constant the merge imports itself; the double
-  // makes the binding settable, and it is module state, so every test here
-  // clears it again.
+  // The token is module state via the double, so every test here clears it.
   afterEach(() => {
     setConfiguredChannelToken(undefined)
   })
@@ -398,8 +361,8 @@ describe('the channel tag — the GLOBAL form', () => {
   })
 
   it('overrides a caller’s own value for the header — it is the module’s', async () => {
-    // Unlike `accept`, this header is not a caller's to choose: a caller value
-    // would only gate that call out of the wire it asked for.
+    // Unlike `accept`, this header is not a caller's to choose: a caller
+    // value would only gate that call out of the wire it asked for.
     setConfiguredChannelToken('first-party')
 
     await createCheckedFetch(fakeFetch())('/anything', {

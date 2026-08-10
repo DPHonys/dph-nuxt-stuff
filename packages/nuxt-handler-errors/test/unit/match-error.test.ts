@@ -6,16 +6,10 @@ import {
   readFloor,
 } from '../../src/runtime/shared/match-error'
 
-/**
- * The matcher's runtime behaviour — the half no type assertion can reach: the
- * two marker depths, what a malformed marker reads as, which of the arms or
- * the fallback runs, and when nothing runs at all.
- *
- * The published overloads admit typed arms only against a typed carrier, which
- * is exactly what they are for; here the arms are stubs over hand-built wire
- * shapes, so the one runtime function is called through a loose signature.
- * `test/types/matcher.test.ts` is where the overloads themselves are asserted.
- */
+// The matcher's runtime behaviour — the half no type assertion can reach. The
+// arms are stubs over hand-built wire shapes, so the one runtime function is
+// called through a loose signature; the overloads themselves are asserted in
+// `test/types/matcher.test.ts`.
 const matchError = matcher as (
   error: unknown,
   arms: Record<string, (variant: any) => void>,

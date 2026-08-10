@@ -3,17 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { emitMap, TYPES_SPECIFIER } from '../../src/emit-map'
 import type { NitroPathOptions } from '../../src/emit-map'
 
-/**
- * The emitter, exercised as the pure function it is required to be: no
- * Nuxt, no Nitro instance, no filesystem, no compiler. Everything here is a
- * string comparison and the whole file runs in milliseconds.
- *
- * What it cannot claim on its own is that the emitted text *resolves* — a
- * broken `import("…")` inside a `.d.ts` produces no diagnostic under
- * `skipLibCheck` and collapses silently to `any`. That claim is made in
- * `test/types/emitted-map.test.ts`, which compiles the emitted file and renders
- * the union back out of it.
- */
+// The emitter as a pure function — string comparisons only. Whether the
+// emitted text *resolves* is asserted in `test/types/emitted-map.test.ts`,
+// which compiles it: a broken `import("…")` in a `.d.ts` produces no
+// diagnostic under `skipLibCheck` and collapses silently to `any`.
 
 /** A Nuxt-shaped Nitro: `srcDir` is `<rootDir>/server`, `buildDir` is `.nuxt`. */
 const NITRO: NitroPathOptions = {
@@ -45,11 +38,8 @@ describe('the generated map’s frame', () => {
   )
 
   it('augments the module’s own specifier and imports the extractor from it', () => {
-    // Both strings are load-bearing and fixed: augmenting
-    // `nitropack/types` would be squatting, and the `hoist` entry the module
-    // pushes has to name exactly this. Written as literals rather than
-    // interpolated from the constant, so renaming the constant cannot quietly
-    // rewrite the assertion too.
+    // Literals rather than interpolated from the constant, so renaming the
+    // constant cannot quietly rewrite the assertion too.
     expect(emitted).toContain(
       `import type { KnownErrorsOfHandler } from '@dphonys/nuxt-handler-errors/types'`
     )
@@ -67,8 +57,8 @@ describe('the generated map’s frame', () => {
   })
 
   it('ends in an empty export, so the file is a module', () => {
-    // Without it the file is an ambient declaration and the block above stops
-    // being an augmentation, which changes the meaning of the whole file.
+    // Without it the file is ambient and the block above stops being an
+    // augmentation.
     expect(emitted.trimEnd().endsWith('export {}')).toBe(true)
   })
 
@@ -100,10 +90,9 @@ describe('the generated map’s frame', () => {
 
 describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   it('keys every route Nitro knows, branded or not', () => {
-    // Keying every route is what makes the lookup total
-    // and lets `MatchedRoutes` be reused verbatim as the indexer. It costs
-    // nothing — an unbranded handler extracts to `never` naturally — so the
-    // emitter has no notion of "branded" at all, which is the point.
+    // Keying every route makes the lookup total; an unbranded handler
+    // extracts to `never` naturally, so the emitter has no notion of
+    // "branded" at all.
     const emitted = emitMap(
       [
         {
@@ -125,8 +114,7 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   })
 
   it('keeps Nitro’s parameter, catch-all and route-group route strings verbatim', () => {
-    // The keys are Nitro's own `mw.route`, never re-derived from the filename,
-    // which is what keeps the two files in lockstep by construction.
+    // The keys are Nitro's own `mw.route`, never re-derived from the filename.
     const emitted = emitMap(
       [
         {
@@ -171,9 +159,7 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
 
   it('files an empty method under `default`, as Nitro’s `||` does', () => {
     // Nitro writes `mw.method || "default"`. `??` would file this under `''`
-    // and the route would answer on no method at all. Reachable by exactly the
-    // route an uppercased method is: a module handing `addServerHandler` a
-    // value `RouterMethod` never permitted.
+    // and the route would answer on no method at all.
     const emitted = emitMap(
       [
         {
@@ -190,16 +176,13 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   })
 
   it('lowercases a method a module passed through unmodified', () => {
-    // Filesystem scanning guarantees lowercase; `addServerHandler` does not.
-    // The lookup side normalises with `Lowercase<M>`,
-    // so an uppercased key here would simply never be found.
+    // Filesystem scanning guarantees lowercase; `addServerHandler` does not,
+    // and modules hand it `'POST'`. The lookup side normalises with
+    // `Lowercase<M>`, so an uppercased key here would never be found.
     const emitted = emitMap(
       [
         {
           route: '/api/programmatic',
-          // `RouterMethod` is `Lowercase<HTTPMethod>`, so an uppercased method
-          // is not even representable — which is the point: `addServerHandler`
-          // takes whatever a module hands it, and modules hand it `'POST'`.
           method: 'POST' as NonNullable<NitroEventHandler['method']>,
           handler: '/app/server/api/programmatic.ts',
         },
@@ -240,7 +223,6 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   })
 
   it('keeps a route’s methods apart, including alongside a default', () => {
-    // The worked example: `/api/y` served by `y.ts` and `y.post.ts`.
     const emitted = emitMap(
       [
         { route: '/api/y', handler: '/app/server/api/y.ts' },
@@ -258,8 +240,8 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   })
 
   it('skips middleware and any handler that is not a path', () => {
-    // Nitro's own guard, verbatim: a route-less entry is middleware, and a dev
-    // handler carries a function rather than a path.
+    // Nitro's own guard: a route-less entry is middleware, and a dev handler
+    // carries a function rather than a path.
     const emitted = emitMap(
       [
         {
@@ -330,16 +312,16 @@ describe('relative handler specifiers', () => {
 
   it('reaches a handler that lives outside the Nuxt root entirely', () => {
     // A Nuxt layer, a workspace package, or `addServerHandler` pointing at a
-    // module's own `runtime/`. None of them are under `srcDir`.
+    // module's own `runtime/` — none are under `srcDir`.
     expect(
       specifierFor('/workspace/layers/base/server/api/shared.get.ts')
     ).toBe('../../../workspace/layers/base/server/api/shared.get')
   })
 
   it('forces `./` on a handler that resolves into the types directory itself', () => {
-    // `pathe.relative` returns a bare name for a sibling, and a bare specifier
-    // in a `.d.ts` is a *package* name. It resolves to nothing — silently,
-    // under `skipLibCheck` — leaving the whole entry `any`.
+    // `pathe.relative` returns a bare name for a sibling, and a bare
+    // specifier in a `.d.ts` is a *package* name — it resolves to nothing,
+    // silently, under `skipLibCheck`.
     expect(specifierFor('/app/.nuxt/types/generated.get.ts')).toBe(
       './generated.get'
     )
@@ -352,10 +334,9 @@ describe('relative handler specifiers', () => {
   })
 
   it('leaves an absolute result absolute rather than prefixing `./`', () => {
-    // The one input `relative` cannot express relatively: another Windows
-    // drive. `./D:/…` is a bare specifier with a directory in it — the same
-    // silent nothing the `./` prefix exists to prevent — while the absolute
-    // path resolves.
+    // Another Windows drive is the one input `relative` cannot express
+    // relatively: `./D:/…` is a bare specifier, while the absolute path
+    // resolves.
     const specifier = specifierFor(
       'D:\\layers\\base\\server\\api\\far.get.ts',
       {
@@ -380,8 +361,8 @@ describe('relative handler specifiers', () => {
   })
 
   it('emits POSIX separators for Windows inputs', () => {
-    // pathe's arithmetic, not `node:path`'s. A backslash in an emitted module
-    // specifier is an escape sequence, not a separator.
+    // A backslash in an emitted module specifier is an escape sequence, not a
+    // separator.
     const specifier = specifierFor('C:\\app\\server\\api\\win.get.ts', {
       buildDir: 'C:\\app\\.nuxt',
       srcDir: 'C:\\app\\server',
@@ -410,15 +391,15 @@ describe('relative handler specifiers', () => {
   })
 
   it('leaves a dotted directory name alone', () => {
-    // The strip is end-anchored, so `v1.2` in a *directory* is not an extension.
+    // The strip is end-anchored, so `v1.2` in a directory is not an extension.
     expect(specifierFor('/app/server/api/v1.2/r.get.ts')).toBe(
       '../../server/api/v1.2/r.get'
     )
   })
 
   it('escapes a quote in a path rather than emitting broken TypeScript', () => {
-    // Apostrophes are legal in file names on every platform this runs on, and
-    // one unescaped would end the string literal mid-specifier.
+    // Apostrophes are legal in file names; one unescaped would end the string
+    // literal mid-specifier.
     expect(
       emitMap([{ route: `/it's`, handler: `/app/server/routes/it's.ts` }], {
         nitroOptions: NITRO,
@@ -427,10 +408,9 @@ describe('relative handler specifiers', () => {
   })
 
   it('escapes a line terminator, which would not end the literal but unterminate it', () => {
-    // A newline is legal in a POSIX file name and reaches the emitter as part
-    // of Nitro's own `mw.route`. Unescaped it is not a wrong *type* — it is an
+    // A newline is legal in a POSIX file name; unescaped it is an
     // unterminated string literal, so the whole generated `.d.ts` stops
-    // parsing and every route goes with it, not one.
+    // parsing and every route goes with it.
     const emitted = emitMap(
       [
         { route: '/we\nird', handler: '/app/server/routes/we\nird.ts' },
@@ -452,11 +432,8 @@ describe('relative handler specifiers', () => {
     expect(emitted).toContain(`    '/sep\\u2028arator': {`)
     expect(emitted).toContain(`    '/para\\u2029graph': {`)
 
-    // The property the four rows above are evidence *for*, asserted directly:
-    // every literal the file opens, it closes on the same line. A raw `\n` in
-    // a route key would split one entry across two lines, so the count is what
-    // sees it — and the specifiers carry the same characters as the keys, since
-    // both are quoted by the same function.
+    // Every literal the file opens, it closes on the same line: a raw `\n`
+    // in a route key would split one entry across two lines.
     expect(
       emitted.split('\n').filter((line) => /^ {4}'/.test(line))
     ).toHaveLength(4)
@@ -466,15 +443,11 @@ describe('relative handler specifiers', () => {
 
 describe('path-referentiality', () => {
   it('is blind to catalogue content: only routes and paths reach the output', () => {
-    // The mandate that matters, and the reason the emitter's *shape* is
-    // a constraint. Nitro never regenerates route types on a content change and
-    // gets away with it only because its output is an import expression the
-    // compiler re-resolves on every edit. Anything resolving values at emit time
-    // would go stale with no watcher that would ever fix it.
-    //
-    // Here that is asserted structurally — the emitter is handed no way to read
-    // a file — and in `test/types/emitted-map.test.ts` it is asserted against
-    // two real trees whose catalogues genuinely differ on disk.
+    // Nitro never regenerates route types on a content change; its output
+    // survives only because it is an import expression the compiler
+    // re-resolves on every edit. Anything resolving values at emit time would
+    // go stale with no watcher to fix it. Asserted structurally here, and
+    // against two real trees in `test/types/emitted-map.test.ts`.
     const routes: NitroEventHandler[] = [
       {
         route: '/api/users/:id',

@@ -1,18 +1,7 @@
 /**
- * The `#app` double, wired in by `vitest.config.ts`'s alias.
- *
- * `src/runtime/app/**` is app-side code: it imports `useFetch` from `#app`, an
- * alias that exists only inside a Nuxt build. This stands in for the functions
- * those files import, and records what the wrapper handed them — which is
- * precisely the boundary the header merge is a claim about.
- *
- * It is not a simulation of `useFetch` and must not become one. The composable
- * running for real, against a real server, is the e2e tier.
- *
- * `defineNuxtPlugin` is here for the same reason with even less to it: what the
- * client plugin's test asserts is the setup function's own effect, so the
- * double hands that function back unchanged and simulates nothing of Nuxt's
- * plugin lifecycle.
+ * The `#app` double, wired in by `vitest.config.ts`'s alias — `#app` only
+ * exists inside a Nuxt build. It records what the wrappers handed vanilla and
+ * simulates nothing; the composables running for real is the e2e tier.
  */
 
 import type { CheckedFetch } from '../../src/runtime/types'
@@ -44,9 +33,8 @@ export const useFetch = record('useFetch')
 export const useLazyFetch = record('useLazyFetch')
 
 /**
- * One recorded `useAsyncData` call, kept whole and variadic: unlike `useFetch`,
- * vanilla decides which argument is the handler by inspecting all of them, and
- * the wrapper's claim is about that same split.
+ * One recorded `useAsyncData` call, kept whole: vanilla decides which argument
+ * is the handler by inspecting all of them.
  */
 export interface RecordedAsyncDataCall {
   readonly name: 'useAsyncData' | 'useLazyAsyncData'

@@ -5,14 +5,10 @@ import type { CheckedFetch } from '../../src/runtime/types'
 import type { MapIsAugmented, User } from './routes'
 
 /**
- * The fetch surfaces' compile-time contract — the agreed call styles over a
- * hand-written stand-in for the generated map. Every assertion here is made by
- * the compiler under `pnpm typecheck`: an `Expect<Equal<…>>` that stops holding
- * is a type error, and a `@ts-expect-error` that stops being needed is TS2578.
- *
- * Narrowing is asserted with explicitly-typed consts rather than by using the
- * values: property access on `never` compiles, so a call site can keep passing
- * while narrowing is gone.
+ * The fetch surfaces' compile-time contract over a hand-written stand-in for
+ * the generated map, asserted by the compiler under `pnpm typecheck`.
+ * Narrowing is asserted with explicitly-typed consts: property access on
+ * `never` compiles, so a call site can keep passing while narrowing is gone.
  */
 
 type Equal<X, Y> =
@@ -38,7 +34,7 @@ declare function render(user: User): void
 // The imperative surface — inside any function, where `return` works
 // ---------------------------------------------------------------------------
 
-/** The shape, whole. The guard narrows `data`; the function decides the exit. */
+/** The guard narrows `data`; the function decides the exit. */
 export async function imperative(): Promise<User | null> {
   const { data, error } = await $checkedFetch.try('/api/users/:id')
 
@@ -58,8 +54,7 @@ export async function imperative(): Promise<User | null> {
     return null
   }
 
-  // Narrowed by the sibling guard alone — no second check and no `!`. The
-  // success arm is Nitro's own response type: plain `T`, no `| undefined`.
+  // Narrowed by the sibling guard alone — no second check and no `!`.
   const user: User = data
   type _successIsTheRoutes = Expect<Equal<typeof data, User>>
 
@@ -186,9 +181,8 @@ export async function throwingPathReadsTheFloor(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * The client's imperative shape with `throw` as the exit: arms that know a
- * specific answer throw the caller's own failure, and the trailing generic
- * throw is required because the compiler cannot know an arm throws.
+ * The imperative shape with `throw` as the exit; the trailing generic throw is
+ * required because the compiler cannot know an arm throws.
  */
 export const serverHandler = defineEventHandler(async (event) => {
   const { data, error } = await event.$checkedFetch.try('/api/chain/c')
@@ -211,10 +205,8 @@ export const serverHandler = defineEventHandler(async (event) => {
   return { ok }
 })
 
-/**
- * The members Nitro types on `event.$fetch` but never assigns do not exist here
- * to be reached for.
- */
+/** The members Nitro types on `event.$fetch` but never assigns do not exist
+ * here to be reached for. */
 export const eventSurfaceIsTheSeam = defineEventHandler(async (event) => {
   // @ts-expect-error — no `.raw` on the event-bound instance
   await event.$checkedFetch.raw('/api/users/:id')
@@ -230,10 +222,8 @@ export const eventSurfaceIsTheSeam = defineEventHandler(async (event) => {
 // One seam, three instances
 // ---------------------------------------------------------------------------
 
-/**
- * A `shared/` util that lets its caller choose the request context names the
- * seam as a parameter. The arms are the same arms as everywhere else.
- */
+/** A `shared/` util that names the seam as a parameter; the caller chooses
+ * the request context. */
 async function sharedGetUser(fetcher: CheckedFetch): Promise<User | null> {
   const { data, error } = await fetcher.try('/api/users/:id')
 
@@ -268,22 +258,18 @@ export function sharedFromApp(): Promise<User | null> {
 // compile error
 // ---------------------------------------------------------------------------
 
-/**
- * Declared rather than imported, for one reason: these three live behind `#app`,
- * which resolves under `vue-tsc` and not under a plain `vitest run`, and this
- * file's runtime half must still load. `typeof import(…)` is a type query — it
- * asserts the real declaration and emits no import.
- */
+// Declared rather than imported: these live behind `#app`, which does not
+// resolve under a plain `vitest run`. `typeof import(…)` is a type query — it
+// asserts the real declaration and emits no import.
 declare const useCheckedFetch: typeof import('../../src/runtime/app/composables/use-checked-fetch').useCheckedFetch
 declare const useLazyCheckedFetch: typeof import('../../src/runtime/app/composables/use-checked-fetch').useLazyCheckedFetch
 declare const useRequestCheckedFetch: typeof import('../../src/runtime/app/composables/use-request-checked-fetch').useRequestCheckedFetch
 
-/** The shape, whole: one call, no guard, no nesting, no reader. */
+/** One call, no guard, no nesting, no reader. */
 export async function composable(): Promise<void> {
   const { data: _data, error } = await useCheckedFetch('/api/users/:id')
 
-  // `data` is vanilla's own ref, `| undefined` and all — the template copes
-  // with it natively, which is why this surface never needs the guard.
+  // `data` is vanilla's own ref, `| undefined` and all.
   type _dataIsVanillas = Expect<Equal<typeof _data.value, User | undefined>>
 
   matchError(
@@ -319,10 +305,8 @@ export async function composableLazyTwin(): Promise<void> {
   )
 }
 
-/**
- * SSR-safe imperative calls in app code: the request-bound instance is the seam
- * exactly, because on the server vanilla hands back the bare event closure.
- */
+/** SSR-safe imperative calls in app code: on the server vanilla hands back
+ * the bare event closure, so the request-bound instance is the seam exactly. */
 export async function requestBoundImperative(): Promise<User | null> {
   const fetcher = useRequestCheckedFetch()
 

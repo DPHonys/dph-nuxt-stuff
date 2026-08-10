@@ -5,21 +5,12 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { assertNoDiagnostics, compileFixture } from '../types/compile-harness'
 
-/**
- * The map **rendered through a real app**, which is the half
- * `test/e2e/generated-map.test.ts` deferred: that file makes the structural
- * claims (where the file lands, how it is keyed, which programs reference it)
- * and `test/types/emitted-map.test.ts` compiles emitted text in a tree of its
- * own. Neither takes the render through the app and server programs a
- * consumer's call sites are actually typed in.
- *
- * The claim is a **rendering** one on purpose. Declaration emit writes type
- * references as `import("…")` nodes, and one that does not resolve inside a
- * `.d.ts` produces *no diagnostic* under `skipLibCheck` — which every generated
- * tsconfig sets. The entry silently becomes TypeScript's error type, which
- * renders as `any` and satisfies every structural assertion made about it. The
- * broken-specifier block at the bottom is that failure, induced.
- */
+// The map rendered through a real app's programs — the half the other suites
+// defer. The claim is a *rendering* one on purpose: an unresolved
+// `import("…")` inside a `.d.ts` produces no diagnostic under `skipLibCheck`
+// (which every generated tsconfig sets) and silently becomes `any`, satisfying
+// every structural assertion. The broken-specifier block at the bottom is that
+// failure, induced.
 
 const PACKAGE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const PLAYGROUND = join(PACKAGE_ROOT, 'playground')
@@ -27,22 +18,16 @@ const PLAYGROUND = join(PACKAGE_ROOT, 'playground')
 /** Where the map lands — restated, not imported, for `generated-map`'s reason. */
 const MAP_PATH = join(PLAYGROUND, '.nuxt/types/nuxt-handler-errors.d.ts')
 
-/**
- * The probes live inside `.nuxt/`, a dot-directory TypeScript's wildcard
- * expansion skips — so they are invisible to `vue-tsc`, eslint and knip, and
- * reach a program only as this harness's explicit root file. Everything they
- * import arrives through the generated tsconfig's own `paths`.
- */
+// The probes live inside `.nuxt/`, a dot-directory TypeScript's wildcard
+// expansion skips — invisible to `vue-tsc`, eslint and knip, reaching a
+// program only as this harness's explicit root file.
 const APP_PROBE = join(PLAYGROUND, '.nuxt/checked-app-probe.ts')
 const SERVER_PROBE = join(PLAYGROUND, '.nuxt/checked-server-probe.ts')
 
 const APP_TSCONFIG = join(PLAYGROUND, '.nuxt/tsconfig.json')
 const SERVER_TSCONFIG = join(PLAYGROUND, '.nuxt/tsconfig.server.json')
 
-/**
- * The app program's call sites, as a consumer writes them: the composable and
- * the global, both reached with no import of ours.
- */
+/** The app program's call sites, as a consumer writes them. */
 const APP_PROBE_SOURCE = [
   `import type { KnownApiErrors } from '@dphonys/nuxt-handler-errors/types'`,
   `import { useCheckedFetch } from '#imports'`,
@@ -57,12 +42,9 @@ const APP_PROBE_SOURCE = [
   ``,
 ].join('\n')
 
-/**
- * The **server** program's call site. `event.$checkedFetch` hangs off h3's
- * `H3Event`, and the app probe cannot stand in for it: the app program types
- * `H3Event` too, so a render there would say nothing about the program a
- * handler author writes in.
- */
+// The server program's call site. The app probe cannot stand in for it: the
+// app program types `H3Event` too, so a render there would say nothing about
+// the program a handler author writes in.
 const SERVER_PROBE_SOURCE = [
   `import { defineEventHandler } from 'h3'`,
   ``,
@@ -105,9 +87,8 @@ describe('the map, rendered in the app program', () => {
     const rendered = compilation.renderHover('Entry')
 
     for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
-    // `Serialize` has run over the payloads, the schema-declared one included
-    // — this is the only place the emitter's own `Simplify<Serialize<…>>` is
-    // the thing being rendered, in a real app's program.
+    // The only place the emitter's own `Simplify<Serialize<…>>` is rendered
+    // in a real app's program.
     expect(rendered).toContain(`requiredRole: "admin" | "owner"`)
     expect(rendered).toContain('retryAfter: number')
   })
@@ -163,9 +144,6 @@ describe('the lookup, over a map whose specifiers resolve to nothing', () => {
   })
 
   it('is swallowed whole: the probe still compiles clean', () => {
-    // No diagnostic anywhere. This is the failure mode the rendering
-    // assertions exist for, and it is why structural claims alone would keep
-    // a map that has stopped meaning anything green forever.
     assertNoDiagnostics(compileFixture(APP_TSCONFIG, APP_PROBE))
   })
 

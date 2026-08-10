@@ -5,14 +5,10 @@ import type { CheckedFetch } from '../../src/runtime/types'
 import type { User } from './routes'
 
 /**
- * The asyncData surface's compile-time contract — the agreed call styles over a
- * hand-written stand-in for the generated map. Every assertion here is made by
- * the compiler under `pnpm typecheck`: an `Expect<Equal<…>>` that stops holding
- * is a type error, and a `@ts-expect-error` that stops being needed is TS2578.
- *
- * The point of the whole file is that **nothing is annotated**: the declared
- * union rides the repository function's inferred return type, all the way to
- * the matcher's arms.
+ * The asyncData surface's compile-time contract, asserted by the compiler
+ * under `pnpm typecheck`. Nothing is annotated on purpose: the declared union
+ * rides the repository function's inferred return type all the way to the
+ * matcher's arms.
  */
 
 type Equal<X, Y> =
@@ -28,12 +24,9 @@ declare function showError(error: unknown): void
 declare function notFound(id: string): void
 declare function blocked(until: string): void
 
-/**
- * Declared rather than imported, for one reason: these two live behind `#app`,
- * which resolves under `vue-tsc` and not under a plain `vitest run`, and this
- * file's runtime half must still load. `typeof import(…)` is a type query — it
- * asserts the real declaration and emits no import.
- */
+// Declared rather than imported: these live behind `#app`, which does not
+// resolve under a plain `vitest run`. `typeof import(…)` is a type query — it
+// asserts the real declaration and emits no import.
 declare const useCheckedAsyncData: typeof import('../../src/runtime/app/composables/use-checked-async-data').useCheckedAsyncData
 declare const useLazyCheckedAsyncData: typeof import('../../src/runtime/app/composables/use-checked-async-data').useLazyCheckedAsyncData
 
@@ -46,17 +39,15 @@ const userRepo = {
   get: (_id: string) => $checkedFetch.try('/api/users/:id'),
 }
 
-/** A repository over the seam, for `shared/` — same inference, caller picks
- * the context by choosing the instance. */
+/** A repository over the seam, for `shared/`. */
 function createChainRepo(fetcher: CheckedFetch) {
   return {
     c: () => fetcher.try('/api/chain/c'),
   }
 }
 
-/** A method touching two routes: early-return each failure, hand-build the
- * success. The return type becomes the union of both error arms plus the
- * success — inferred, never written. */
+/** Two routes through one method: the return type is the union of both error
+ * arms plus the success — inferred, never written. */
 async function getUserWithChain() {
   const user = await userRepo.get('42')
   if (user.error) return user
@@ -71,8 +62,8 @@ async function getUserWithChain() {
 // The call styles
 // ---------------------------------------------------------------------------
 
-/** The shape, whole: one key, one repository call, zero annotations — and the
- * matcher gets the route's full union. */
+/** One key, one repository call, zero annotations — and the matcher gets the
+ * route's full union. */
 export async function throughARepository(): Promise<void> {
   const { data: _data, error } = await useCheckedAsyncData('user', () =>
     userRepo.get('42')
@@ -97,8 +88,8 @@ export async function throughARepository(): Promise<void> {
   )
 }
 
-/** Keyless, exactly as vanilla — the module registers the name in
- * `optimization.keyedComposables`, so the compiler injects the key. */
+/** Keyless, exactly as vanilla — `optimization.keyedComposables` injects the
+ * key at compile time. */
 export async function keylessForm(): Promise<void> {
   const { error } = await useCheckedAsyncData(() => userRepo.get('42'))
 
@@ -113,9 +104,8 @@ export async function keylessForm(): Promise<void> {
   )
 }
 
-/** The lazy twin is the same surface with `lazy` pre-set, and the reactive
- * composition is exactly what a lazy fetch needs — the error arrives after
- * setup, `immediate` covers it. */
+/** The lazy twin: the error arrives after setup, so the reactive composition
+ * with `immediate` covers it. */
 export async function lazyTwin(): Promise<void> {
   const { error } = await useLazyCheckedAsyncData('user', () =>
     userRepo.get('42')
@@ -152,9 +142,8 @@ export async function wrapperKeepsExhaustiveness(): Promise<void> {
   )
 }
 
-/** Two routes through one handler: the carrier union arrives whole, the arms
- * are exhaustive over BOTH routes' tags, and each payload narrows. This is
- * what the carrier-generic matcher buys. */
+/** The carrier union arrives whole, the arms are exhaustive over both routes'
+ * tags, and each payload narrows. */
 export async function multiRouteRepository(): Promise<void> {
   const { data: _data, error } = await useCheckedAsyncData('user-and-c', () =>
     getUserWithChain()
@@ -179,8 +168,7 @@ export async function multiRouteRepository(): Promise<void> {
   )
 }
 
-/** Dropping the second route's only tag is a compile error — cross-route
- * exhaustiveness, not just per-route. */
+/** Cross-route exhaustiveness, not just per-route. */
 export async function multiRouteExhaustiveness(): Promise<void> {
   const { error } = await useCheckedAsyncData('user-and-c', () =>
     getUserWithChain()
@@ -198,8 +186,8 @@ export async function multiRouteExhaustiveness(): Promise<void> {
   )
 }
 
-/** Vanilla's options work on the UNWRAPPED data: `transform` sees plain
- * success, `default` replaces `undefined`, exactly as vanilla types them. */
+/** Vanilla's options work on the unwrapped data, exactly as vanilla types
+ * them. */
 export async function vanillaOptionsSurvive(): Promise<void> {
   const { data: _data } = await useCheckedAsyncData(
     'user-name',
@@ -239,8 +227,8 @@ export async function vanillaMembersSurvive(): Promise<void> {
   await refresh()
 }
 
-/** A route that declares nothing degrades through the wrapper exactly as it
- * degrades everywhere else. */
+/** A route that declares nothing degrades through the wrapper as everywhere
+ * else. */
 export async function degradedRouteThroughTheWrapper(): Promise<void> {
   const { error } = await useCheckedAsyncData('boom', () =>
     $checkedFetch.try('/api/boom')
@@ -255,9 +243,7 @@ export async function degradedRouteThroughTheWrapper(): Promise<void> {
   })
 }
 
-/** Forgetting `.try` is a compile error, not a silent degradation: a bare
- * `$checkedFetch` resolves to plain data, which is not a try-shape. The wrapper
- * turns the discipline into a constraint. */
+/** Forgetting `.try` is a compile error, not a silent degradation. */
 export async function forgettingTryCannotCompile(): Promise<void> {
   // @ts-expect-error — the handler must return a try-shape, not raw data
   await useCheckedAsyncData('user', () => $checkedFetch('/api/users/:id'))

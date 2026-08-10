@@ -13,11 +13,9 @@ import type {
 } from '../../src/runtime/types'
 
 /**
- * The definition surface's compile-time contract. Every assertion here is made
- * by the compiler under `pnpm typecheck`: an `Expect<Equal<…>>` that stops
- * holding is a type error, and an `@ts-expect-error` that stops being needed
- * is `TS2578`. The suite below is the marker that keeps the file in vitest's
- * inventory; it asserts nothing the compiler has not already.
+ * The definition surface's compile-time contract, asserted by the compiler
+ * under `pnpm typecheck`. The suite at the bottom only keeps the file in
+ * vitest's inventory.
  */
 
 type Equal<X, Y> =
@@ -116,8 +114,7 @@ export const pickedSubset = defineCheckedEventHandler(
   }
 )
 
-// Repetition and emptiness are absorbed, not rejected: a tag picked twice is
-// the same subset as picked once, and picking nothing is the empty group.
+// Repetition and emptiness are absorbed, not rejected.
 const _pickedOnce = userErrors.pick('user-not-found')
 const _pickedTwice = userErrors.pick('user-not-found', 'user-not-found')
 const _pickedNone = userErrors.pick()
@@ -130,7 +127,7 @@ export type AssertEmptyPickIsEmpty = Expect<
 >
 
 // Overlapping picks compose without complaint — the slot's union dedupes
-// itself, so the handler is declared over each tag exactly once.
+// itself.
 const _overlappingErrors = [
   ...orderErrors.pick('order-cancelled', 'maintenance'),
   ...orderErrors.pick('order-cancelled'),
@@ -184,8 +181,8 @@ export type AssertAnyYieldsNever = Expect<
 // The divergence guard
 // ---------------------------------------------------------------------------
 
-// The same tag declared again, identically: the two variants are the same
-// type, the union collapses, nothing yells.
+// The same tag declared again, identically: the union collapses, nothing
+// yells.
 const userErrorsAgain = defineError({
   'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
 })
@@ -205,9 +202,8 @@ export type AssertIdenticalCollapses = Expect<
   >
 >
 
-// The same tag with a different shape is two union members sharing one
-// discriminant — `fail`'s payload lookup and the matcher's arms both break on
-// it, so the guard catches it and names the tag in the diagnostic.
+// The same tag with a different shape breaks `fail`'s payload lookup and the
+// matcher's arms, so the guard names the tag in the diagnostic.
 const conflictingUserErrors = defineError({ 'user-not-found': { status: 410 } })
 
 export function divergentRedeclarationIsCaught(): void {
@@ -241,10 +237,9 @@ export function payloadMustSurviveSerialization(): void {
 
 /**
  * The two doors into the payload position, held to one rule: whatever
- * `payload<T>()` rejects, a schema whose inferred output is the same `T` is
- * rejected for too — and whatever it accepts, the schema keeps. `Date` is the
- * accepted half on purpose: `Serialize` maps it to `string`, so it survives,
- * and a guard that rejected it would be stricter than the wire.
+ * `payload<T>()` rejects, a schema with the same inferred output is rejected
+ * for too. `Date` is the accepted half on purpose — `Serialize` maps it to
+ * `string`, so it survives the wire.
  */
 export function schemaOutputMustSurviveSerializationToo(): void {
   defineError(

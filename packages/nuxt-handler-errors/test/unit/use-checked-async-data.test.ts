@@ -6,15 +6,10 @@ import {
 } from '../../src/runtime/app/composables/use-checked-async-data'
 import { asyncDataCalls } from '../doubles/nuxt-app'
 
-/**
- * What the wrapper hands vanilla, and what the handler it substitutes does.
- *
- * The whole runtime is unwrap-or-rethrow, so the assertions are: the right
- * argument was replaced (vanilla's own split, not "argument 0"), everything
- * else arrived untouched by reference, and the substituted handler unwraps a
- * success and rethrows a failure **identically** — the identity is the point,
- * because a copy would change the marker's depth.
- */
+// The wrapper must replace the right argument (vanilla's own split, not
+// "argument 0"), forward everything else by reference, and the substituted
+// handler must unwrap a success and rethrow the failure carrier *identically*
+// — a copy would change the marker's depth.
 
 interface User {
   id: string

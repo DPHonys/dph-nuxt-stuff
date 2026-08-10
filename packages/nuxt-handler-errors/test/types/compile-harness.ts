@@ -1,19 +1,10 @@
 /**
- * A minimal compile-and-render harness, for the one claim the rest of this
- * suite cannot make: that emitted text *means* something.
- *
- * Every other type suite here is checked in place by `vue-tsc` — an
- * `Expect<Equal<…>>` that stops holding is a type error in the package's own
- * program. The generated map cannot be checked that way, because its whole
- * content is a set of paths relative to where it is written, so it has to be
- * emitted into a tree and compiled there.
- *
- * The **rendering** assertion is the point. Declaration emit writes type
- * references as `import("…")` nodes; one that does not resolve inside a
- * `.d.ts` produces *no diagnostic* under `skipLibCheck`, and the entry becomes
- * TypeScript's error type — which renders as `any` but satisfies every
- * structural assertion made against it. So `renderHover` refuses to answer for
- * a fixture that did not compile clean, and refuses to answer `any`.
+ * A minimal compile-and-render harness for the generated map, whose content is
+ * a set of paths relative to where it is written — so it must be emitted into
+ * a tree and compiled there. An unresolved `import("…")` in a `.d.ts` yields
+ * no diagnostic under `skipLibCheck` and collapses to `any`, so `renderHover`
+ * refuses to answer for a fixture that did not compile clean, and refuses to
+ * answer `any`.
  */
 
 import { dirname } from 'node:path'
@@ -92,9 +83,8 @@ export function assertNoDiagnostics(compilation: Compilation): void {
 }
 
 // `NoTruncation` so nothing is shortened, `InTypeAlias` so the type is
-// expanded rather than echoed back as its own alias name — an alias name would
-// render identically whatever it resolved to, which is exactly what must not
-// happen here.
+// expanded rather than echoed back as its own alias name — which would render
+// identically whatever it resolved to.
 const HOVER_FLAGS =
   ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.InTypeAlias
 

@@ -8,17 +8,9 @@ import { $checkedFetch } from '../../src/runtime/shared/checked-fetch'
 import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { settled } from '../fetch-channel'
 
-/**
- * What each of the three plugins does, and nothing about how it is registered:
- * the split into three exists so that each is deletable with a mutation that
- * reddens only its own test, and that only holds if each test executes exactly
- * one setup function.
- *
- * Both app-side and Nitro-side entry points load here through the doubles
- * `vitest.config.ts` aliases in — `defineNuxtPlugin` and `defineNitroPlugin`
- * both hand the setup function back unchanged. That the plugins are *registered*
- * (client-only, Nitro-side) is module wiring, and its own test.
- */
+// What each of the three plugins does, not how it is registered — the aliased
+// doubles hand each setup function back unchanged. Registration is module
+// wiring, and its own test.
 
 afterEach(() => {
   delete (globalThis as { $checkedFetch?: unknown }).$checkedFetch
@@ -29,9 +21,7 @@ describe('the global installers', () => {
     ['the client app plugin', clientPlugin],
     ['the Nitro plugin', nitroPlugin],
   ])('%s assigns the module’s own $checkedFetch', (_name, plugin) => {
-    // Identity, not shape: a plugin that installed a lookalike would pass every
-    // shape check and still be a second instance, with the instance-identity
-    // problem that brings.
+    // Identity, not shape: a lookalike would be a second instance.
     expect(globalThis.$checkedFetch).toBeUndefined()
 
     ;(plugin as () => void)()
@@ -58,9 +48,7 @@ function fakeNitroApp() {
 
 describe('the event installer', () => {
   it('installs event.$checkedFetch from the request hook', () => {
-    // The `request` hook is the earliest point `event.$fetch` exists — Nitro
-    // assigns its own four per-request closures and then calls it — so this is
-    // a fifth closure beside four that already exist.
+    // The `request` hook is the earliest point `event.$fetch` exists.
     const nitro = fakeNitroApp()
 
     ;(eventPlugin as unknown as (app: unknown) => void)(nitro.app)
@@ -78,8 +66,7 @@ describe('the event installer', () => {
 
   it('reads event.$fetch through a thunk, not at install time', async () => {
     // So the wrapper composes with anything that replaces `event.$fetch` later
-    // in the same hook chain — and so the skew guard reports the state at
-    // *call* time rather than the state one hook earlier.
+    // in the same hook chain.
     const nitro = fakeNitroApp()
 
     ;(eventPlugin as unknown as (app: unknown) => void)(nitro.app)
@@ -119,9 +106,8 @@ describe('the event installer', () => {
 })
 
 describe('the channel tag the event installer supplies', () => {
-  // The global installers have no token job left — the merge imports the
-  // build-time constant itself — but the event wrapper still takes it as a
-  // parameter, and this plugin is the one place that hands the constant in.
+  // The event wrapper takes the token as a parameter, and this plugin is the
+  // one place that hands the build-time constant in.
   afterEach(() => {
     setConfiguredChannelToken(undefined)
   })
