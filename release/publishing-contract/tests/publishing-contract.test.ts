@@ -251,7 +251,7 @@ function validPublishableManifest(name: string): Record<string, unknown> {
     engines: { node: '>=26.0.0' },
     repository: {
       type: 'git',
-      url: 'https://github.com/DPHonys/dph-nuxt-stuff.git',
+      url: 'git+https://github.com/DPHonys/dph-nuxt-stuff.git',
       directory: `packages/${name}`,
     },
     files: ['dist'],
