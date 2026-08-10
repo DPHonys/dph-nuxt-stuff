@@ -1,33 +1,13 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
-/**
- * Three projects, because the suites here cost very different things and a
- * single config has to price them all at the worst case: `unit` is the fast
- * tier, `types` holds suites whose real assertions the compiler makes (they
- * run under `typecheck`, and each file's runtime half is a marker), and `e2e`
- * builds real apps - minutes, not seconds.
- *
- * Each project names its `include`. That is also what keeps knip supplied with
- * entry patterns for this workspace.
- */
+// Three tiers: `unit` is fast, `types` suites are asserted by the compiler
+// under `typecheck`, and `e2e` builds real apps. The `include` patterns also
+// feed knip's entry points.
 
-/**
- * Three aliases, all for the same reason and all scoped to `unit`.
- *
- * `src/runtime/app/**` imports `#app`, `src/runtime/server/plugins/**` imports
- * `nitropack/runtime`, and the fetch surfaces import the channel token from
- * `#nuxt-handler-errors/channel-token`; none of these specifiers resolves
- * outside a real build, so under a plain `vitest run` those modules cannot be
- * loaded at all and their header merges would be reachable only through a full
- * e2e build. The doubles record what the wrapper hands the framework - or, for
- * the token, make a build-time constant settable - which is exactly the
- * boundary those merges are a claim about.
- *
- * Confining them to `unit` is the point: anything importing `#app` under
- * `vitest` would get the double silently, and the tier that builds a real app
- * must see the real thing.
- */
+// These specifiers only resolve inside a real build, so `unit` aliases them
+// to doubles. Scoping the aliases to `unit` is deliberate: the e2e tier must
+// see the real thing.
 const aliases = [
   {
     find: /^#app$/,
