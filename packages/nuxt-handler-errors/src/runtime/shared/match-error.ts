@@ -1,7 +1,3 @@
-// One matcher serves both runtimes: a server-side `.try` normalisation lands
-// the carrier at exactly the client chain's depth. No `#app` or `h3`
-// specifier is reachable from this file.
-
 import type { NuxtError } from 'nuxt/app'
 import type { MaybeRef } from 'vue'
 import { unref } from 'vue'
@@ -39,7 +35,7 @@ export function readFloor(error: unknown): KnownVariant | undefined {
 
 /**
  * Handle a failure: the declared arm if this call site knows the tag, the
- * fallback otherwise. A nullish error is no failure — nothing is called at
+ * fallback otherwise. A nullish error is no failure - nothing is called at
  * all. The ref is read once, at call time; the reactive form is
  * `watch(error, () => matchError(error, …))`.
  */

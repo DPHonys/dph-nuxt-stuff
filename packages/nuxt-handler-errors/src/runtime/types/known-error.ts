@@ -36,7 +36,7 @@ export type ErrorStatus =
 
 /**
  * What may sit in the `payload` position: the `payload<T>()` phantom, or any
- * Standard Schema value — read for its inferred output type, never executed.
+ * Standard Schema value - read for its inferred output type, never executed.
  */
 export type PayloadSlot = Payload<any> | StandardSchemaV1
 
@@ -46,7 +46,7 @@ export interface VariantDef {
   payload?: PayloadSlot
 }
 
-/** A definition record — the many-at-once form of `defineError`. */
+/** A definition record - the many-at-once form of `defineError`. */
 export type Defs = Record<string, VariantDef>
 
 /** The floor every variant meets: a `tag` and a `status`. */
@@ -78,7 +78,7 @@ export type VariantsOf<D extends Defs> = {
   [K in keyof D & string]: VariantOfDef<K, D[K]>
 }[keyof D & string]
 
-/** One variant's payload fields — the variant minus the two reserved names. */
+/** One variant's payload fields - the variant minus the two reserved names. */
 export type PayloadOf<E extends KnownVariant, T extends E['tag']> = Omit<
   Extract<E, { tag: T }>,
   'tag' | 'status'
@@ -91,7 +91,7 @@ export type PayloadArgs<E extends KnownVariant, T extends E['tag']> = [
   ? []
   : [payload: PayloadOf<E, T>]
 
-// `undefined` is excluded first because an optional field is `T | undefined` —
+// `undefined` is excluded first because an optional field is `T | undefined` -
 // without that, `amount?: bigint` walks straight through.
 type SurvivesSerialization<V> =
   IsAny<V> extends true
@@ -109,7 +109,7 @@ export type UnserializablePayloadFields<T> = {
   [K in keyof T]-?: SurvivesSerialization<T[K]> extends true ? never : K
 }[keyof T]
 
-// Every field must survive JSON serialization — a `bigint` makes
+// Every field must survive JSON serialization - a `bigint` makes
 // `JSON.stringify` throw inside Nitro, turning a declared 403 into a 500.
 export type SerializablePayload<T> = [UnserializablePayloadFields<T>] extends [
   never,
@@ -119,7 +119,7 @@ export type SerializablePayload<T> = [UnserializablePayloadFields<T>] extends [
       __unserializablePayloadField__: `Payload field does not survive JSON serialization: ${UnserializablePayloadFields<T> & string}`
     }
 
-// The same guard over a whole definition — where a Standard Schema's
+// The same guard over a whole definition - where a Standard Schema's
 // inferred output would otherwise walk in unchecked.
 export type SerializableDef<D extends VariantDef> = [
   UnserializablePayloadFields<PayloadTypeOf<D>>,
@@ -148,7 +148,7 @@ type UnserializableDefTags<D extends Defs> = {
     : K
 }[keyof D]
 
-/** One declared failure as a value — what `defineError` returns for a single. */
+/** One declared failure as a value - what `defineError` returns for a single. */
 export interface KnownError<E extends KnownVariant> {
   readonly [VARIANT]: E
 }
@@ -175,14 +175,14 @@ export type KnownErrorsOf<A extends ReadonlyArray<AnyKnownError>> =
     : never
 
 // Identical redeclarations collapse when the union forms and never reach
-// this — only the same tag declared with a different status or payload
+// this - only the same tag declared with a different status or payload
 // survives as two members sharing one discriminant.
 export type DivergentTags<E extends KnownVariant> = {
   [K in E['tag']]: IsUnion<Extract<E, { tag: K }>> extends true ? K : never
 }[E['tag']]
 
 // Surfaces a divergent tag as a missing property naming it. Must be
-// intersected FIRST (`ConflictGuard<A> & { errors: A }`) — TypeScript
+// intersected FIRST (`ConflictGuard<A> & { errors: A }`) - TypeScript
 // truncates the tail of a rendered type, and guard-last buries the message.
 export type ConflictGuard<A extends ReadonlyArray<AnyKnownError>> = [
   DivergentTags<KnownErrorsOf<A>>,

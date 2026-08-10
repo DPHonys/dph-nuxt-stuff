@@ -3,7 +3,7 @@ import type { MaybeRef } from 'vue'
 import type { KnownErrorBody } from '../shared/wire'
 import type { KnownVariant } from './known-error'
 
-/** An error carrying a route's declared union — what the matcher accepts. */
+/** An error carrying a route's declared union - what the matcher accepts. */
 export interface KnownErrorCarrier<E extends KnownVariant> {
   data?: KnownErrorBody<E> | undefined
 }
@@ -19,7 +19,7 @@ export type Arms<E extends KnownVariant> = {
 /**
  * The required fallback for everything the arms don't cover. `unrecognized`
  * is set when the server declared the failure but this call site has not
- * heard of it — deploy skew, or any marked variant on a degraded call.
+ * heard of it - deploy skew, or any marked variant on a degraded call.
  */
 export type Fallback = (error: NuxtError, unrecognized?: KnownVariant) => void
 
@@ -35,7 +35,7 @@ export interface MatchError {
   ): void
 
   // Degraded: a vanilla `useFetch`, an undeclared route, an `unknown` in a
-  // `catch`. Arms must be `{}` — anything more permissive silently disables
+  // `catch`. Arms must be `{}` - anything more permissive silently disables
   // exhaustiveness on typed calls missing an arm.
   (error: unknown, arms: Record<string, never>, fallback: Fallback): void
 }

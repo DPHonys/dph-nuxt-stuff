@@ -1,7 +1,3 @@
-// Not on a published specifier — this file imports `#app`, which exists in the
-// app build only. The auto-import registration in `src/module.ts` is the whole
-// contract for these names; an explicit import is `#imports`.
-
 import type { MaybeRefOrGetter } from 'vue'
 import type { AsyncData, AsyncDataOptions, NuxtError } from '#app'
 import { useAsyncData, useLazyAsyncData } from '#app'
@@ -122,6 +118,7 @@ export interface UseCheckedAsyncData {
   ): AsyncData<PickFrom<DataT, PickKeys> | DefaultT, FailureOf<T> | undefined>
 }
 
+// TODO
 type VanillaUseAsyncData = (...args: unknown[]) => unknown
 
 // Decided by vanilla's own `_isAutoKeyNeeded` rule rather than "is argument 0

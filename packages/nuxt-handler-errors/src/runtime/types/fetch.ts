@@ -1,8 +1,3 @@
-// `KnownErrorsOfRoute` comes back from `./index` — a deliberate, type-only
-// cycle. The lookup cannot move here: it reads `KnownApiErrors`, which must be
-// declared in the module the published specifier resolves to, or the
-// emitter's augmentation shadows it instead of merging.
-
 import type { RouterMethod } from 'h3'
 import type {
   $Fetch,
@@ -79,7 +74,7 @@ export interface CheckedFetchTry<
 
 /**
  * The minimal checked instance: vanilla's call plus `.try`. Every instance
- * satisfies it — the app global, a created instance, and the event-bound one.
+ * satisfies it - the app global, a created instance, and the event-bound one.
  */
 export interface CheckedFetch<
   DefaultT = unknown,

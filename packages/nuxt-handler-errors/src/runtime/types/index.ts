@@ -1,8 +1,3 @@
-// The `@dphonys/nuxt-handler-errors/types` entry point. `KnownApiErrors` and
-// the augmentations must be DECLARED here, not re-exported: a module
-// augmentation merges only with an interface declared in the module the
-// specifier resolves to — a re-exported one is shadowed silently.
-
 import type { RouterMethod } from 'h3'
 import type { MatchedRoutes } from 'nitropack/types'
 import type { $CheckedFetch, CheckedFetch } from './fetch'
@@ -68,7 +63,7 @@ declare module 'h3' {
 
 declare global {
   /**
-   * The checked fetch global — callable in a Nitro handler, in
+   * The checked fetch global - callable in a Nitro handler, in
    * `<script setup>` and in a consumer's `shared/` directory with no import.
    */
   // eslint-disable-next-line vars-on-top

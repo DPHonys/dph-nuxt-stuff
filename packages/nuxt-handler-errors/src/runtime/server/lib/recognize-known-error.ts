@@ -2,7 +2,7 @@ import { readFloor } from '../../shared/match-error'
 import type { KnownVariant } from '../../types/known-error'
 
 /**
- * The variant an error carries, or `undefined` for "not a known failure" —
+ * The variant an error carries, or `undefined` for "not a known failure" -
  * for an `error` hook or a Sentry `beforeSend`.
  *
  * ```ts

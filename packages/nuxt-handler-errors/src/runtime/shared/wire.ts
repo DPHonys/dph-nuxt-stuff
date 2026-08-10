@@ -2,7 +2,7 @@ import type { KnownVariant } from '../types/known-error'
 
 /**
  * The reserved key a known failure travels under, inside the error body's
- * `data`. Frozen wire protocol — versioning is by key rename.
+ * `data`. Frozen wire protocol - versioning is by key rename.
  */
 export const KNOWN_ERROR_KEY = '__knownError__'
 
@@ -29,7 +29,7 @@ export interface KnownErrorBody<E extends KnownVariant> {
 
 // `statusMessage?: never` made structural: an escaped server-to-server throw
 // forwards the reason phrase untouched, so the tag must never ride it.
-// `message` MAY carry the tag — the production handler scrubs it on escape.
+// `message` MAY carry the tag - the production handler scrubs it on escape.
 export interface KnownRaiseInput<E extends KnownVariant> {
   statusCode: number
   message: string

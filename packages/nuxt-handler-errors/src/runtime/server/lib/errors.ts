@@ -1,7 +1,3 @@
-// Definition surface and raise path in one file: they share `INTERNALS`, a
-// module-private symbol, and splitting them would demote it to an export.
-// Server-only by construction — the one file in the package importing `h3`.
-
 import { createError, defineEventHandler } from 'h3'
 import { knownErrorMarker } from '../../shared/wire'
 import type { KnownRaiseInput } from '../../shared/wire'
@@ -19,13 +15,13 @@ import type {
 } from '../../types/known-error'
 
 /**
- * Marks a variant's payload type. The runtime value is inert — only the type
+ * Marks a variant's payload type. The runtime value is inert - only the type
  * argument matters, checked against what survives JSON serialization. A
  * Standard Schema may sit in the same position instead.
  */
 export const payload: DefinePayload = () => ({})
 
-// `statusMessage` is never set — the reason phrase survives an escaped
+// `statusMessage` is never set - the reason phrase survives an escaped
 // server-to-server throw untouched, so the tag must not ride it.
 // `fatal`/`unhandled` are left alone, so the production serializer keeps
 // `data` and Nuxt never escalates a known failure to the error page.
@@ -60,20 +56,20 @@ function knownErrorValue(internals: KnownErrorInternals): AnyKnownError {
 }
 
 // `INTERNALS` is per module instance, so a value from a second physical copy
-// of this module fails here. Throwing at module evaluation is the point —
+// of this module fails here. Throwing at module evaluation is the point -
 // skipping the entry would hide the misconfiguration until some request
 // raises one of its tags.
 function raiseForeignError(index: number): never {
   throw new Error(
     `[nuxt-handler-errors] errors[${index}] is not an error created by this copy of the module. ` +
       `Either it did not come from defineError(), or there are two copies of ` +
-      `@dphonys/nuxt-handler-errors in the dependency tree — a version duplicate, or a Nuxt ` +
+      `@dphonys/nuxt-handler-errors in the dependency tree - a version duplicate, or a Nuxt ` +
       `layer or package that resolved its own. Deduplicate it so every error and every ` +
       `handler come from one copy.`
   )
 }
 
-// One error per distinct tag, first occurrence winning — JavaScript callers
+// One error per distinct tag, first occurrence winning - JavaScript callers
 // see none of the type-level guards.
 function byDistinctTag(
   entries: readonly KnownErrorInternals[]
@@ -130,7 +126,7 @@ export const defineCheckedEventHandler: DefineCheckedEventHandler = (
   options,
   handler
 ) => {
-  // Resolved here, at declaration, not lazily inside `fail` — so a foreign
+  // Resolved here, at declaration, not lazily inside `fail` - so a foreign
   // error fires before the route serves a request.
   const declared = byDistinctTag(
     options.errors.map(

@@ -1,9 +1,3 @@
-// Channel gating, the response half: prepended to Nitro's error-handler
-// chain, answers a tokenless request whose error carries the marker with the
-// builtin's own body, marker removed. The thrown error is never touched —
-// `captureError` fires the `error` hook before the chain runs, so
-// observability sees the marker on every known failure regardless of caller.
-
 import type { H3Error, H3Event } from 'h3'
 import {
   getRequestHeader,
@@ -16,11 +10,11 @@ import { CHANNEL_HEADER } from '../../shared/channel'
 import { readFloor } from '../../shared/match-error'
 import { KNOWN_ERROR_KEY } from '../../shared/wire'
 
-// Strips the marker at either depth the wire uses — `data.<marker>` for the
+// Strips the marker at either depth the wire uses - `data.<marker>` for the
 // route's own raise, `data.data.<marker>` for a rethrown fetched carrier.
 // Built by spread throughout so the thrown error's own `data` object is left
 // untouched. A `data` left with no other key is dropped rather than sent as
-// `{}` — `undefined` is the shape the builtin itself sends.
+// `{}` - `undefined` is the shape the builtin itself sends.
 function withoutMarker(data: unknown): unknown {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     return data
@@ -40,8 +34,8 @@ function withoutMarker(data: unknown): unknown {
 }
 
 /**
- * The chain entry. Returns — deferring to whatever comes next, ultimately the
- * builtin — for every case that is not "a marked error answering a caller
+ * The chain entry. Returns - deferring to whatever comes next, ultimately the
+ * builtin - for every case that is not "a marked error answering a caller
  * without the token".
  */
 export function createChannelStripHandler(
@@ -56,7 +50,7 @@ export function createChannelStripHandler(
 
     const res = await defaultHandler(error, event)
 
-    // A non-object body is the dev builtin's youch HTML page — nothing to strip.
+    // A non-object body is the dev builtin's youch HTML page - nothing to strip.
     if (typeof res.body !== 'object' || res.body === null) return
 
     const body = { ...res.body, data: withoutMarker(res.body.data) }

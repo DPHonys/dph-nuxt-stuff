@@ -1,7 +1,3 @@
-// Side-agnostic on purpose — nothing here imports `#app`, which is what lets
-// the value be installed as a global on both sides. Reaches call sites as
-// `globalThis.$checkedFetch`, never through the published specifier.
-
 import { configuredChannelToken } from '#nuxt-handler-errors/channel-token'
 import { createError } from 'h3'
 import type { NuxtError } from 'nuxt/app'
@@ -13,7 +9,7 @@ interface RawOptions {
   headers?: HeadersInit
 }
 
-// Vanilla's namespace reduced to the shapes this file touches — the real
+// Vanilla's namespace reduced to the shapes this file touches - the real
 // `$Fetch` would make every forwarding call site fight route-literal
 // inference. The cast ending `createCheckedFetch` makes the claim once.
 interface RawFetch {
@@ -32,7 +28,7 @@ const ACCEPT = 'accept'
 const ACCEPT_JSON = 'application/json'
 
 // Built through a `Headers` (the one merge that accepts all three legal input
-// forms) and handed on AS a `Headers` — ofetch's `mergeHeaders` takes one
+// forms) and handed on AS a `Headers` - ofetch's `mergeHeaders` takes one
 // correctly. The event-bound wrapper and the composable must flatten instead;
 // the three merges are deliberately unshared.
 function withCheckedHeaders(
@@ -53,17 +49,17 @@ function withCheckedHeaders(
 }
 
 // Mirrors ofetch's own SHALLOW defaults spread: a `headers` key replaces the
-// instance's wholesale — accumulating across creates would drift from what
+// instance's wholesale - accumulating across creates would drift from what
 // ofetch actually sends.
 function nextInstanceHeaders(current: Headers, defaults: RawOptions): Headers {
   return 'headers' in defaults ? new Headers(defaults.headers) : current
 }
 
-// h3's `createError` — the same normalisation `useFetch`'s error ref goes
+// h3's `createError` - the same normalisation `useFetch`'s error ref goes
 // through, so one matcher serves both surfaces at one depth.
 export function toNuxtError(cause: unknown): NuxtError {
   // `createError(null)` reads `input.message` and throws, and `.try` must be
-  // total — a thrown `null` is a failure like any other.
+  // total - a thrown `null` is a failure like any other.
   const input =
     typeof cause === 'string' ||
     (typeof cause === 'object' && cause !== null && !Array.isArray(cause))
@@ -91,7 +87,7 @@ export function toNuxtError(cause: unknown): NuxtError {
   return error as NuxtError
 }
 
-// Catches everything a fetch can throw — HTTP, network, abort, parse — and
+// Catches everything a fetch can throw - HTTP, network, abort, parse - and
 // normalises it; there is no rethrow channel.
 export async function toTryResult(
   call: () => Promise<unknown>
@@ -148,5 +144,5 @@ const vanillaGlobal: RawFetch = Object.assign(
   }
 )
 
-/** The value the module installs on `globalThis` — one object on every side. */
+/** The value the module installs on `globalThis` - one object on every side. */
 export const $checkedFetch: $CheckedFetch = createCheckedFetch(vanillaGlobal)

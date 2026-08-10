@@ -1,7 +1,3 @@
-// Every callable is a named `interface` with the value a `const` of that
-// type, because a named interface renders as its own name in hovers rather
-// than as its whole expanded signature.
-
 import type {
   EventHandler,
   EventHandlerRequest,
@@ -29,7 +25,7 @@ import type { IsAny } from './utils'
 
 /**
  * An h3 `EventHandler` carrying its declared error union as a phantom
- * property — the channel the generated map reads.
+ * property - the channel the generated map reads.
  */
 export interface CheckedEventHandler<
   Request extends EventHandlerRequest = EventHandlerRequest,

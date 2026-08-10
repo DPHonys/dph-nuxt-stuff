@@ -1,6 +1,3 @@
-// Kept out of the plugin beside it so the thing underneath is a parameter the
-// tests can model with nothing booted.
-
 import { CHANNEL_HEADER } from '../../shared/channel'
 import type { RawTryResult } from '../../shared/checked-fetch'
 import { toTryResult } from '../../shared/checked-fetch'
@@ -21,7 +18,7 @@ export type RawEventFetch = (
 const ACCEPT = 'accept'
 const ACCEPT_JSON = 'application/json'
 
-// Flattened to a plain object — the inverse of the global's rule: underneath
+// Flattened to a plain object - the inverse of the global's rule: underneath
 // is h3's `fetchWithEvent`, which merges headers by object spread, and a
 // `Headers` instance spreads to nothing.
 function withCheckedHeaders(
@@ -38,7 +35,7 @@ function withCheckedHeaders(
 }
 
 /**
- * Thrown when `event.$fetch` is not a function at call time — this module
+ * Thrown when `event.$fetch` is not a function at call time - this module
  * rides Nitro's `@experimental` `event.$fetch`, and a newer nitro/h3 may drop
  * it. The guard names the version skew instead of a bare TypeError.
  */
@@ -49,7 +46,7 @@ export class EventFetchUnavailableError extends Error {
     super(
       'event.$checkedFetch: `event.$fetch` is not a function on this event. ' +
         'nuxt-handler-errors wraps Nitro’s experimental `event.$fetch`, and the ' +
-        'installed nitro/h3 no longer provides it — the runtime is newer than ' +
+        'installed nitro/h3 no longer provides it - the runtime is newer than ' +
         'the versions this module supports (version skew). Upgrade ' +
         'nuxt-handler-errors, or pin nitro/h3 to a supported version.'
     )
@@ -59,8 +56,8 @@ export class EventFetchUnavailableError extends Error {
 /**
  * Build the event-bound instance over the event's own fetch. `getBase` is a
  * thunk so the wrapper composes with later `event.$fetch` replacements. The
- * instance is the seam exactly — the call and `.try`, no `.raw` and no
- * `.create` — because `event.$fetch` is a bare closure over `fetchWithEvent`.
+ * instance is the seam exactly - the call and `.try`, no `.raw` and no
+ * `.create` - because `event.$fetch` is a bare closure over `fetchWithEvent`.
  */
 export function createCheckedEventFetch(
   getBase: () => RawEventFetch | undefined,

@@ -1,7 +1,3 @@
-// Not on a published specifier — this file imports `#app`, which exists in the
-// app build only. The auto-import registration in `src/module.ts` is the whole
-// contract for these names; an explicit import is `#imports`.
-
 import { configuredChannelToken } from '#nuxt-handler-errors/channel-token'
 import type { RouterMethod } from 'h3'
 import type { AvailableRouterMethod, NitroFetchRequest } from 'nitropack/types'
@@ -164,7 +160,7 @@ export interface UseCheckedFetch {
 // fails outside `/api/**`, and a declared failure arrives as HTML.
 const ACCEPT_JSON = 'application/json'
 
-// Unwraps refs at every level — vanilla's option type is
+// Unwraps refs at every level - vanilla's option type is
 // `ComputedOptions<HeadersInit>`, and reading the raw object without
 // unwrapping stringifies a ref to `[object Object]`.
 function resolveHeadersInit(raw: unknown): HeadersInit | undefined {
@@ -188,7 +184,7 @@ function resolveHeadersInit(raw: unknown): HeadersInit | undefined {
 }
 
 // Handed back flattened: on same-origin SSR requests `useFetch` goes through
-// h3's `fetchWithEvent`, which merges headers by object spread — a `Headers`
+// h3's `fetchWithEvent`, which merges headers by object spread - a `Headers`
 // instance spreads to nothing. A `computed` so vanilla's deep watch on the
 // `headers` option keeps tracking the caller's refs.
 function checkedHeaders(
@@ -206,6 +202,7 @@ function checkedHeaders(
   })
 }
 
+// TODO
 // Vanilla's runtime signature: the middle argument is either the options
 // object or the auto-key.
 type VanillaUseFetch = (
