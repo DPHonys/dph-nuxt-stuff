@@ -175,6 +175,30 @@ describe('module setup wiring', () => {
     ).toHaveLength(1)
   })
 
+  it('seeds the channel token in public runtimeConfig, empty by default', () => {
+    // Public by design — every fetch surface attaches it, the browser's
+    // included — and seeded rather than left undeclared because Nuxt only
+    // env-overrides keys that already exist. `''` reads as "no token", so a
+    // project that sets nothing keeps today's behaviour.
+    expect(nuxt.options.runtimeConfig.public.handlerErrors).toEqual({
+      channelToken: '',
+    })
+  })
+
+  it('prepends its stripper to the errorHandler chain, keeping Nuxt’s own', () => {
+    // The measured seam: `nitro:config` fires after Nuxt has filled an empty
+    // slot with its own handler and before `createNitro`, and the chain runs in
+    // order with Nitro's builtin appended last. Read off the **resolved** Nitro
+    // options rather than a hand-fed config object, so the assertion is about
+    // the chain the app really gets — a single value normalised to an array,
+    // this module first, and Nuxt's handler still in it.
+    const chain = nitro?.options.errorHandler
+
+    expect(Array.isArray(chain)).toBe(true)
+    expect(chain?.[0]).toMatch(/\/runtime\/server\/handlers\/channel-strip/)
+    expect(chain?.length).toBeGreaterThan(1)
+  })
+
   it('hoists the emitted specifier onto the generated tsconfigs', () => {
     // The string comes from the emitter so the push cannot drift from the
     // module the map actually augments.
@@ -233,14 +257,33 @@ describe('module setup wiring', () => {
     // only see the override, not what the handler does, so the warning fires on
     // the override itself.
     let overridden: Nuxt | undefined
+    let overriddenNitro: Nitro | undefined
 
     const warnings = await warningsDuring(async () => {
       overridden = await loadNuxt({
         cwd: FIXTURE,
-        ready: true,
+        ready: false,
         overrides: { nitro: { errorHandler: '~/server/error-handler' } },
       })
+
+      overridden.hook('nitro:init', (instance) => {
+        overriddenNitro = instance
+      })
+
+      await overridden.ready()
     })
+
+    // The other half of the same boot: a consumer's entry is **preserved**
+    // behind this module's, never replaced. Dropping it would silently
+    // uninstall the handler the project asked for.
+    // Three entries, in this order: this module's stripper, the consumer's own
+    // handler, and Nitro's builtin — which `resolveErrorOptions` appends last
+    // and which always terminates the chain.
+    expect(overriddenNitro?.options.errorHandler).toEqual([
+      expect.stringMatching(/\/runtime\/server\/handlers\/channel-strip/),
+      '~/server/error-handler',
+      expect.stringMatching(/nitropack\/dist\/runtime\/internal\/error\/prod$/),
+    ])
 
     await overridden?.close()
 

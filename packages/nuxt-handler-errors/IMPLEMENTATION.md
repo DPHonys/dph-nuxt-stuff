@@ -56,7 +56,7 @@ Orchestration bookkeeping for the rewrite. Working helper file; moved to
 | 3   | Fetch surfaces (`$checkedFetch` + `.try`, `useCheckedFetch` family, `event.$checkedFetch`)                          | done           |
 | 4   | `useCheckedAsyncData` + lazy twin                                                                                   | done           |
 | 5   | Emitter + module wiring                                                                                             | done           |
-| 6   | Channel gating + observability recognizer                                                                           | pending        |
+| 6   | Channel gating + observability recognizer                                                                           | done           |
 | 7   | Playground + e2e + repo-wide `pnpm check` + README                                                                  | pending        |
 | 8   | `to-delete/` + final cleanup                                                                                        | pending        |
 
@@ -87,6 +87,16 @@ Open items carried between phases:
   renders one declaration, refusing to answer for a fixture that did not
   compile clean or that renders `any`. Hover _budgets_ are not ported; if
   Phase 7 wants them, that is where the measurements get retaken.
+- Phase 6 names, now fixed: token at
+  `runtimeConfig.public.handlerErrors.channelToken` (seeded with `''` by the
+  module so `NUXT_PUBLIC_HANDLER_ERRORS_CHANNEL_TOKEN` applies), request header
+  `x-known-error-channel`, recognizer `recognizeKnownError` (exported from
+  `/server`). No `PublicRuntimeConfig` augmentation ships: Nuxt generates that
+  interface from the resolved config, and a second declaration of the same key
+  is a merge conflict in the consumer's program.
+- Phase 6 registers the chain entry unconditionally (it returns immediately
+  with no token) because runtimeConfig is env-overridable at run time, so
+  build-time absence is not absence.
 - Phase 4 moved the type suites' route fixture (the `InternalApi` and
   `KnownApiErrors` stand-ins) to `test/types/routes.ts`: both are global
   declaration merges, so a second suite restating them merges into the same

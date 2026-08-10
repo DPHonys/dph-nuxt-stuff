@@ -12,9 +12,10 @@ import type { AvailableRouterMethod, NitroFetchRequest } from 'nitropack/types'
 import type { ComputedRef, Ref } from 'vue'
 import { computed, toValue } from 'vue'
 import type { AsyncData, FetchResult, NuxtError, UseFetchOptions } from '#app'
-import { useFetch, useLazyFetch } from '#app'
+import { useFetch, useLazyFetch, useRuntimeConfig } from '#app'
 import type { KeysOf, PickFrom } from '#app/composables/asyncData'
 import type { UseFetchOptionsWithTransform } from '#app/composables/fetch'
+import { CHANNEL_HEADER, readChannelToken } from '../../shared/channel'
 import type { KnownErrorBody } from '../../shared/wire'
 import type { KnownErrorsOfRoute, KnownVariant } from '../../types'
 
@@ -240,9 +241,9 @@ function resolveHeadersInit(raw: unknown): HeadersInit | undefined {
 }
 
 /**
- * The call's headers with `accept` added when the caller did not name one —
- * built through a `Headers` (the one merge that accepts all three legal input
- * forms) and handed back **flattened**: on same-origin SSR requests `useFetch`
+ * The call's headers with `accept` added when the caller did not name one, plus
+ * the channel tag when one is configured — built through a `Headers` (the one
+ * merge that accepts all three legal input forms) and handed back **flattened**: on same-origin SSR requests `useFetch`
  * swaps in `useRequestFetch()`, which is `event.$fetch` over h3's
  * `fetchWithEvent`, and that merges headers by object spread — where a
  * `Headers` instance spreads to nothing and loses everything. Measured.
@@ -254,11 +255,18 @@ function resolveHeadersInit(raw: unknown): HeadersInit | undefined {
  * can read an `opts.$fetch` instance's defaults, so the call is the whole of
  * "already carries it".
  */
-function acceptJsonHeaders(headers: unknown): ComputedRef<HeadersInit> {
+function checkedHeaders(
+  headers: unknown,
+  token: string | undefined
+): ComputedRef<HeadersInit> {
   return computed(() => {
     const merged = new Headers(resolveHeadersInit(toValue(headers)))
 
     if (!merged.has('accept')) merged.set('accept', ACCEPT_JSON)
+
+    // The channel tag, when the consumer configured one. `set`, as in the other
+    // two merge forms — the header is the module's own.
+    if (token !== undefined) merged.set(CHANNEL_HEADER, token)
 
     return Object.fromEntries(merged)
   })
@@ -296,9 +304,17 @@ function wrapVanillaFetch(vanilla: VanillaUseFetch): UseCheckedFetch {
             arg2 as string | undefined,
           ] as const)
 
+    // Read here rather than inside the computed: `useRuntimeConfig()` wants the
+    // Nuxt instance, which is guaranteed at the call site (a composable) and
+    // not inside a computation vanilla may re-run later. It is the app's own
+    // route to the token on **both** sides — the browser's client plugin and
+    // Nitro's plugin each fill a box in their own bundle, and this file runs in
+    // neither during SSR.
+    const token = readChannelToken(useRuntimeConfig())
+
     return vanilla(
       request,
-      { ...opts, headers: acceptJsonHeaders(opts?.headers) },
+      { ...opts, headers: checkedHeaders(opts?.headers, token) },
       autoKey
     )
   }) as UseCheckedFetch

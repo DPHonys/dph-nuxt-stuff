@@ -1,7 +1,7 @@
 /**
  * The `@dphonys/nuxt-handler-errors/server` entry point: the definition
- * surface, importable from a route file, `server/utils/` and anywhere else in
- * the Nitro build.
+ * surface plus the observability recognizer, importable from a route file,
+ * `server/utils/`, a Nitro plugin and anywhere else in the Nitro build.
  *
  * Server-only, and forced to be: `defineCheckedEventHandler` calls h3's
  * `defineEventHandler`, and `defineError` shares a module-private symbol with
@@ -12,3 +12,4 @@
  */
 
 export { defineCheckedEventHandler, defineError, payload } from './lib/errors'
+export { recognizeKnownError } from './lib/recognize-known-error'

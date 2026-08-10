@@ -3,7 +3,14 @@ import clientPlugin from '../../src/runtime/app/plugins/checked-fetch.client'
 import { EventFetchUnavailableError } from '../../src/runtime/server/lib/event-checked-fetch'
 import nitroPlugin from '../../src/runtime/server/plugins/checked-fetch'
 import eventPlugin from '../../src/runtime/server/plugins/event-checked-fetch'
+import {
+  channelToken,
+  CHANNEL_HEADER,
+  setChannelToken,
+} from '../../src/runtime/shared/channel'
 import { $checkedFetch } from '../../src/runtime/shared/checked-fetch'
+import { setRuntimeConfig as setNitroRuntimeConfig } from '../doubles/nitro-runtime'
+import { setRuntimeConfig as setAppRuntimeConfig } from '../doubles/nuxt-app'
 import { settled } from '../fetch-channel'
 
 /**
@@ -113,5 +120,64 @@ describe('the event installer', () => {
     const result = await settled(() => installed('/api/anything'))
 
     expect(result.value).toBeInstanceOf(EventFetchUnavailableError)
+  })
+})
+
+describe('the channel tag each plugin supplies', () => {
+  // The token is the plugins' second job: the globals are built at import time,
+  // so `runtimeConfig` can only reach them from inside a plugin.
+  afterEach(() => {
+    setChannelToken(undefined)
+    setAppRuntimeConfig({ public: {} })
+    setNitroRuntimeConfig({ public: {} })
+  })
+
+  it.each([
+    ['the client app plugin', clientPlugin, setAppRuntimeConfig],
+    ['the Nitro plugin', nitroPlugin, setNitroRuntimeConfig],
+  ])('%s fills the box from runtimeConfig', (_name, plugin, setConfig) => {
+    setConfig({ public: { handlerErrors: { channelToken: 'first-party' } } })
+    ;(plugin as () => void)()
+
+    expect(channelToken()).toBe('first-party')
+  })
+
+  it('the event installer hands the token to the per-request wrapper', async () => {
+    // Passed in rather than taken from the box, so this plugin does not depend
+    // on the global one having run first — asserted by leaving the box empty.
+    setNitroRuntimeConfig({
+      public: { handlerErrors: { channelToken: 'first-party' } },
+    })
+
+    const hooks: Record<string, (event: never) => void> = {}
+    const app = {
+      hooks: {
+        hook: (name: string, handler: (event: never) => void) => {
+          hooks[name] = handler
+        },
+      },
+    }
+
+    ;(eventPlugin as unknown as (app: unknown) => void)(app)
+
+    const sent: unknown[] = []
+    const event = {
+      $fetch: (_request: unknown, init?: { headers?: unknown }) => {
+        sent.push(init?.headers)
+
+        return Promise.resolve('ok')
+      },
+    }
+
+    hooks.request?.(event as never)
+
+    await (
+      event as unknown as { $checkedFetch: (r: string) => Promise<unknown> }
+    ).$checkedFetch('/api/anything')
+
+    expect(channelToken()).toBeUndefined()
+    expect(sent).toEqual([
+      { accept: 'application/json', [CHANNEL_HEADER]: 'first-party' },
+    ])
   })
 })

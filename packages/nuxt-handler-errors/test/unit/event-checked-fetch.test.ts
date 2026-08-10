@@ -3,6 +3,7 @@ import {
   createCheckedEventFetch,
   EventFetchUnavailableError,
 } from '../../src/runtime/server/lib/event-checked-fetch'
+import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { knownFailure, settled } from '../fetch-channel'
 
 /**
@@ -342,5 +343,52 @@ describe('the skew guard: event.$fetch gone at runtime', () => {
 
     expect(result.threw).toBe(true)
     expect(result.value).not.toBeInstanceOf(EventFetchUnavailableError)
+  })
+})
+
+describe('the channel tag — the EVENT-BOUND form', () => {
+  // Handed in as a constructor argument rather than read from the box the two
+  // globals share: this surface is built per request by a plugin that reads
+  // `useRuntimeConfig(event)` itself, so plugin order is not load-bearing.
+  it('attaches nothing when no token is configured', async () => {
+    await createCheckedEventFetch(fakeEventFetch)('/api/anything')
+
+    expect(sentHeaders()).toEqual({
+      ...FORWARDED,
+      accept: 'application/json',
+    })
+  })
+
+  it('attaches the token, flattened like everything else on this surface', async () => {
+    // Flattened, because h3's `fetchWithEvent` merges by object spread — the
+    // tag must survive that spread or gating silently fails open for SSR.
+    await createCheckedEventFetch(fakeEventFetch, 'first-party')(
+      '/api/anything',
+      { headers: { authorization: 'Bearer t' } }
+    )
+
+    expect(sentHeaders()).toEqual({
+      ...FORWARDED,
+      authorization: 'Bearer t',
+      accept: 'application/json',
+      [CHANNEL_HEADER]: 'first-party',
+    })
+  })
+
+  it('overrides a caller’s own value for the header', async () => {
+    await createCheckedEventFetch(fakeEventFetch, 'first-party')(
+      '/api/anything',
+      { headers: { [CHANNEL_HEADER]: 'forged' } }
+    )
+
+    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
+  })
+
+  it('rides .try as well', async () => {
+    await createCheckedEventFetch(fakeEventFetch, 'first-party').try(
+      '/api/anything'
+    )
+
+    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
   })
 })

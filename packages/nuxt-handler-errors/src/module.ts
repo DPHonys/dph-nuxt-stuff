@@ -17,6 +17,9 @@ import {
 } from '@nuxt/kit'
 import type { Nitro } from 'nitropack/types'
 import { emitMap, EMPTY_MAP, TYPES_SPECIFIER } from './emit-map'
+// Constants only, from the runtime's own channel file, so the config path this
+// seeds and the path the runtime reads cannot drift.
+import { CHANNEL_CONFIG_KEY, CHANNEL_TOKEN_KEY } from './runtime/shared/channel'
 
 /**
  * The module has no options. Deliberate: every wrapper mirrors its vanilla
@@ -51,6 +54,12 @@ export default defineNuxtModule<ModuleOptions>({
     // `errorHandler` pointing at it loses every declared payload with no
     // signal. Setup can see the override but not what the handler does, so
     // the warning fires on the override itself.
+    //
+    // Read here, at setup, deliberately: this module joins the chain itself at
+    // `nitro:config`, and Nuxt fills the empty slot with its own handler before
+    // that hook — so `nuxt.options.nitro.errorHandler` is the one place where
+    // the entries are exactly the *consumer's* and nothing the framework or
+    // this module added.
     if (nuxt.options.nitro.errorHandler !== undefined) {
       logger.warn(
         '[nuxt-handler-errors] A custom `nitro.errorHandler` is set. Known ' +
@@ -142,6 +151,49 @@ export default defineNuxtModule<ModuleOptions>({
     addServerPlugin(
       resolver.resolve('./runtime/server/plugins/event-checked-fetch')
     )
+
+    // Channel gating. The token is a **channel tag, not a secret**: it rides
+    // `runtimeConfig.public` because every fetch surface — the browser's
+    // included — attaches it, so it ships in the client bundle by design. It
+    // marks first-party intent; it authorises nothing.
+    //
+    // Seeded with `''` (which reads as "no token", so absent means today's
+    // behaviour) rather than left undeclared, because Nuxt only env-overrides
+    // keys that already exist — the seed is what makes
+    // `NUXT_PUBLIC_HANDLER_ERRORS_CHANNEL_TOKEN` work at run time.
+    const publicConfig = nuxt.options.runtimeConfig.public as Record<
+      string,
+      unknown
+    >
+
+    publicConfig[CHANNEL_CONFIG_KEY] = {
+      [CHANNEL_TOKEN_KEY]: '',
+      ...(publicConfig[CHANNEL_CONFIG_KEY] as
+        | Record<string, unknown>
+        | undefined),
+    }
+
+    // The stripping seam, exactly as measured: **prepend** to the array and
+    // **preserve** every existing entry. `nitro:config` is the right line —
+    // Nuxt fills the slot with its own handler only when it is empty and calls
+    // this hook afterwards, so what is here is Nuxt's handler and/or a
+    // consumer's, and the chain runs in order with the builtin appended last.
+    // A single value is normalised here as Nitro would, so the prepend has one
+    // code path.
+    nuxt.hook('nitro:config', (nitroConfig) => {
+      const existing = nitroConfig.errorHandler
+      const entries =
+        existing === undefined
+          ? []
+          : Array.isArray(existing)
+            ? existing
+            : [existing]
+
+      nitroConfig.errorHandler = [
+        resolver.resolve('./runtime/server/handlers/channel-strip'),
+        ...entries,
+      ]
+    })
 
     // Captured here and read by `getContents`. Deliberately not `useNitro()`
     // at render time: on a dev-server restart the current instance and the

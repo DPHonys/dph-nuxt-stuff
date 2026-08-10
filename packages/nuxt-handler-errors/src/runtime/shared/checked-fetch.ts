@@ -12,6 +12,7 @@
 import { createError } from 'h3'
 import type { NuxtError } from 'nuxt/app'
 import type { $CheckedFetch, TryResult } from '../types/fetch'
+import { channelToken, CHANNEL_HEADER } from './channel'
 
 // ---------------------------------------------------------------------------
 // What this wrapper needs of the thing underneath it
@@ -55,7 +56,8 @@ const ACCEPT_JSON = 'application/json'
 
 /**
  * The call's headers with `accept` added when neither the call nor the instance
- * defaults carry one — built through a `Headers` (the one merge that accepts
+ * defaults carry one, plus the channel tag when one is configured — built
+ * through a `Headers` (the one merge that accepts
  * all three legal input forms; a naive spread drops a caller's `Headers`
  * instance and corrupts a tuple array) and handed on **as a `Headers`**,
  * because ofetch's `mergeHeaders` takes one correctly.
@@ -64,7 +66,7 @@ const ACCEPT_JSON = 'application/json'
  * and the composable both reach h3's `fetchWithEvent`, which merges by object
  * spread, so they must flatten and this one must not.
  */
-function withAcceptJson(
+function withCheckedHeaders(
   opts: RawOptions | undefined,
   instanceHeaders: Headers
 ): RawOptions {
@@ -73,6 +75,13 @@ function withAcceptJson(
   if (!headers.has(ACCEPT) && !instanceHeaders.has(ACCEPT)) {
     headers.set(ACCEPT, ACCEPT_JSON)
   }
+
+  // The channel tag, when the consumer configured one. `set`, not a presence
+  // check: this header is the module's own and a caller's value would only
+  // gate the caller out of its own wire. Read at call time, because the plugin
+  // that knows the config runs after this module is imported.
+  const token = channelToken()
+  if (token !== undefined) headers.set(CHANNEL_HEADER, token)
 
   return { ...opts, headers }
 }
@@ -171,14 +180,14 @@ export function createCheckedFetch(
   instanceHeaders: Headers = new Headers()
 ): $CheckedFetch {
   const call = (request: unknown, opts?: RawOptions): Promise<unknown> =>
-    base(request, withAcceptJson(opts, instanceHeaders))
+    base(request, withCheckedHeaders(opts, instanceHeaders))
 
   return Object.assign(call, {
     try: (request: unknown, opts?: RawOptions): Promise<RawTryResult> =>
       toTryResult(() => call(request, opts)),
 
     raw: (request: unknown, opts?: RawOptions): Promise<unknown> =>
-      base.raw(request, withAcceptJson(opts, instanceHeaders)),
+      base.raw(request, withCheckedHeaders(opts, instanceHeaders)),
 
     native: (...args: Parameters<typeof globalThis.fetch>): Promise<Response> =>
       base.native(...args),

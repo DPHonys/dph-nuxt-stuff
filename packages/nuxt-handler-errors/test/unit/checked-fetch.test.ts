@@ -1,4 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import {
+  CHANNEL_HEADER,
+  setChannelToken,
+} from '../../src/runtime/shared/channel'
 import { createCheckedFetch } from '../../src/runtime/shared/checked-fetch'
 import { knownFailure, settled } from '../fetch-channel'
 
@@ -364,5 +368,70 @@ describe('.try over this surface', () => {
     expect(
       await settled(() => createCheckedFetch(fakeFetch()).raw('/anything'))
     ).toEqual({ threw: true, value: thrown })
+  })
+})
+
+describe('the channel tag — the GLOBAL form', () => {
+  // The token reaches this surface through the box its installing plugin
+  // fills, read at *call* time; the box is module state, so every test here
+  // clears it again.
+  afterEach(() => {
+    setChannelToken(undefined)
+  })
+
+  it('attaches nothing when no token is configured — today’s behaviour', async () => {
+    await createCheckedFetch(fakeFetch())('/anything')
+
+    expect(sentHeaders()).toEqual({ accept: 'application/json' })
+  })
+
+  it('attaches the token beside accept once one is configured', async () => {
+    setChannelToken('first-party')
+
+    await createCheckedFetch(fakeFetch())('/anything', {
+      headers: { authorization: 'Bearer t' },
+    })
+
+    expect(sentHeaders()).toEqual({
+      authorization: 'Bearer t',
+      accept: 'application/json',
+      [CHANNEL_HEADER]: 'first-party',
+    })
+  })
+
+  it('overrides a caller’s own value for the header — it is the module’s', async () => {
+    // Unlike `accept`, this header is not a caller's to choose: a caller value
+    // would only gate that call out of the wire it asked for.
+    setChannelToken('first-party')
+
+    await createCheckedFetch(fakeFetch())('/anything', {
+      headers: { [CHANNEL_HEADER]: 'forged' },
+    })
+
+    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
+  })
+
+  it('rides raw and .try too, which are requests like any other', async () => {
+    setChannelToken('first-party')
+
+    const $fetch = createCheckedFetch(fakeFetch())
+
+    await $fetch.raw('/anything')
+    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
+
+    await $fetch.try('/anything')
+    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
+  })
+
+  it('is read at call time, so a created instance picks it up as well', async () => {
+    const instance = createCheckedFetch(fakeFetch()).create({
+      headers: { authorization: 'Bearer t' },
+    })
+
+    setChannelToken('first-party')
+
+    await instance('/anything')
+
+    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
   })
 })

@@ -8,9 +8,14 @@
  * global forwards nothing, which is what `globalThis.$fetch` does too.
  */
 
-import { defineNitroPlugin } from 'nitropack/runtime'
+import { defineNitroPlugin, useRuntimeConfig } from 'nitropack/runtime'
+import { readChannelToken, setChannelToken } from '../../shared/channel'
 import { $checkedFetch } from '../../shared/checked-fetch'
 
 export default defineNitroPlugin(() => {
+  // The Nitro half of the channel tag, mirroring the client plugin: the global
+  // is built at import time, so the token reaches it through the box.
+  setChannelToken(readChannelToken(useRuntimeConfig()))
+
   globalThis.$checkedFetch = $checkedFetch
 })

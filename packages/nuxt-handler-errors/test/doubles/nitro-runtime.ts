@@ -9,3 +9,16 @@
  */
 
 export const defineNitroPlugin = <T>(plugin: T): T => plugin
+
+/**
+ * What Nitro's `useRuntimeConfig(event?)` answers next — the server-side route
+ * to the channel token. A plain box, like the `#app` double's: the default
+ * carries no token, which is the "gating off" case the other suites assume.
+ */
+let runtimeConfig: unknown = { public: {} }
+
+export function setRuntimeConfig(config: unknown): void {
+  runtimeConfig = config
+}
+
+export const useRuntimeConfig = (): unknown => runtimeConfig

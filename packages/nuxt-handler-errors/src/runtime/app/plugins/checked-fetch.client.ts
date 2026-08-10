@@ -9,9 +9,14 @@
  * this file is the assignment.
  */
 
-import { defineNuxtPlugin } from '#app'
+import { defineNuxtPlugin, useRuntimeConfig } from '#app'
+import { readChannelToken, setChannelToken } from '../../shared/channel'
 import { $checkedFetch } from '../../shared/checked-fetch'
 
 export default defineNuxtPlugin(() => {
+  // The plugin is also where the channel tag enters this bundle: the global is
+  // built at import time and `runtimeConfig` is only readable from here.
+  setChannelToken(readChannelToken(useRuntimeConfig()))
+
   globalThis.$checkedFetch = $checkedFetch
 })

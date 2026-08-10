@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ref, toValue } from 'vue'
 import {
   useCheckedFetch,
   useLazyCheckedFetch,
 } from '../../src/runtime/app/composables/use-checked-fetch'
-import { calls } from '../doubles/nuxt-app'
+import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
+import { calls, setRuntimeConfig } from '../doubles/nuxt-app'
 
 /**
  * The header merge — the COMPOSABLE form — and the rest of what the wrapper
@@ -201,5 +202,64 @@ describe('what else reaches vanilla', () => {
     useLazyCheckedFetch('/anything')
 
     expect(calls.map((call) => call.name)).toEqual(['useFetch', 'useLazyFetch'])
+  })
+})
+
+describe('the channel tag — the COMPOSABLE form', () => {
+  // This surface reads `runtimeConfig` itself rather than a box a plugin fills:
+  // during SSR it runs in the app bundle, where neither the browser plugin nor
+  // the Nitro plugin has set anything.
+  afterEach(() => {
+    setRuntimeConfig({ public: {} })
+  })
+
+  it('attaches nothing when no token is configured', () => {
+    useCheckedFetch('/anything')
+
+    expect(sentHeaders()).toEqual({ accept: 'application/json' })
+  })
+
+  it('attaches the token beside accept once one is configured', () => {
+    setRuntimeConfig({
+      public: { handlerErrors: { channelToken: 'first-party' } },
+    })
+
+    useCheckedFetch('/anything', { headers: { authorization: 'Bearer t' } })
+
+    expect(sentHeaders()).toEqual({
+      authorization: 'Bearer t',
+      accept: 'application/json',
+      [CHANNEL_HEADER]: 'first-party',
+    })
+  })
+
+  it('reads an empty token as no token at all', () => {
+    // The module seeds the key with `''` so the env variable can fill it; an
+    // unset variable must mean gating off, not an empty tag on every request.
+    setRuntimeConfig({ public: { handlerErrors: { channelToken: '' } } })
+
+    useCheckedFetch('/anything')
+
+    expect(sentHeaders()).toEqual({ accept: 'application/json' })
+  })
+
+  it('overrides a caller’s own value for the header', () => {
+    setRuntimeConfig({
+      public: { handlerErrors: { channelToken: 'first-party' } },
+    })
+
+    useCheckedFetch('/anything', { headers: { [CHANNEL_HEADER]: 'forged' } })
+
+    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
+  })
+
+  it('attaches it on the lazy twin too', () => {
+    setRuntimeConfig({
+      public: { handlerErrors: { channelToken: 'first-party' } },
+    })
+
+    useLazyCheckedFetch('/anything')
+
+    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
   })
 })

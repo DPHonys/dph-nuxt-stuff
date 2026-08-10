@@ -5,6 +5,7 @@
  * parameter the tests can model with nothing booted.
  */
 
+import { CHANNEL_HEADER } from '../../shared/channel'
 import type { RawTryResult } from '../../shared/checked-fetch'
 import { toTryResult } from '../../shared/checked-fetch'
 import type { CheckedFetch } from '../../types'
@@ -52,10 +53,17 @@ const ACCEPT_JSON = 'application/json'
  * the incoming request's own `accept` when forwarding —
  * `if (!headers.has('accept'))` is the whole rule.
  */
-function withAcceptJson(init: RawInit | undefined): RawInit {
+function withCheckedHeaders(
+  init: RawInit | undefined,
+  token: string | undefined
+): RawInit {
   const headers = new Headers(init?.headers)
 
   if (!headers.has(ACCEPT)) headers.set(ACCEPT, ACCEPT_JSON)
+
+  // The channel tag, when the consumer configured one — the same `set` rule as
+  // the other two merge forms: this header is the module's own.
+  if (token !== undefined) headers.set(CHANNEL_HEADER, token)
 
   return { ...init, headers: Object.fromEntries(headers) }
 }
@@ -101,9 +109,15 @@ export class EventFetchUnavailableError extends Error {
  * No second try/catch here — `.try`'s normalisation is the same on both
  * surfaces and a second copy could drift. The cast makes `createCheckedFetch`'s
  * two claims.
+ *
+ * `token` is passed in rather than read from the shared box the two globals
+ * use: this wrapper is built per request by its own plugin, which can read
+ * `useRuntimeConfig(event)` itself, and depending on the *other* plugin having
+ * run first would make plugin order load-bearing for the channel tag.
  */
 export function createCheckedEventFetch(
-  getBase: () => RawEventFetch | undefined
+  getBase: () => RawEventFetch | undefined,
+  token?: string
 ): CheckedFetch {
   let verified = false
 
@@ -119,7 +133,7 @@ export function createCheckedEventFetch(
   }
 
   const call = (request: unknown, init?: RawInit): Promise<unknown> =>
-    verifiedBase()(request, withAcceptJson(init))
+    verifiedBase()(request, withCheckedHeaders(init, token))
 
   return Object.assign(call, {
     // The skew guard runs **outside** the try/catch: version skew is not a
