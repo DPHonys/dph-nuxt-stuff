@@ -3,7 +3,7 @@
 // Every `@ts-expect-error` here is load-bearing: an unused one is TS2578, so a
 // regression is a build failure rather than a hover nobody checked. Narrowing
 // is asserted with explicitly-typed consts for the same reason — the `NoInfer`
-// bug in §6 collapsed arm parameters to `never`, and property access on `never`
+// bug in §4 collapsed arm parameters to `never`, and property access on `never`
 // compiles, so every call site kept passing while narrowing was gone.
 
 import type { NuxtError } from './fixtures'

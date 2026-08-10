@@ -19,7 +19,7 @@ export declare function watch<T>(
 
 /** h3's `H3Event`, reduced to existence. The real class is generic and
  * declared in h3's own resolvable `dist/index.d.ts`, which is what makes the
- * `$checkedFetch` augmentation in `matcher.ts` possible — see DESIGN §5. */
+ * `$checkedFetch` augmentation in `matcher.ts` possible — see DESIGN §3. */
 export interface H3Event {
   path: string
 }
@@ -65,7 +65,7 @@ export interface NuxtError<DataT = unknown>
 
 /** Nuxt's `useAsyncData`, reduced to a custom handler and the two members the
  * sandbox reads. The error ref is vanilla `NuxtError` — a handler's rejection
- * carries no type, so there is nothing for a wrapper to sharpen. See DESIGN §4. */
+ * carries no type, so there is nothing for a wrapper to sharpen. See DESIGN §1. */
 export declare function useAsyncData<T>(
   key: string,
   handler: () => Promise<T>

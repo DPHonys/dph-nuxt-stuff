@@ -107,7 +107,7 @@ export interface CheckedEventHandler<Response, E extends KnownVariant> {
 
 /** The emitter's read of the brand. Guarded twice: `IsAny` because an
  * untyped handler must not match with `E = unknown` and destroy narrowing
- * (§6), and `Exclude<…, undefined>` because an UNBRANDED function still
+ * (§4), and `Exclude<…, undefined>` because an UNBRANDED function still
  * matches an all-optional property shape — measured: it infers
  * `E = undefined` (not `unknown`), so the Exclude alone degrades it to
  * `never`, the honest "declares none". An `unknown extends E` belt was tried
@@ -131,9 +131,9 @@ export declare const defineCheckedEventHandler: DefineCheckedEventHandler
 // --- The raise-site wire contract ------------------------------------------
 
 /** What the implementation's raise is allowed to hand `createError`. The
- * `statusMessage?: never` is §2's standing constraint made structural: an
+ * `statusMessage?: never` is §1's standing constraint made structural: an
  * escaped server-to-server throw forwards the reason phrase untouched even
- * while everything else is scrubbed (§5), so the tag must never ride it —
+ * while everything else is scrubbed (§3), so the tag must never ride it —
  * writing `statusMessage: tag` is exactly how the old package leaked.
  * `message` MAY carry the tag: the prod handler scrubs it on any escape, so
  * it only ever reaches the route's own client, which knows the tag already. */
@@ -349,7 +349,7 @@ export const raiseSiteCannotLeakTheTag = (): never =>
   raiseKnown({
     statusCode: 404,
     message: 'user-not-found',
-    // @ts-expect-error — §5's standing constraint, structural: the reason
+    // @ts-expect-error — §1's standing constraint, structural: the reason
     // phrase survives escapes untouched, so the tag must never ride it
     statusMessage: 'user-not-found',
     data: { __knownError__: { tag: 'user-not-found', status: 404 } },

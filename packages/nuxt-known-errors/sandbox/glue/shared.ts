@@ -1,4 +1,4 @@
-// Step-4 exploration: the pieces the glue redesign keeps UNCHANGED.
+// The pieces the glue redesign keeps UNCHANGED.
 //
 // `p2-array-spread.ts` varies only the glue between defining an error and
 // listing it on a handler — `payload` and `fail` are held fixed by direction,
@@ -9,8 +9,8 @@
 //
 // Four sibling proposals (record→object slot, unified sets, record→member
 // access, the do-everything hybrid) were built here, compared, and deleted
-// once array+pick won — their §4 entries are the pending bookkeeping. This
-// directory collapses into the design files when step 4 locks.
+// once array+pick won — their reasons live in DESIGN.md's git history. This
+// directory folds into the main sandbox files when internals start.
 
 export type { H3Event } from '../fixtures'
 
@@ -62,7 +62,7 @@ export type VariantsOf<D extends Defs> = {
  * The brand is REQUIRED, not optional. An optional phantom makes `KnownError`
  * a weak type that every object structurally matches, and every proposal's
  * extraction conditional (`T extends KnownError<infer E>`) would then match
- * groups, records and garbage alike, inferring `unknown` — the §6 class of
+ * groups, records and garbage alike, inferring `unknown` — the §4 class of
  * silent bug. The implementation attaches a runtime marker or casts, exactly
  * as the old catalogue's `buildCatalogue` cast past its phantom.
  */

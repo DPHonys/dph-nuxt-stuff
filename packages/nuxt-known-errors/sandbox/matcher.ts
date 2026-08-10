@@ -36,31 +36,31 @@ export interface KnownErrorCarrier<E extends KnownVariant> {
   data?: KnownErrorBody<E> | undefined
 }
 
-/** The ref is read once, at call time — wrong inside a `watch`. See §2. */
+/** The ref is read once, at call time — wrong inside a `watch`. See §1. */
 export type MaybeRef<T> = T | Ref<T>
 
 // --- Arms and fallback -----------------------------------------------------
 
 /** One arm per declared tag, each receiving the whole variant. Arms handle,
- * they do not produce — `void`, not a type parameter. See §2. */
+ * they do not produce — `void`, not a type parameter. See §1. */
 export type Arms<E extends KnownVariant> = {
   [K in E['tag']]: (variant: Extract<E, { tag: K }>) => void
 }
 
-/** `unrecognized` is a deploy-skew tag this client has never heard of. See §3. */
+/** `unrecognized` is a deploy-skew tag this client has never heard of. See §2. */
 export type Fallback = (error: NuxtError, unrecognized?: KnownVariant) => void
 
 // --- The matcher -----------------------------------------------------------
 
 /** The declared union recovered from a carrier. A naked conditional, so it
  * distributes: a union of carriers (a handler touching two routes) yields the
- * union of every route's variants. See §6. */
+ * union of every route's variants. See §4. */
 export type VariantOf<C> = C extends KnownErrorCarrier<infer E> ? E : never
 
-// The `void` return is load-bearing three ways — see §2 and §6.
+// The `void` return is load-bearing three ways — see §1 and §4.
 export interface MatchError {
   // Typed: generic over the whole carrier, not the union — `E` inferred
-  // directly failed on carrier unions (§6). The arms have no inference site,
+  // directly failed on carrier unions (§4). The arms have no inference site,
   // so they cannot pin anything.
   <C extends KnownErrorCarrier<KnownVariant>>(
     error: MaybeRef<C | null | undefined>,
@@ -69,7 +69,7 @@ export interface MatchError {
   ): void
 
   // Degraded: a vanilla `useFetch`, an undeclared route, an `unknown` in a
-  // `catch`. `Record<string, never>` admits `{}` and nothing else — see §6.
+  // `catch`. `Record<string, never>` admits `{}` and nothing else — see §4.
   (error: unknown, arms: Record<string, never>, fallback: Fallback): void
 }
 
@@ -106,7 +106,7 @@ export declare const useLazyCheckedFetch: typeof useCheckedFetch
 
 // --- The imperative surface ------------------------------------------------
 
-/** A discriminated union, so `if (error) return` narrows `data` to `T`. See §2. */
+/** A discriminated union, so `if (error) return` narrows `data` to `T`. See §1. */
 export type TryResult<R extends string> =
   | { data: ResponseOf<R>; error: undefined }
   | { data: undefined; error: KnownErrorRef<R> }
@@ -119,7 +119,7 @@ export interface RawResponse<R extends string> {
 
 /** The seam: the call and `.try`, nothing else. Every instance satisfies it,
  * and a `shared/` util that lets its caller choose the request context accepts
- * this and not a concrete instance. See §2. */
+ * this and not a concrete instance. See §1. */
 export interface CheckedFetch {
   /** Vanilla, under our name. Throws, and the `catch` gets `unknown`. */
   <R extends string>(url: R): Promise<ResponseOf<R>>
@@ -145,7 +145,7 @@ export declare const $checkedFetch: $CheckedFetch
 
 /** The request-bound instance for SSR-safe imperative calls in app code —
  * vanilla's `useRequestFetch()`, mirrored. The seam is its honest type: on the
- * server vanilla hands back the bare `event.$fetch` closure (§5). */
+ * server vanilla hands back the bare `event.$fetch` closure (§3). */
 export declare function useRequestCheckedFetch(): CheckedFetch
 
 // --- The asyncData surface ---------------------------------------------------
@@ -173,7 +173,7 @@ export type FailureOf<T extends TrySource> = NonNullable<T['error']>
  * throwing: the union rides the handler's return type, the one typed channel
  * into the generics — no route is ever restated. The options are vanilla's
  * own, over the UNWRAPPED success (`transform` and `pick` see plain data).
- * See §2; the runtime is unwrap-or-rethrow, measured in §5.
+ * See §1; the runtime is unwrap-or-rethrow, measured in §3.
  */
 export interface UseCheckedAsyncData {
   <
@@ -190,7 +190,7 @@ export interface UseCheckedAsyncData {
   >
 
   // Keyless, exactly as vanilla: the module registers the name in
-  // `optimization.keyedComposables`, so the compiler injects the key. See §5.
+  // `optimization.keyedComposables`, so the compiler injects the key. See §3.
   <
     T extends TrySource,
     DataT = SuccessOf<T>,
@@ -213,7 +213,7 @@ export declare const useLazyCheckedAsyncData: UseCheckedAsyncData
 
 // `event.$checkedFetch` is the seam *exactly* — no `.raw`, no `.create`, because
 // Nitro assigns `event.$fetch` as a bare closure while typing it as the full
-// interface, and mirroring the type would inherit the lie (§5). Declared by
+// interface, and mirroring the type would inherit the lie (§3). Declared by
 // module augmentation, the same move the real package makes against 'h3';
 // proven there by Nitro's own `$fetch` and the old package's `$typedFetch`.
 // (A relative specifier is legal here — measured on TS 5.9.3.)

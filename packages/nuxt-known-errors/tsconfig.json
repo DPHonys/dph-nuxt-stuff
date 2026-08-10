@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     // The sandbox is deliberately dependency-free — no `vue`, no `h3`, no
-    // `#app`. `Ref` and `NuxtError` are replicated in `sandbox/replica.ts`, so
+    // `#app`. `Ref` and `NuxtError` are replicated in `sandbox/fixtures.ts`, so
     // nothing here needs `@types/node` either.
     "types": []
   },
