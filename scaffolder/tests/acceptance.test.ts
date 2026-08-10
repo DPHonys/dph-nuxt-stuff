@@ -163,7 +163,13 @@ describe('disposable Acceptance fixture', () => {
         { cwd: repositoryRoot }
       )
     ) as Array<{ devDependencies?: { nuxt?: { version: string } } }>
-    expect(nuxtPackages[0]?.devDependencies?.nuxt?.version).toBe('4.5.1')
+    // The fixture installs with no lockfile, so nuxt resolves fresh and a
+    // pinned patch literal here goes stale on every nuxt release. The
+    // scaffold's contract is `nuxtCompatibilityRange`; assert its bounds.
+    const nuxtVersion = nuxtPackages[0]?.devDependencies?.nuxt?.version ?? ''
+    const [major = 0, minor = 0] = nuxtVersion.split('.').map(Number)
+    expect(major).toBe(4)
+    expect(minor).toBeGreaterThanOrEqual(5)
 
     await run('pnpm', ['run', 'build'], { cwd: repositoryRoot })
     for (const script of ['lint', 'test', 'typecheck', 'publint']) {
