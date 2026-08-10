@@ -38,6 +38,5 @@ export default defineConfig({
   // A package's SPEC.md is a design document, and its `ts` fences carry
   // illustrative signatures rather than source. Reflowing them would rewrite the
   // document the implementation is measured against.
-  // `to-delete/` is retired code awaiting deletion; nothing maintains it.
-  ignorePatterns: ['**/SPEC.md', 'to-delete'],
+  ignorePatterns: ['**/SPEC.md'],
 })

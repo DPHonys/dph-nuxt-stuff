@@ -48,12 +48,7 @@ const nuxtModuleWorkspace = {
 export default {
   // `**/.nuxt/**` is generated output: the fixture-app entries below would
   // otherwise drag `nuxt prepare`'s emitted `.d.ts` files into the analysis.
-  ignore: [
-    'templates/**',
-    'scaffolder/tests/fixtures/**',
-    'to-delete/**',
-    '**/.nuxt/**',
-  ],
+  ignore: ['templates/**', 'scaffolder/tests/fixtures/**', '**/.nuxt/**'],
   ignoreExportsUsedInFile: true,
 
   // Every ignore in this file is a judgement with a stated reason, and a stale

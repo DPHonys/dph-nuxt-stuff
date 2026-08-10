@@ -20,12 +20,6 @@ export default antfuConfig(
     ignores: ['**/SPEC.md/**'],
   },
 
-  // Retired code awaiting deletion; nothing maintains it.
-  {
-    name: 'project/to-delete',
-    ignores: ['to-delete/**'],
-  },
-
   // Negative type fixtures are deliberately non-compiling — they exist to
   // produce one specific diagnostic each, which the compile-time harness reads
   // back through its own program. They are excluded from their package's
