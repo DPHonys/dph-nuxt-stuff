@@ -1,0 +1,12 @@
+{
+  "name": "@dphonys/nuxt-handler-errors-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build"
+  },
+  "dependencies": {
+    "@dphonys/nuxt-handler-errors": "workspace:*",
+    "nuxt": "catalog:"
+  }
+}
