@@ -48,20 +48,28 @@ Orchestration bookkeeping for the rewrite. Working helper file; moved to
 
 ## Phases
 
-| #   | Phase                                                                                                               | Status  |
-| --- | ------------------------------------------------------------------------------------------------------------------- | ------- |
-| 0   | Rename old, scaffold, structure, plan                                                                               | done    |
-| 1   | Core types + definition surface (`defineError`, `payload`, brand, `defineCheckedEventHandler`, `fail`, wire, raise) | pending |
-| 2   | `matchError` (typed + degraded overloads, floor read)                                                               | pending |
-| 3   | Fetch surfaces (`$checkedFetch` + `.try`, `useCheckedFetch` family, `event.$checkedFetch`)                          | pending |
-| 4   | `useCheckedAsyncData` + lazy twin                                                                                   | pending |
-| 5   | Emitter + module wiring                                                                                             | pending |
-| 6   | Channel gating + observability recognizer                                                                           | pending |
-| 7   | Playground + e2e + repo-wide `pnpm check` + README                                                                  | pending |
-| 8   | `to-delete/` + final cleanup                                                                                        | pending |
+| #   | Phase                                                                                                               | Status         |
+| --- | ------------------------------------------------------------------------------------------------------------------- | -------------- |
+| 0   | Rename old, scaffold, structure, plan                                                                               | done           |
+| 1   | Core types + definition surface (`defineError`, `payload`, brand, `defineCheckedEventHandler`, `fail`, wire, raise) | done (758e7ec) |
+| 2   | `matchError` (typed + degraded overloads, floor read)                                                               | done           |
+| 3   | Fetch surfaces (`$checkedFetch` + `.try`, `useCheckedFetch` family, `event.$checkedFetch`)                          | pending        |
+| 4   | `useCheckedAsyncData` + lazy twin                                                                                   | pending        |
+| 5   | Emitter + module wiring                                                                                             | pending        |
+| 6   | Channel gating + observability recognizer                                                                           | pending        |
+| 7   | Playground + e2e + repo-wide `pnpm check` + README                                                                  | pending        |
+| 8   | `to-delete/` + final cleanup                                                                                        | pending        |
 
 Statuses maintained by the orchestrator; a phase is `done` only after its
 checks pass and its commit lands.
+
+Open items carried between phases:
+
+- Phase 1 deferred: the serializability constraint is not applied to a
+  Standard Schema's inferred output (DESIGN §5 wants it on the inferred
+  output too). Close by Phase 7 at the latest.
+- `typecheck` needs `pnpm --filter @dphonys/nuxt-handler-errors dev:prepare`
+  once first (playground resolves the built module).
 
 ### Phase 1 — core types + definition surface
 

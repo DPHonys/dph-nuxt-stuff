@@ -74,7 +74,8 @@
     "@nuxt/kit": "catalog:",
     "@standard-schema/spec": "catalog:",
     "h3": "catalog:",
-    "nitropack": "catalog:"
+    "nitropack": "catalog:",
+    "vue": "catalog:"
   },
   "devDependencies": {
     "@nuxt/devtools": "catalog:",

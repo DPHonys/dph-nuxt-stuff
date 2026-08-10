@@ -1,0 +1,295 @@
+import type { NuxtError } from 'nuxt/app'
+import { describe, expect, it } from 'vitest'
+import type { Ref } from 'vue'
+import { watch } from 'vue'
+import { matchError } from '../../src/runtime/shared'
+import type { KnownErrorBody } from '../../src/runtime/shared/wire'
+import type { KnownVariant } from '../../src/runtime/types'
+import type { VariantOf } from '../../src/runtime/types/matcher'
+
+/**
+ * The matcher's compile-time contract — the call styles the design agreed on,
+ * with the assertions that keep them honest. Every assertion here is made by
+ * the compiler under `pnpm typecheck`: an `Expect<Equal<…>>` that stops holding
+ * is a type error, and a `@ts-expect-error` that stops being needed is TS2578.
+ *
+ * Narrowing is asserted with explicitly-typed consts rather than by using the
+ * arm parameters: the `NoInfer` bug collapsed arm parameters to `never`, and
+ * property access on `never` compiles, so every call site kept passing while
+ * narrowing was gone.
+ */
+
+type Equal<X, Y> =
+  (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
+    ? true
+    : false
+
+type Expect<T extends true> = T
+
+// ---------------------------------------------------------------------------
+// Two routes' carriers, as the composable and `.try` surfaces will hand them over
+// ---------------------------------------------------------------------------
+
+type UserVariants =
+  | { tag: 'forbidden'; status: 403; requiredRole: 'admin' | 'owner' }
+  | { tag: 'user-not-found'; status: 404; userId: string }
+  | { tag: 'user-suspended'; status: 403; until: string }
+
+interface ChainVariants {
+  tag: 'c-gone'
+  status: 410
+  resource: string
+}
+
+type UserCarrier = NuxtError<KnownErrorBody<UserVariants>>
+type ChainCarrier = NuxtError<KnownErrorBody<ChainVariants>>
+
+declare const userError: Ref<UserCarrier | undefined>
+declare const chainError: ChainCarrier | undefined
+/** What a repository method touching both routes hands the matcher. */
+declare const unionError: Ref<UserCarrier | ChainCarrier | undefined>
+/** A route declaring nothing, or vanilla `useFetch` — no union was carried. */
+declare const vanillaError: Ref<NuxtError | undefined>
+
+declare function snack(message: string): void
+declare function report(message: string): void
+declare function showError(error: unknown): void
+declare function notFound(id: string): void
+declare function blocked(until: string): void
+declare function navigateTo(to: string): Promise<void>
+
+// ---------------------------------------------------------------------------
+// The extraction
+// ---------------------------------------------------------------------------
+
+/** Naked and distributing: a union of carriers yields every route's variants. */
+export type AssertVariantOfDistributes = Expect<
+  Equal<VariantOf<UserCarrier | ChainCarrier>, UserVariants | ChainVariants>
+>
+
+/** A carrier with no marker declares nothing. */
+export type AssertVanillaCarrierHasNoVariants = Expect<
+  Equal<VariantOf<NuxtError>, never>
+>
+
+/** Plain `void`, never `void | undefined` — TS1345 does not fire on the union. */
+export type AssertReturnsVoid = Expect<
+  Equal<ReturnType<typeof matchError>, void>
+>
+
+// ---------------------------------------------------------------------------
+// The typed call
+// ---------------------------------------------------------------------------
+
+/** The shape, whole. One call, no guard, no nesting, no reader. */
+export function typedCall(): void {
+  matchError(
+    userError,
+    {
+      forbidden: (e) => snack(`You need ${e.requiredRole}`),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
+    },
+    (err, unrecognized) => {
+      if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
+      showError(err)
+    }
+  )
+}
+
+/** Arm parameters are the real variant — not `never`, not `any`. */
+export function armParameters(): void {
+  matchError(
+    userError,
+    {
+      forbidden: (e) => {
+        const tag: 'forbidden' = e.tag
+        const status: 403 = e.status
+        const role: 'admin' | 'owner' = e.requiredRole
+        // @ts-expect-error — `userId` belongs to a different variant
+        snack(e.userId)
+        snack(`${tag} ${status}: you need ${role}`)
+      },
+      'user-not-found': (e) => {
+        const userId: string = e.userId
+        const status: 404 = e.status
+        report(`${status}: no user ${userId}`)
+      },
+      'user-suspended': (e) => blocked(e.until),
+    },
+    (err, unrecognized) => {
+      const status: number | undefined = err.status
+      const skew: KnownVariant | undefined = unrecognized
+      report(`${status ?? 0}: ${skew?.tag ?? 'no marker'}`)
+    }
+  )
+}
+
+/** Missing an arm is a compile error — that is what makes the fallback mean
+ * one thing. The diagnostic anchors on the arms argument, because the error
+ * argument is well-typed and only the arms are wrong. */
+export function exhaustiveness(): void {
+  matchError(
+    userError,
+    // @ts-expect-error — `user-suspended` has no arm
+    {
+      forbidden: (e) => snack(e.requiredRole),
+      'user-not-found': (e) => notFound(e.userId),
+    },
+    (err) => showError(err)
+  )
+}
+
+/** Cross-route exhaustiveness: the carrier union arrives whole, so the second
+ * route's only tag is required too. This is what the carrier-generic overload
+ * buys — an `E`-generic one infers from one member and rejects the call. */
+export function unionOfCarriers(): void {
+  matchError(
+    unionError,
+    {
+      forbidden: (e) => snack(e.requiredRole),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
+      'c-gone': (e) => {
+        const resource: string = e.resource
+        report(`gone: ${resource}`)
+      },
+    },
+    (err) => showError(err)
+  )
+}
+
+export function unionOfCarriersExhaustiveness(): void {
+  matchError(
+    unionError,
+    // @ts-expect-error — `c-gone` has no arm
+    {
+      forbidden: (e) => snack(e.requiredRole),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
+    },
+    (err) => showError(err)
+  )
+}
+
+/** Arms handle; they do not produce. `void` absorbs whatever they return, so
+ * they may disagree freely — under an inferred `R` a navigating arm beside a
+ * plain one broke every `void` arm. */
+export function armsMayDisagree(): void {
+  matchError(
+    userError,
+    {
+      forbidden: () => navigateTo('/login'),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
+    },
+    () => navigateTo('/error')
+  )
+}
+
+/** Passing the value rather than the ref works identically. */
+export function plainValue(): void {
+  matchError(chainError, { 'c-gone': (e) => report(e.resource) }, (err) =>
+    showError(err)
+  )
+}
+
+/** The reactive form is composition, not a new function: the matcher reads the
+ * ref at call time, so a watcher re-calling it is correct on every refetch. */
+export function reactiveComposition(): void {
+  watch(
+    userError,
+    () =>
+      matchError(
+        userError,
+        {
+          forbidden: (e) => snack(`You need ${e.requiredRole}`),
+          'user-not-found': (e) => notFound(e.userId),
+          'user-suspended': (e) => blocked(e.until),
+        },
+        (err) => showError(err)
+      ),
+    { immediate: true }
+  )
+}
+
+/** The fallback is required; omitting it could only ever silence the 500. */
+export function fallbackIsRequired(): void {
+  // @ts-expect-error — two arguments is no longer a call
+  matchError(userError, {
+    forbidden: (e: KnownVariant) => snack(e.tag),
+    'user-not-found': (e: KnownVariant) => snack(e.tag),
+    'user-suspended': (e: KnownVariant) => snack(e.tag),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// The degraded call
+// ---------------------------------------------------------------------------
+
+/** A route that declares nothing, and vanilla `useFetch`: no typed arms at
+ * all, and every marked variant reaches the fallback as `unrecognized`. */
+export function degraded(): void {
+  matchError(vanillaError, {}, (err, unrecognized) => {
+    if (unrecognized) return report(unrecognized.tag)
+    showError(err)
+  })
+}
+
+/** A `catch` variable is `unknown`; the floor is all that survives a throw. */
+export function degradedCatch(): void {
+  try {
+    report('work')
+  } catch (e) {
+    matchError(e, {}, (err, unrecognized) => {
+      if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
+      showError(err)
+    })
+  }
+}
+
+/** Typed arms cannot ride along on an `unknown`: both overloads fail, so the
+ * diagnostic is a whole-call TS2769 and the directive sits above the call
+ * rather than above the arms. */
+export function degradedCannotMatchTags(): void {
+  try {
+    report('work')
+  } catch (e) {
+    // @ts-expect-error — degraded only; restating the route here was rejected
+    matchError(e, { forbidden: () => snack('nope') }, (err) => showError(err))
+  }
+}
+
+/** The degraded overload must not swallow a typed call that is missing an arm:
+ * `Record<string, never>` admits `{}` and nothing else. */
+export function degradedArmsAdmitNothingElse(): void {
+  // @ts-expect-error — an arm is not `never`
+  matchError(vanillaError, { forbidden: () => snack('nope') }, (err) =>
+    showError(err)
+  )
+}
+
+// ---------------------------------------------------------------------------
+// The `void` return, in the three positions it is load-bearing
+// ---------------------------------------------------------------------------
+
+/** The matcher is a statement, so it cannot be tested for truthiness. */
+export function isNotAnExpression(): void {
+  // @ts-expect-error — TS1345: an expression of type 'void' cannot be tested
+  if (matchError(vanillaError, {}, showError)) report('unreachable')
+}
+
+/** Handling has no result: a value-returning function must still decide its
+ * own exit. */
+export function cannotReturnTheMatch(): string | null {
+  // @ts-expect-error — `void` is not the function's return type
+  return matchError(vanillaError, {}, (err) => showError(err))
+}
+
+/** The suite below is the marker keeping this file in vitest's inventory; it
+ * asserts nothing the compiler has not already. */
+describe('the matcher surface', () => {
+  it('is asserted by the compiler', () => {
+    expect(matchError).toBeTypeOf('function')
+  })
+})

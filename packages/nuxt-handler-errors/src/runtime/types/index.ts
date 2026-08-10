@@ -20,4 +20,6 @@ export type {
 
 export type { CheckedEventHandler, Fail, KnownErrorsOfHandler } from './handler'
 
+export type { Fallback, KnownErrorCarrier } from './matcher'
+
 export type { KnownErrorBody, KnownErrorKey } from '../shared/wire'
