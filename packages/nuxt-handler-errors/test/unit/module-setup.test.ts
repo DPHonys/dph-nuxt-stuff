@@ -165,12 +165,12 @@ describe('module setup wiring', () => {
 
     expect(
       registered.filter((plugin) =>
-        /\/runtime\/server\/plugins\/checked-fetch$/.test(plugin)
+        plugin.endsWith('/runtime/server/plugins/checked-fetch')
       )
     ).toHaveLength(1)
     expect(
       registered.filter((plugin) =>
-        /\/runtime\/server\/plugins\/event-checked-fetch$/.test(plugin)
+        plugin.endsWith('/runtime/server/plugins/event-checked-fetch')
       )
     ).toHaveLength(1)
   })

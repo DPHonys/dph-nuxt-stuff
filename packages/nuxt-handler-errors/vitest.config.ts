@@ -62,6 +62,10 @@ export default defineConfig({
           name: 'e2e',
           include: ['test/e2e/**/*.test.ts'],
           testTimeout: 120_000,
+          // Every file here writes into a real app's build directory — one
+          // prepares the playground and edits its emitted map, another builds
+          // and boots it. Run in parallel they race over the same `.nuxt`.
+          fileParallelism: false,
         },
       },
     ],

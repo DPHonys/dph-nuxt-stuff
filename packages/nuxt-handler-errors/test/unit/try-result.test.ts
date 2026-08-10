@@ -106,9 +106,13 @@ describe('toTryResult', () => {
 
     expect(result.data).toBeUndefined()
     expect(result.error?.status).toBe(404)
-    expect(
-      (result.error?.data as { data: Record<string, unknown> }).data
-    ).toEqual({ __knownError__: { tag: 'user-not-found', status: 404 } })
+    const body = result.error?.data as
+      | { data: Record<string, unknown> }
+      | undefined
+
+    expect(body?.data).toEqual({
+      __knownError__: { tag: 'user-not-found', status: 404 },
+    })
   })
 
   it('sets error to undefined on success, so the union discriminates', async () => {

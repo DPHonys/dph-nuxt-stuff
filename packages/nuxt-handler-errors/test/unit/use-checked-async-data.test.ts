@@ -44,6 +44,9 @@ beforeEach(() => {
   asyncDataCalls.length = 0
 })
 
+/** A key passed as a getter — vanilla's other key form. */
+const getterKey = (): string => 'user'
+
 describe('unwrap-or-rethrow', () => {
   it('unwraps a success to the plain data, by reference', async () => {
     useCheckedAsyncData('user', async () => ({
@@ -119,13 +122,14 @@ describe('the delegation', () => {
   })
 
   it('reads a getter key as a key, not as the handler', async () => {
-    const key = (): string => 'user'
-
-    useCheckedAsyncData(key, async () => ({ data: user, error: undefined }))
+    useCheckedAsyncData(getterKey, async () => ({
+      data: user,
+      error: undefined,
+    }))
 
     const last = asyncDataCalls.at(-1)
 
-    expect(last?.args[0]).toBe(key)
+    expect(last?.args[0]).toBe(getterKey)
     await expect(substituted()()).resolves.toBe(user)
   })
 

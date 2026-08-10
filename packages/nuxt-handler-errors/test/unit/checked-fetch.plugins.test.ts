@@ -45,23 +45,23 @@ describe('the global installers', () => {
   })
 })
 
-describe('the event installer', () => {
-  /** Nitro's app, reduced to the one hook this plugin registers on. */
-  function fakeNitroApp() {
-    const hooks: Record<string, (event: never) => void> = {}
+/** Nitro's app, reduced to the one hook this plugin registers on. */
+function fakeNitroApp() {
+  const hooks: Record<string, (event: never) => void> = {}
 
-    return {
-      app: {
-        hooks: {
-          hook: (name: string, handler: (event: never) => void) => {
-            hooks[name] = handler
-          },
+  return {
+    app: {
+      hooks: {
+        hook: (name: string, handler: (event: never) => void) => {
+          hooks[name] = handler
         },
       },
-      hooks,
-    }
+    },
+    hooks,
   }
+}
 
+describe('the event installer', () => {
   it('installs event.$checkedFetch from the request hook', () => {
     // The `request` hook is the earliest point `event.$fetch` exists — Nitro
     // assigns its own four per-request closures and then calls it — so this is

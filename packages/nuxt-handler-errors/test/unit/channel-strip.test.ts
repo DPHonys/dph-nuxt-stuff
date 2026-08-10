@@ -213,14 +213,14 @@ describe('the tokenless, marked request', () => {
   })
 })
 
-describe('what the entry defers', () => {
-  /** Deferred: nothing written, so the chain runs on to the builtin. */
-  function expectDeferred(sent: Sent): void {
-    expect(sent.body).toBeUndefined()
-    expect(sent.status).toBe(200)
-    expect(sent.headers).toEqual({})
-  }
+/** Deferred: nothing written, so the chain runs on to the builtin. */
+function expectDeferred(sent: Sent): void {
+  expect(sent.body).toBeUndefined()
+  expect(sent.status).toBe(200)
+  expect(sent.headers).toEqual({})
+}
 
+describe('what the entry defers', () => {
   it('a request carrying the token — the app’s own call gets the full wire', async () => {
     const { event, sent } = fakeEvent({ [CHANNEL_HEADER]: TOKEN })
 
