@@ -53,7 +53,7 @@ Orchestration bookkeeping for the rewrite. Working helper file; moved to
 | 0   | Rename old, scaffold, structure, plan                                                                               | done           |
 | 1   | Core types + definition surface (`defineError`, `payload`, brand, `defineCheckedEventHandler`, `fail`, wire, raise) | done (758e7ec) |
 | 2   | `matchError` (typed + degraded overloads, floor read)                                                               | done           |
-| 3   | Fetch surfaces (`$checkedFetch` + `.try`, `useCheckedFetch` family, `event.$checkedFetch`)                          | pending        |
+| 3   | Fetch surfaces (`$checkedFetch` + `.try`, `useCheckedFetch` family, `event.$checkedFetch`)                          | done           |
 | 4   | `useCheckedAsyncData` + lazy twin                                                                                   | pending        |
 | 5   | Emitter + module wiring                                                                                             | pending        |
 | 6   | Channel gating + observability recognizer                                                                           | pending        |
@@ -70,6 +70,11 @@ Open items carried between phases:
   output too). Close by Phase 7 at the latest.
 - `typecheck` needs `pnpm --filter @dphonys/nuxt-handler-errors dev:prepare`
   once first (playground resolves the built module).
+- Phase 3 landed `KnownApiErrors` + `KnownErrorsOfRoute` in
+  `runtime/types/index.ts` (the fetch surfaces need the lookup now); Phase 5's
+  emitter augments that interface and must not redeclare it. The three plugins
+  and the two composables exist as files only — registering them in
+  `src/module.ts` is Phase 5.
 
 ### Phase 1 — core types + definition surface
 
