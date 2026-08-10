@@ -105,9 +105,7 @@ describe('the delegation', () => {
 
   it('keeps a compiler-injected auto-key in vanilla last position', async () => {
     // What `optimization.keyedComposables` produces: the key appended last.
-    const keyless = useCheckedAsyncData as (
-      ...args: unknown[]
-    ) => unknown
+    const keyless = useCheckedAsyncData as (...args: unknown[]) => unknown
 
     keyless(async () => ({ data: user, error: undefined }), {}, '$auto')
 
