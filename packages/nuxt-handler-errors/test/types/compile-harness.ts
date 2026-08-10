@@ -1,6 +1,6 @@
 /**
  * A minimal compile-and-render harness for the generated map, whose content is
- * a set of paths relative to where it is written — so it must be emitted into
+ * a set of paths relative to where it is written - so it must be emitted into
  * a tree and compiled there. An unresolved `import("…")` in a `.d.ts` yields
  * no diagnostic under `skipLibCheck` and collapses to `any`, so `renderHover`
  * refuses to answer for a fixture that did not compile clean, and refuses to
@@ -47,6 +47,21 @@ export function compileFixture(
     tsconfigPath
   )
 
+  // `readConfigFile` only surfaces read and JSON-syntax failures; a broken
+  // `extends` or invalid option lands here, and ignoring it would compile the
+  // fixture against defaults instead of the intended config.
+  if (parsed.errors.length > 0) {
+    throw new Error(
+      [
+        `${tsconfigPath} did not parse clean:`,
+        ...parsed.errors.map(
+          (diagnostic) =>
+            `  TS${diagnostic.code} - ${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`
+        ),
+      ].join('\n')
+    )
+  }
+
   const program = ts.createProgram(
     [...new Set([fixture, ...parsed.fileNames])],
     {
@@ -76,17 +91,21 @@ export function assertNoDiagnostics(compilation: Compilation): void {
       `${compilation.fixture} did not compile clean:`,
       ...compilation.diagnostics.map(
         (diagnostic) =>
-          `  TS${diagnostic.code} at ${diagnostic.fileName ?? '<no file>'} — ${diagnostic.message}`
+          `  TS${diagnostic.code} at ${diagnostic.fileName ?? '<no file>'} - ${diagnostic.message}`
       ),
     ].join('\n')
   )
 }
 
 // `NoTruncation` so nothing is shortened, `InTypeAlias` so the type is
-// expanded rather than echoed back as its own alias name — which would render
+// expanded rather than echoed back as its own alias name - which would render
 // identically whatever it resolved to.
 const HOVER_FLAGS =
   ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.InTypeAlias
+
+// TypeScript reports file names with forward slashes; callers build fixture
+// paths with `node:path`, which uses backslashes on Windows.
+const normalize = (path: string): string => path.replaceAll('\\', '/')
 
 function renderHover(
   program: ts.Program,
@@ -97,14 +116,16 @@ function renderHover(
   // The primary guard: a type read out of a fixture that did not compile is a
   // guess, not a measurement.
   const own = diagnostics.filter(
-    (diagnostic) => diagnostic.fileName === fixture
+    (diagnostic) =>
+      diagnostic.fileName !== undefined &&
+      normalize(diagnostic.fileName) === normalize(fixture)
   )
   if (own.length > 0) {
     throw new Error(
       [
         `Refusing to render \`${name}\`: ${fixture} did not compile clean.`,
         ...own.map(
-          (diagnostic) => `  TS${diagnostic.code} — ${diagnostic.message}`
+          (diagnostic) => `  TS${diagnostic.code} - ${diagnostic.message}`
         ),
       ].join('\n')
     )
