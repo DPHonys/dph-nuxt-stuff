@@ -23,6 +23,15 @@
     "*": {
       ".": [
         "./dist/types.d.mts"
+      ],
+      "types": [
+        "./dist/runtime/types/index.d.ts"
+      ],
+      "server": [
+        "./dist/runtime/server/index.d.ts"
+      ],
+      "shared": [
+        "./dist/runtime/shared/index.d.ts"
       ]
     }
   },
@@ -30,6 +39,18 @@
     ".": {
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
+    },
+    "./types": {
+      "types": "./dist/runtime/types/index.d.ts",
+      "import": "./dist/runtime/types/index.js"
+    },
+    "./server": {
+      "types": "./dist/runtime/server/index.d.ts",
+      "import": "./dist/runtime/server/index.js"
+    },
+    "./shared": {
+      "types": "./dist/runtime/shared/index.d.ts",
+      "import": "./dist/runtime/shared/index.js"
     }
   },
   "publishConfig": {
@@ -50,7 +71,10 @@
     "typecheck": "nuxt-module-build prepare && nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json"
   },
   "dependencies": {
-    "@nuxt/kit": "catalog:"
+    "@nuxt/kit": "catalog:",
+    "@standard-schema/spec": "catalog:",
+    "h3": "catalog:",
+    "nitropack": "catalog:"
   },
   "devDependencies": {
     "@nuxt/devtools": "catalog:",
@@ -62,7 +86,8 @@
     "publint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "vue-tsc": "catalog:"
+    "vue-tsc": "catalog:",
+    "zod": "catalog:"
   },
   "engines": {
     "node": "^22.19.0 || ^24.11.0 || >=26.0.0"

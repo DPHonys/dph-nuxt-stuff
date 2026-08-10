@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('starter behavior', async () => {
   await setup({
-    rootDir: fileURLToPath(new URL('./fixtures/basic', import.meta.url)),
+    rootDir: fileURLToPath(new URL('../fixtures/basic', import.meta.url)),
   })
 
   it('renders the configured message through SSR', async () => {
