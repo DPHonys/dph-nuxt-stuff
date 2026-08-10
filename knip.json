@@ -1,8 +1,0 @@
-{
-  "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": ["templates/**", "scaffolder/tests/fixtures/**"],
-  "ignoreExportsUsedInFile": true,
-  "rules": {
-    "catalog": "off"
-  }
-}

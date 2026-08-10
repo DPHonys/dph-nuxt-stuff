@@ -1,0 +1,97 @@
+{
+  "name": "@dphonys/nuxt-handler-errors",
+  "version": "0.0.1",
+  "description": "Declare a Nitro handler’s expected failures once and infer them at every call site from the route path.",
+  "keywords": [
+    "nuxt",
+    "nuxt-handler-errors",
+    "nuxt-module"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DPHonys/dph-nuxt-stuff.git",
+    "directory": "packages/nuxt-handler-errors"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ],
+      "types": [
+        "./dist/runtime/types/index.d.ts"
+      ],
+      "server": [
+        "./dist/runtime/server/index.d.ts"
+      ],
+      "shared": [
+        "./dist/runtime/shared/index.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./types": {
+      "types": "./dist/runtime/types/index.d.ts",
+      "import": "./dist/runtime/types/index.js"
+    },
+    "./server": {
+      "types": "./dist/runtime/server/index.d.ts",
+      "import": "./dist/runtime/server/index.js"
+    },
+    "./shared": {
+      "types": "./dist/runtime/shared/index.d.ts",
+      "import": "./dist/runtime/shared/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "nuxt-module-build build",
+    "dev": "pnpm run dev:prepare && nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "lint": "eslint .",
+    "prebuild": "nuxt-module-build prepare",
+    "prepack": "pnpm run build",
+    "pretest": "nuxt-module-build prepare",
+    "pretypecheck": "pnpm run build",
+    "publint": "publint",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "typecheck": "nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json"
+  },
+  "dependencies": {
+    "@nuxt/kit": "catalog:",
+    "@standard-schema/spec": "catalog:",
+    "h3": "catalog:",
+    "nitropack": "catalog:",
+    "pathe": "catalog:",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "catalog:",
+    "@nuxt/module-builder": "catalog:",
+    "@nuxt/schema": "catalog:",
+    "@nuxt/test-utils": "catalog:",
+    "@types/node": "catalog:",
+    "nuxt": "catalog:",
+    "publint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "vue-tsc": "catalog:",
+    "zod": "catalog:"
+  },
+  "engines": {
+    "node": "^22.19.0 || ^24.11.0 || >=26.0.0"
+  }
+}
