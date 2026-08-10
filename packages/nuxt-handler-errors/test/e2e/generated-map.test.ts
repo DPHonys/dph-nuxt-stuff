@@ -52,7 +52,7 @@ beforeAll(() => {
   execFileSync(
     join(PACKAGE_ROOT, 'node_modules/.bin/nuxt'),
     ['prepare', FIXTURE],
-    { cwd: PACKAGE_ROOT, stdio: 'pipe' }
+    { cwd: PACKAGE_ROOT, stdio: 'pipe', timeout: 240_000 }
   )
 
   const mapPath = join(FIXTURE, MAP_PATH)
