@@ -65,10 +65,11 @@
     "prebuild": "nuxt-module-build prepare",
     "prepack": "pnpm run build",
     "pretest": "nuxt-module-build prepare",
+    "pretypecheck": "pnpm run build",
     "publint": "publint",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "typecheck": "nuxt-module-build prepare && nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json"
+    "typecheck": "nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json"
   },
   "dependencies": {
     "@nuxt/kit": "catalog:",
