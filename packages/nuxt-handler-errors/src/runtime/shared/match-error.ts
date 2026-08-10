@@ -1,12 +1,6 @@
-/**
- * The read path: the wire's shape floor, and the matcher over it.
- *
- * Shared in the strict sense — one matcher serves both runtimes, because a
- * server-side `.try` normalisation lands the carrier at exactly the client
- * chain's depth. The only import beyond our own wire is `unref`, a pure
- * function; no reactivity is created here and no `#app` or `h3` specifier is
- * reachable from this file.
- */
+// One matcher serves both runtimes: a server-side `.try` normalisation lands
+// the carrier at exactly the client chain's depth. No `#app` or `h3`
+// specifier is reachable from this file.
 
 import type { NuxtError } from 'nuxt/app'
 import type { MaybeRef } from 'vue'
@@ -15,13 +9,8 @@ import type { KnownVariant } from '../types/known-error'
 import type { Fallback, MatchError } from '../types/matcher'
 import { KNOWN_ERROR_KEY } from './wire'
 
-/**
- * The marker out of one container, checked against the whole floor. Presence is
- * not enough: `tag: string` and `status: number` are verified, so a
- * present-but-malformed marker reads as *unknown* — the direction every
- * consumer already handles. `typeof`-based deliberately, and the explicit
- * `!== null` stops `typeof null === 'object'` reaching the property reads.
- */
+// Presence is not enough: `tag` and `status` are verified, so a
+// present-but-malformed marker reads as unknown.
 function readMarker(container: unknown): KnownVariant | undefined {
   const marker = (container as Record<string, unknown> | null | undefined)?.[
     KNOWN_ERROR_KEY
@@ -37,12 +26,8 @@ function readMarker(container: unknown): KnownVariant | undefined {
 
 /**
  * The variant an error carries, or `undefined` for "not a known failure".
- *
- * **The marker sits at two depths and both are read here.** `data.<marker>` is
- * the raise site — the server's own thrown `H3Error`. `data.data.<marker>` is
- * a fetched carrier, where the outer `data` is ofetch's parsed response body
- * and the inner one is Nitro's serialized `error.data`; both `data`s are the
- * framework's.
+ * Reads both wire depths: `data.<marker>` (the raise site's own throw) and
+ * `data.data.<marker>` (a fetched carrier).
  */
 export function readFloor(error: unknown): KnownVariant | undefined {
   const data = (error as { data?: unknown } | null | undefined)?.data
@@ -54,12 +39,9 @@ export function readFloor(error: unknown): KnownVariant | undefined {
 
 /**
  * Handle a failure: the declared arm if this call site knows the tag, the
- * fallback otherwise. Absorbs the `if (error)` — a nullish error is no
- * failure, so nothing is called at all.
- *
- * The ref is read **once, at call time**. The reactive form is composition, not
- * another function: `watch(error, () => matchError(error, …), { immediate:
- * true })`.
+ * fallback otherwise. A nullish error is no failure — nothing is called at
+ * all. The ref is read once, at call time; the reactive form is
+ * `watch(error, () => matchError(error, …))`.
  */
 export const matchError: MatchError = (
   error: MaybeRef<unknown>,

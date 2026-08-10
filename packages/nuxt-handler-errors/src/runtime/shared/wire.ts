@@ -1,16 +1,8 @@
-/**
- * The wire protocol: the reserved key, the body it travels in, what the raise
- * site may hand `createError`, and the one place the marker is built. Alone in
- * a file because both directions depend on it and neither owns it.
- */
-
 import type { KnownVariant } from '../types/known-error'
 
 /**
  * The reserved key a known failure travels under, inside the error body's
- * `data`. Frozen wire protocol: its presence *is* the evidence the server
- * declared this failure, its value *is* the variant, and versioning is by key
- * rename. Deliberately does not track the package name.
+ * `data`. Frozen wire protocol — versioning is by key rename.
  */
 export const KNOWN_ERROR_KEY = '__knownError__'
 
@@ -22,10 +14,9 @@ export type KnownErrorMarker<E extends KnownVariant> = {
 }
 
 /**
- * Nitro's production error body with the marker inside `data` — the only
- * extension point across both hops. ofetch's `FetchError.data` is the whole
- * response body, so a fetched carrier holds the variant at
- * `err.data.data.__knownError__`.
+ * Nitro's production error body with the marker inside `data`. ofetch's
+ * `FetchError.data` is the whole response body, so a fetched carrier holds
+ * the variant at `err.data.data.__knownError__`.
  */
 export interface KnownErrorBody<E extends KnownVariant> {
   error: true
@@ -36,15 +27,9 @@ export interface KnownErrorBody<E extends KnownVariant> {
   data: KnownErrorMarker<E>
 }
 
-/**
- * What the raise is allowed to hand `createError`. `statusMessage?: never` is
- * a standing constraint made structural: an escaped server-to-server throw
- * forwards the reason phrase untouched even while everything else is scrubbed,
- * so the tag must never ride it — writing `statusMessage: tag` is exactly how
- * the old package leaked. `message` MAY carry the tag: the production handler
- * scrubs it on any escape, so it only ever reaches the route's own client,
- * which knows the tag already.
- */
+// `statusMessage?: never` made structural: an escaped server-to-server throw
+// forwards the reason phrase untouched, so the tag must never ride it.
+// `message` MAY carry the tag — the production handler scrubs it on escape.
 export interface KnownRaiseInput<E extends KnownVariant> {
   statusCode: number
   message: string
@@ -52,11 +37,9 @@ export interface KnownRaiseInput<E extends KnownVariant> {
   statusMessage?: never
 }
 
-/**
- * Build the marker for one raised failure. The reserved names are spread
- * **last** so a payload field cannot displace the floor, and the marker's
- * `status` copy is authoritative (h3 rewrites an out-of-range HTTP status).
- */
+// Reserved names spread LAST so a payload field cannot displace the floor;
+// the marker's `status` copy is authoritative (h3 rewrites an out-of-range
+// HTTP status).
 export function knownErrorMarker(
   tag: string,
   status: number,

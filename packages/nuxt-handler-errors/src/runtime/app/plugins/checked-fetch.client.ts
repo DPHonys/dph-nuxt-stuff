@@ -1,14 +1,5 @@
-/**
- * Installs `globalThis.$checkedFetch` in the **browser**.
- *
- * It is a global because vanilla `$fetch` is one: that is what makes it
- * callable from `<script setup>`, from a store and from a plain `.ts` module
- * with no import and no new entry point.
- *
- * Registered `client`-only, and `src/module.ts` is where that decision lives —
- * this file is the assignment. The channel tag needs no plugin at all: the
- * wrapper imports it as a build-time constant.
- */
+// Installs `globalThis.$checkedFetch` in the browser. Registered client-only;
+// `src/module.ts` is where that decision lives.
 
 import { defineNuxtPlugin } from '#app'
 import { $checkedFetch } from '../../shared/checked-fetch'

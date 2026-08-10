@@ -1,12 +1,6 @@
-/**
- * The declaration surface: the brand a checked handler carries, the extractor
- * that reads it back out, and the callable interfaces `../server/lib/errors`
- * implements.
- *
- * Every callable is a named `interface` with the value a `const` of that type,
- * because a named interface renders as its own name in hovers rather than as
- * its whole expanded signature.
- */
+// Every callable is a named `interface` with the value a `const` of that
+// type, because a named interface renders as its own name in hovers rather
+// than as its whole expanded signature.
 
 import type {
   EventHandler,
@@ -33,17 +27,9 @@ import type {
 } from './known-error'
 import type { IsAny } from './utils'
 
-// ---------------------------------------------------------------------------
-// The brand
-// ---------------------------------------------------------------------------
-
 /**
- * A route's declared union, riding as an **optional phantom property** on an
- * interface extending h3's `EventHandler`. Optional so that a plain
- * `EventHandler` still inhabits this — safe only because the extractor below
- * is the single reader and it guards. This brand is the emitter's only
- * channel: the generated map is derived from handler types, so without it the
- * whole client surface reads `never`.
+ * An h3 `EventHandler` carrying its declared error union as a phantom
+ * property — the channel the generated map reads.
  */
 export interface CheckedEventHandler<
   Request extends EventHandlerRequest = EventHandlerRequest,
@@ -53,15 +39,10 @@ export interface CheckedEventHandler<
   __knownErrors__?: Errors
 }
 
-/**
- * Recover a route's declared union from its handler type. Guarded twice:
- * `IsAny` because an untyped handler otherwise matches with `E = unknown` and
- * silently destroys narrowing, and `Exclude<…, undefined>` because an
- * *unbranded* function still matches an all-optional property shape —
- * measured: it infers `E = undefined` (not `unknown`), so the `Exclude` alone
- * degrades it to `never`, the honest "declares none". An `unknown extends E`
- * belt on top was measured dead.
- */
+/** Recover a route's declared union from its handler type; `never` if none. */
+// `IsAny` because an untyped handler otherwise matches with `E = unknown`;
+// `Exclude<…, undefined>` because an unbranded function still matches an
+// all-optional shape (inferring `E = undefined`) and must degrade to `never`.
 export type KnownErrorsOfHandler<T> =
   IsAny<T> extends true
     ? never
@@ -69,14 +50,9 @@ export type KnownErrorsOfHandler<T> =
       ? Exclude<E, undefined>
       : never
 
-// ---------------------------------------------------------------------------
-// The handler body
-// ---------------------------------------------------------------------------
-
 /**
- * Scoped to exactly the declared union. It throws at runtime; because it
- * returns `never`, `return fail(…)` contributes nothing to the handler's
- * inferred return type.
+ * Raise one of the route's declared failures. Throws; returns `never`, so
+ * `return fail(…)` contributes nothing to the inferred success type.
  */
 export type Fail<E extends KnownVariant> = <T extends E['tag']>(
   tag: T,
@@ -95,19 +71,11 @@ export type CheckedHandlerFn<
   E extends KnownVariant,
 > = (event: H3Event<Request>, ctx: HandlerContext<E>) => Response
 
-// ---------------------------------------------------------------------------
-// The callable surfaces
-// ---------------------------------------------------------------------------
-
 export interface DefinePayload {
   <T extends SerializablePayload<T>>(): Payload<T>
 }
 
-/**
- * One function for one or many, with **arity** separating the overloads — so
- * neither can win on shape alone, the standing rule for every overload set in
- * this package.
- */
+/** One function for one or many, with arity separating the overloads. */
 export interface DefineError {
   /** One definition → one error value. */
   <Tag extends string, const D extends VariantDef>(
@@ -121,12 +89,9 @@ export interface DefineError {
   ): KnownErrorGroup<VariantsOf<D>>
 }
 
-/**
- * Options object first, handler last, so the declaration sits visibly at the
- * top of the route file. `Response` has no default type parameter — that makes
- * an explicit type argument a `TS2558` arity error instead of a silent
- * collapse of the success type to `any`.
- */
+// `Response` has no default type parameter on purpose: an explicit type
+// argument becomes an arity error instead of silently collapsing the
+// success type to `any`.
 export interface DefineCheckedEventHandler {
   <
     const A extends ReadonlyArray<AnyKnownError>,
