@@ -46,7 +46,14 @@ const nuxtModuleWorkspace = {
 } satisfies WorkspaceProjectConfig
 
 export default {
-  ignore: ['templates/**', 'scaffolder/tests/fixtures/**'],
+  // `**/.nuxt/**` is generated output: the fixture-app entries below would
+  // otherwise drag `nuxt prepare`'s emitted `.d.ts` files into the analysis.
+  ignore: [
+    'templates/**',
+    'scaffolder/tests/fixtures/**',
+    'to-delete/**',
+    '**/.nuxt/**',
+  ],
   ignoreExportsUsedInFile: true,
 
   // Every ignore in this file is a judgement with a stated reason, and a stale
@@ -66,33 +73,24 @@ export default {
   workspaces: {
     'packages/*': nuxtModuleWorkspace,
 
-    'packages/nuxt-handler-errors-old': {
+    'packages/nuxt-handler-errors': {
       ...nuxtModuleWorkspace,
 
-      // Not the scaffold's pair: `@nuxt/schema` is dropped from the inherited
-      // list because this package *does* import it from source —
-      // `test/unit/module-setup.test.ts` types the loaded Nuxt instance with
-      // it —
-      // so the scaffold-shape exemption would suppress nothing here and the
-      // hint promoted above would fail the run.
-      ignoreDependencies: ['@nuxt/devtools'],
+      // Not the scaffold's pair: both inherited exemptions would suppress
+      // nothing here — `test/unit/module-setup.test.ts` imports `@nuxt/schema`
+      // from source, and knip resolves `@nuxt/devtools` as used in this
+      // package — and an idle ignore fails the run via the hint promotion.
+      ignoreDependencies: [],
 
       entry: [
         ...nuxtModuleWorkspace.entry,
 
-        // The compile-time assertion harness's fixtures. The harness compiles
-        // these one at a time by relative path through the compiler API rather
-        // than importing them, and the `neg/` half deliberately does not
-        // compile at all (SPEC.md §9.2). Naming the fixtures rather than
-        // ignoring `test/types/**` is what keeps their own imports followed:
-        // `test/types/vocabulary.ts` is reported unused the day no fixture uses
-        // it.
-        //
-        // Package-scoped because the harness is this package's, not the
-        // scaffold's — `templates/nuxt-module` creates no `test/types/`, and a
-        // glob-level pattern matching nothing there would fail the next
-        // scaffolded package on the hint promoted above.
-        'test/types/{pos,neg}/**/*.ts',
+        // The unit and e2e suites boot this fixture app through
+        // @nuxt/test-utils, which reaches it by path (`rootDir`), never by
+        // import. Package-scoped because the scaffold creates no
+        // `test/fixtures/`, and a glob-level pattern matching nothing there
+        // would fail the next scaffolded package on the hint promoted above.
+        'test/fixtures/**/*.{ts,vue}',
       ],
     },
   },

@@ -17,6 +17,7 @@
     "dist",
     "packages",
     "templates",
+    "to-delete",
     "**/node_modules",
     "**/dist"
   ]

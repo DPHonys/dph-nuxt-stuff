@@ -2,7 +2,7 @@ import { defineEventHandler } from 'h3'
 import { it } from 'vitest'
 import { matchError } from '../../src/runtime/shared'
 import type { CheckedFetch } from '../../src/runtime/types'
-import type { User } from './routes'
+import type { MapIsAugmented, User } from './routes'
 
 /**
  * The fetch surfaces' compile-time contract — the agreed call styles over a
@@ -21,6 +21,11 @@ type Equal<X, Y> =
     : false
 
 type Expect<T extends true> = T
+
+// The suites' route fixture really merged into the generated-map interface.
+type _MapCarriesTheFixtureRoutes = Expect<
+  Equal<MapIsAugmented['/api/boom']['get'], never>
+>
 
 declare function snack(message: string): void
 declare function report(message: string): void

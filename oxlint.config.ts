@@ -28,6 +28,8 @@ export default defineConfig({
     '.turbo',
     'node_modules',
     'pnpm-lock.yaml',
+    // Retired code awaiting deletion; nothing maintains it.
+    'to-delete',
     // Deliberately non-compiling type fixtures. See packages/*/SPEC.md §9.9.
     // The globs are required: these are gitignore-style patterns, so a bare
     // `test/types/neg` anchors to this config's directory and would never match
