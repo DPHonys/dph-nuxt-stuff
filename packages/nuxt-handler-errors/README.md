@@ -76,7 +76,7 @@ export default defineCheckedEventHandler(
 <script setup lang="ts">
 import { matchError } from '@dphonys/nuxt-handler-errors/shared'
 
-const { data, error } = await useCheckedFetch('/api/users/:id')
+const { data, error } = await useCheckedFetch('/api/users/42')
 
 matchError(
   error,
@@ -114,7 +114,7 @@ One call absorbs the `if (error)` and the is-it-known check.
 ### `$checkedFetch.try` - where a function can `return`
 
 ```ts
-const { data, error } = await $checkedFetch.try('/api/users/:id')
+const { data, error } = await $checkedFetch.try('/api/users/42')
 
 if (error) {
   matchError(error, {/* … */}, (err) => showError(err))
