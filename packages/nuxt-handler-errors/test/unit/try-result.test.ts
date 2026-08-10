@@ -11,8 +11,8 @@ import { knownFailure, settled } from '../fetch-channel'
  * and the event-bound surfaces alike, so what a failure looks like cannot
  * differ by which instance produced it.
  *
- * Two claims are enumerated rather than sampled. First, it catches
- * *everything*: `.try` has no rethrow channel, so any shape that escaped would
+ * Two claims are enumerated rather than sampled. First, it
+ * catches *everything*: `.try` has no rethrow channel, so any shape that escaped would
  * reach a caller who has already been told `error`'s presence is the whole
  * discriminant. Second, the carrier really carries `status` — a bare `H3Error`
  * sets only `statusCode`, and the `NuxtError` face has to be runtime-true on

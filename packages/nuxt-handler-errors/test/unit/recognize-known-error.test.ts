@@ -7,8 +7,8 @@ import { knownFailure } from '../fetch-channel'
  * The observability read, at both marker depths.
  *
  * Deliberately its own suite rather than a line in the matcher's: this is the
- * `/server` export an integration keys `beforeSend` on, and the two depths are
- * *its* contract — a route's own thrown error (depth 1) and a fetched carrier
+ * `/server` export an integration keys `beforeSend` on, and the two depths
+ * are *its* contract — a route's own thrown error (depth 1) and a fetched carrier
  * that escaped (depth 2) reach the `error` hook alike, and an integration that
  * saw only one would report half its declared failures as bugs.
  */

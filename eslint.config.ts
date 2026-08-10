@@ -27,9 +27,6 @@ export default antfuConfig(
       // Oxfmt keeps short content on one line and self-closes void elements.
       'vue/singleline-html-element-content-newline': 'off',
       'vue/html-self-closing': 'off',
-
-      // Its autofix eats the `*` of Markdown emphasis opening a doc-comment line.
-      'jsdoc/no-multi-asterisks': 'off',
     },
   },
 
