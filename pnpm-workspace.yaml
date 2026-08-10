@@ -18,7 +18,12 @@ versioning:
     storage: repository
 
 allowBuilds:
-  esbuild@0.25.12 || 0.28.1: true
+  # pnpm accepts exact versions only here (no ranges), so every new esbuild
+  # release the tree resolves to must be appended by hand. The scaffolder's
+  # acceptance fixture installs with no lockfile and resolves esbuild fresh,
+  # so its test goes red the day a release falls outside this union — that
+  # failure means "audit the new version's build script and extend the list".
+  esbuild@0.25.12 || 0.28.1 || 0.28.2: true
   unrs-resolver: true
 
 catalog:
