@@ -12,6 +12,10 @@ const nuxtModuleWorkspace = {
   // (`addPlugin`, `addServerHandler`, ...), never through an import.
   entry: ['src/module.ts', 'src/runtime/**/*.{ts,vue}'],
 
+  // A negated `project` pattern, not `ignore`: `ignore` only mutes findings
+  // while the generated tree still enters the module graph.
+  project: ['**/*.{ts,vue}', '!**/.nuxt/**'],
+
   // Scaffolded into every module package, imported by neither `src/` nor
   // `test/`, and both kept deliberately: `@nuxt/schema` is a type dependency
   // of the generated `dist/types.d.mts`, and `@nuxt/devtools` is resolved by
@@ -20,9 +24,7 @@ const nuxtModuleWorkspace = {
 } satisfies WorkspaceProjectConfig
 
 export default {
-  // `**/.nuxt/**` is generated output the fixture-app entries would otherwise
-  // drag into the analysis.
-  ignore: ['templates/**', 'scaffolder/tests/fixtures/**', '**/.nuxt/**'],
+  ignore: ['templates/**', 'scaffolder/tests/fixtures/**'],
   ignoreExportsUsedInFile: true,
 
   // Fail the run when an ignore or entry pattern suppresses/matches nothing,
@@ -36,12 +38,18 @@ export default {
   workspaces: {
     'packages/*': nuxtModuleWorkspace,
 
+    // Playgrounds are their own workspace, so the package-level exclusion
+    // above does not reach their generated `.nuxt` tree.
+    'packages/*/playground': {
+      project: ['**/*.{ts,vue}', '!.nuxt/**'],
+    },
+
     'packages/nuxt-handler-errors': {
       ...nuxtModuleWorkspace,
 
-      // Both inherited exemptions would suppress nothing in this package, and
-      // an idle ignore fails the run via the hint promotion above.
-      ignoreDependencies: [],
+      // The inherited `@nuxt/schema` exemption would suppress nothing in this
+      // package, and an idle ignore fails the run via the hint promotion above.
+      ignoreDependencies: ['@nuxt/devtools'],
 
       entry: [
         ...nuxtModuleWorkspace.entry,
@@ -50,6 +58,9 @@ export default {
         // never by import. Package-scoped because the scaffold creates no
         // `test/fixtures/`.
         'test/fixtures/**/*.{ts,vue}',
+        // The fixture glob above would otherwise match the app's generated
+        // `.nuxt/**/*.d.ts` as entries.
+        '!test/fixtures/**/.nuxt/**',
       ],
     },
   },
