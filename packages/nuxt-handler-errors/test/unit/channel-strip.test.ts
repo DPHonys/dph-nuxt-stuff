@@ -7,7 +7,7 @@ import { KNOWN_ERROR_KEY } from '../../src/runtime/shared/wire'
 
 // The response half of channel gating. The event is a real `H3Event` over
 // fake node objects because every claim here is about h3's own helpers;
-// `defaultHandler` fakes Nitro's measured shape — `{ status, statusText,
+// `defaultHandler` fakes Nitro's measured shape - `{ status, statusText,
 // headers, body }` returned, not sent.
 
 const TOKEN = 'first-party'
@@ -136,9 +136,9 @@ describe('the tokenless, marked request', () => {
     expect('data' in body).toBe(false)
   })
 
-  it('never mutates the thrown error — observability sees every marker', async () => {
+  it('never mutates the thrown error - observability sees every marker', async () => {
     // The serializer hands `error.data` through by reference, and
-    // `captureError` has already fired by the time this runs — so the obvious
+    // `captureError` has already fired by the time this runs - so the obvious
     // `delete body.data[KNOWN_ERROR_KEY]` implementation would break Sentry.
     const { event } = fakeEvent()
     const data = { [KNOWN_ERROR_KEY]: { tag: 'forbidden', status: 403 } }
@@ -164,7 +164,7 @@ describe('the tokenless, marked request', () => {
   })
 
   it('strips the fetched-carrier depth too', async () => {
-    // A rethrown carrier: the marker sits one level deeper — the same two
+    // A rethrown carrier: the marker sits one level deeper - the same two
     // depths the recognizer reads.
     const { event, sent } = fakeEvent()
     const data = { error: true, statusCode: 403, data: marker }
@@ -203,7 +203,7 @@ function expectDeferred(sent: Sent): void {
 }
 
 describe('what the entry defers', () => {
-  it('a request carrying the token — the app’s own call gets the full wire', async () => {
+  it('a request carrying the token - the app’s own call gets the full wire', async () => {
     const { event, sent } = fakeEvent({ [CHANNEL_HEADER]: TOKEN })
 
     const fake = await run(
@@ -239,7 +239,7 @@ describe('what the entry defers', () => {
     expectDeferred(sent())
   })
 
-  it('every request when no token is configured — gating off is today’s behaviour', async () => {
+  it('every request when no token is configured - gating off is today’s behaviour', async () => {
     const { event, sent } = fakeEvent()
 
     const fake = await run(
@@ -253,7 +253,7 @@ describe('what the entry defers', () => {
     expectDeferred(sent())
   })
 
-  it('a non-object body — the dev builtin’s HTML page has no data field', async () => {
+  it('a non-object body - the dev builtin’s HTML page has no data field', async () => {
     const { event, sent } = fakeEvent()
 
     await run(event, { statusCode: 403, data: marker }, '<html>youch</html>')

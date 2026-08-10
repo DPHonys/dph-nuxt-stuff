@@ -31,7 +31,7 @@ declare function blocked(until: string): void
 declare function render(user: User): void
 
 // ---------------------------------------------------------------------------
-// The imperative surface — inside any function, where `return` works
+// The imperative surface - inside any function, where `return` works
 // ---------------------------------------------------------------------------
 
 /** The guard narrows `data`; the function decides the exit. */
@@ -54,7 +54,7 @@ export async function imperative(): Promise<User | null> {
     return null
   }
 
-  // Narrowed by the sibling guard alone — no second check and no `!`.
+  // Narrowed by the sibling guard alone - no second check and no `!`.
   const user: User = data
   type _successIsTheRoutes = Expect<Equal<typeof data, User>>
 
@@ -65,7 +65,7 @@ export async function imperative(): Promise<User | null> {
 export async function noOkDiscriminant(): Promise<void> {
   const result = await $checkedFetch.try('/api/users/:id')
 
-  // @ts-expect-error — the try-shape carries `data` and `error`, nothing else
+  // @ts-expect-error - the try-shape carries `data` and `error`, nothing else
   void result.ok
 }
 
@@ -83,7 +83,7 @@ export async function matchErrorDoesNotNarrow(): Promise<void> {
     (err) => showError(err)
   )
 
-  // @ts-expect-error — still `User | undefined` without `if (error)`
+  // @ts-expect-error - still `User | undefined` without `if (error)`
   const user: User = data
   render(user)
 }
@@ -98,7 +98,7 @@ export async function armParametersAreTheVariants(): Promise<void> {
     {
       forbidden: (e) => {
         const role: 'admin' | 'owner' = e.requiredRole
-        // @ts-expect-error — `userId` belongs to a different variant
+        // @ts-expect-error - `userId` belongs to a different variant
         snack(e.userId)
         snack(`You need ${role}`)
       },
@@ -141,11 +141,11 @@ export async function createKeepsTheSibling(): Promise<{ ok: true } | null> {
   return data
 }
 
-/** `.raw` has no `.try`, deliberately — it already returns without throwing. */
+/** `.raw` has no `.try`, deliberately - it already returns without throwing. */
 export async function rawHasNoTry(): Promise<number> {
   const res = await $checkedFetch.raw('/api/users/:id')
 
-  // @ts-expect-error — `.raw` already returns a response, not a throw
+  // @ts-expect-error - `.raw` already returns a response, not a throw
   await $checkedFetch.raw.try('/api/users/:id')
 
   return res.status
@@ -155,7 +155,7 @@ export async function rawHasNoTry(): Promise<number> {
 export async function nativePassesThrough(): Promise<number> {
   const res: Response = await $checkedFetch.native('/api/users/:id')
 
-  // @ts-expect-error — no `.try` on the bare fetch either
+  // @ts-expect-error - no `.try` on the bare fetch either
   await $checkedFetch.native.try('/api/users/:id')
 
   return res.status
@@ -166,7 +166,7 @@ export async function throwingPathReadsTheFloor(): Promise<void> {
   try {
     render(await $checkedFetch('/api/users/:id'))
   } catch (e) {
-    // @ts-expect-error — degraded only; both overloads fail on an `unknown`
+    // @ts-expect-error - degraded only; both overloads fail on an `unknown`
     matchError(e, { forbidden: () => snack('nope') }, (err) => showError(err))
 
     matchError(e, {}, (err, unrecognized) => {
@@ -177,7 +177,7 @@ export async function throwingPathReadsTheFloor(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// The server surface — the seam exactly
+// The server surface - the seam exactly
 // ---------------------------------------------------------------------------
 
 /**
@@ -208,11 +208,11 @@ export const serverHandler = defineEventHandler(async (event) => {
 /** The members Nitro types on `event.$fetch` but never assigns do not exist
  * here to be reached for. */
 export const eventSurfaceIsTheSeam = defineEventHandler(async (event) => {
-  // @ts-expect-error — no `.raw` on the event-bound instance
+  // @ts-expect-error - no `.raw` on the event-bound instance
   await event.$checkedFetch.raw('/api/users/:id')
-  // @ts-expect-error — no `.create` either
+  // @ts-expect-error - no `.create` either
   event.$checkedFetch.create({ baseURL: '/v2' })
-  // @ts-expect-error — nor `.native`
+  // @ts-expect-error - nor `.native`
   await event.$checkedFetch.native('/api/users/:id')
 
   render(await event.$checkedFetch('/api/users/:id'))
@@ -248,18 +248,18 @@ export const sharedFromServer = defineEventHandler((event) =>
   sharedGetUser(event.$checkedFetch)
 )
 
-/** …and the global everywhere else — `$CheckedFetch extends CheckedFetch`. */
+/** …and the global everywhere else - `$CheckedFetch extends CheckedFetch`. */
 export function sharedFromApp(): Promise<User | null> {
   return sharedGetUser($checkedFetch)
 }
 
 // ---------------------------------------------------------------------------
-// The composable surface — `<script setup>` top level, where `return` is a
+// The composable surface - `<script setup>` top level, where `return` is a
 // compile error
 // ---------------------------------------------------------------------------
 
 // Declared rather than imported: these live behind `#app`, which does not
-// resolve under a plain `vitest run`. `typeof import(…)` is a type query — it
+// resolve under a plain `vitest run`. `typeof import(…)` is a type query - it
 // asserts the real declaration and emits no import.
 declare const useCheckedFetch: typeof import('../../src/runtime/app/composables/use-checked-fetch').useCheckedFetch
 declare const useLazyCheckedFetch: typeof import('../../src/runtime/app/composables/use-checked-fetch').useLazyCheckedFetch
@@ -286,11 +286,11 @@ export async function composable(): Promise<void> {
   )
 }
 
-/** A route declaring nothing is typed exactly as vanilla — the degradation lock. */
+/** A route declaring nothing is typed exactly as vanilla - the degradation lock. */
 export async function composableUndeclaredRoute(): Promise<void> {
   const { error } = await useCheckedFetch('/api/boom')
 
-  // @ts-expect-error — nothing was declared, so there is no arm to name
+  // @ts-expect-error - nothing was declared, so there is no arm to name
   matchError(error, { 'c-gone': () => report('gone') }, (err) => showError(err))
 
   matchError(error, {}, (err) => showError(err))
@@ -310,7 +310,7 @@ export async function composableLazyTwin(): Promise<void> {
 export async function requestBoundImperative(): Promise<User | null> {
   const fetcher = useRequestCheckedFetch()
 
-  // @ts-expect-error — no `.raw` on the request-bound instance
+  // @ts-expect-error - no `.raw` on the request-bound instance
   await fetcher.raw('/api/users/:id')
 
   return sharedGetUser(fetcher)

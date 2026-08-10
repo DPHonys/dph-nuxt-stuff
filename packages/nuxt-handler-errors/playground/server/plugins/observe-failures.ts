@@ -3,7 +3,7 @@ import { observedFailures } from '~~/server/utils/observed-failures'
 
 /**
  * The documented observability recipe. `captureError` fires this hook before
- * the error-handler chain runs, so response-side stripping is invisible here —
+ * the error-handler chain runs, so response-side stripping is invisible here
  * and `unhandled === false` is what separates a route's own declared failure
  * from an escaped callee's, which is the caller bug it looks like.
  */

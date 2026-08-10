@@ -1,5 +1,5 @@
 /**
- * The `#app` double, wired in by `vitest.config.ts`'s alias — `#app` only
+ * The `#app` double, wired in by `vitest.config.ts`'s alias - `#app` only
  * exists inside a Nuxt build. It records what the wrappers handed vanilla and
  * simulates nothing; the composables running for real is the e2e tier.
  */

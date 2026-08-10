@@ -7,7 +7,7 @@ import {
 } from '../../src/runtime/server'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared'
 
-// The definition surface's runtime behaviour — only the paths no type
+// The definition surface's runtime behaviour - only the paths no type
 // assertion can reach; the rest of the contract lives in
 // `test/types/definition-surface.test.ts`.
 describe('defined errors at runtime', () => {
@@ -96,7 +96,7 @@ describe('defined errors at runtime', () => {
   })
 
   it('holds one error per distinct tag, first occurrence winning', () => {
-    // Repetition is absorbed rather than rejected — a union dedupes itself, so
+    // Repetition is absorbed rather than rejected - a union dedupes itself, so
     // the types stay silent and the runtime list must say the same thing.
     expect(authErrors.pick('unauthorized', 'unauthorized')).toHaveLength(1)
     expect(authErrors.pick()).toHaveLength(0)
@@ -114,7 +114,7 @@ describe('defined errors at runtime', () => {
 
   it('refuses an error it did not create, at the moment it is declared', () => {
     // The runtime half rides a module-private `Symbol()`, so a second physical
-    // copy of the package produces values this copy cannot read — right shape,
+    // copy of the package produces values this copy cannot read - right shape,
     // wrong brand. The throw must land at declaration, before the route has
     // served anything; skipping the entry would surface later as a false
     // "undeclared tag" 500.
@@ -133,7 +133,7 @@ describe('defined errors at runtime', () => {
   })
 
   it('refuses an unknown tag without ever marking it', () => {
-    // Unreachable through the typed surface — a programming mistake must not
+    // Unreachable through the typed surface - a programming mistake must not
     // arrive at a client wearing the marker that means "the server declared
     // this".
     const thrown = catchThrown(

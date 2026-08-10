@@ -5,7 +5,7 @@ import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { knownFailure, settled } from '../fetch-channel'
 
 // The run-time half of `$checkedFetch`. No `#app` double needed: the value is
-// side-agnostic, and the fetcher underneath is a parameter — that parameter is
+// side-agnostic, and the fetcher underneath is a parameter - that parameter is
 // the whole seam.
 
 /** Whatever ofetch would accept; only `headers` is read here. */
@@ -47,7 +47,7 @@ function mergeLikeOfetch(
 
 /**
  * A stand-in for vanilla's namespace, recording what it was handed and what
- * ofetch would have sent. `create` must really merge defaults — the wrapper's
+ * ofetch would have sent. `create` must really merge defaults - the wrapper's
  * `create` closure exists to answer "do the instance defaults already carry an
  * `accept`?", and a fake that discarded them could not tell a right answer
  * from a wrong one. So `create` here is ofetch's own shallow spread, where a
@@ -100,7 +100,7 @@ beforeEach(() => {
   outcome = { resolve: 'ok' }
 })
 
-describe('the header merge — the GLOBAL form', () => {
+describe('the header merge - the GLOBAL form', () => {
   it('keeps a plain object and adds accept', async () => {
     await createCheckedFetch(fakeFetch())('/anything', {
       headers: { authorization: 'Bearer t' },
@@ -198,7 +198,7 @@ describe('the header merge — the GLOBAL form', () => {
     })
   })
 
-  it('leaves native alone — a bare fetch is not a Nitro request', async () => {
+  it('leaves native alone - a bare fetch is not a Nitro request', async () => {
     await createCheckedFetch(fakeFetch()).native('/anything')
 
     expect(calls.at(-1)?.member).toBe('native')
@@ -323,7 +323,7 @@ describe('.try over this surface', () => {
     ).toEqual({ threw: true, value: thrown })
   })
 
-  it('leaves raw throwing too — it has no .try of its own', async () => {
+  it('leaves raw throwing too - it has no .try of its own', async () => {
     const thrown = knownFailure({ tag: 't', status: 404 })
 
     outcome = { reject: thrown }
@@ -334,13 +334,13 @@ describe('.try over this surface', () => {
   })
 })
 
-describe('the channel tag — the GLOBAL form', () => {
+describe('the channel tag - the GLOBAL form', () => {
   // The token is module state via the double, so every test here clears it.
   afterEach(() => {
     setConfiguredChannelToken(undefined)
   })
 
-  it('attaches nothing when no token is configured — today’s behaviour', async () => {
+  it('attaches nothing when no token is configured - today’s behaviour', async () => {
     await createCheckedFetch(fakeFetch())('/anything')
 
     expect(sentHeaders()).toEqual({ accept: 'application/json' })
@@ -360,7 +360,7 @@ describe('the channel tag — the GLOBAL form', () => {
     })
   })
 
-  it('overrides a caller’s own value for the header — it is the module’s', async () => {
+  it('overrides a caller’s own value for the header - it is the module’s', async () => {
     // Unlike `accept`, this header is not a caller's to choose: a caller
     // value would only gate that call out of the wire it asked for.
     setConfiguredChannelToken('first-party')

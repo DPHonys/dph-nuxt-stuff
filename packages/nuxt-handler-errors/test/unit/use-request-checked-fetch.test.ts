@@ -5,7 +5,7 @@ import type { CheckedFetch } from '../../src/runtime/types'
 import { setRequestEvent } from '../doubles/nuxt-app'
 
 // Under vitest `import.meta.client` is falsy, so what runs here is the server
-// branch — the only one with a choice to make.
+// branch - the only one with a choice to make.
 
 afterEach(() => {
   setRequestEvent(undefined)

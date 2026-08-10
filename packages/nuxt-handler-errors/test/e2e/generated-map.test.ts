@@ -15,7 +15,7 @@ const PACKAGE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const FIXTURE = join(PACKAGE_ROOT, 'test/fixtures/basic')
 
 // Where the map must land: Nitro's `typesDir`. Written out rather than
-// imported from `src/module.ts` — a test that took the path from the code
+// imported from `src/module.ts` - a test that took the path from the code
 // under test would follow the file wherever it moved and stay green.
 const MAP_PATH = join('.nuxt', 'types', 'nuxt-handler-errors.d.ts')
 
@@ -27,7 +27,7 @@ const GENERATED_TSCONFIGS = [
 ]
 
 // The `/// <reference>` each context reaches the map through, and the
-// `addTypeTemplate` flag that puts it there — the obvious `{ nitro: true }`
+// `addTypeTemplate` flag that puts it there - the obvious `{ nitro: true }`
 // buys only the third row.
 const CONTEXT_REFERENCES = [
   { flag: 'nuxt', file: join('.nuxt', 'nuxt.d.ts') },
@@ -61,7 +61,7 @@ beforeAll(() => {
       [
         `\`nuxt prepare\` produced no map at ${MAP_PATH}.`,
         'Either the type template was never registered, or it was emitted',
-        "somewhere other than Nitro's types directory — where every specifier",
+        "somewhere other than Nitro's types directory - where every specifier",
         'in it would resolve to nothing, silently.',
       ].join('\n')
     )

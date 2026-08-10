@@ -34,7 +34,7 @@ export interface Settled {
 }
 
 /**
- * Run something and report how it settled — the pair rather than the value,
+ * Run something and report how it settled - the pair rather than the value,
  * so assertions can tell a `.try` failure arm from a rethrow.
  */
 export async function settled(run: () => Promise<unknown>): Promise<Settled> {

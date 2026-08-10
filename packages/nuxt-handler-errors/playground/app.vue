@@ -89,7 +89,7 @@ matchError(
 )
 
 /**
- * Vanilla `useFetch` — no surface of this package, so nothing attaches the
+ * Vanilla `useFetch` - no surface of this package, so nothing attaches the
  * channel tag and the response comes back stripped. With gating configured,
  * this is what a call outside the checked family sees.
  */

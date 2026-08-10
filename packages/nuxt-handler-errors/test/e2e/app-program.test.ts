@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { assertNoDiagnostics, compileFixture } from '../types/compile-harness'
 
-// The map rendered through a real app's programs — the half the other suites
+// The map rendered through a real app's programs - the half the other suites
 // defer. The claim is a *rendering* one on purpose: an unresolved
 // `import("…")` inside a `.d.ts` produces no diagnostic under `skipLibCheck`
 // (which every generated tsconfig sets) and silently becomes `any`, satisfying
@@ -15,11 +15,11 @@ import { assertNoDiagnostics, compileFixture } from '../types/compile-harness'
 const PACKAGE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const PLAYGROUND = join(PACKAGE_ROOT, 'playground')
 
-/** Where the map lands — restated, not imported, for `generated-map`'s reason. */
+/** Where the map lands - restated, not imported, for `generated-map`'s reason. */
 const MAP_PATH = join(PLAYGROUND, '.nuxt/types/nuxt-handler-errors.d.ts')
 
 // The probes live inside `.nuxt/`, a dot-directory TypeScript's wildcard
-// expansion skips — invisible to `vue-tsc`, eslint and knip, reaching a
+// expansion skips - invisible to `vue-tsc`, eslint and knip, reaching a
 // program only as this harness's explicit root file.
 const APP_PROBE = join(PLAYGROUND, '.nuxt/checked-app-probe.ts')
 const SERVER_PROBE = join(PLAYGROUND, '.nuxt/checked-server-probe.ts')
@@ -106,7 +106,7 @@ describe('the map, rendered in the app program', () => {
 
     // The discriminated union: `if (error) return` narrows the sibling.
     expect(rendered).toContain('error: undefined')
-    // The success arm is Nitro's own response type — plain, no `| undefined`.
+    // The success arm is Nitro's own response type - plain, no `| undefined`.
     expect(rendered).toContain('email: string')
 
     for (const tag of DECLARED_TAGS) expect(rendered).toContain(`"${tag}"`)
@@ -132,7 +132,7 @@ describe('the lookup, over a map whose specifiers resolve to nothing', () => {
 
     // Every specifier in the map is relative to `.nuxt/types`, so redirecting
     // the one directory they all traverse points every one of them at nothing
-    // — exactly what emitting the file one level too high would do.
+    // - exactly what emitting the file one level too high would do.
     writeFileSync(
       MAP_PATH,
       original.replaceAll(`'../../server/`, `'../../nowhere/`)

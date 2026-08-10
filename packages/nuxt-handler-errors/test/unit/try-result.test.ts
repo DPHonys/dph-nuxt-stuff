@@ -6,7 +6,7 @@ import {
 } from '../../src/runtime/shared/checked-fetch'
 import { knownFailure, settled } from '../fetch-channel'
 
-// The normalisation `.try` is built on — one function shared by the global and
+// The normalisation `.try` is built on - one function shared by the global and
 // event-bound surfaces. It must catch *everything* (`.try` has no rethrow
 // channel) and the carrier must really carry `status`, which a bare `H3Error`
 // does not set.
@@ -42,7 +42,7 @@ describe('toNuxtError', () => {
 
   it('populates status from the failure’s own statusCode', () => {
     // h3's `createError` copies `statusCode` off a `FetchError` and sets
-    // nothing else — without this, `error.status` differs between runtimes.
+    // nothing else - without this, `error.status` differs between runtimes.
     const error = toNuxtError(knownFailure({ tag: 't', status: 404 }))
 
     expect(error.status).toBe(404)

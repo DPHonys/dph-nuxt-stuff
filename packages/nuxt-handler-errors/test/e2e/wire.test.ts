@@ -6,7 +6,7 @@ import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared/wire'
 
 // The wire, against a real built server. The playground is the fixture
-// because it consumes the module through its real published specifiers —
+// because it consumes the module through its real published specifiers -
 // which is why this package's `turbo.json` gives `test` a dependency on its
 // own `build`. Expectations derive from the two protocol constants rather
 // than restating them.
@@ -83,7 +83,7 @@ describe('the known-failure wire', async () => {
 
     const body = await response.json()
 
-    // The status line is intact — a third party gets an ordinary error
+    // The status line is intact - a third party gets an ordinary error
     // response, not a broken one.
     expect(response.status).toBe(404)
     expect(body.statusCode).toBe(404)
@@ -105,7 +105,7 @@ describe('the known-failure wire', async () => {
 
   it('scrubs an escaped callee’s variant and leaks its status line', async () => {
     // `/api/escaped-callee` lets a callee's known failure escape. h3 marks it
-    // `unhandled`, so the prod serializer wipes `data` — while `status`
+    // `unhandled`, so the prod serializer wipes `data` - while `status`
     // passes through as this route's own answer.
     const error = await rejectionOf('/api/escaped-callee', firstParty)
 
@@ -127,7 +127,7 @@ describe('the known-failure wire', async () => {
     expect(recognizeKnownError(translated)).toBeUndefined()
 
     // The success path of the same two hops, with the outer request's cookie
-    // read off the deepest handler's event — context forwarding, measured.
+    // read off the deepest handler's event - context forwarding, measured.
     expect(
       await $fetch('/api/chain/b', { headers: { cookie: 'probe=chocolate' } })
     ).toEqual({ ok: true, cookie: 'chocolate' })
@@ -161,7 +161,7 @@ describe('the known-failure wire', async () => {
     expect(html).toContain('forbidden, needs owner')
     // The imperative shape: `.try` inside a function that can return.
     expect(html).toContain('c-gone: gone')
-    // A degraded call site — a throwing `useAsyncData` handler — reading the
+    // A degraded call site - a throwing `useAsyncData` handler - reading the
     // tag off the fallback's second parameter.
     expect(html).toContain('user-not-found/404')
     // Vanilla `useFetch` attaches no channel tag, so with gating on its

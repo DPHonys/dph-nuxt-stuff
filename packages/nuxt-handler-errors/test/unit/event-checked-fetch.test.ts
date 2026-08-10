@@ -8,8 +8,8 @@ import { knownFailure, settled } from '../fetch-channel'
 
 // The run-time half of `event.$checkedFetch`. The fake here deliberately
 // differs from `checked-fetch.test.ts`'s: this surface sits on h3's
-// `fetchWithEvent` (h3@1.15.11), which merges headers by object spread —
-// `{ ...getProxyRequestHeaders(event), ...init?.headers }` — so every
+// `fetchWithEvent` (h3@1.15.11), which merges headers by object spread -
+// `{ ...getProxyRequestHeaders(event), ...init?.headers }` - so every
 // assertion is on what would go on the wire *after* that spread. Asserting on
 // the handed-over value would make the headline header bug read as a pass.
 
@@ -73,7 +73,7 @@ beforeEach(() => {
   outcome = { resolve: 'ok' }
 })
 
-describe('the header merge — the EVENT-BOUND form', () => {
+describe('the header merge - the EVENT-BOUND form', () => {
   // Every row asserts the whole header set that would go on the wire.
   // Row 2 is the headline: a `Headers` instance spreads to nothing, dropping
   // the caller's headers and this module's `accept` together; a tuple array
@@ -127,7 +127,7 @@ describe('the header merge — the EVENT-BOUND form', () => {
 
   it('flattens to a plain object, which is the inverse of the global rule', async () => {
     // The global wrapper hands its `Headers` on whole (ofetch merges it
-    // correctly); here the same value would spread to nothing — which is why
+    // correctly); here the same value would spread to nothing - which is why
     // one shared merge helper would be a defect.
     await createCheckedEventFetch(fakeEventFetch)('/api/anything', {
       headers: new Headers({ authorization: 'Bearer t' }),
@@ -144,7 +144,7 @@ describe('the header merge — the EVENT-BOUND form', () => {
 
   it('lets a caller override a header h3 forwarded', async () => {
     // h3 spreads `init?.headers` after the forwarded set, so a per-call
-    // header wins per key — but only because of the flatten.
+    // header wins per key - but only because of the flatten.
     await createCheckedEventFetch(fakeEventFetch)('/api/anything', {
       headers: { cookie: 'session=override' },
     })
@@ -175,7 +175,7 @@ describe('the header merge — the EVENT-BOUND form', () => {
 
 describe('the instance is the seam exactly', () => {
   it('has neither raw nor create at run time', async () => {
-    // `event.$fetch` is a bare closure, not an ofetch instance — growing
+    // `event.$fetch` is a bare closure, not an ofetch instance - growing
     // either member would offer calls that cannot be made. The type-level
     // half is in `test/types/fetch.test.ts`.
     const checked = createCheckedEventFetch(fakeEventFetch)
@@ -267,7 +267,7 @@ describe('the skew guard: event.$fetch gone at runtime', () => {
   })
 
   it('throws through .try rather than answering the failure arm', async () => {
-    // Skew is not a fetch failure — it must not be buried in a carrier a
+    // Skew is not a fetch failure - it must not be buried in a carrier a
     // caller would read as an upstream 500.
     const checked = createCheckedEventFetch(() => undefined)
 
@@ -292,7 +292,7 @@ describe('the skew guard: event.$fetch gone at runtime', () => {
   })
 })
 
-describe('the channel tag — the EVENT-BOUND form', () => {
+describe('the channel tag - the EVENT-BOUND form', () => {
   // Handed in as a constructor argument rather than read from shared module
   // state: this surface is built per request, so plugin order is not
   // load-bearing.

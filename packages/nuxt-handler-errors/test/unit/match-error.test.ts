@@ -6,7 +6,7 @@ import {
   readFloor,
 } from '../../src/runtime/shared/match-error'
 
-// The matcher's runtime behaviour — the half no type assertion can reach. The
+// The matcher's runtime behaviour - the half no type assertion can reach. The
 // arms are stubs over hand-built wire shapes, so the one runtime function is
 // called through a loose signature; the overloads themselves are asserted in
 // `test/types/matcher.test.ts`.
@@ -136,7 +136,7 @@ describe('matchError', () => {
     expect(fallback).toHaveBeenCalledExactlyOnceWith(error, undefined)
   })
 
-  it('does nothing at all for a nullish error — the absorbed `if (error)`', () => {
+  it('does nothing at all for a nullish error - the absorbed `if (error)`', () => {
     const arm = vi.fn()
     const fallback = vi.fn()
 

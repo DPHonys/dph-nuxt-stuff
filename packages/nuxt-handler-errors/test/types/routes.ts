@@ -1,7 +1,7 @@
 /**
  * The route fixture every type suite reads, hand-written where the emitter
  * would generate it. One file, because both maps are *global* declaration
- * merges — two suites declaring the same key would merge into the same
+ * merges - two suites declaring the same key would merge into the same
  * interface.
  */
 
@@ -18,7 +18,7 @@ export type UserVariants =
   | { tag: 'user-not-found'; status: 404; userId: string }
   | { tag: 'user-suspended'; status: 403; until: string }
 
-/** What `/api/chain/c` declares — one variant, so a single arm is exhaustive. */
+/** What `/api/chain/c` declares - one variant, so a single arm is exhaustive. */
 export interface ChainVariant {
   tag: 'c-gone'
   status: 410

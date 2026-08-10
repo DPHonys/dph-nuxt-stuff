@@ -15,7 +15,7 @@ import { assertNoDiagnostics, compileFixture } from './compile-harness'
 import type { Compilation } from './compile-harness'
 
 /**
- * The emitted map, compiled — `test/unit/emit-map.test.ts` asserts what the
+ * The emitted map, compiled - `test/unit/emit-map.test.ts` asserts what the
  * emitter writes; this asserts the text *means* something. An unresolved
  * `import("…")` in a `.d.ts` produces no diagnostic under `skipLibCheck` and
  * collapses silently, so the claim here is a *rendering* one. Built in a
@@ -100,7 +100,7 @@ function appFiles(definitions: string): Record<string, string> {
       ``,
     ].join('\n'),
 
-    // Unbranded, and keyed anyway — what makes the lookup total.
+    // Unbranded, and keyed anyway - what makes the lookup total.
     'server/api/legacy.get.ts': [
       `import { defineEventHandler } from 'h3'`,
       ``,
@@ -109,7 +109,7 @@ function appFiles(definitions: string): Record<string, string> {
     ].join('\n'),
 
     // An index signature satisfies `{ __knownErrors__?: infer E }` with
-    // `E = unknown` — the one door `KnownErrorsOfHandler`'s guards do not
+    // `E = unknown` - the one door `KnownErrorsOfHandler`'s guards do not
     // close. Keyed here so the map answers it with a measurement.
     'server/api/indexed.get.ts': [
       `const handler: { [key: string]: unknown } = {}`,
@@ -170,7 +170,7 @@ interface App extends AppTree {
  * rewrites a byte of the emitted text. `node_modules` is symlinked so the
  * map's bare `nitropack/types` import resolves; the published specifiers are
  * mapped to `src/` so this is not gated on a build; and `include` must name
- * the emitted declaration explicitly — TypeScript's wildcard expansion skips
+ * the emitted declaration explicitly - TypeScript's wildcard expansion skips
  * dot-directories, and an augmentation reaches a program by membership alone,
  * so an unnamed map would simply be absent and every assertion would go green
  * against an empty interface.
@@ -326,7 +326,7 @@ describe('the emitted map', () => {
   })
 
   describe('the emitted map, when it resolves to nothing', () => {
-    // `TREE_BROKEN`, compiled — and nothing complains. An unresolved
+    // `TREE_BROKEN`, compiled - and nothing complains. An unresolved
     // `import("…")` yields TypeScript's *error type*, which satisfies every
     // constraint: the fixture asserts `IsAny<Declared>` is `false` AND `true`
     // in the same program, and it compiles clean.

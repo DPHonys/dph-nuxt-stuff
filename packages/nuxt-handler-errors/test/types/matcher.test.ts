@@ -43,7 +43,7 @@ declare const userError: Ref<UserCarrier | undefined>
 declare const chainError: ChainCarrier | undefined
 /** What a repository method touching both routes hands the matcher. */
 declare const unionError: Ref<UserCarrier | ChainCarrier | undefined>
-/** A route declaring nothing, or vanilla `useFetch` — no union was carried. */
+/** A route declaring nothing, or vanilla `useFetch` - no union was carried. */
 declare const vanillaError: Ref<NuxtError | undefined>
 
 declare function snack(message: string): void
@@ -67,7 +67,7 @@ export type AssertVanillaCarrierHasNoVariants = Expect<
   Equal<VariantOf<NuxtError>, never>
 >
 
-/** Plain `void`, never `void | undefined` — TS1345 does not fire on the union. */
+/** Plain `void`, never `void | undefined` - TS1345 does not fire on the union. */
 export type AssertReturnsVoid = Expect<
   Equal<ReturnType<typeof matchError>, void>
 >
@@ -92,7 +92,7 @@ export function typedCall(): void {
   )
 }
 
-/** Arm parameters are the real variant — not `never`, not `any`. */
+/** Arm parameters are the real variant - not `never`, not `any`. */
 export function armParameters(): void {
   matchError(
     userError,
@@ -101,7 +101,7 @@ export function armParameters(): void {
         const tag: 'forbidden' = e.tag
         const status: 403 = e.status
         const role: 'admin' | 'owner' = e.requiredRole
-        // @ts-expect-error — `userId` belongs to a different variant
+        // @ts-expect-error - `userId` belongs to a different variant
         snack(e.userId)
         snack(`${tag} ${status}: you need ${role}`)
       },
@@ -120,12 +120,12 @@ export function armParameters(): void {
   )
 }
 
-/** Missing an arm is a compile error — that is what makes the fallback mean
+/** Missing an arm is a compile error - that is what makes the fallback mean
  * one thing. The diagnostic anchors on the arms argument. */
 export function exhaustiveness(): void {
   matchError(
     userError,
-    // @ts-expect-error — `user-suspended` has no arm
+    // @ts-expect-error - `user-suspended` has no arm
     {
       forbidden: (e) => snack(e.requiredRole),
       'user-not-found': (e) => notFound(e.userId),
@@ -155,7 +155,7 @@ export function unionOfCarriers(): void {
 export function unionOfCarriersExhaustiveness(): void {
   matchError(
     unionError,
-    // @ts-expect-error — `c-gone` has no arm
+    // @ts-expect-error - `c-gone` has no arm
     {
       forbidden: (e) => snack(e.requiredRole),
       'user-not-found': (e) => notFound(e.userId),
@@ -207,7 +207,7 @@ export function reactiveComposition(): void {
 
 /** The fallback is required; omitting it could only ever silence the 500. */
 export function fallbackIsRequired(): void {
-  // @ts-expect-error — two arguments is no longer a call
+  // @ts-expect-error - two arguments is no longer a call
   matchError(userError, {
     forbidden: (e: KnownVariant) => snack(e.tag),
     'user-not-found': (e: KnownVariant) => snack(e.tag),
@@ -246,7 +246,7 @@ export function degradedCannotMatchTags(): void {
   try {
     report('work')
   } catch (e) {
-    // @ts-expect-error — degraded only; restating the route here was rejected
+    // @ts-expect-error - degraded only; restating the route here was rejected
     matchError(e, { forbidden: () => snack('nope') }, (err) => showError(err))
   }
 }
@@ -254,7 +254,7 @@ export function degradedCannotMatchTags(): void {
 /** The degraded overload must not swallow a typed call that is missing an arm:
  * `Record<string, never>` admits `{}` and nothing else. */
 export function degradedArmsAdmitNothingElse(): void {
-  // @ts-expect-error — an arm is not `never`
+  // @ts-expect-error - an arm is not `never`
   matchError(vanillaError, { forbidden: () => snack('nope') }, (err) =>
     showError(err)
   )
@@ -266,14 +266,14 @@ export function degradedArmsAdmitNothingElse(): void {
 
 /** The matcher is a statement, so it cannot be tested for truthiness. */
 export function isNotAnExpression(): void {
-  // @ts-expect-error — TS1345: an expression of type 'void' cannot be tested
+  // @ts-expect-error - TS1345: an expression of type 'void' cannot be tested
   if (matchError(vanillaError, {}, showError)) report('unreachable')
 }
 
 /** Handling has no result: a value-returning function must still decide its
  * own exit. */
 export function cannotReturnTheMatch(): string | null {
-  // @ts-expect-error — `void` is not the function's return type
+  // @ts-expect-error - `void` is not the function's return type
   return matchError(vanillaError, {}, (err) => showError(err))
 }
 

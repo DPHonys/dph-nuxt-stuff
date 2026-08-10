@@ -8,7 +8,7 @@ import { $checkedFetch } from '../../src/runtime/shared/checked-fetch'
 import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { settled } from '../fetch-channel'
 
-// What each of the three plugins does, not how it is registered — the aliased
+// What each of the three plugins does, not how it is registered - the aliased
 // doubles hand each setup function back unchanged. Registration is module
 // wiring, and its own test.
 

@@ -32,7 +32,7 @@ async function warningsDuring(run: () => Promise<void>): Promise<string[]> {
 
 /**
  * What `setup()` registers, observed on a real `loadNuxt` boot of the fixture
- * — `nuxt prepare`'s output cannot see registration (`keyedComposables`
+ * `nuxt prepare`'s output cannot see registration (`keyedComposables`
  * leaves no artifact in `.nuxt`), and a hand-stubbed `nuxt` would couple the
  * suite to whatever kit helpers the module happens to call. One shared boot.
  */
@@ -102,7 +102,7 @@ describe('module setup wiring', () => {
   })
 
   it('auto-imports the five app composables and nothing from `shared`', async () => {
-    // `matchError` is deliberately absent — `/shared` is its only way in.
+    // `matchError` is deliberately absent - `/shared` is its only way in.
     // Read through `imports:extend`, which is where `addImports` puts them.
     const collected: Parameters<NuxtHooks['imports:extend']>[0] = []
     await nuxt.callHook('imports:extend', collected)
@@ -121,7 +121,7 @@ describe('module setup wiring', () => {
   })
 
   it('registers the app $checkedFetch plugin, client-only', () => {
-    // `mode: 'client'` is load-bearing — an all-modes app plugin writes the
+    // `mode: 'client'` is load-bearing - an all-modes app plugin writes the
     // same `globalThis` during SSR and masks the Nitro plugin's deletion.
     const entries = nuxt.options.plugins.filter((plugin) =>
       /\/runtime\/app\/plugins\/checked-fetch\.client(?:\.\w+)?$/.test(
@@ -154,7 +154,7 @@ describe('module setup wiring', () => {
 
   it('writes the channel token as a template, aliased into both builds', () => {
     // One written template, one alias, no runtime config. The fixture
-    // configures nothing, and nothing means the default tag — gating is on
+    // configures nothing, and nothing means the default tag - gating is on
     // out of the box.
     const dst = nuxt.options.alias['#nuxt-handler-errors/channel-token']
 
@@ -181,7 +181,7 @@ describe('module setup wiring', () => {
 
   it('prepends its stripper to the errorHandler chain, keeping Nuxt’s own', () => {
     // Read off the *resolved* Nitro options, so the assertion is about the
-    // chain the app really gets — this module first, Nuxt's handler still in.
+    // chain the app really gets - this module first, Nuxt's handler still in.
     const chain = nitro?.options.errorHandler
 
     expect(Array.isArray(chain)).toBe(true)
@@ -239,7 +239,7 @@ describe('module setup wiring', () => {
   it('re-renders exactly the map template when this nitro’s types:extend fires', async () => {
     // `types:extend` fires inside Nitro's `writeTypes` after a fresh
     // `scanHandlers`. The re-render must target the *same* Nitro instance the
-    // closure was populated from — on a dev-server restart the current and
+    // closure was populated from - on a dev-server restart the current and
     // hooked instances differ. `updateTemplates` is, publicly, one
     // `builder:generateApp` call carrying a template filter.
     const renders: { filter?: (template: ResolvedNuxtTemplate) => boolean }[] =

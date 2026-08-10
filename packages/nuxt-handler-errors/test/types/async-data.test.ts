@@ -25,7 +25,7 @@ declare function notFound(id: string): void
 declare function blocked(until: string): void
 
 // Declared rather than imported: these live behind `#app`, which does not
-// resolve under a plain `vitest run`. `typeof import(…)` is a type query — it
+// resolve under a plain `vitest run`. `typeof import(…)` is a type query - it
 // asserts the real declaration and emits no import.
 declare const useCheckedAsyncData: typeof import('../../src/runtime/app/composables/use-checked-async-data').useCheckedAsyncData
 declare const useLazyCheckedAsyncData: typeof import('../../src/runtime/app/composables/use-checked-async-data').useLazyCheckedAsyncData
@@ -47,7 +47,7 @@ function createChainRepo(fetcher: CheckedFetch) {
 }
 
 /** Two routes through one method: the return type is the union of both error
- * arms plus the success — inferred, never written. */
+ * arms plus the success - inferred, never written. */
 async function getUserWithChain() {
   const user = await userRepo.get('42')
   if (user.error) return user
@@ -62,7 +62,7 @@ async function getUserWithChain() {
 // The call styles
 // ---------------------------------------------------------------------------
 
-/** One key, one repository call, zero annotations — and the matcher gets the
+/** One key, one repository call, zero annotations - and the matcher gets the
  * route's full union. */
 export async function throughARepository(): Promise<void> {
   const { data: _data, error } = await useCheckedAsyncData('user', () =>
@@ -88,7 +88,7 @@ export async function throughARepository(): Promise<void> {
   )
 }
 
-/** Keyless, exactly as vanilla — `optimization.keyedComposables` injects the
+/** Keyless, exactly as vanilla - `optimization.keyedComposables` injects the
  * key at compile time. */
 export async function keylessForm(): Promise<void> {
   const { error } = await useCheckedAsyncData(() => userRepo.get('42'))
@@ -133,7 +133,7 @@ export async function wrapperKeepsExhaustiveness(): Promise<void> {
 
   matchError(
     error,
-    // @ts-expect-error — `user-suspended` has no arm
+    // @ts-expect-error - `user-suspended` has no arm
     {
       forbidden: (e) => snack(e.requiredRole),
       'user-not-found': (e) => notFound(e.userId),
@@ -176,7 +176,7 @@ export async function multiRouteExhaustiveness(): Promise<void> {
 
   matchError(
     error,
-    // @ts-expect-error — `c-gone` has no arm
+    // @ts-expect-error - `c-gone` has no arm
     {
       forbidden: (e) => snack(e.requiredRole),
       'user-not-found': (e) => notFound(e.userId),
@@ -215,7 +215,7 @@ export async function vanillaPickSurvives(): Promise<void> {
   type _picked = Expect<Equal<typeof _data.value, { id: string } | undefined>>
 }
 
-/** `status` and `refresh` are vanilla's own — underneath it IS vanilla. */
+/** `status` and `refresh` are vanilla's own - underneath it IS vanilla. */
 export async function vanillaMembersSurvive(): Promise<void> {
   const { status, refresh } = await useCheckedAsyncData('user', () =>
     userRepo.get('42')
@@ -234,7 +234,7 @@ export async function degradedRouteThroughTheWrapper(): Promise<void> {
     $checkedFetch.try('/api/boom')
   )
 
-  // @ts-expect-error — nothing was declared, so there is no arm to name
+  // @ts-expect-error - nothing was declared, so there is no arm to name
   matchError(error, { 'c-gone': () => report('gone') }, (err) => showError(err))
 
   matchError(error, {}, (err, unrecognized) => {
@@ -245,7 +245,7 @@ export async function degradedRouteThroughTheWrapper(): Promise<void> {
 
 /** Forgetting `.try` is a compile error, not a silent degradation. */
 export async function forgettingTryCannotCompile(): Promise<void> {
-  // @ts-expect-error — the handler must return a try-shape, not raw data
+  // @ts-expect-error - the handler must return a try-shape, not raw data
   await useCheckedAsyncData('user', () => $checkedFetch('/api/users/:id'))
 }
 

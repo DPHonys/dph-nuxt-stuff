@@ -84,7 +84,7 @@ describe('the header merge', () => {
   it('resolves a ref lazily, so a watched header stays watched', () => {
     // `useFetch` puts the options into a `reactive()` that re-fetches when a
     // ref changes; resolving eagerly in the merge would freeze it at call time.
-    // The merge also has to unwrap per-value refs itself — it reads the raw
+    // The merge also has to unwrap per-value refs itself - it reads the raw
     // object, unlike vanilla, which hands it to `reactive()` whole.
     const token = ref('first')
 
@@ -111,7 +111,7 @@ describe('the header merge', () => {
 
   it('hands vanilla a plain object, never a Headers instance', () => {
     // On same-origin SSR requests `useFetch` swaps in h3's `fetchWithEvent`,
-    // which merges headers by object spread — a `Headers` instance has no own
+    // which merges headers by object spread - a `Headers` instance has no own
     // enumerable properties, so handing one on discards everything.
     useCheckedFetch('/anything', {
       headers: new Headers({ authorization: 'Bearer t' }),
@@ -178,7 +178,7 @@ describe('what else reaches vanilla', () => {
   })
 })
 
-describe('the channel tag — the COMPOSABLE form', () => {
+describe('the channel tag - the COMPOSABLE form', () => {
   // The token is module state via the double, so every test clears it.
   afterEach(() => {
     setConfiguredChannelToken(undefined)

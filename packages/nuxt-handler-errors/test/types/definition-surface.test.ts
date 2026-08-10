@@ -88,13 +88,13 @@ export const wholeGroups = defineCheckedEventHandler(
     if (event.path === 'b') return fail('forbidden', { requiredRole: 'admin' })
     if (event.path === 'c') return fail('maintenance')
     if (event.path === 'd') return fail('rate-limited', { retryAfter: 30 })
-    // @ts-expect-error — undeclared tag
+    // @ts-expect-error - undeclared tag
     if (event.path === 'e') return fail('nope')
-    // @ts-expect-error — wrong payload field type
+    // @ts-expect-error - wrong payload field type
     if (event.path === 'f') return fail('user-suspended', { until: 42 })
-    // @ts-expect-error — a payload-less variant takes no second argument
+    // @ts-expect-error - a payload-less variant takes no second argument
     if (event.path === 'g') return fail('maintenance', {})
-    // @ts-expect-error — missing payload
+    // @ts-expect-error - missing payload
     if (event.path === 'h') return fail('order-cancelled')
     return { ok: true }
   }
@@ -108,7 +108,7 @@ export const pickedSubset = defineCheckedEventHandler(
   { errors: [...userErrors.pick('user-not-found'), forbidden] },
   (event, { fail }) => {
     if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
-    // @ts-expect-error — `user-suspended` was not picked
+    // @ts-expect-error - `user-suspended` was not picked
     if (event.path === 'b') return fail('user-suspended', { until: 'x' })
     return { ok: true }
   }
@@ -126,7 +126,7 @@ export type AssertEmptyPickIsEmpty = Expect<
   Equal<KnownErrorsOf<typeof _pickedNone>, never>
 >
 
-// Overlapping picks compose without complaint — the slot's union dedupes
+// Overlapping picks compose without complaint - the slot's union dedupes
 // itself.
 const _overlappingErrors = [
   ...orderErrors.pick('order-cancelled', 'maintenance'),
@@ -141,7 +141,7 @@ export type AssertOverlapDedupes = Expect<
 >
 
 export function pickStaysChecked(): void {
-  // @ts-expect-error — the group never declared `nope`
+  // @ts-expect-error - the group never declared `nope`
   userErrors.pick('nope')
 }
 
@@ -208,7 +208,7 @@ const conflictingUserErrors = defineError({ 'user-not-found': { status: 410 } })
 
 export function divergentRedeclarationIsCaught(): void {
   defineCheckedEventHandler(
-    // @ts-expect-error — `__divergentErrorTag__` names `user-not-found`
+    // @ts-expect-error - `__divergentErrorTag__` names `user-not-found`
     { errors: [...userErrors, ...conflictingUserErrors] },
     () => ({ ok: true })
   )
@@ -224,31 +224,31 @@ export const raiseSiteCannotLeakTheTag: KnownRaiseInput<{
 }> = {
   statusCode: 404,
   message: 'user-not-found',
-  // @ts-expect-error — the reason phrase survives escapes untouched, so the
+  // @ts-expect-error - the reason phrase survives escapes untouched, so the
   // tag must never ride it
   statusMessage: 'user-not-found',
   data: { __knownError__: { tag: 'user-not-found', status: 404 } },
 }
 
 export function payloadMustSurviveSerialization(): void {
-  // @ts-expect-error — `bigint` makes `JSON.stringify` throw inside Nitro
+  // @ts-expect-error - `bigint` makes `JSON.stringify` throw inside Nitro
   payload<{ amount: bigint }>()
 }
 
 /**
  * The two doors into the payload position, held to one rule: whatever
  * `payload<T>()` rejects, a schema with the same inferred output is rejected
- * for too. `Date` is the accepted half on purpose — `Serialize` maps it to
+ * for too. `Date` is the accepted half on purpose - `Serialize` maps it to
  * `string`, so it survives the wire.
  */
 export function schemaOutputMustSurviveSerializationToo(): void {
   defineError(
     'paid',
-    // @ts-expect-error — the schema's inferred output has a `bigint` field
+    // @ts-expect-error - the schema's inferred output has a `bigint` field
     { status: 402, payload: z.object({ amount: z.bigint() }) }
   )
 
-  // @ts-expect-error — `__unserializablePayloadField__` names the tag `paid`
+  // @ts-expect-error - `__unserializablePayloadField__` names the tag `paid`
   defineError({
     paid: { status: 402, payload: z.object({ amount: z.bigint() }) },
   })
