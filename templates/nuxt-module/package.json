@@ -9,7 +9,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DPHonys/dph-nuxt-stuff.git",
+    "url": "git+https://github.com/DPHonys/dph-nuxt-stuff.git",
     "directory": "packages/nuxt-module-template"
   },
   "files": [
@@ -34,6 +34,7 @@
     "access": "public"
   },
   "scripts": {
+    "prebuild": "nuxt-module-build prepare",
     "build": "nuxt-module-build build",
     "prepack": "pnpm run build",
     "dev": "pnpm run dev:prepare && nuxt dev playground",
@@ -41,7 +42,7 @@
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "lint": "eslint .",
     "pretest": "nuxt-module-build prepare",
-    "typecheck": "pnpm run dev:prepare && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json",
+    "typecheck": "nuxt-module-build prepare && nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "publint": "publint"
@@ -62,6 +63,6 @@
     "vue-tsc": "catalog:"
   },
   "engines": {
-    "node": ">=26.0.0"
+    "node": "^22.19.0 || ^24.11.0 || >=26.0.0"
   }
 }

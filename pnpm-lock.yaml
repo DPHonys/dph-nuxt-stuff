@@ -11,7 +11,7 @@ catalogs:
       version: 1.7.0
     '@types/node':
       specifier: latest
-      version: 26.1.2
+      version: 26.2.0
     citty:
       specifier: ^0.2.2
       version: 0.2.2
@@ -30,6 +30,9 @@ catalogs:
     scule:
       specifier: ^1.3.0
       version: 1.3.0
+    typescript:
+      specifier: ^5.9.3
+      version: 5.9.3
     vitest:
       specifier: ^4.1.10
       version: 4.1.10
@@ -37,19 +40,16 @@ catalogs:
       specifier: ^2.9.0
       version: 2.9.0
 
-overrides:
-  typescript: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
-
 importers:
 
   .:
     devDependencies:
       '@antfu/eslint-config':
         specifier: ^9.2.0
-        version: 9.2.0(@typescript-eslint/typescript-estree@8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(@vue/compiler-sfc@3.5.29)(eslint@10.8.0(jiti@2.7.0))(oxlint@1.76.0)(ts-declaration-location@1.0.7(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)(vitest@4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0)))
+        version: 9.2.0(@typescript-eslint/typescript-estree@8.65.0(typescript@5.9.3))(@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(@vue/compiler-sfc@3.5.29)(eslint@10.8.0(jiti@2.7.0))(oxlint@1.76.0)(ts-declaration-location@1.0.7(typescript@5.9.3))(typescript@5.9.3)(vitest@4.1.10(@types/node@26.2.0)(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)))
       '@commitlint/cli':
         specifier: ^21.2.1
-        version: 21.2.1(@types/node@26.1.2)(conventional-commits-parser@7.1.2)(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+        version: 21.2.1(@types/node@26.2.0)(conventional-commits-parser@7.1.2)(typescript@5.9.3)
       '@commitlint/config-conventional':
         specifier: ^21.2.0
         version: 21.2.0
@@ -58,7 +58,7 @@ importers:
         version: 21.2.0
       '@types/node':
         specifier: 'catalog:'
-        version: 26.1.2
+        version: 26.2.0
       eslint:
         specifier: ^10.8.0
         version: 10.8.0(jiti@2.7.0)
@@ -84,14 +84,14 @@ importers:
         specifier: ^2.10.8
         version: 2.10.8
       typescript:
-        specifier: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
-        version: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+        specifier: 'catalog:'
+        version: 5.9.3
 
   release/publishing-contract:
     devDependencies:
       vitest:
         specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.2.0)(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0))
       yaml:
         specifier: 'catalog:'
         version: 2.9.0
@@ -100,7 +100,7 @@ importers:
     devDependencies:
       vitest:
         specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.2.0)(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0))
 
   scaffolder:
     dependencies:
@@ -128,7 +128,10 @@ importers:
     devDependencies:
       vitest:
         specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.2.0)(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0))
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.0
 
 packages:
 
@@ -1107,8 +1110,8 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@26.1.2':
-    resolution: {integrity: sha512-Vu4a5UFA9rIIFJ7rB/Vaafh9lrCQszopTCx6KjFboXTGQbPNasehVR5TEiithSDGyd1DEiUByggTZsg8jukeIg==}
+  '@types/node@26.2.0':
+    resolution: {integrity: sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg==}
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
@@ -1175,41 +1178,6 @@ packages:
   '@typescript-eslint/visitor-keys@8.65.0':
     resolution: {integrity: sha512-8C71BQkGjiMmXtop7pHVJu1l2NNShFdkCyD6a2ezzs5vU/L3LRtb69EtcteFwz0mYMPzIgOw0n6OV4VBUWZd7A==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-
-  '@typescript-native-bridge/darwin-arm64@6.0.3-bridge.8.tsgo.7.0.2':
-    resolution: {integrity: sha512-2a2DFUDCVaa6TMjEavXJvnk7vahQfeUTDc/dbN6bf16/zXqKmiOL24SUmW28A8GSDlIWyG/R+VsupvG3T8QHdQ==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@typescript-native-bridge/darwin-x64@6.0.3-bridge.8.tsgo.7.0.2':
-    resolution: {integrity: sha512-QLRJJTn/2Vx2Fz/rX91Q28WBnp5rCbZrNvhf0uoZu7wtGAx2+UeZTURikOv/TQVlzWcuceHOJhekcf/9Et+MsQ==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@typescript-native-bridge/linux-arm64@6.0.3-bridge.8.tsgo.7.0.2':
-    resolution: {integrity: sha512-5xsz7EW60A7P8j/K5cijLFoDL89ywjIX0NDbn3b+/lt3mapEMBRa53uLJe3aFqaXkZ/KkGNkJSM0xzzqn5uaUg==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@typescript-native-bridge/linux-arm@6.0.3-bridge.8.tsgo.7.0.2':
-    resolution: {integrity: sha512-EQfA7oVmeRYUSbvbaZq1RRe49Wa9WVtfggzWOPC9O6k43nEj5v8sVjJsaMnS2mA6jfsUbMdOj1jEen6lkpgPow==}
-    cpu: [arm]
-    os: [linux]
-
-  '@typescript-native-bridge/linux-x64@6.0.3-bridge.8.tsgo.7.0.2':
-    resolution: {integrity: sha512-YtQiyaUNWR6JoDN+6l5Co+13pu7NQLxCxW6kG7V9U+oAaawRRGh4C7eORN0rFSduOncf5M9ves6jZkdCzIcmsg==}
-    cpu: [x64]
-    os: [linux]
-
-  '@typescript-native-bridge/win32-arm64@6.0.3-bridge.8.tsgo.7.0.2':
-    resolution: {integrity: sha512-Nrh4z+q1yN752P7qq9wvgLuB2oQTd9bZnn9P3Gi07+Tadufldjm7jLQyKB0nWtylp2i7Ar6EEuDR1uiWbMJiqA==}
-    cpu: [arm64]
-    os: [win32]
-
-  '@typescript-native-bridge/win32-x64@6.0.3-bridge.8.tsgo.7.0.2':
-    resolution: {integrity: sha512-veGVsQc540fuXZQH1xsTrg2GoTGnu9yFGEpDjIw+q1tDMpCutMlUuDE4htv7+9+8N/RapD911SJrcpjFL83FCg==}
-    cpu: [x64]
-    os: [win32]
 
   '@vitest/eslint-plugin@1.6.24':
     resolution: {integrity: sha512-U5isuChJ58H1M6oRGaIotYbH2gM1rhzKUjtiarqpLNG/3+fzXIXs5RyTLrYQJmQPnXbvIMPFvI9z8ufpFZc8lg==}
@@ -2604,9 +2572,9 @@ packages:
     resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
     engines: {node: '>=16'}
 
-  typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2:
-    resolution: {integrity: sha512-scQFdHBhpFVsr9xmHDos+CCSQHcS0yVjL/4+RaUnfeQRJvrYtSsEpfyiseUmSmSdeKuVLPyQZDO+TcjdsOEsFQ==}
-    engines: {node: '>=20.19'}
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
     hasBin: true
 
   ufo@1.6.3:
@@ -2802,7 +2770,7 @@ packages:
 
 snapshots:
 
-  '@antfu/eslint-config@9.2.0(@typescript-eslint/typescript-estree@8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(@vue/compiler-sfc@3.5.29)(eslint@10.8.0(jiti@2.7.0))(oxlint@1.76.0)(ts-declaration-location@1.0.7(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)(vitest@4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0)))':
+  '@antfu/eslint-config@9.2.0(@typescript-eslint/typescript-estree@8.65.0(typescript@5.9.3))(@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(@vue/compiler-sfc@3.5.29)(eslint@10.8.0(jiti@2.7.0))(oxlint@1.76.0)(ts-declaration-location@1.0.7(typescript@5.9.3))(typescript@5.9.3)(vitest@4.1.10(@types/node@26.2.0)(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)))':
     dependencies:
       '@antfu/install-pkg': 1.1.0
       '@clack/prompts': 1.7.0
@@ -2810,9 +2778,9 @@ snapshots:
       '@eslint-community/eslint-plugin-eslint-comments': 4.7.2(eslint@10.8.0(jiti@2.7.0))
       '@eslint/markdown': 8.0.3
       '@stylistic/eslint-plugin': 5.10.0(eslint@10.8.0(jiti@2.7.0))
-      '@typescript-eslint/eslint-plugin': 8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      '@typescript-eslint/parser': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      '@vitest/eslint-plugin': 1.6.24(@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)(vitest@4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@typescript-eslint/eslint-plugin': 8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
+      '@typescript-eslint/parser': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
+      '@vitest/eslint-plugin': 1.6.24(@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)(vitest@4.1.10(@types/node@26.2.0)(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)))
       ansis: 4.3.1
       cac: 7.0.0
       eslint: 10.8.0(jiti@2.7.0)
@@ -2820,19 +2788,19 @@ snapshots:
       eslint-flat-config-utils: 3.2.0
       eslint-merge-processors: 2.0.0(eslint@10.8.0(jiti@2.7.0))
       eslint-plugin-antfu: 3.2.3(eslint@10.8.0(jiti@2.7.0))
-      eslint-plugin-command: 3.5.3(@typescript-eslint/typescript-estree@8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))
+      eslint-plugin-command: 3.5.3(@typescript-eslint/typescript-estree@8.65.0(typescript@5.9.3))(@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))
       eslint-plugin-import-lite: 0.6.0(eslint@10.8.0(jiti@2.7.0))
       eslint-plugin-jsdoc: 63.3.2(eslint@10.8.0(jiti@2.7.0))
       eslint-plugin-jsonc: 3.3.0(eslint@10.8.0(jiti@2.7.0))
-      eslint-plugin-n: 18.2.2(eslint@10.8.0(jiti@2.7.0))(ts-declaration-location@1.0.7(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      eslint-plugin-n: 18.2.2(eslint@10.8.0(jiti@2.7.0))(ts-declaration-location@1.0.7(typescript@5.9.3))(typescript@5.9.3)
       eslint-plugin-no-only-tests: 3.4.0
-      eslint-plugin-perfectionist: 5.10.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      eslint-plugin-perfectionist: 5.10.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
       eslint-plugin-pnpm: 1.7.0(eslint@10.8.0(jiti@2.7.0))
       eslint-plugin-regexp: 3.1.1(eslint@10.8.0(jiti@2.7.0))
       eslint-plugin-toml: 1.5.0(eslint@10.8.0(jiti@2.7.0))
       eslint-plugin-unicorn: 72.0.0(eslint@10.8.0(jiti@2.7.0))
-      eslint-plugin-unused-imports: 4.4.1(@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))
-      eslint-plugin-vue: 10.10.0(@stylistic/eslint-plugin@5.10.0(eslint@10.8.0(jiti@2.7.0)))(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(vue-eslint-parser@10.4.1(eslint@10.8.0(jiti@2.7.0)))
+      eslint-plugin-unused-imports: 4.4.1(@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))
+      eslint-plugin-vue: 10.10.0(@stylistic/eslint-plugin@5.10.0(eslint@10.8.0(jiti@2.7.0)))(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(vue-eslint-parser@10.4.1(eslint@10.8.0(jiti@2.7.0)))
       eslint-plugin-yml: 3.6.1(eslint@10.8.0(jiti@2.7.0))
       eslint-processor-vue-blocks: 2.0.0(@vue/compiler-sfc@3.5.29)(eslint@10.8.0(jiti@2.7.0))
       globals: 17.8.0
@@ -2888,12 +2856,12 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@commitlint/cli@21.2.1(@types/node@26.1.2)(conventional-commits-parser@7.1.2)(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)':
+  '@commitlint/cli@21.2.1(@types/node@26.2.0)(conventional-commits-parser@7.1.2)(typescript@5.9.3)':
     dependencies:
       '@commitlint/config-conventional': 21.2.0
       '@commitlint/format': 21.2.0
       '@commitlint/lint': 21.2.0
-      '@commitlint/load': 21.2.0(@types/node@26.1.2)(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@commitlint/load': 21.2.0(@types/node@26.2.0)(typescript@5.9.3)
       '@commitlint/read': 21.2.1(conventional-commits-parser@7.1.2)
       '@commitlint/types': 21.2.0
       tinyexec: 1.0.2
@@ -2938,14 +2906,14 @@ snapshots:
       '@commitlint/rules': 21.2.0
       '@commitlint/types': 21.2.0
 
-  '@commitlint/load@21.2.0(@types/node@26.1.2)(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)':
+  '@commitlint/load@21.2.0(@types/node@26.2.0)(typescript@5.9.3)':
     dependencies:
       '@commitlint/config-validator': 21.2.0
       '@commitlint/execute-rule': 21.0.1
       '@commitlint/resolve-extends': 21.2.0
       '@commitlint/types': 21.2.0
-      cosmiconfig: 9.0.1(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      cosmiconfig-typescript-loader: 6.2.0(@types/node@26.1.2)(cosmiconfig@9.0.1(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      cosmiconfig: 9.0.1(typescript@5.9.3)
+      cosmiconfig-typescript-loader: 6.2.0(@types/node@26.2.0)(cosmiconfig@9.0.1(typescript@5.9.3))(typescript@5.9.3)
       es-toolkit: 1.50.0
       is-plain-obj: 4.1.0
       picocolors: 1.1.1
@@ -3534,46 +3502,46 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@26.1.2':
+  '@types/node@26.2.0':
     dependencies:
       undici-types: 8.3.0
 
   '@types/unist@3.0.3': {}
 
-  '@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)':
+  '@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)':
     dependencies:
       '@eslint-community/regexpp': 4.12.2
-      '@typescript-eslint/parser': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/parser': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
       '@typescript-eslint/scope-manager': 8.65.0
-      '@typescript-eslint/type-utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/type-utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
+      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
       '@typescript-eslint/visitor-keys': 8.65.0
       eslint: 10.8.0(jiti@2.7.0)
       ignore: 7.0.5
       natural-compare: 1.4.0
-      ts-api-utils: 2.5.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      ts-api-utils: 2.5.0(typescript@5.9.3)
+      typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
 
-  '@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)':
+  '@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)':
     dependencies:
       '@typescript-eslint/scope-manager': 8.65.0
       '@typescript-eslint/types': 8.65.0
-      '@typescript-eslint/typescript-estree': 8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/typescript-estree': 8.65.0(typescript@5.9.3)
       '@typescript-eslint/visitor-keys': 8.65.0
       debug: 4.4.3
       eslint: 10.8.0(jiti@2.7.0)
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
 
-  '@typescript-eslint/project-service@8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)':
+  '@typescript-eslint/project-service@8.65.0(typescript@5.9.3)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/tsconfig-utils': 8.65.0(typescript@5.9.3)
       '@typescript-eslint/types': 8.65.0
       debug: 4.4.3
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
 
@@ -3582,19 +3550,19 @@ snapshots:
       '@typescript-eslint/types': 8.65.0
       '@typescript-eslint/visitor-keys': 8.65.0
 
-  '@typescript-eslint/tsconfig-utils@8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)':
+  '@typescript-eslint/tsconfig-utils@8.65.0(typescript@5.9.3)':
     dependencies:
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      typescript: 5.9.3
 
-  '@typescript-eslint/type-utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)':
+  '@typescript-eslint/type-utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)':
     dependencies:
       '@typescript-eslint/types': 8.65.0
-      '@typescript-eslint/typescript-estree': 8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/typescript-estree': 8.65.0(typescript@5.9.3)
+      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
       debug: 4.4.3
       eslint: 10.8.0(jiti@2.7.0)
-      ts-api-utils: 2.5.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      ts-api-utils: 2.5.0(typescript@5.9.3)
+      typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
 
@@ -3602,29 +3570,29 @@ snapshots:
 
   '@typescript-eslint/types@8.65.0': {}
 
-  '@typescript-eslint/typescript-estree@8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)':
+  '@typescript-eslint/typescript-estree@8.65.0(typescript@5.9.3)':
     dependencies:
-      '@typescript-eslint/project-service': 8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      '@typescript-eslint/tsconfig-utils': 8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/project-service': 8.65.0(typescript@5.9.3)
+      '@typescript-eslint/tsconfig-utils': 8.65.0(typescript@5.9.3)
       '@typescript-eslint/types': 8.65.0
       '@typescript-eslint/visitor-keys': 8.65.0
       debug: 4.4.3
       minimatch: 10.2.6
       semver: 7.8.5
       tinyglobby: 0.2.17
-      ts-api-utils: 2.5.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      ts-api-utils: 2.5.0(typescript@5.9.3)
+      typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
 
-  '@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)':
+  '@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)':
     dependencies:
       '@eslint-community/eslint-utils': 4.9.1(eslint@10.8.0(jiti@2.7.0))
       '@typescript-eslint/scope-manager': 8.65.0
       '@typescript-eslint/types': 8.65.0
-      '@typescript-eslint/typescript-estree': 8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/typescript-estree': 8.65.0(typescript@5.9.3)
       eslint: 10.8.0(jiti@2.7.0)
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
 
@@ -3633,36 +3601,15 @@ snapshots:
       '@typescript-eslint/types': 8.65.0
       eslint-visitor-keys: 5.0.1
 
-  '@typescript-native-bridge/darwin-arm64@6.0.3-bridge.8.tsgo.7.0.2':
-    optional: true
-
-  '@typescript-native-bridge/darwin-x64@6.0.3-bridge.8.tsgo.7.0.2':
-    optional: true
-
-  '@typescript-native-bridge/linux-arm64@6.0.3-bridge.8.tsgo.7.0.2':
-    optional: true
-
-  '@typescript-native-bridge/linux-arm@6.0.3-bridge.8.tsgo.7.0.2':
-    optional: true
-
-  '@typescript-native-bridge/linux-x64@6.0.3-bridge.8.tsgo.7.0.2':
-    optional: true
-
-  '@typescript-native-bridge/win32-arm64@6.0.3-bridge.8.tsgo.7.0.2':
-    optional: true
-
-  '@typescript-native-bridge/win32-x64@6.0.3-bridge.8.tsgo.7.0.2':
-    optional: true
-
-  '@vitest/eslint-plugin@1.6.24(@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)(vitest@4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0)))':
+  '@vitest/eslint-plugin@1.6.24(@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)(vitest@4.1.10(@types/node@26.2.0)(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)))':
     dependencies:
       '@typescript-eslint/scope-manager': 8.65.0
-      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
       eslint: 10.8.0(jiti@2.7.0)
     optionalDependencies:
-      '@typescript-eslint/eslint-plugin': 8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
-      vitest: 4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0))
+      '@typescript-eslint/eslint-plugin': 8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
+      typescript: 5.9.3
+      vitest: 4.1.10(@types/node@26.2.0)(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0))
     transitivePeerDependencies:
       - supports-color
 
@@ -3675,13 +3622,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.1
 
-  '@vitest/mocker@4.1.10(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0))':
+  '@vitest/mocker@4.1.10(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0)
+      vite: 8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -3864,21 +3811,21 @@ snapshots:
     dependencies:
       browserslist: 4.28.1
 
-  cosmiconfig-typescript-loader@6.2.0(@types/node@26.1.2)(cosmiconfig@9.0.1(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2):
+  cosmiconfig-typescript-loader@6.2.0(@types/node@26.2.0)(cosmiconfig@9.0.1(typescript@5.9.3))(typescript@5.9.3):
     dependencies:
-      '@types/node': 26.1.2
-      cosmiconfig: 9.0.1(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@types/node': 26.2.0
+      cosmiconfig: 9.0.1(typescript@5.9.3)
       jiti: 2.6.1
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      typescript: 5.9.3
 
-  cosmiconfig@9.0.1(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2):
+  cosmiconfig@9.0.1(typescript@5.9.3):
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.1
       js-yaml: 4.1.1
       parse-json: 5.2.0
     optionalDependencies:
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      typescript: 5.9.3
 
   cross-spawn@7.0.6:
     dependencies:
@@ -3972,11 +3919,11 @@ snapshots:
     dependencies:
       eslint: 10.8.0(jiti@2.7.0)
 
-  eslint-plugin-command@3.5.3(@typescript-eslint/typescript-estree@8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0)):
+  eslint-plugin-command@3.5.3(@typescript-eslint/typescript-estree@8.65.0(typescript@5.9.3))(@typescript-eslint/utils@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0)):
     dependencies:
       '@es-joy/jsdoccomment': 0.88.0
-      '@typescript-eslint/typescript-estree': 8.65.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/typescript-estree': 8.65.0(typescript@5.9.3)
+      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
       eslint: 10.8.0(jiti@2.7.0)
 
   eslint-plugin-es-x@7.8.0(eslint@10.8.0(jiti@2.7.0)):
@@ -4025,7 +3972,7 @@ snapshots:
     transitivePeerDependencies:
       - '@eslint/json'
 
-  eslint-plugin-n@18.2.2(eslint@10.8.0(jiti@2.7.0))(ts-declaration-location@1.0.7(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2):
+  eslint-plugin-n@18.2.2(eslint@10.8.0(jiti@2.7.0))(ts-declaration-location@1.0.7(typescript@5.9.3))(typescript@5.9.3):
     dependencies:
       '@eslint-community/eslint-utils': 4.9.1(eslint@10.8.0(jiti@2.7.0))
       enhanced-resolve: 5.20.0
@@ -4037,8 +3984,8 @@ snapshots:
       ignore: 5.3.2
       semver: 7.7.4
     optionalDependencies:
-      ts-declaration-location: 1.0.7(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      ts-declaration-location: 1.0.7(typescript@5.9.3)
+      typescript: 5.9.3
 
   eslint-plugin-no-only-tests@3.4.0: {}
 
@@ -4047,9 +3994,9 @@ snapshots:
       jsonc-parser: 3.3.1
       oxlint: 1.76.0
 
-  eslint-plugin-perfectionist@5.10.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2):
+  eslint-plugin-perfectionist@5.10.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3):
     dependencies:
-      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/utils': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
       eslint: 10.8.0(jiti@2.7.0)
       natural-orderby: 5.0.0
     transitivePeerDependencies:
@@ -4113,13 +4060,13 @@ snapshots:
       strip-indent: 4.1.1
       yaml: 2.9.0
 
-  eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0)):
+  eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0)):
     dependencies:
       eslint: 10.8.0(jiti@2.7.0)
     optionalDependencies:
-      '@typescript-eslint/eslint-plugin': 8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/eslint-plugin': 8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
 
-  eslint-plugin-vue@10.10.0(@stylistic/eslint-plugin@5.10.0(eslint@10.8.0(jiti@2.7.0)))(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2))(eslint@10.8.0(jiti@2.7.0))(vue-eslint-parser@10.4.1(eslint@10.8.0(jiti@2.7.0))):
+  eslint-plugin-vue@10.10.0(@stylistic/eslint-plugin@5.10.0(eslint@10.8.0(jiti@2.7.0)))(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.8.0(jiti@2.7.0))(vue-eslint-parser@10.4.1(eslint@10.8.0(jiti@2.7.0))):
     dependencies:
       '@eslint-community/eslint-utils': 4.9.1(eslint@10.8.0(jiti@2.7.0))
       eslint: 10.8.0(jiti@2.7.0)
@@ -4131,7 +4078,7 @@ snapshots:
       xml-name-validator: 5.0.0
     optionalDependencies:
       '@stylistic/eslint-plugin': 5.10.0(eslint@10.8.0(jiti@2.7.0))
-      '@typescript-eslint/parser': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2)
+      '@typescript-eslint/parser': 8.65.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.9.3)
 
   eslint-plugin-yml@3.6.1(eslint@10.8.0(jiti@2.7.0)):
     dependencies:
@@ -5229,14 +5176,14 @@ snapshots:
     dependencies:
       eslint-visitor-keys: 5.0.1
 
-  ts-api-utils@2.5.0(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2):
+  ts-api-utils@2.5.0(typescript@5.9.3):
     dependencies:
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      typescript: 5.9.3
 
-  ts-declaration-location@1.0.7(typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2):
+  ts-declaration-location@1.0.7(typescript@5.9.3):
     dependencies:
       picomatch: 4.0.5
-      typescript: typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
+      typescript: 5.9.3
     optional: true
 
   tslib@2.8.1:
@@ -5257,15 +5204,7 @@ snapshots:
 
   type-fest@4.41.0: {}
 
-  typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2:
-    optionalDependencies:
-      '@typescript-native-bridge/darwin-arm64': 6.0.3-bridge.8.tsgo.7.0.2
-      '@typescript-native-bridge/darwin-x64': 6.0.3-bridge.8.tsgo.7.0.2
-      '@typescript-native-bridge/linux-arm': 6.0.3-bridge.8.tsgo.7.0.2
-      '@typescript-native-bridge/linux-arm64': 6.0.3-bridge.8.tsgo.7.0.2
-      '@typescript-native-bridge/linux-x64': 6.0.3-bridge.8.tsgo.7.0.2
-      '@typescript-native-bridge/win32-arm64': 6.0.3-bridge.8.tsgo.7.0.2
-      '@typescript-native-bridge/win32-x64': 6.0.3-bridge.8.tsgo.7.0.2
+  typescript@5.9.3: {}
 
   ufo@1.6.3: {}
 
@@ -5315,7 +5254,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0):
+  vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.5
@@ -5323,15 +5262,15 @@ snapshots:
       rolldown: 1.2.1
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 26.1.2
+      '@types/node': 26.2.0
       fsevents: 2.3.3
       jiti: 2.7.0
       yaml: 2.9.0
 
-  vitest@4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0)):
+  vitest@4.1.10(@types/node@26.2.0)(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0))
+      '@vitest/mocker': 4.1.10(vite@8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -5348,10 +5287,10 @@ snapshots:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.1
-      vite: 8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0)
+      vite: 8.2.0(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 26.1.2
+      '@types/node': 26.2.0
     transitivePeerDependencies:
       - msw
 

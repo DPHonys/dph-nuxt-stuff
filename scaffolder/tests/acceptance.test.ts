@@ -12,7 +12,10 @@ import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
 import { join, relative, resolve } from 'pathe'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createProductionTemplateRegistry } from '../internal/nuxt-module'
+import {
+  createProductionTemplateRegistry,
+  nuxtCompatibilityRange,
+} from '../internal/nuxt-module'
 import {
   createProductionFormatter,
   createProductionInstaller,
@@ -31,6 +34,7 @@ const generatedFiles = [
   'playground/package.json',
   'playground/server/tsconfig.json',
   'playground/tsconfig.json',
+  'playground/turbo.json',
   'src/module.ts',
   'src/runtime/plugin.ts',
   'src/runtime/server/tsconfig.json',
@@ -159,17 +163,25 @@ describe('disposable Acceptance fixture', () => {
         { cwd: repositoryRoot }
       )
     ) as Array<{ devDependencies?: { nuxt?: { version: string } } }>
-    expect(nuxtPackages[0]?.devDependencies?.nuxt?.version).toBe('4.5.1')
+    // The fixture installs with no lockfile, so nuxt resolves fresh and a
+    // pinned patch literal here goes stale on every nuxt release. The
+    // scaffold's contract is `nuxtCompatibilityRange`; assert its bounds.
+    const nuxtVersion = nuxtPackages[0]?.devDependencies?.nuxt?.version ?? ''
+    const [, floor = '', ceilingMajor = ''] =
+      /^>=(\d+\.\d+\.\d+) <(\d+)\.0\.0$/.exec(nuxtCompatibilityRange) ?? []
+    expect(
+      floor,
+      `nuxtCompatibilityRange '${nuxtCompatibilityRange}' is no longer a plain '>=x.y.z <N.0.0' range, so the bounds check below needs rewriting`
+    ).not.toBe('')
+    expect(compareVersions(nuxtVersion, floor)).toBeGreaterThanOrEqual(0)
+    expect(compareVersions(nuxtVersion, `${ceilingMajor}.0.0`)).toBeLessThan(0)
 
-    for (const script of ['lint', 'test', 'typecheck']) {
+    await run('pnpm', ['run', 'build'], { cwd: repositoryRoot })
+    for (const script of ['lint', 'test', 'typecheck', 'publint']) {
       await run('pnpm', ['--filter', '@dphonys/api-2-client', 'run', script], {
         cwd: repositoryRoot,
       })
     }
-    await run('pnpm', ['run', 'build'], { cwd: repositoryRoot })
-    await run('pnpm', ['--filter', '@dphonys/api-2-client', 'run', 'publint'], {
-      cwd: repositoryRoot,
-    })
 
     const playgroundOutput = join(destination, 'playground/.output')
     await expect(treeContains(playgroundOutput, 'Api 2 Client')).resolves.toBe(
@@ -204,11 +216,11 @@ async function assertPreInstallContract(
     description: 'A typed API client for Nuxt',
     type: 'module',
     license: 'MIT',
-    engines: { node: '>=26.0.0' },
+    engines: { node: '^22.19.0 || ^24.11.0 || >=26.0.0' },
     keywords: ['nuxt', 'nuxt-module', 'api-2-client'],
     repository: {
       type: 'git',
-      url: 'https://github.com/DPHonys/dph-nuxt-stuff.git',
+      url: 'git+https://github.com/DPHonys/dph-nuxt-stuff.git',
       directory: 'packages/api-2-client',
     },
     exports: {
@@ -222,6 +234,7 @@ async function assertPreInstallContract(
     files: ['dist'],
     publishConfig: { access: 'public' },
     scripts: {
+      prebuild: 'nuxt-module-build prepare',
       build: 'nuxt-module-build build',
       prepack: 'pnpm run build',
       dev: 'pnpm run dev:prepare && nuxt dev playground',
@@ -231,7 +244,7 @@ async function assertPreInstallContract(
       lint: 'eslint .',
       pretest: 'nuxt-module-build prepare',
       typecheck:
-        'pnpm run dev:prepare && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json',
+        'nuxt-module-build prepare && nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json',
       test: 'vitest run',
       'test:watch': 'vitest watch',
       publint: 'publint',
@@ -279,7 +292,7 @@ async function assertPreInstallContract(
   expect(contents.get('src/module.ts')).toMatch(/name: ['"]api-2-client['"]/)
   expect(contents.get('src/module.ts')).toMatch(/configKey: ['"]api2Client['"]/)
   expect(contents.get('src/module.ts')).toContain(
-    "compatibility: { nuxt: '>=4.0.0' }"
+    `compatibility: { nuxt: '${nuxtCompatibilityRange}' }`
   )
   expect(contents.get('src/module.ts')).toContain(
     "message: 'Hello from Api 2 Client'"
@@ -407,6 +420,16 @@ async function readGeneratedContents(
     contents.set(file, await readFile(join(root, file), 'utf8'))
   }
   return contents
+}
+
+function compareVersions(left: string, right: string): number {
+  const a = left.split('.').map(Number)
+  const b = right.split('.').map(Number)
+  for (let index = 0; index < 3; index += 1) {
+    if ((a[index] ?? 0) !== (b[index] ?? 0))
+      return (a[index] ?? 0) - (b[index] ?? 0)
+  }
+  return 0
 }
 
 async function readJson(file: string): Promise<Record<string, unknown>> {

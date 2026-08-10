@@ -66,7 +66,9 @@ function validatePublishingContract(workspaces: Workspace[]): string[] {
 
     const repository = asRecord(manifest.repository)
     if (repository?.type !== 'git') add('repository.type must be git')
-    if (repository?.url !== 'https://github.com/DPHonys/dph-nuxt-stuff.git') {
+    if (
+      repository?.url !== 'git+https://github.com/DPHonys/dph-nuxt-stuff.git'
+    ) {
       add('repository.url must identify DPHonys/dph-nuxt-stuff')
     }
     if (repository?.directory !== workspace.directory) {

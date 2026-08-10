@@ -35,7 +35,7 @@
     "oxfmt": "^0.61.0",
     "oxlint": "^1.76.0",
     "turbo": "^2.10.8",
-    "typescript": "npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2"
+    "typescript": "catalog:"
   },
   "packageManager": "pnpm@11.18.0"
 }

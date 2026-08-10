@@ -10,15 +10,18 @@ import {
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'pathe'
 import { afterEach, describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
 import { createNaming, validateScaffoldName } from '../internal/naming'
 import {
   createProductionTemplateRegistry,
+  nuxtCompatibilityRange,
   nuxtModuleTemplate,
 } from '../internal/nuxt-module'
 import { prepareTemplate } from '../internal/registry'
 import { createScaffolder } from '../internal/scaffolder'
 
-const templateRoot = resolve(import.meta.dirname, '../../templates/nuxt-module')
+const workspaceRoot = resolve(import.meta.dirname, '../..')
+const templateRoot = join(workspaceRoot, 'templates/nuxt-module')
 const temporaryRoots: string[] = []
 
 const expectedFiles = [
@@ -30,6 +33,7 @@ const expectedFiles = [
   'playground/package.json',
   'playground/server/tsconfig.json',
   'playground/tsconfig.json',
+  'playground/turbo.json',
   'src/module.ts',
   'src/runtime/plugin.ts',
   'src/runtime/server/tsconfig.json',
@@ -184,11 +188,11 @@ describe('nuxt module Template contract', () => {
       description: 'A typed API client for Nuxt',
       type: 'module',
       license: 'MIT',
-      engines: { node: '>=26.0.0' },
+      engines: { node: '^22.19.0 || ^24.11.0 || >=26.0.0' },
       keywords: ['nuxt', 'nuxt-module', 'api-2-client'],
       repository: {
         type: 'git',
-        url: 'https://github.com/DPHonys/dph-nuxt-stuff.git',
+        url: 'git+https://github.com/DPHonys/dph-nuxt-stuff.git',
         directory: 'packages/api-2-client',
       },
       exports: {
@@ -202,6 +206,7 @@ describe('nuxt module Template contract', () => {
       files: ['dist'],
       publishConfig: { access: 'public' },
       scripts: {
+        prebuild: 'nuxt-module-build prepare',
         build: 'nuxt-module-build build',
         prepack: 'pnpm run build',
         dev: 'pnpm run dev:prepare && nuxt dev playground',
@@ -211,7 +216,7 @@ describe('nuxt module Template contract', () => {
         lint: 'eslint .',
         pretest: 'nuxt-module-build prepare',
         typecheck:
-          'pnpm run dev:prepare && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json',
+          'nuxt-module-build prepare && nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json',
         test: 'vitest run',
         'test:watch': 'vitest watch',
         publint: 'publint',
@@ -272,7 +277,7 @@ describe('nuxt module Template contract', () => {
       /configKey: ["']api2Client["']/
     )
     expect(contents.get('src/module.ts')).toContain(
-      "compatibility: { nuxt: '>=4.0.0' }"
+      `compatibility: { nuxt: '${nuxtCompatibilityRange}' }`
     )
     expect(contents.get('src/module.ts')).toContain(
       "message: 'Hello from Api 2 Client'"
@@ -359,14 +364,21 @@ describe('nuxt module Template contract', () => {
     expect([...contents.values()].join('\n')).not.toContain('nuxtImageTools')
   })
 
-  it('rejects a Template that violates the Nuxt compatibility contract', async () => {
+  it('rejects a Template whose compatibility range loses its major ceiling', async () => {
     const repositoryRoot = await createRepository()
     const moduleFile = join(
       repositoryRoot,
       'templates/nuxt-module/src/module.ts'
     )
     const source = await readFile(moduleFile, 'utf8')
-    await writeFile(moduleFile, source.replace('>=4.0.0', '>=3.0.0'), 'utf8')
+    await writeFile(
+      moduleFile,
+      source.replace(
+        nuxtCompatibilityRange,
+        nuxtCompatibilityRange.replace(/ <\S+$/, '')
+      ),
+      'utf8'
+    )
 
     const outcome = await createNuxtScaffolder('A typed API client').run({
       repositoryRoot,
@@ -375,10 +387,28 @@ describe('nuxt module Template contract', () => {
     expect(outcome.status).toBe('generation-failed')
     if (outcome.status === 'generation-failed') {
       expect(outcome.error.message).toBe(
-        'src/module.ts does not contain required text: >=4.0.0'
+        `src/module.ts does not contain required text: ${nuxtCompatibilityRange}`
       )
     }
     await expect(readdir(join(repositoryRoot, 'packages'))).resolves.toEqual([])
+  })
+
+  it('claims no Nuxt beyond the one the catalog installs', async () => {
+    const workspace = parse(
+      await readFile(join(workspaceRoot, 'pnpm-workspace.yaml'), 'utf8')
+    ) as { catalog: Record<string, string | undefined> }
+    const catalogNuxt = workspace.catalog.nuxt ?? ''
+    const [, floor = '', major = ''] =
+      /^\^((\d+)\.\d+\.\d+)$/.exec(catalogNuxt) ?? []
+
+    expect(
+      floor,
+      `catalog nuxt '${catalogNuxt}' is no longer a plain ^x.y.z range, so the derivation below needs rewriting`
+    ).not.toBe('')
+    expect(nuxtCompatibilityRange).toBe(`>=${floor} <${Number(major) + 1}.0.0`)
+    expect(
+      await readFile(join(templateRoot, 'src/module.ts'), 'utf8')
+    ).toContain(`compatibility: { nuxt: '${nuxtCompatibilityRange}' }`)
   })
 })
 
