@@ -6,16 +6,14 @@
  * This is **not** `event.$checkedFetch`, which forwards the incoming request's
  * cookies and context and is installed per request from a `request` hook. The
  * global forwards nothing, which is what `globalThis.$fetch` does too.
+ *
+ * One assignment, mirroring the client plugin: the channel tag is a build-time
+ * constant the wrapper imports itself, so there is nothing to read here.
  */
 
-import { defineNitroPlugin, useRuntimeConfig } from 'nitropack/runtime'
-import { readChannelToken, setChannelToken } from '../../shared/channel'
+import { defineNitroPlugin } from 'nitropack/runtime'
 import { $checkedFetch } from '../../shared/checked-fetch'
 
 export default defineNitroPlugin(() => {
-  // The Nitro half of the channel tag, mirroring the client plugin: the global
-  // is built at import time, so the token reaches it through the box.
-  setChannelToken(readChannelToken(useRuntimeConfig()))
-
   globalThis.$checkedFetch = $checkedFetch
 })

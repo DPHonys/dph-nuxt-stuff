@@ -175,29 +175,92 @@ describe('module setup wiring', () => {
     ).toHaveLength(1)
   })
 
-  it('seeds the channel token in public runtimeConfig, empty by default', () => {
-    // Public by design — every fetch surface attaches it, the browser's
-    // included — and seeded rather than left undeclared because Nuxt only
-    // env-overrides keys that already exist. `''` reads as "no token", so a
-    // project that sets nothing keeps today's behaviour.
-    expect(nuxt.options.runtimeConfig.public.handlerErrors).toEqual({
-      channelToken: '',
-    })
+  it('writes the channel token as a template, aliased into both builds', () => {
+    // The token is a build-time module option, so it reaches the runtime the
+    // build-time way: one written template, one alias, no runtime config. The
+    // fixture configures nothing, and nothing means the **default tag** —
+    // gating is on out of the box, so the stripper matches by value from the
+    // first build rather than by mere header presence.
+    const dst = nuxt.options.alias['#nuxt-handler-errors/channel-token']
+
+    expect(dst).toMatch(/\/nuxt-handler-errors\/channel-token\.mjs$/)
+    expect(nitro?.options.alias?.['#nuxt-handler-errors/channel-token']).toBe(
+      dst
+    )
+
+    const template = nuxt.options.build.templates.find(
+      (entry) => entry.filename === 'nuxt-handler-errors/channel-token.mjs'
+    )
+
+    // `write: true` is load-bearing: Nitro resolves the alias from disk, not
+    // from Nuxt's virtual file system.
+    expect(template?.write).toBe(true)
+    expect(
+      (template as { getContents?: () => string } | undefined)?.getContents?.()
+    ).toBe('export const configuredChannelToken = "nuxt-handler-errors"\n')
+
+    // And nothing rides `runtimeConfig` any more — the old route stays gone.
+    expect(nuxt.options.runtimeConfig.public).not.toHaveProperty(
+      'handlerErrors'
+    )
   })
 
   it('prepends its stripper to the errorHandler chain, keeping Nuxt’s own', () => {
     // The measured seam: `nitro:config` fires after Nuxt has filled an empty
-    // slot with its own handler and before `createNitro`, and the chain runs in
-    // order with Nitro's builtin appended last. Read off the **resolved** Nitro
-    // options rather than a hand-fed config object, so the assertion is about
-    // the chain the app really gets — a single value normalised to an array,
-    // this module first, and Nuxt's handler still in it.
+    // slot with its own handler and before `createNitro`, and the chain runs
+    // in order with Nitro's builtin appended last. Read off the **resolved**
+    // Nitro options rather than a hand-fed config object, so the assertion is
+    // about the chain the app really gets — this module first, and Nuxt's
+    // handler still in it. Present on a default boot, because the default tag
+    // turns gating on.
     const chain = nitro?.options.errorHandler
 
     expect(Array.isArray(chain)).toBe(true)
     expect(chain?.[0]).toMatch(/\/runtime\/server\/handlers\/channel-strip/)
     expect(chain?.length).toBeGreaterThan(1)
   })
+
+  it('registers no stripper when the token is set to the empty opt-out', async () => {
+    // `''` is the one way to turn gating off, and build-time absence *is*
+    // absence — an opted-out app can never grow a token at run time, so a
+    // handler that could only ever return immediately stays out of the chain
+    // entirely, and the template spells the constant as `undefined`.
+    let optedOut: Nuxt | undefined
+    let optedOutNitro: Nitro | undefined
+
+    try {
+      optedOut = await loadNuxt({
+        cwd: FIXTURE,
+        ready: false,
+        overrides: { handlerErrors: { channelToken: '' } },
+      })
+
+      optedOut.hook('nitro:init', (instance) => {
+        optedOutNitro = instance
+      })
+
+      await optedOut.ready()
+
+      const chain = optedOutNitro?.options.errorHandler
+      const entries = Array.isArray(chain) ? chain : [chain ?? '']
+
+      expect(
+        entries.filter((entry) => /channel-strip/.test(String(entry)))
+      ).toEqual([])
+
+      const template = optedOut.options.build.templates.find(
+        (entry) => entry.filename === 'nuxt-handler-errors/channel-token.mjs'
+      )
+
+      expect(
+        (
+          template as { getContents?: () => string } | undefined
+        )?.getContents?.()
+      ).toBe('export const configuredChannelToken = undefined\n')
+    } finally {
+      await optedOut?.close()
+    }
+  }, 120_000)
 
   it('hoists the emitted specifier onto the generated tsconfigs', () => {
     // The string comes from the emitter so the push cannot drift from the

@@ -9,6 +9,7 @@ import {
   addImports,
   addPlugin,
   addServerPlugin,
+  addTemplate,
   addTypeTemplate,
   createResolver,
   defineNuxtModule,
@@ -17,16 +18,46 @@ import {
 } from '@nuxt/kit'
 import type { Nitro } from 'nitropack/types'
 import { emitMap, EMPTY_MAP, TYPES_SPECIFIER } from './emit-map'
-// Constants only, from the runtime's own channel file, so the config path this
-// seeds and the path the runtime reads cannot drift.
-import { CHANNEL_CONFIG_KEY, CHANNEL_TOKEN_KEY } from './runtime/shared/channel'
 
 /**
- * The module has no options. Deliberate: every wrapper mirrors its vanilla
- * counterpart exactly, so there is nothing to configure — and an option is far
- * cheaper to add later than to remove.
+ * The one option. Everything else is deliberate absence: every wrapper mirrors
+ * its vanilla counterpart exactly, so there is nothing else to configure — and
+ * an option is far cheaper to add later than to remove.
  */
-export interface ModuleOptions {}
+export interface ModuleOptions {
+  /**
+   * The channel tag every checked surface attaches, and the value the
+   * response-side stripper matches requests against — always by **value**,
+   * never by mere header presence. **A channel tag, not a secret**: it is
+   * compiled into the client bundle by design — the browser must send it
+   * too — and it marks first-party intent; it authorises nothing.
+   *
+   * Defaults to `'nuxt-handler-errors'`, so gating is on out of the box:
+   * checked calls carry the tag and everyone else gets the marker stripped.
+   * Set your own value to name your app's channel, or `''` to turn gating off
+   * entirely — nothing attached, nothing stripped.
+   *
+   * Build-time on purpose. The value is baked into both bundles at build, so
+   * there is no env override and no runtime config to read — changing it is a
+   * rebuild.
+   */
+  channelToken: string
+}
+
+/**
+ * The out-of-the-box channel tag. A fixed, public string is exactly enough:
+ * the token is not a secret on any value — it ships in the client bundle — so
+ * a default buys the value-match against callers that never heard of this
+ * module, and choosing your own buys nothing more than a distinct name.
+ */
+const DEFAULT_CHANNEL_TOKEN = 'nuxt-handler-errors'
+
+/**
+ * The specifier both builds import the configured token from. An alias rather
+ * than a published entry, because the value only exists inside a build — the
+ * module writes it as a template and points the app and Nitro builds at it.
+ */
+const CHANNEL_TOKEN_SPECIFIER = '#nuxt-handler-errors/channel-token'
 
 /**
  * Where the map is written, relative to Nuxt's `buildDir`.
@@ -48,7 +79,10 @@ export default defineNuxtModule<ModuleOptions>({
     // h3 v2 / Nitro 3 line. The floor is what was measured (4.5.1).
     compatibility: { nuxt: '>=4.5.1 <5.0.0' },
   },
-  setup(_options, nuxt) {
+  defaults: {
+    channelToken: DEFAULT_CHANNEL_TOKEN,
+  },
+  setup(options, nuxt) {
     // Known failures ride `error.data` on the default error serializer; Nitro
     // has a serializer that drops `data` wholesale, and a custom
     // `errorHandler` pointing at it loses every declared payload with no
@@ -152,26 +186,28 @@ export default defineNuxtModule<ModuleOptions>({
       resolver.resolve('./runtime/server/plugins/event-checked-fetch')
     )
 
-    // Channel gating. The token is a **channel tag, not a secret**: it rides
-    // `runtimeConfig.public` because every fetch surface — the browser's
-    // included — attaches it, so it ships in the client bundle by design. It
-    // marks first-party intent; it authorises nothing.
-    //
-    // Seeded with `''` (which reads as "no token", so absent means today's
-    // behaviour) rather than left undeclared, because Nuxt only env-overrides
-    // keys that already exist — the seed is what makes
-    // `NUXT_PUBLIC_HANDLER_ERRORS_CHANNEL_TOKEN` work at run time.
-    const publicConfig = nuxt.options.runtimeConfig.public as Record<
-      string,
-      unknown
-    >
+    // Channel gating. The token is build-time module configuration, so it
+    // reaches the runtime the build-time way: normalised once here (`''` is
+    // the explicit opt-out and reads as "no token"), written as a template,
+    // and imported by every surface through one alias. There is no runtime
+    // config involved — build-time absence *is* absence.
+    const channelToken =
+      options.channelToken === '' ? undefined : options.channelToken
 
-    publicConfig[CHANNEL_CONFIG_KEY] = {
-      [CHANNEL_TOKEN_KEY]: '',
-      ...(publicConfig[CHANNEL_CONFIG_KEY] as
-        | Record<string, unknown>
-        | undefined),
-    }
+    // `write: true` is load-bearing: the Nitro build resolves the alias from
+    // disk, not from Nuxt's virtual file system.
+    const channelTokenTemplate = addTemplate({
+      filename: 'nuxt-handler-errors/channel-token.mjs',
+      write: true,
+      getContents: () =>
+        `export const configuredChannelToken = ${
+          channelToken === undefined
+            ? 'undefined'
+            : JSON.stringify(channelToken)
+        }\n`,
+    })
+
+    nuxt.options.alias[CHANNEL_TOKEN_SPECIFIER] = channelTokenTemplate.dst
 
     // The stripping seam, exactly as measured: **prepend** to the array and
     // **preserve** every existing entry. `nitro:config` is the right line —
@@ -180,7 +216,20 @@ export default defineNuxtModule<ModuleOptions>({
     // consumer's, and the chain runs in order with the builtin appended last.
     // A single value is normalised here as Nitro would, so the prepend has one
     // code path.
+    //
+    // Prepended only when a token is configured: the token is build-time, so
+    // an unconfigured app can never grow one at run time, and a handler that
+    // could only ever return immediately has no business in its chain.
     nuxt.hook('nitro:config', (nitroConfig) => {
+      // The Nitro half of the alias — `nuxt.options.alias` reaches the app
+      // build only.
+      nitroConfig.alias = {
+        ...nitroConfig.alias,
+        [CHANNEL_TOKEN_SPECIFIER]: channelTokenTemplate.dst,
+      }
+
+      if (channelToken === undefined) return
+
       const existing = nitroConfig.errorHandler
       const entries =
         existing === undefined

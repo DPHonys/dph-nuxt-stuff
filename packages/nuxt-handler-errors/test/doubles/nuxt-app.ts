@@ -68,20 +68,6 @@ export const useLazyAsyncData = recordAsyncData('useLazyAsyncData')
 
 export const defineNuxtPlugin = <T>(plugin: T): T => plugin
 
-/**
- * What `useRuntimeConfig()` answers next — the app-side route to the channel
- * token, for the composable merge and the client plugin alike. A plain box, set
- * by the suites that care; the default is a config with no token at all, which
- * is the "gating off" case every other suite is written against.
- */
-let runtimeConfig: unknown = { public: {} }
-
-export function setRuntimeConfig(config: unknown): void {
-  runtimeConfig = config
-}
-
-export const useRuntimeConfig = (): unknown => runtimeConfig
-
 /** What `useRequestEvent()` answers next; `undefined` is the no-request case. */
 type RequestEvent = { $checkedFetch: CheckedFetch } | undefined
 

@@ -6,17 +6,13 @@
  * with no import and no new entry point.
  *
  * Registered `client`-only, and `src/module.ts` is where that decision lives —
- * this file is the assignment.
+ * this file is the assignment. The channel tag needs no plugin at all: the
+ * wrapper imports it as a build-time constant.
  */
 
-import { defineNuxtPlugin, useRuntimeConfig } from '#app'
-import { readChannelToken, setChannelToken } from '../../shared/channel'
+import { defineNuxtPlugin } from '#app'
 import { $checkedFetch } from '../../shared/checked-fetch'
 
 export default defineNuxtPlugin(() => {
-  // The plugin is also where the channel tag enters this bundle: the global is
-  // built at import time and `runtimeConfig` is only readable from here.
-  setChannelToken(readChannelToken(useRuntimeConfig()))
-
   globalThis.$checkedFetch = $checkedFetch
 })

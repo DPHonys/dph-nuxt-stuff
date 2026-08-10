@@ -3,14 +3,9 @@ import clientPlugin from '../../src/runtime/app/plugins/checked-fetch.client'
 import { EventFetchUnavailableError } from '../../src/runtime/server/lib/event-checked-fetch'
 import nitroPlugin from '../../src/runtime/server/plugins/checked-fetch'
 import eventPlugin from '../../src/runtime/server/plugins/event-checked-fetch'
-import {
-  channelToken,
-  CHANNEL_HEADER,
-  setChannelToken,
-} from '../../src/runtime/shared/channel'
+import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { $checkedFetch } from '../../src/runtime/shared/checked-fetch'
-import { setRuntimeConfig as setNitroRuntimeConfig } from '../doubles/nitro-runtime'
-import { setRuntimeConfig as setAppRuntimeConfig } from '../doubles/nuxt-app'
+import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { settled } from '../fetch-channel'
 
 /**
@@ -123,31 +118,16 @@ describe('the event installer', () => {
   })
 })
 
-describe('the channel tag each plugin supplies', () => {
-  // The token is the plugins' second job: the globals are built at import time,
-  // so `runtimeConfig` can only reach them from inside a plugin.
+describe('the channel tag the event installer supplies', () => {
+  // The global installers have no token job left — the merge imports the
+  // build-time constant itself — but the event wrapper still takes it as a
+  // parameter, and this plugin is the one place that hands the constant in.
   afterEach(() => {
-    setChannelToken(undefined)
-    setAppRuntimeConfig({ public: {} })
-    setNitroRuntimeConfig({ public: {} })
+    setConfiguredChannelToken(undefined)
   })
 
-  it.each([
-    ['the client app plugin', clientPlugin, setAppRuntimeConfig],
-    ['the Nitro plugin', nitroPlugin, setNitroRuntimeConfig],
-  ])('%s fills the box from runtimeConfig', (_name, plugin, setConfig) => {
-    setConfig({ public: { handlerErrors: { channelToken: 'first-party' } } })
-    ;(plugin as () => void)()
-
-    expect(channelToken()).toBe('first-party')
-  })
-
-  it('the event installer hands the token to the per-request wrapper', async () => {
-    // Passed in rather than taken from the box, so this plugin does not depend
-    // on the global one having run first — asserted by leaving the box empty.
-    setNitroRuntimeConfig({
-      public: { handlerErrors: { channelToken: 'first-party' } },
-    })
+  it('hands the configured token to the per-request wrapper', async () => {
+    setConfiguredChannelToken('first-party')
 
     const hooks: Record<string, (event: never) => void> = {}
     const app = {
@@ -175,7 +155,6 @@ describe('the channel tag each plugin supplies', () => {
       event as unknown as { $checkedFetch: (r: string) => Promise<unknown> }
     ).$checkedFetch('/api/anything')
 
-    expect(channelToken()).toBeUndefined()
     expect(sent).toEqual([
       { accept: 'application/json', [CHANNEL_HEADER]: 'first-party' },
     ])

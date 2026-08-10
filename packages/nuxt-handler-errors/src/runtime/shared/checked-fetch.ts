@@ -9,10 +9,11 @@
  * through the published specifier.
  */
 
+import { configuredChannelToken } from '#nuxt-handler-errors/channel-token'
 import { createError } from 'h3'
 import type { NuxtError } from 'nuxt/app'
 import type { $CheckedFetch, TryResult } from '../types/fetch'
-import { channelToken, CHANNEL_HEADER } from './channel'
+import { CHANNEL_HEADER } from './channel'
 
 // ---------------------------------------------------------------------------
 // What this wrapper needs of the thing underneath it
@@ -78,10 +79,10 @@ function withCheckedHeaders(
 
   // The channel tag, when the consumer configured one. `set`, not a presence
   // check: this header is the module's own and a caller's value would only
-  // gate the caller out of its own wire. Read at call time, because the plugin
-  // that knows the config runs after this module is imported.
-  const token = channelToken()
-  if (token !== undefined) headers.set(CHANNEL_HEADER, token)
+  // gate the caller out of its own wire.
+  if (configuredChannelToken !== undefined) {
+    headers.set(CHANNEL_HEADER, configuredChannelToken)
+  }
 
   return { ...opts, headers }
 }

@@ -21,21 +21,18 @@
  * the skew.
  */
 
-import { defineNitroPlugin, useRuntimeConfig } from 'nitropack/runtime'
-import { readChannelToken } from '../../shared/channel'
+import { configuredChannelToken } from '#nuxt-handler-errors/channel-token'
+import { defineNitroPlugin } from 'nitropack/runtime'
 import type { RawEventFetch } from '../lib/event-checked-fetch'
 import { createCheckedEventFetch } from '../lib/event-checked-fetch'
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', (event) => {
-    // The channel tag read per request and handed in, rather than taken from
-    // the box the two globals share: this plugin must not depend on the other
-    // one having run.
-    const token = readChannelToken(useRuntimeConfig(event))
-
+    // The channel tag handed in rather than read inside the wrapper, which is
+    // what keeps `../lib/event-checked-fetch` testable with nothing booted.
     event.$checkedFetch = createCheckedEventFetch(
       () => event.$fetch as unknown as RawEventFetch | undefined,
-      token
+      configuredChannelToken
     )
   })
 })

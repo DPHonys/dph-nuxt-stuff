@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import {
-  CHANNEL_HEADER,
-  setChannelToken,
-} from '../../src/runtime/shared/channel'
+import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { createCheckedFetch } from '../../src/runtime/shared/checked-fetch'
+import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { knownFailure, settled } from '../fetch-channel'
 
 /**
@@ -372,11 +370,11 @@ describe('.try over this surface', () => {
 })
 
 describe('the channel tag — the GLOBAL form', () => {
-  // The token reaches this surface through the box its installing plugin
-  // fills, read at *call* time; the box is module state, so every test here
+  // The token is the build-time constant the merge imports itself; the double
+  // makes the binding settable, and it is module state, so every test here
   // clears it again.
   afterEach(() => {
-    setChannelToken(undefined)
+    setConfiguredChannelToken(undefined)
   })
 
   it('attaches nothing when no token is configured — today’s behaviour', async () => {
@@ -386,7 +384,7 @@ describe('the channel tag — the GLOBAL form', () => {
   })
 
   it('attaches the token beside accept once one is configured', async () => {
-    setChannelToken('first-party')
+    setConfiguredChannelToken('first-party')
 
     await createCheckedFetch(fakeFetch())('/anything', {
       headers: { authorization: 'Bearer t' },
@@ -402,7 +400,7 @@ describe('the channel tag — the GLOBAL form', () => {
   it('overrides a caller’s own value for the header — it is the module’s', async () => {
     // Unlike `accept`, this header is not a caller's to choose: a caller value
     // would only gate that call out of the wire it asked for.
-    setChannelToken('first-party')
+    setConfiguredChannelToken('first-party')
 
     await createCheckedFetch(fakeFetch())('/anything', {
       headers: { [CHANNEL_HEADER]: 'forged' },
@@ -412,7 +410,7 @@ describe('the channel tag — the GLOBAL form', () => {
   })
 
   it('rides raw and .try too, which are requests like any other', async () => {
-    setChannelToken('first-party')
+    setConfiguredChannelToken('first-party')
 
     const $fetch = createCheckedFetch(fakeFetch())
 
@@ -428,7 +426,7 @@ describe('the channel tag — the GLOBAL form', () => {
       headers: { authorization: 'Bearer t' },
     })
 
-    setChannelToken('first-party')
+    setConfiguredChannelToken('first-party')
 
     await instance('/anything')
 

@@ -13,14 +13,16 @@ import { defineConfig } from 'vitest/config'
  */
 
 /**
- * Two aliases, both for the same reason and both scoped to `unit`.
+ * Three aliases, all for the same reason and all scoped to `unit`.
  *
- * `src/runtime/app/**` imports `#app` and `src/runtime/server/plugins/**`
- * imports `nitropack/runtime`; neither specifier resolves outside a real build,
- * so under a plain `vitest run` those modules cannot be loaded at all and their
- * header merges would be reachable only through a full e2e build. The doubles
- * record what the wrapper hands the framework, which is exactly the boundary
- * those merges are a claim about.
+ * `src/runtime/app/**` imports `#app`, `src/runtime/server/plugins/**` imports
+ * `nitropack/runtime`, and the fetch surfaces import the channel token from
+ * `#nuxt-handler-errors/channel-token`; none of these specifiers resolves
+ * outside a real build, so under a plain `vitest run` those modules cannot be
+ * loaded at all and their header merges would be reachable only through a full
+ * e2e build. The doubles record what the wrapper hands the framework — or, for
+ * the token, make a build-time constant settable — which is exactly the
+ * boundary those merges are a claim about.
  *
  * Confining them to `unit` is the point: anything importing `#app` under
  * `vitest` would get the double silently, and the tier that builds a real app
@@ -37,6 +39,12 @@ const aliases = [
     find: /^nitropack\/runtime$/,
     replacement: fileURLToPath(
       new URL('./test/doubles/nitro-runtime.ts', import.meta.url)
+    ),
+  },
+  {
+    find: /^#nuxt-handler-errors\/channel-token$/,
+    replacement: fileURLToPath(
+      new URL('./test/doubles/channel-token.ts', import.meta.url)
     ),
   },
 ]

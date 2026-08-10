@@ -198,36 +198,37 @@ A route that declares nothing is typed exactly as vanilla, everywhere.
 
 ## Channel gating
 
-Set a channel token and responses to callers that are **not your app** go out
-with the known-error marker stripped: third parties get an ordinary error
-response, while your own calls — browser and SSR alike — get the full wire.
+Responses to callers that are **not your app** go out with the known-error
+marker stripped: third parties get an ordinary error response, while your own
+calls — browser and SSR alike — get the full wire. This is **on by default**,
+under the default channel token `'nuxt-handler-errors'`; set your own to name
+your app's channel:
 
 ```ts
 export default defineNuxtConfig({
   modules: ['@dphonys/nuxt-handler-errors'],
-  runtimeConfig: {
-    public: {
-      handlerErrors: {
-        // or leave it empty here and set
-        // NUXT_PUBLIC_HANDLER_ERRORS_CHANNEL_TOKEN at run time
-        channelToken: 'my-app',
-      },
-    },
+  handlerErrors: {
+    channelToken: 'my-app',
   },
 })
 ```
 
 Every fetch surface of this module (`$checkedFetch` and `.try`,
-`event.$checkedFetch`, `useCheckedFetch` and its lazy twin) then sends the token
-as the `x-known-error-channel` request header, and a Nitro error-handler entry
-strips the marker from the response body of any request that did not carry it.
+`event.$checkedFetch`, `useCheckedFetch` and its lazy twin) sends the token as
+the `x-known-error-channel` request header, and a Nitro error-handler entry
+strips the marker from the response body of any request that did not carry the
+**matching value** — the match is always by value, never by mere header
+presence.
 
-- **The token is a channel tag, not a secret.** It rides `runtimeConfig.public`
-  because the browser must send it too, so it ships in the client bundle and is
-  visible in devtools. It marks first-party intent; it authorises nothing, and
-  nothing that matters may be gated on it.
-- Gating is enabled by the token's presence. With no token configured, nothing
-  is attached and nothing is stripped.
+- **The token is a channel tag, not a secret.** The browser must send it too,
+  so it is compiled into the client bundle and is visible in devtools. It marks
+  first-party intent; it authorises nothing, and nothing that matters may be
+  gated on it.
+- **The token is build-time.** It is a module option, baked into both bundles
+  at build — there is no env override and no runtime config; changing it is a
+  rebuild.
+- Setting `channelToken: ''` turns gating off entirely: nothing is attached
+  and nothing is stripped.
 - **The thrown error always carries the marker** — only the serialized response
   is ever stripped, so observability sees known failures identically no matter
   who called.

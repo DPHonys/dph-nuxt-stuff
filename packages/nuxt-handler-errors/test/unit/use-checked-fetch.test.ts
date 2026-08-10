@@ -5,7 +5,8 @@ import {
   useLazyCheckedFetch,
 } from '../../src/runtime/app/composables/use-checked-fetch'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
-import { calls, setRuntimeConfig } from '../doubles/nuxt-app'
+import { setConfiguredChannelToken } from '../doubles/channel-token'
+import { calls } from '../doubles/nuxt-app'
 
 /**
  * The header merge — the COMPOSABLE form — and the rest of what the wrapper
@@ -206,11 +207,12 @@ describe('what else reaches vanilla', () => {
 })
 
 describe('the channel tag — the COMPOSABLE form', () => {
-  // This surface reads `runtimeConfig` itself rather than a box a plugin fills:
-  // during SSR it runs in the app bundle, where neither the browser plugin nor
-  // the Nitro plugin has set anything.
+  // The token is the build-time constant this surface imports itself — the
+  // double makes it settable, and it is module state, so every test clears it.
+  // Normalisation (`''` reads as no token) is the module's job at build, so
+  // the constant is either `undefined` or a real tag.
   afterEach(() => {
-    setRuntimeConfig({ public: {} })
+    setConfiguredChannelToken(undefined)
   })
 
   it('attaches nothing when no token is configured', () => {
@@ -220,9 +222,7 @@ describe('the channel tag — the COMPOSABLE form', () => {
   })
 
   it('attaches the token beside accept once one is configured', () => {
-    setRuntimeConfig({
-      public: { handlerErrors: { channelToken: 'first-party' } },
-    })
+    setConfiguredChannelToken('first-party')
 
     useCheckedFetch('/anything', { headers: { authorization: 'Bearer t' } })
 
@@ -233,20 +233,8 @@ describe('the channel tag — the COMPOSABLE form', () => {
     })
   })
 
-  it('reads an empty token as no token at all', () => {
-    // The module seeds the key with `''` so the env variable can fill it; an
-    // unset variable must mean gating off, not an empty tag on every request.
-    setRuntimeConfig({ public: { handlerErrors: { channelToken: '' } } })
-
-    useCheckedFetch('/anything')
-
-    expect(sentHeaders()).toEqual({ accept: 'application/json' })
-  })
-
   it('overrides a caller’s own value for the header', () => {
-    setRuntimeConfig({
-      public: { handlerErrors: { channelToken: 'first-party' } },
-    })
+    setConfiguredChannelToken('first-party')
 
     useCheckedFetch('/anything', { headers: { [CHANNEL_HEADER]: 'forged' } })
 
@@ -254,9 +242,7 @@ describe('the channel tag — the COMPOSABLE form', () => {
   })
 
   it('attaches it on the lazy twin too', () => {
-    setRuntimeConfig({
-      public: { handlerErrors: { channelToken: 'first-party' } },
-    })
+    setConfiguredChannelToken('first-party')
 
     useLazyCheckedFetch('/anything')
 

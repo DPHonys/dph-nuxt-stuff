@@ -110,10 +110,9 @@ export class EventFetchUnavailableError extends Error {
  * surfaces and a second copy could drift. The cast makes `createCheckedFetch`'s
  * two claims.
  *
- * `token` is passed in rather than read from the shared box the two globals
- * use: this wrapper is built per request by its own plugin, which can read
- * `useRuntimeConfig(event)` itself, and depending on the *other* plugin having
- * run first would make plugin order load-bearing for the channel tag.
+ * `token` is passed in rather than imported: the installing plugin owns the
+ * build-time constant, and taking it as a parameter is what keeps this file
+ * loadable — and its header merge testable — with nothing built.
  */
 export function createCheckedEventFetch(
   getBase: () => RawEventFetch | undefined,

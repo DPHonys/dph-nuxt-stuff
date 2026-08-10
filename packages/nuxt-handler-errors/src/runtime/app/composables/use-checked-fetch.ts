@@ -7,15 +7,16 @@
  * is `#imports`.
  */
 
+import { configuredChannelToken } from '#nuxt-handler-errors/channel-token'
 import type { RouterMethod } from 'h3'
 import type { AvailableRouterMethod, NitroFetchRequest } from 'nitropack/types'
 import type { ComputedRef, Ref } from 'vue'
 import { computed, toValue } from 'vue'
 import type { AsyncData, FetchResult, NuxtError, UseFetchOptions } from '#app'
-import { useFetch, useLazyFetch, useRuntimeConfig } from '#app'
+import { useFetch, useLazyFetch } from '#app'
 import type { KeysOf, PickFrom } from '#app/composables/asyncData'
 import type { UseFetchOptionsWithTransform } from '#app/composables/fetch'
-import { CHANNEL_HEADER, readChannelToken } from '../../shared/channel'
+import { CHANNEL_HEADER } from '../../shared/channel'
 import type { KnownErrorBody } from '../../shared/wire'
 import type { KnownErrorsOfRoute, KnownVariant } from '../../types'
 
@@ -304,17 +305,12 @@ function wrapVanillaFetch(vanilla: VanillaUseFetch): UseCheckedFetch {
             arg2 as string | undefined,
           ] as const)
 
-    // Read here rather than inside the computed: `useRuntimeConfig()` wants the
-    // Nuxt instance, which is guaranteed at the call site (a composable) and
-    // not inside a computation vanilla may re-run later. It is the app's own
-    // route to the token on **both** sides — the browser's client plugin and
-    // Nitro's plugin each fill a box in their own bundle, and this file runs in
-    // neither during SSR.
-    const token = readChannelToken(useRuntimeConfig())
-
     return vanilla(
       request,
-      { ...opts, headers: checkedHeaders(opts?.headers, token) },
+      {
+        ...opts,
+        headers: checkedHeaders(opts?.headers, configuredChannelToken),
+      },
       autoKey
     )
   }) as UseCheckedFetch
