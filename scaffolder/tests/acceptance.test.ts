@@ -167,9 +167,14 @@ describe('disposable Acceptance fixture', () => {
     // pinned patch literal here goes stale on every nuxt release. The
     // scaffold's contract is `nuxtCompatibilityRange`; assert its bounds.
     const nuxtVersion = nuxtPackages[0]?.devDependencies?.nuxt?.version ?? ''
-    const [major = 0, minor = 0] = nuxtVersion.split('.').map(Number)
-    expect(major).toBe(4)
-    expect(minor).toBeGreaterThanOrEqual(5)
+    const [, floor = '', ceilingMajor = ''] =
+      /^>=(\d+\.\d+\.\d+) <(\d+)\.0\.0$/.exec(nuxtCompatibilityRange) ?? []
+    expect(
+      floor,
+      `nuxtCompatibilityRange '${nuxtCompatibilityRange}' is no longer a plain '>=x.y.z <N.0.0' range, so the bounds check below needs rewriting`
+    ).not.toBe('')
+    expect(compareVersions(nuxtVersion, floor)).toBeGreaterThanOrEqual(0)
+    expect(compareVersions(nuxtVersion, `${ceilingMajor}.0.0`)).toBeLessThan(0)
 
     await run('pnpm', ['run', 'build'], { cwd: repositoryRoot })
     for (const script of ['lint', 'test', 'typecheck', 'publint']) {
@@ -415,6 +420,16 @@ async function readGeneratedContents(
     contents.set(file, await readFile(join(root, file), 'utf8'))
   }
   return contents
+}
+
+function compareVersions(left: string, right: string): number {
+  const a = left.split('.').map(Number)
+  const b = right.split('.').map(Number)
+  for (let index = 0; index < 3; index += 1) {
+    if ((a[index] ?? 0) !== (b[index] ?? 0))
+      return (a[index] ?? 0) - (b[index] ?? 0)
+  }
+  return 0
 }
 
 async function readJson(file: string): Promise<Record<string, unknown>> {
