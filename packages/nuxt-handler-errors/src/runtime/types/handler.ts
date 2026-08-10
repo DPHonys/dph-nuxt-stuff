@@ -24,6 +24,8 @@ import type {
   KnownVariant,
   Payload,
   PayloadArgs,
+  SerializableDef,
+  SerializableDefs,
   SerializablePayload,
   VariantDef,
   VariantOfDef,
@@ -110,11 +112,13 @@ export interface DefineError {
   /** One definition → one error value. */
   <Tag extends string, const D extends VariantDef>(
     tag: Tag,
-    def: D
+    def: SerializableDef<D> & D
   ): KnownError<VariantOfDef<Tag, D>>
 
   /** Several definitions → a spreadable group. */
-  <const D extends Defs>(defs: D): KnownErrorGroup<VariantsOf<D>>
+  <const D extends Defs>(
+    defs: SerializableDefs<D> & D
+  ): KnownErrorGroup<VariantsOf<D>>
 }
 
 /**

@@ -239,6 +239,44 @@ export function payloadMustSurviveSerialization(): void {
   payload<{ amount: bigint }>()
 }
 
+/**
+ * The two doors into the payload position, held to one rule: whatever
+ * `payload<T>()` rejects, a schema whose inferred output is the same `T` is
+ * rejected for too — and whatever it accepts, the schema keeps. `Date` is the
+ * accepted half on purpose: `Serialize` maps it to `string`, so it survives,
+ * and a guard that rejected it would be stricter than the wire.
+ */
+export function schemaOutputMustSurviveSerializationToo(): void {
+  defineError(
+    'paid',
+    // @ts-expect-error — the schema's inferred output has a `bigint` field
+    { status: 402, payload: z.object({ amount: z.bigint() }) }
+  )
+
+  // @ts-expect-error — `__unserializablePayloadField__` names the tag `paid`
+  defineError({
+    paid: { status: 402, payload: z.object({ amount: z.bigint() }) },
+  })
+}
+
+const _datedErrors = defineError({
+  'trial-expired': { status: 402, payload: z.object({ endedAt: z.date() }) },
+})
+
+/** Both doors agree on `Date`, and agree with what the wire really carries. */
+export type AssertSchemaDateSurvives = Expect<
+  Equal<
+    Extract<
+      KnownErrorsOf<typeof _datedErrors>,
+      { tag: 'trial-expired' }
+    >['endedAt'],
+    Date
+  >
+>
+
+// The phantom door, on the same `T`: accepted, so the pair really is one rule.
+const _datedPhantom = payload<{ endedAt: Date }>()
+
 describe('the definition surface', () => {
   it('is asserted by the compiler, not by this suite', () => {
     expect(typeof wholeGroups).toBe('function')

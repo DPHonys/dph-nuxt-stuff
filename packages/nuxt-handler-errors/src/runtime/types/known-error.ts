@@ -181,6 +181,46 @@ export type SerializablePayload<T> = [UnserializablePayloadFields<T>] extends [
       __unserializablePayloadField__: `Payload field does not survive JSON serialization: ${UnserializablePayloadFields<T> & string}`
     }
 
+/**
+ * The same guard, applied to a whole definition — which is where the **schema**
+ * door is reachable. `payload<T>()` carries its own constraint, but a Standard
+ * Schema arrives already built and its inferred output would otherwise walk in
+ * unchecked. Written over {@link PayloadTypeOf} so both doors are held to one
+ * rule: whatever `payload<T>()` rejects, a schema inferring the same `T` is
+ * rejected for too.
+ */
+export type SerializableDef<D extends VariantDef> = [
+  UnserializablePayloadFields<PayloadTypeOf<D>>,
+] extends [never]
+  ? // eslint-disable-next-line ts/no-empty-object-type
+    {}
+  : {
+      __unserializablePayloadField__: `Payload field does not survive JSON serialization: ${UnserializablePayloadFields<PayloadTypeOf<D>> & string}`
+    }
+
+/**
+ * {@link SerializableDef} over a definition record: the failing branch names
+ * the tag, because a record's fields all read alike and the field name alone
+ * would not say which variant to look at.
+ */
+export type SerializableDefs<D extends Defs> = [
+  UnserializableDefTags<D>,
+] extends [never]
+  ? // eslint-disable-next-line ts/no-empty-object-type
+    {}
+  : {
+      __unserializablePayloadField__: `Payload does not survive JSON serialization: ${UnserializableDefTags<D> & string}`
+    }
+
+/** The tags in a record whose payload has a field `Serialize` drops. */
+type UnserializableDefTags<D extends Defs> = {
+  [K in keyof D]: [UnserializablePayloadFields<PayloadTypeOf<D[K]>>] extends [
+    never,
+  ]
+    ? never
+    : K
+}[keyof D]
+
 // ---------------------------------------------------------------------------
 // The error value, and a group of them
 // ---------------------------------------------------------------------------
