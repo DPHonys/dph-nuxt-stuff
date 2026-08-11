@@ -25,8 +25,6 @@ declared, in the route.
 
 ```ts
 // server/errors/users.ts - or anywhere; the values travel, no registry exists
-import { defineError, payload } from '@dphonys/nuxt-handler-errors/server'
-
 export const userErrors = defineError({
   'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
   'user-suspended': { status: 403, payload: payload<{ until: string }>() },
@@ -40,7 +38,6 @@ export const forbidden = defineError('forbidden', {
 
 ```ts
 // server/api/users/[id].get.ts
-import { defineCheckedEventHandler } from '@dphonys/nuxt-handler-errors/server'
 import { forbidden, userErrors } from '~~/server/errors/users'
 
 export default defineCheckedEventHandler(
@@ -69,6 +66,10 @@ export default defineCheckedEventHandler(
 - `fail` returns `never`, so the success type still infers from the handler body
   with no annotation, and `fail('nope')` - a tag this route did not declare - is
   a compile error.
+- Everything above is auto-imported inside `server/`, the same ambient position
+  as `defineEventHandler`. The explicit door is
+  `@dphonys/nuxt-handler-errors/server` - it is the form that works where
+  auto-imports do not reach (`shared/`, `imports.autoImport: false`).
 
 ## Handling them: `matchError`
 
@@ -107,9 +108,11 @@ One call absorbs the `if (error)` and the is-it-known check.
 ## Fetching
 
 `useCheckedFetch`, `useLazyCheckedFetch`, `useRequestCheckedFetch`,
-`useCheckedAsyncData`, `useLazyCheckedAsyncData` are auto-imported.
-`$checkedFetch` is a global, like `$fetch`. `matchError` is imported from
-`@dphonys/nuxt-handler-errors/shared` - it is used on the server too.
+`useCheckedAsyncData`, `useLazyCheckedAsyncData` are auto-imported, as are the
+server helpers (`defineCheckedEventHandler`, `defineError`, `payload`,
+`recognizeKnownError`) inside `server/`. `$checkedFetch` is a global, like
+`$fetch`. `matchError` is imported from `@dphonys/nuxt-handler-errors/shared` -
+it is used on the server too.
 
 ### `$checkedFetch.try` - where a function can `return`
 
@@ -245,8 +248,6 @@ server-to-server call. This module suppresses nothing; what reaches your tracker
 is your one-line choice:
 
 ```ts
-import { recognizeKnownError } from '@dphonys/nuxt-handler-errors/server'
-
 // server/plugins/observability.ts
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('error', (error) => {

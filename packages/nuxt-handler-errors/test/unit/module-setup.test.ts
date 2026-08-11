@@ -120,6 +120,42 @@ describe('module setup wiring', () => {
     ])
   })
 
+  it('auto-imports the four server helpers into the Nitro build', () => {
+    // Read off the *resolved* Nitro options - `addServerImports` only queues
+    // onto `nitro:config`, so nothing is observable on `nuxt.options`.
+    const imports = nitro?.options.imports
+    const entries = (imports === false ? [] : (imports?.imports ?? [])).filter(
+      (entry) => /nuxt-handler-errors/.test(entry.from)
+    )
+
+    // `toEqual` over the whole filtered list, so a duplicate registration
+    // fails too.
+    expect(entries).toEqual([
+      {
+        name: 'defineCheckedEventHandler',
+        as: 'defineCheckedEventHandler',
+        from: expect.stringMatching(/\/runtime\/server\/lib\/errors$/),
+      },
+      {
+        name: 'defineError',
+        as: 'defineError',
+        from: expect.stringMatching(/\/runtime\/server\/lib\/errors$/),
+      },
+      {
+        name: 'payload',
+        as: 'payload',
+        from: expect.stringMatching(/\/runtime\/server\/lib\/errors$/),
+      },
+      {
+        name: 'recognizeKnownError',
+        as: 'recognizeKnownError',
+        from: expect.stringMatching(
+          /\/runtime\/server\/lib\/recognize-known-error$/
+        ),
+      },
+    ])
+  })
+
   it('registers the app $checkedFetch plugin, client-only', () => {
     // `mode: 'client'` is load-bearing - an all-modes app plugin writes the
     // same `globalThis` during SSR and masks the Nitro plugin's deletion.
