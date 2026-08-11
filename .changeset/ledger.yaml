@@ -6,3 +6,7 @@
   dir: packages/nuxt-handler-errors
   intents:
     - shaggy-steaks-stand
+'@dphonys/nuxt-handler-errors@0.3.0':
+  dir: packages/nuxt-handler-errors
+  intents:
+    - server-helpers-auto-import
