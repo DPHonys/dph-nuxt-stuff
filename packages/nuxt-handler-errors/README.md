@@ -24,7 +24,8 @@ declared, in the route.
 ## Declaring what a route can fail with
 
 ```ts
-// server/errors/users.ts - or anywhere; the values travel, no registry exists
+// server/errors/users.ts - or anywhere; the values travel, no registry exists.
+// Outside server/, import from '@dphonys/nuxt-handler-errors/server'.
 export const userErrors = defineError({
   'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
   'user-suspended': { status: 403, payload: payload<{ until: string }>() },
