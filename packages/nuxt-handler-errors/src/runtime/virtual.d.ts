@@ -3,7 +3,7 @@
 declare module '#nuxt-handler-errors/channel-token' {
   /**
    * The `channelToken` module option, normalised: `undefined` when the
-   * consumer opted out with `''`, the literal token otherwise.
+   * consumer opted out with `false`, the literal token otherwise.
    */
   export const configuredChannelToken: string | undefined
 }

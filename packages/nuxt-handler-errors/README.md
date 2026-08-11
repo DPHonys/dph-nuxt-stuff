@@ -229,7 +229,7 @@ presence.
 - **The token is build-time.** It is a module option, baked into both bundles
   at build - there is no env override and no runtime config; changing it is a
   rebuild.
-- Setting `channelToken: ''` turns gating off entirely: nothing is attached
+- Setting `channelToken: false` turns gating off entirely: nothing is attached
   and nothing is stripped.
 - **The thrown error always carries the marker** - only the serialized response
   is ever stripped, so observability sees known failures identically no matter

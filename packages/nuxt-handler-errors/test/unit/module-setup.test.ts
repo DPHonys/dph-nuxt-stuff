@@ -189,8 +189,8 @@ describe('module setup wiring', () => {
     expect(chain?.length).toBeGreaterThan(1)
   })
 
-  it('registers no stripper when the token is set to the empty opt-out', async () => {
-    // `''` turns gating off, and build-time absence is absence: a handler
+  it('registers no stripper when the token is set to the `false` opt-out', async () => {
+    // `false` turns gating off, and build-time absence is absence: a handler
     // that could only ever return immediately stays out of the chain, and the
     // template spells the constant as `undefined`.
     let optedOut: Nuxt | undefined
@@ -200,7 +200,7 @@ describe('module setup wiring', () => {
       optedOut = await loadNuxt({
         cwd: FIXTURE,
         ready: false,
-        overrides: { handlerErrors: { channelToken: '' } },
+        overrides: { handlerErrors: { channelToken: false } },
       })
 
       optedOut.hook('nitro:init', (instance) => {

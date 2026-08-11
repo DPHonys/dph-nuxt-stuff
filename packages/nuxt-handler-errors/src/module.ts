@@ -19,11 +19,12 @@ export interface ModuleOptions {
    * secret**: it ships in the client bundle by design and authorises nothing.
    *
    * Defaults to `'nuxt-handler-errors'`, so gating is on out of the box. Set
-   * your own value to name your app's channel, or `''` to turn gating off
-   * entirely. Build-time: the value is baked into both bundles, so changing
-   * it is a rebuild.
+   * your own value to name your app's channel, or `false` to turn gating off
+   * entirely. (`false`, not `null`: the options merge treats `null` as
+   * "unset" and would silently restore the default.) Build-time: the value
+   * is baked into both bundles, so changing it is a rebuild.
    */
-  channelToken: string
+  channelToken: string | false
 }
 
 const DEFAULT_CHANNEL_TOKEN = 'nuxt-handler-errors'
@@ -119,9 +120,12 @@ export default defineNuxtModule<ModuleOptions>({
       resolver.resolve('./runtime/server/plugins/event-checked-fetch')
     )
 
-    // `''` is the explicit opt-out and reads as "no token".
+    // `false` is the explicit opt-out. `''` collapses to the same: an empty
+    // header value could never round-trip, so it can only mean "no token".
     const channelToken =
-      options.channelToken === '' ? undefined : options.channelToken
+      options.channelToken === false || options.channelToken === ''
+        ? undefined
+        : options.channelToken
 
     // `write: true` is load-bearing: the Nitro build resolves the alias from
     // disk, not from Nuxt's virtual file system.
