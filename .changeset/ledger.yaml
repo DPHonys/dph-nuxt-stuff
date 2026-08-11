@@ -1,0 +1,4 @@
+'@dphonys/nuxt-handler-errors@0.1.0':
+  dir: packages/nuxt-handler-errors
+  intents:
+    - four-adults-trade
