@@ -2,3 +2,7 @@
   dir: packages/nuxt-handler-errors
   intents:
     - four-adults-trade
+'@dphonys/nuxt-handler-errors@0.2.0':
+  dir: packages/nuxt-handler-errors
+  intents:
+    - shaggy-steaks-stand
