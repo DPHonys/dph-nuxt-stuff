@@ -229,8 +229,10 @@ presence.
 - **The token is build-time.** It is a module option, baked into both bundles
   at build - there is no env override and no runtime config; changing it is a
   rebuild.
-- Setting `channelToken: ''` turns gating off entirely: nothing is attached
-  and nothing is stripped.
+- Setting `channelToken: false` turns gating off entirely: nothing is attached
+  and nothing is stripped. An empty string disables gating too, but warns at
+  build time - only `false` can mean it on purpose, and `''` is usually an
+  unset value that reached the config.
 - **The thrown error always carries the marker** - only the serialized response
   is ever stripped, so observability sees known failures identically no matter
   who called.

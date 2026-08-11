@@ -189,8 +189,8 @@ describe('module setup wiring', () => {
     expect(chain?.length).toBeGreaterThan(1)
   })
 
-  it('registers no stripper when the token is set to the empty opt-out', async () => {
-    // `''` turns gating off, and build-time absence is absence: a handler
+  it('registers no stripper when the token is set to the `false` opt-out', async () => {
+    // `false` turns gating off, and build-time absence is absence: a handler
     // that could only ever return immediately stays out of the chain, and the
     // template spells the constant as `undefined`.
     let optedOut: Nuxt | undefined
@@ -200,7 +200,7 @@ describe('module setup wiring', () => {
       optedOut = await loadNuxt({
         cwd: FIXTURE,
         ready: false,
-        overrides: { handlerErrors: { channelToken: '' } },
+        overrides: { handlerErrors: { channelToken: false } },
       })
 
       optedOut.hook('nitro:init', (instance) => {
@@ -227,6 +227,43 @@ describe('module setup wiring', () => {
       ).toBe('export const configuredChannelToken = undefined\n')
     } finally {
       await optedOut?.close()
+    }
+  }, 120_000)
+
+  it('warns when the token is an empty string, and still disables gating', async () => {
+    // `''` disables gating like `false` does, but only `false` can mean it on
+    // purpose: an empty string is how an unset env var interpolated into the
+    // config would silently ship without gating, so it warns.
+    let emptied: Nuxt | undefined
+    let emptiedNitro: Nitro | undefined
+
+    try {
+      const warnings = await warningsDuring(async () => {
+        emptied = await loadNuxt({
+          cwd: FIXTURE,
+          ready: false,
+          overrides: { handlerErrors: { channelToken: '' } },
+        })
+
+        emptied.hook('nitro:init', (instance) => {
+          emptiedNitro = instance
+        })
+
+        await emptied.ready()
+      })
+
+      expect(
+        warnings.filter((entry) => /channelToken.*empty string/.test(entry))
+      ).toHaveLength(1)
+
+      const chain = emptiedNitro?.options.errorHandler
+      const entries = Array.isArray(chain) ? chain : [chain ?? '']
+
+      expect(
+        entries.filter((entry) => /channel-strip/.test(String(entry)))
+      ).toEqual([])
+    } finally {
+      await emptied?.close()
     }
   }, 120_000)
 
