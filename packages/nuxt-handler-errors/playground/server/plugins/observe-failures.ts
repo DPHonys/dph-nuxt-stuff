@@ -1,4 +1,4 @@
-import { recognizeKnownError } from '@dphonys/nuxt-handler-errors/server'
+// `recognizeKnownError` arrives by auto-import, like `defineNitroPlugin` below.
 import { observedFailures } from '~~/server/utils/observed-failures'
 
 /**

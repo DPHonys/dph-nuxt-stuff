@@ -1,4 +1,4 @@
-import { defineCheckedEventHandler } from '@dphonys/nuxt-handler-errors/server'
+// `defineCheckedEventHandler` arrives by auto-import, like `defineEventHandler`.
 import { chainErrors } from '~~/server/errors/chain'
 
 export default defineCheckedEventHandler(

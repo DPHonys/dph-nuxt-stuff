@@ -1,6 +1,7 @@
 import {
   addImports,
   addPlugin,
+  addServerImports,
   addServerPlugin,
   addTemplate,
   addTypeTemplate,
@@ -82,6 +83,20 @@ export default defineNuxtModule<ModuleOptions>({
       { name: 'useCheckedAsyncData', from: asyncDataComposables },
       { name: 'useLazyCheckedAsyncData', from: asyncDataComposables },
       { name: 'useRequestCheckedFetch', from: requestComposable },
+    ])
+
+    // Same ambient position as `defineEventHandler`. `defineError` is the one
+    // generic enough to collide, and today nothing in h3, Nitro, or Nuxt
+    // claims it - the closest is `defineNitroErrorHandler`, a config helper.
+    const errorHelpers = resolver.resolve('./runtime/server/lib/errors')
+    addServerImports([
+      { name: 'defineCheckedEventHandler', from: errorHelpers },
+      { name: 'defineError', from: errorHelpers },
+      { name: 'payload', from: errorHelpers },
+      {
+        name: 'recognizeKnownError',
+        from: resolver.resolve('./runtime/server/lib/recognize-known-error'),
+      },
     ])
 
     // `matchError` is deliberately not auto-imported: its callers include a
