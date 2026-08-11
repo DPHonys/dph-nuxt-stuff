@@ -120,8 +120,18 @@ export default defineNuxtModule<ModuleOptions>({
       resolver.resolve('./runtime/server/plugins/event-checked-fetch')
     )
 
-    // `false` is the explicit opt-out. `''` collapses to the same: an empty
-    // header value could never round-trip, so it can only mean "no token".
+    // `false` is the explicit opt-out. `''` collapses to the same - an empty
+    // header value could never round-trip - but only `false` can mean it on
+    // purpose, so an empty string additionally warns: it is how an unset env
+    // var interpolated into the config would silently ship without gating.
+    if (options.channelToken === '') {
+      logger.warn(
+        '[nuxt-handler-errors] `channelToken` is an empty string, so channel ' +
+          'gating is disabled. If that is intended, set `channelToken: false`; ' +
+          'an empty string usually means an unset value reached the config.'
+      )
+    }
+
     const channelToken =
       options.channelToken === false || options.channelToken === ''
         ? undefined

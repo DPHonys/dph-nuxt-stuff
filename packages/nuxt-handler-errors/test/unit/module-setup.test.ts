@@ -230,6 +230,43 @@ describe('module setup wiring', () => {
     }
   }, 120_000)
 
+  it('warns when the token is an empty string, and still disables gating', async () => {
+    // `''` disables gating like `false` does, but only `false` can mean it on
+    // purpose: an empty string is how an unset env var interpolated into the
+    // config would silently ship without gating, so it warns.
+    let emptied: Nuxt | undefined
+    let emptiedNitro: Nitro | undefined
+
+    try {
+      const warnings = await warningsDuring(async () => {
+        emptied = await loadNuxt({
+          cwd: FIXTURE,
+          ready: false,
+          overrides: { handlerErrors: { channelToken: '' } },
+        })
+
+        emptied.hook('nitro:init', (instance) => {
+          emptiedNitro = instance
+        })
+
+        await emptied.ready()
+      })
+
+      expect(
+        warnings.filter((entry) => /channelToken.*empty string/.test(entry))
+      ).toHaveLength(1)
+
+      const chain = emptiedNitro?.options.errorHandler
+      const entries = Array.isArray(chain) ? chain : [chain ?? '']
+
+      expect(
+        entries.filter((entry) => /channel-strip/.test(String(entry)))
+      ).toEqual([])
+    } finally {
+      await emptied?.close()
+    }
+  }, 120_000)
+
   it('hoists the emitted specifier onto the generated tsconfigs', () => {
     expect(nuxt.options.typescript.hoist).toContain(
       '@dphonys/nuxt-handler-errors/types'
