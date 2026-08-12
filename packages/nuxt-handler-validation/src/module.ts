@@ -32,7 +32,8 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {},
   setup() {
-    // The module's whole job is auto-import wiring, and there is nothing to
-    // wire until the runtime exports exist.
+    // The module's whole job is auto-import wiring: one `addServerImports`
+    // call registering everything `/server` exports, added once all three
+    // exports are in. Until then the explicit import door is the only one.
   },
 })
