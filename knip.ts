@@ -23,6 +23,15 @@ const nuxtModuleWorkspace = {
   ignoreDependencies: ['@nuxt/devtools', '@nuxt/schema'],
 } satisfies WorkspaceProjectConfig
 
+/**
+ * A package's playground, described once for the same reason. Playgrounds are
+ * their own workspace, so the package-level exclusion above does not reach
+ * their generated `.nuxt` tree.
+ */
+const playgroundWorkspace = {
+  project: ['**/*.{ts,vue}', '!.nuxt/**'],
+} satisfies WorkspaceProjectConfig
+
 export default {
   ignore: ['templates/**', 'scaffolder/tests/fixtures/**'],
   ignoreExportsUsedInFile: true,
@@ -38,11 +47,7 @@ export default {
   workspaces: {
     'packages/*': nuxtModuleWorkspace,
 
-    // Playgrounds are their own workspace, so the package-level exclusion
-    // above does not reach their generated `.nuxt` tree.
-    'packages/*/playground': {
-      project: ['**/*.{ts,vue}', '!.nuxt/**'],
-    },
+    'packages/*/playground': playgroundWorkspace,
 
     'packages/nuxt-handler-errors': {
       ...nuxtModuleWorkspace,
@@ -62,6 +67,16 @@ export default {
         // `.nuxt/**/*.d.ts` as entries.
         '!test/fixtures/**/.nuxt/**',
       ],
+    },
+
+    'packages/nuxt-handler-validation/playground': {
+      ...playgroundWorkspace,
+
+      // Compiler-asserted, never imported: `vue-tsc --project
+      // playground/tsconfig.json` is what runs it. It has to live in an app
+      // because the config typing it asserts only exists in a generated
+      // `.nuxt`.
+      entry: ['module-options.check.ts'],
     },
   },
 } satisfies KnipConfig

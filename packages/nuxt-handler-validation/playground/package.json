@@ -1,0 +1,12 @@
+{
+  "name": "@dphonys/nuxt-handler-validation-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build"
+  },
+  "dependencies": {
+    "@dphonys/nuxt-handler-validation": "workspace:*",
+    "nuxt": "catalog:"
+  }
+}
