@@ -19,9 +19,9 @@ import type {
  * existed.
  *
  * The context type is source-agnostic - one mapped type over whatever the
- * declaration names - so the assertions exercise all four sources even while
- * only `query` is read at runtime; the reads for the rest land with their own
- * request-level tests.
+ * declaration names - so the assertions here exercise all four sources without
+ * caring how any of them is read; what each source is handed at runtime is
+ * asserted at the request seam instead.
  *
  * The suite at the bottom only keeps the file in vitest's inventory.
  */
