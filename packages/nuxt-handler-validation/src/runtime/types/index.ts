@@ -8,6 +8,8 @@
  * included.
  */
 
+export type { ValidationFragment, ValidationGroup } from './composition'
+
 export type {
   ValidateSchemas,
   ValidatedContext,

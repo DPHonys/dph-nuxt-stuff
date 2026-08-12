@@ -189,10 +189,13 @@ defineValidatedEventHandler(
  * an arity error rather than a silent collapse of the success type to `any`.
  */
 export function responseTypeArgumentIsAnArityError(): void {
-  // @ts-expect-error - expected 2-3 type arguments, but got 1
+  // @ts-expect-error - expected 2-3 type arguments, but got 1. The handler
+  // takes no destructured parameter: a rejected call is still checked against
+  // the first overload, so reading a source here would report a second,
+  // confusing error about the composed context instead.
   defineValidatedEventHandler<{ query: typeof pageQuery }>(
     { query: pageQuery },
-    (event, { query }) => query.page
+    () => 'x'
   )
 }
 

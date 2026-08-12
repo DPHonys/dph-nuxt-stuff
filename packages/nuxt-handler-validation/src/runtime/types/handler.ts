@@ -4,6 +4,12 @@ import type {
   EventHandlerResponse,
   H3Event,
 } from 'h3'
+import type {
+  MergedContext,
+  MergedSchemaMap,
+  ValidationFragment,
+  ValidationGroup,
+} from './composition'
 import type { ValidateSchemas, ValidatedContext } from './schemas'
 import type { IsAny } from './utils'
 
@@ -47,15 +53,27 @@ export type SchemasOfHandler<T> =
       : never
 
 /**
- * The wrapper's flat form: a schema per source, and the validated values in
- * the handler's second parameter. The array form composing reusable sets lands
- * beside it as a second overload.
+ * The wrapper's two forms: an array of composed fragments, and the flat schema
+ * object a route declaring its own schemas writes inline.
+ *
+ * The array overload is declared first. That is legible rather than
+ * load-bearing - `ValidateSchemas` is a weak type, so a group shares no
+ * property with it and can never match the flat overload wherever it sits -
+ * but the intent is worth showing in the order.
  */
 // `Response` has no default type parameter on purpose (the sibling's rule, and
 // stated here on the *define* signature rather than on the handler type): an
 // explicit type argument becomes an arity error instead of silently collapsing
 // the success type to `any`.
 export interface DefineValidatedEventHandler {
+  <
+    const F extends readonly ValidationFragment[],
+    Response extends EventHandlerResponse,
+    Request extends EventHandlerRequest = EventHandlerRequest,
+  >(
+    options: F,
+    handler: (event: H3Event<Request>, validated: MergedContext<F>) => Response
+  ): ValidatedEventHandler<Request, Response, MergedSchemaMap<F>>
   <
     S extends ValidateSchemas,
     Response extends EventHandlerResponse,
@@ -67,4 +85,13 @@ export interface DefineValidatedEventHandler {
       validated: ValidatedContext<S>
     ) => Response
   ): ValidatedEventHandler<Request, Response, S>
+}
+
+/**
+ * The definer for a reusable schema set. `const` is what keeps each schema's
+ * exact type - and so each source's exact output - reaching every route that
+ * spreads the group.
+ */
+export interface DefineValidation {
+  <const S extends ValidateSchemas>(schemas: S): ValidationGroup<S>
 }

@@ -7,4 +7,7 @@
  * rather than by convention.
  */
 
-export { defineValidatedEventHandler } from './lib/validated-handler'
+export {
+  defineValidatedEventHandler,
+  defineValidation,
+} from './lib/validated-handler'
