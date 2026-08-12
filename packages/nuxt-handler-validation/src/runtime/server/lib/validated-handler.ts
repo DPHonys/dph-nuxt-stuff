@@ -24,15 +24,22 @@ import { SOURCE_WALK } from './sources'
  *
  * The sources validate **in a guaranteed order**, and that order is a promise:
  * `routerParams -> query -> headers -> body`. Validation is **fail-fast across
- * sources** - the first source whose schema rejects answers `400` with the
- * package's one fixed shape and no later source is even read, so a bad route
- * param never costs a body parse. Issues *within* one source still arrive
- * together, which is why every issue in one answer names the same source. There
- * is no aggregate mode.
+ * sources** - the first source that fails answers `400` with the package's one
+ * fixed shape and no later source is even read, so a bad route param never
+ * costs a body parse. Issues *within* one source still arrive together, which
+ * is why every issue in one answer names the same source. There is no aggregate
+ * mode.
+ *
+ * A body the request itself made unreadable fails the same way: a body read
+ * that throws a `4xx` becomes exactly one `body` issue in that same shape, so
+ * an unparseable payload is not a special case a client must detect
+ * differently. A method that cannot carry a body validates `undefined`.
  *
  * Each source is handed to its schema exactly as h3 yields it - decoded route
- * params, `string | string[]` query values, lowercase header keys - so every
- * coercion belongs in the schema.
+ * params, `string | string[]` query values, lowercase header keys, h3's own
+ * body parse - so every coercion belongs in the schema. The validated values
+ * arrive in the second parameter, and that is the door to them: reading the
+ * body again with `readBody` yields h3's memoized *unvalidated* parse.
  */
 // Annotated AND cast - the sibling's `defineError` idiom, for a definer whose
 // body cannot be checked against its declared type. Here the mismatch is the
