@@ -72,6 +72,11 @@ export default {
     'packages/nuxt-handler-validation': {
       ...nuxtModuleWorkspace,
 
+      // The inherited `@nuxt/schema` exemption would suppress nothing in this
+      // package - the module-setup suite imports its types - and an idle
+      // ignore fails the run via the hint promotion above.
+      ignoreDependencies: ['@nuxt/devtools'],
+
       entry: [
         ...nuxtModuleWorkspace.entry,
 
@@ -80,6 +85,14 @@ export default {
         // reached by path, never by import, and the package tsconfig excludes
         // them for the same reason.
         'test/types/fixtures/**/*.ts',
+
+        // Fixture app booted by `loadNuxt`, reached by `cwd` path, never by
+        // import. Package-scoped because the scaffold creates no
+        // `test/fixtures/`.
+        'test/fixtures/**/*.{ts,vue}',
+        // The fixture glob above would otherwise match the app's generated
+        // `.nuxt/**/*.d.ts` as entries.
+        '!test/fixtures/**/.nuxt/**',
       ],
     },
 

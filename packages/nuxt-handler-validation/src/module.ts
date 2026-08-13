@@ -1,4 +1,4 @@
-import { defineNuxtModule } from '@nuxt/kit'
+import { addServerImports, createResolver, defineNuxtModule } from '@nuxt/kit'
 
 /**
  * The module has **zero options**: nothing about a route's validation is
@@ -32,8 +32,30 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {},
   setup() {
-    // The module's whole job is auto-import wiring: one `addServerImports`
-    // call registering everything `/server` exports, added once all three
-    // exports are in. Until then the explicit import door is the only one.
+    // The module's whole job. Everything `/server` exports lands in the same
+    // ambient position as `defineEventHandler`, and nowhere else: all three
+    // read an h3 event, or an error raised while handling one.
+    //
+    // Named explicitly rather than through `addServerImportsDir`, mirroring the
+    // sibling: a directory scan would auto-import whatever the runtime tree
+    // happens to export, so adding an internal helper would silently widen a
+    // consumer's ambient surface. Auto-imports are not the only door - the
+    // `/server` subpath is the explicit one, for Nitro plugins and tasks,
+    // tests, non-Nuxt Nitro consumers, and apps that disable auto-imports.
+    const resolver = createResolver(import.meta.url)
+    const validatedHandler = resolver.resolve(
+      './runtime/server/lib/validated-handler'
+    )
+
+    addServerImports([
+      { name: 'defineValidatedEventHandler', from: validatedHandler },
+      { name: 'defineValidation', from: validatedHandler },
+      {
+        name: 'recognizeValidationError',
+        from: resolver.resolve(
+          './runtime/server/lib/recognize-validation-error'
+        ),
+      },
+    ])
   },
 })
