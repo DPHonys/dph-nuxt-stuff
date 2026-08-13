@@ -1,6 +1,11 @@
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { compileFixture } from './compile-harness'
+import {
+  compileFixture,
+  fixturePath,
+  FIXTURE_TSCONFIG,
+  PROPERTY_DOES_NOT_EXIST,
+  saying,
+} from './compile-harness'
 
 /**
  * What an author actually reads when they consume a poisoned source.
@@ -10,16 +15,11 @@ import { compileFixture } from './compile-harness'
  * which is the entire reason the poison is a named type rather than `never`.
  */
 
-const resolve = (relative: string): string =>
-  fileURLToPath(new URL(relative, import.meta.url))
-
+// TS2339, "property does not exist on type X", is a poison's failure mode.
 const diagnostics = compileFixture(
-  resolve('./tsconfig.fixtures.json'),
-  resolve('./fixtures/poisoned-sources.ts')
+  FIXTURE_TSCONFIG,
+  fixturePath('poisoned-sources.ts')
 )
-
-/** TypeScript's "property does not exist on type X" - a poison's failure mode. */
-const PROPERTY_DOES_NOT_EXIST = 2339
 
 describe('consuming a poisoned source', () => {
   it.each([
@@ -31,9 +31,7 @@ describe('consuming a poisoned source', () => {
       'two unnamed sets contribute the same output key to one source — name one of them',
     ],
   ])('prints “%s”', (sentence) => {
-    const printed = diagnostics.filter((diagnostic) =>
-      diagnostic.message.includes(sentence)
-    )
+    const printed = saying(diagnostics, sentence)
 
     // Named in the diagnostic, and named as the *type the access failed on* -
     // so an author reading it learns what they did rather than that something

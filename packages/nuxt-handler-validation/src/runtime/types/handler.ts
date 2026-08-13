@@ -11,6 +11,7 @@ import type {
   ValidationFragment,
   ValidationGroup,
 } from './composition'
+import type { NotAGroup, OnlyValidationSources } from './guard'
 import type { ValidateSchemas, ValidatedContext } from './schemas'
 import type { IsAny } from './utils'
 
@@ -61,6 +62,10 @@ export type SchemasOfHandler<T> =
  * load-bearing - `ValidateSchemas` is a weak type, so a group shares no
  * property with it and can never match the flat overload wherever it sits -
  * but the intent is worth showing in the order.
+ *
+ * Both parameters carry the source-key guard, in the two shapes `guard.ts`
+ * gives its reasons for: mapped over the fragments on the array overload,
+ * intersected with `NotAGroup` on the flat one.
  */
 // `Response` has no default type parameter on purpose (the sibling's rule, and
 // stated here on the *define* signature rather than on the handler type): an
@@ -72,7 +77,7 @@ export interface DefineValidatedEventHandler {
     Response extends EventHandlerResponse,
     Request extends EventHandlerRequest = EventHandlerRequest,
   >(
-    options: F,
+    options: { [I in keyof F]: F[I] & OnlyValidationSources<F[I]> },
     handler: (event: H3Event<Request>, validated: MergedContext<F>) => Response
   ): ValidatedEventHandler<Request, Response, MergedSchemaMap<F>>
   <
@@ -80,7 +85,7 @@ export interface DefineValidatedEventHandler {
     Response extends EventHandlerResponse,
     Request extends EventHandlerRequest = EventHandlerRequest,
   >(
-    options: S,
+    options: S & OnlyValidationSources<S> & NotAGroup,
     handler: (
       event: H3Event<Request>,
       validated: ValidatedContext<S>
@@ -96,11 +101,18 @@ export interface DefineValidatedEventHandler {
  * `const` is what keeps each schema's exact type - and so each source's exact
  * output - reaching every route that spreads the group. On the name it is what
  * keeps the literal, without which every set would namespace under `string`.
+ *
+ * Both arities carry the source-key guard, and this is the best place to meet
+ * it: arity overloads have nothing to collapse, so a stray key reports at the
+ * offending property, once, in the file that declares the set - rather than at
+ * every route that spreads it.
  */
 export interface DefineValidation {
-  <const S extends ValidateSchemas>(schemas: S): ValidationGroup<S>
+  <const S extends ValidateSchemas>(
+    schemas: S & OnlyValidationSources<S>
+  ): ValidationGroup<S>
   <const Name extends string, const S extends ValidateSchemas>(
     name: Name,
-    schemas: S
+    schemas: S & OnlyValidationSources<S>
   ): ValidationGroup<NameMarker<Name> & S>
 }
