@@ -75,6 +75,7 @@
     "@nuxt/devtools": "catalog:",
     "@nuxt/module-builder": "catalog:",
     "@nuxt/schema": "catalog:",
+    "@nuxt/test-utils": "catalog:",
     "@types/node": "catalog:",
     "nuxt": "catalog:",
     "publint": "catalog:",
