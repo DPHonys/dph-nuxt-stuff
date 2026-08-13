@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+
+  // The options the diagnostic fixtures compile under. This config is never
+  // built as a project: `compile-harness.ts` reads it and hands `createProgram`
+  // the one fixture it is asked for, so the base's `exclude` never applies.
+  //
+  // It EXTENDS the repo base rather than restating it, and that is the point: a
+  // diagnostic read under looser settings than a consumer's is not the
+  // diagnostic a consumer sees, and a copy would drift the first time the base
+  // changed. The package's own tsconfig also extends `./.nuxt/tsconfig.json`,
+  // which is deliberately not carried here - it contributes Nuxt's generated
+  // globals and path aliases, and a fixture that imports the package by
+  // relative path uses none of them.
+  "extends": "../../../../tsconfig.json",
+
+  "compilerOptions": {
+    "noEmit": true
+  }
+}

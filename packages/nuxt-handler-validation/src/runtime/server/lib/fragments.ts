@@ -1,59 +1,29 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { createError } from 'h3'
-import type { ValidationFragment } from '../../types/composition'
-import type { ValidateSchemas, ValidationSource } from '../../types/schemas'
+import type { ValidationSource } from '../../types/schemas'
+import type { SourceDeclaration } from './declaration'
 import { raiseValidationError } from './issues'
 
-/** One fragment's schema for one source, with the fragment's own position. */
-interface SourceDeclaration {
-  readonly index: number
-  readonly schema: StandardSchemaV1
-}
+/**
+ * What can only happen once a request exists: running a source's schemas and
+ * merging what they produced. Its counterpart is `declaration.ts`, which
+ * settles everything that does not need a request at all.
+ */
 
 /** One fragment's validated output for one source, and where it came from. */
 interface SourceOutput {
   readonly index: number
+  readonly name: string | undefined
   readonly value: unknown
 }
 
-// Its own predicate rather than a bare `Array.isArray` call: `isArray` narrows
-// to the mutable `any[]`, which leaves a `readonly` array in the other branch
-// of this union and nothing narrowed at all.
-function isComposed(
-  options: ValidateSchemas | readonly ValidationFragment[]
-): options is readonly ValidationFragment[] {
-  return Array.isArray(options)
+/** The same, once it is known to have come from a named set. */
+interface NamedOutput extends SourceOutput {
+  readonly name: string
 }
 
-/**
- * The declaration as a list of fragments, whichever form it arrived in: the
- * flat object is the one-fragment case of the composed array, so everything
- * downstream has a single shape to walk.
- */
-export function fragmentsOf(
-  options: ValidateSchemas | readonly ValidationFragment[]
-): readonly ValidationFragment[] {
-  return isComposed(options) ? options : [options]
-}
-
-/**
- * Which fragments declare a source, in array order, each remembering where it
- * sat - the index is what lets a merge failure name the fragment that produced
- * the offending value.
- */
-export function declarationsFor(
-  fragments: readonly ValidationFragment[],
-  source: ValidationSource
-): SourceDeclaration[] {
-  const declarations: SourceDeclaration[] = []
-
-  for (const [index, fragment] of fragments.entries()) {
-    const schema = fragment[source]
-
-    if (schema !== undefined) declarations.push({ index, schema })
-  }
-
-  return declarations
+function isNamed(output: SourceOutput): output is NamedOutput {
+  return output.name !== undefined
 }
 
 /**
@@ -74,13 +44,13 @@ export async function validatedValueFor(
   const issues: StandardSchemaV1.Issue[] = []
   const outputs: SourceOutput[] = []
 
-  for (const { index, schema } of declarations) {
+  for (const { index, name, schema } of declarations) {
     const result = await schema['~standard'].validate(raw)
 
     // Discriminated on `issues`, never on `'value' in result`: a successful
     // result whose output is `undefined` may carry no `value` key at all.
     if (result.issues === undefined) {
-      outputs.push({ index, value: result.value })
+      outputs.push({ index, name, value: result.value })
     } else {
       issues.push(...result.issues)
     }
@@ -92,28 +62,45 @@ export async function validatedValueFor(
 }
 
 /**
- * The source's contributions as one value: a lone output passes through
- * untouched - a primitive included, since there is nothing to merge it into -
- * and several shallow-merge in array order, so a key two fragments produce is
- * **later-wins**.
+ * The source's contributions as one value, in **two phases**: the unnamed
+ * outputs shallow-merge in array order, and only then are the named ones
+ * assigned under their set names.
  *
- * Later-wins rather than the sibling's first-wins, deliberately: it matches
- * spread intuition and `Object.assign`, and nothing is lost by it either way,
- * because every fragment has already run.
+ * The order is the rule. Merging unnamed first makes a set name meeting an
+ * unnamed output key **named-wins**, deterministically and wherever the named
+ * set sits in the array - so a route's shape does not depend on the order sets
+ * were spread in. Among the unnamed outputs themselves, a key two of them
+ * produce is **later-wins**: spread intuition and `Object.assign`, and nothing
+ * is lost either way, because every fragment has already run.
+ *
+ * A lone unnamed output with no named layer to carry passes through untouched,
+ * a primitive included - there is nothing to merge it into. A named output
+ * needs no merge legality at all, whatever its shape: it is assigned under its
+ * own key rather than spread into anything.
  */
 function mergeOutputs(
   source: ValidationSource,
   outputs: readonly SourceOutput[]
 ): unknown {
-  if (outputs.length === 1) return outputs[0]?.value
+  const named: NamedOutput[] = []
+  const unnamed: SourceOutput[] = []
+
+  for (const output of outputs) {
+    if (isNamed(output)) named.push(output)
+    else unnamed.push(output)
+  }
+
+  if (named.length === 0 && unnamed.length === 1) return unnamed[0]?.value
 
   const merged: Record<string, unknown> = {}
 
-  for (const { index, value } of outputs) {
+  for (const { index, value } of unnamed) {
     if (!isPlainObject(value)) raiseUnmergeableOutput(source, index, value)
 
     Object.assign(merged, value)
   }
+
+  for (const { name, value } of named) merged[name] = value
 
   return merged
 }

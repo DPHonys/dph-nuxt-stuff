@@ -7,6 +7,7 @@ import type {
 import type {
   MergedContext,
   MergedSchemaMap,
+  NameMarker,
   ValidationFragment,
   ValidationGroup,
 } from './composition'
@@ -88,10 +89,18 @@ export interface DefineValidatedEventHandler {
 }
 
 /**
- * The definer for a reusable schema set. `const` is what keeps each schema's
- * exact type - and so each source's exact output - reaching every route that
- * spreads the group.
+ * The definer for a reusable schema set, in its two arities: unnamed, whose
+ * outputs stay flat in each source, and named, whose outputs nest under the
+ * name in **every** source the set declares.
+ *
+ * `const` is what keeps each schema's exact type - and so each source's exact
+ * output - reaching every route that spreads the group. On the name it is what
+ * keeps the literal, without which every set would namespace under `string`.
  */
 export interface DefineValidation {
   <const S extends ValidateSchemas>(schemas: S): ValidationGroup<S>
+  <const Name extends string, const S extends ValidateSchemas>(
+    name: Name,
+    schemas: S
+  ): ValidationGroup<NameMarker<Name> & S>
 }

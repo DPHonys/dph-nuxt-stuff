@@ -4,7 +4,7 @@ import type { ValidationSource } from '../../types/schemas'
 import { raiseValidationError } from './issues'
 
 /** How one source is taken off the event. */
-type SourceReader = (event: H3Event) => unknown
+export type SourceReader = (event: H3Event) => unknown
 
 /**
  * Exactly h3 v1's `PayloadMethods` - the set `readRawBody` asserts against.

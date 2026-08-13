@@ -1,13 +1,17 @@
 import type { H3Event } from 'h3'
 import { defineEventHandler } from 'h3'
-import type { ValidationFragment } from '../../types/composition'
+import { VALIDATION_NAME } from '../../shared/name'
+import type {
+  ValidationFragment,
+  ValidationGroup,
+} from '../../types/composition'
 import type {
   DefineValidation,
   DefineValidatedEventHandler,
 } from '../../types/handler'
 import type { ValidateSchemas } from '../../types/schemas'
-import { declarationsFor, fragmentsOf, validatedValueFor } from './fragments'
-import { SOURCE_WALK } from './sources'
+import { declarationPlan } from './declaration'
+import { validatedValueFor } from './fragments'
 
 /**
  * Declare a reusable set of schemas once, and spread it into every route that
@@ -30,11 +34,37 @@ import { SOURCE_WALK } from './sources'
  * and not objects to merge. A single group needs no spread at all:
  * `defineValidatedEventHandler(pagination, ...)`.
  *
+ * Give the set a **name** and its outputs nest under that name, in every source
+ * it declares:
+ *
+ * ```ts
+ * export const pagination = defineValidation('pagination', {
+ *   query: z.object({ page: z.coerce.number() }),
+ * })
+ *
+ * // → query.pagination.page
+ * ```
+ *
+ * The nesting is uniform - alone or composed, collision or not - so adding a
+ * set to a route never reshapes the values already there, and
+ * `query.pagination` is *exactly* that set's schema output, passable whole to a
+ * helper typed off the same schema. Namespacing touches outputs only: every
+ * schema still parses the whole raw source, so the name never reaches the wire
+ * and never appears in a failing issue's `path`.
+ *
  * Inline literals are fine as fragments; anything exported and reused is worth
  * defining here, because this is where a misspelled source key reports - once,
  * in the file that is wrong, rather than at every consuming route.
  */
-export const defineValidation: DefineValidation = (schemas) => [schemas]
+// Annotated AND cast, the sibling's `defineError` idiom: an arity-overloaded
+// signature has no single implementation shape to check a body against.
+export const defineValidation: DefineValidation = ((
+  nameOrSchemas: string | ValidateSchemas,
+  namedSchemas?: ValidateSchemas
+): ValidationGroup<ValidationFragment> =>
+  typeof nameOrSchemas === 'string'
+    ? [{ ...namedSchemas, [VALIDATION_NAME]: nameOrSchemas }]
+    : [nameOrSchemas]) as DefineValidation
 
 /**
  * Declare what a handler validates, and receive the validated values - already
@@ -100,26 +130,21 @@ export const defineValidatedEventHandler: DefineValidatedEventHandler = ((
   options: ValidateSchemas | readonly ValidationFragment[],
   handler: (event: H3Event, validated: Record<string, unknown>) => unknown
 ) => {
-  // Resolved once, at declaration: the form the caller wrote is not a
-  // per-request question, and a route serving thousands of requests should
-  // answer it none of those times.
-  const fragments = fragmentsOf(options)
+  // Resolved once, when the route file is evaluated: which form the caller
+  // wrote, which sources it declared and what validates each of them are not
+  // per-request questions, and a route serving thousands of requests should
+  // answer them none of those times. A malformed declaration throws here -
+  // at startup, before any request is served.
+  const plan = declarationPlan(options)
 
   return defineEventHandler(async (event) => {
     const validated: Record<string, unknown> = {}
 
     // Fail-fast is what the `raise` inside this loop *is*: it leaves the walk
-    // before any later source is read.
-    for (const [source, read] of SOURCE_WALK) {
-      const declarations = declarationsFor(fragments, source)
-
-      // An undeclared source is not read at all: reading it would be work the
-      // handler never asked for, and `undefined` in the second parameter is
-      // exactly what the types say is absent. The read stays here, outside the
-      // fragments, because a source is read **once** per request however many
-      // fragments declare it.
-      if (declarations.length === 0) continue
-
+    // before any later source is read. An undeclared source is absent from the
+    // plan, so it is never read - and a declared one is read **once**, outside
+    // the fragments, however many of them declare it.
+    for (const { source, read, declarations } of plan) {
       validated[source] = await validatedValueFor(
         source,
         declarations,
