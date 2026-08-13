@@ -1,5 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { createError } from 'h3'
+import { markValidationError } from '../../shared/error-marker'
 import type { ValidationSource } from '../../types/schemas'
 import type { ValidationErrorData, ValidationIssue } from '../../types/wire'
 
@@ -43,6 +44,11 @@ function projectPath(
  * source's issues all arrive together, so `issues` is everything that source's
  * schemas had to say. The `source` tag is still stamped per issue, which is
  * what keeps the array h3 v2-compatible.
+ *
+ * This is the **only** raise in the package that marks its error, and that is
+ * the whole rule: what reaches here is a client's bad input, so an
+ * observability hook may skip it. Everything else this package throws is a
+ * developer mistake and must keep reporting.
  */
 export function raiseValidationError(
   source: ValidationSource,
@@ -52,10 +58,17 @@ export function raiseValidationError(
 
   // The message is a human summary only. Nothing may parse it - the wire
   // contract is the status, the reason phrase and `data.issues`.
-  throw createError({
+  const error = createError({
     statusCode: 400,
     statusMessage: 'Validation Error',
     message: `Validation failed for ${source}`,
     data,
   })
+
+  // `createError` is what makes the carrier an H3Error, which is what makes the
+  // marker survive the path to the `error` hook - so the mark goes on its
+  // product, never on a value thrown bare.
+  markValidationError(error, data.issues)
+
+  throw error
 }

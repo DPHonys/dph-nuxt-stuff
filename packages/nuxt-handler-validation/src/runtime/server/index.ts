@@ -7,6 +7,8 @@
  * rather than by convention.
  */
 
+export { recognizeValidationError } from './lib/recognize-validation-error'
+
 export {
   defineValidatedEventHandler,
   defineValidation,

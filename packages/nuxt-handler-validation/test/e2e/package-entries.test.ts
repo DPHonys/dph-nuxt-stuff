@@ -71,9 +71,9 @@ describe('the published entries', () => {
     const probe = `${PLAYGROUND}/__entry-resolution.probe.ts`
     const source = [
       `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
-      `import type { ValidateSchemas, ValidatedEventHandler, ValidationErrorData, ValidationFragment, ValidationGroup } from '${TYPES_ENTRY}'`,
-      `import { defineValidatedEventHandler, defineValidation } from '${SERVER_ENTRY}'`,
-      `export type Probe = [ModuleOptions, ValidateSchemas, ValidatedEventHandler, ValidationErrorData, ValidationFragment, ValidationGroup<ValidationFragment>, typeof defineValidatedEventHandler, typeof defineValidation]`,
+      `import type { ValidateSchemas, ValidatedEventHandler, ValidationErrorData, ValidationFragment, ValidationGroup, ValidationIssue } from '${TYPES_ENTRY}'`,
+      `import { defineValidatedEventHandler, defineValidation, recognizeValidationError } from '${SERVER_ENTRY}'`,
+      `export type Probe = [ModuleOptions, ValidateSchemas, ValidatedEventHandler, ValidationErrorData, ValidationFragment, ValidationGroup<ValidationFragment>, ValidationIssue, typeof defineValidatedEventHandler, typeof defineValidation, typeof recognizeValidationError]`,
     ].join('\n')
 
     const options: ts.CompilerOptions = {
