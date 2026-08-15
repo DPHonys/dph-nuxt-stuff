@@ -44,6 +44,25 @@ function schemaOutputting<Output>(
   }
 }
 
+/**
+ * A schema whose result is neither branch of the interface: no `value`, and an
+ * `issues` array with nothing in it.
+ *
+ * The Standard Schema types permit it - a failure result is only
+ * `{ issues: ReadonlyArray<Issue> }` - so any hand-written schema can produce
+ * one, and no library in the tree does. It names no output to merge and no
+ * reason to send a client.
+ */
+function schemaReportingNothing<Output>(): StandardSchemaV1<unknown, Output> {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'test',
+      validate: () => ({ issues: [] }),
+    },
+  }
+}
+
 /** A query both units above reject: a bad `page`, a missing `size`, a bad `sort`. */
 const SPOILED = '/api/test?page=x&sort=sideways'
 
@@ -280,6 +299,85 @@ describe('an element output the merge cannot take', () => {
 
     expect(status).toBe(500)
     expect((error as Error).message).toContain('an instance of Date')
+  })
+})
+
+describe('an element that reports neither an output nor an issue', () => {
+  /** The offending element, composed beside one that behaves. */
+  const handler = defineValidatedEventHandler(
+    {
+      validate: {
+        query: [
+          schemaOutputting<{ page: number }>(() => ({ page: 1 })),
+          schemaReportingNothing<{ tag: string }>(),
+        ],
+      },
+    },
+    (event, { query }) => ({ ...query })
+  )
+
+  it('is a 500 naming the source and the element position', async () => {
+    const { status, error } = await errorFrom(handler)
+
+    // The failure this replaces: the element contributed nothing, `issues`
+    // stayed empty, and the request answered `200` with the element simply
+    // missing from the merge. Silent data loss is the one outcome the merge
+    // may never produce.
+    expect(status).toBe(500)
+    expect((error as Error).message).toContain('query')
+    expect((error as Error).message).toContain('index 1')
+  })
+
+  it('carries no marker, so an observability hook still reports it', async () => {
+    const { error } = await errorFrom(handler)
+
+    // A schema answering neither way is a bug in the route, not a client's bad
+    // input - so it takes the unmarked `500`, never the marked `400` a hook is
+    // invited to skip.
+    expect(readValidationMarker(error)).toBeUndefined()
+  })
+
+  it('does not pre-empt the issues its siblings did report', async () => {
+    const response = await request(
+      defineValidatedEventHandler(
+        {
+          validate: {
+            query: [schemaReportingNothing<{ page: number }>(), sorting],
+          },
+        },
+        () => 'the body never runs'
+      ),
+      SPOILED
+    )
+
+    // Within one source every element still runs and every issue still arrives
+    // together: a real rejection is what the client hears about, and the void
+    // element is only the answer when nothing else had anything to say.
+    expect(response.status).toBe(400)
+    expect(response.statusText).toBe('Validation Error')
+    await expect(issuesOf(response)).resolves.toEqual(['query:sort'])
+  })
+})
+
+describe('a source no schema ran for', () => {
+  it('is a 500, not a 200 delivering an empty object', async () => {
+    // The tuple type refuses `[]`, so this arrives only from the callers
+    // decision 6 names - plain JS, or an `any`-typed declaration. Delivering
+    // `{}` would tell the handler the query validated when nothing looked at it.
+    const declaredEmpty = [] as unknown as readonly [
+      StandardSchemaV1<unknown, { page: number }>,
+    ]
+
+    const { status, error } = await errorFrom(
+      defineValidatedEventHandler(
+        { validate: { query: declaredEmpty } },
+        (event, { query }) => ({ ...query })
+      )
+    )
+
+    expect(status).toBe(500)
+    expect((error as Error).message).toContain('query')
+    expect(readValidationMarker(error)).toBeUndefined()
   })
 })
 

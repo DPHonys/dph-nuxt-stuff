@@ -94,6 +94,11 @@ export async function validatedContext(
  * one `400` - which is what makes reordering a tuple invisible to a client, and
  * what spares a form with two bad fields a second round trip. A schema's own
  * `validate` is awaited, so an async Standard Schema is no special case.
+ *
+ * **Every element owes exactly one output.** An element that delivers neither
+ * an output nor an issue is the one thing this loop may not let past: its
+ * contribution would vanish from the merge and the request would answer `200`
+ * with data missing from it.
  */
 async function validatedValueFor(
   source: ValidationSource,
@@ -102,20 +107,32 @@ async function validatedValueFor(
 ): Promise<unknown> {
   const issues: StandardSchemaV1.Issue[] = []
   const outputs: unknown[] = []
+  let unreportedAt: number | undefined
 
-  for (const schema of schemas) {
+  for (const [position, schema] of schemas.entries()) {
     const result = await schema['~standard'].validate(raw)
 
     // Discriminated on `issues`, never on `'value' in result`: a successful
     // result whose output is `undefined` may carry no `value` key at all.
-    if (result.issues === undefined) outputs.push(result.value)
+    if (result.issues === undefined) {
+      outputs.push(result.value)
+      continue
+    }
+
+    // A failure carrying no issue is neither branch of the interface - no
+    // output for the merge, no reason for the client. Remembered rather than
+    // raised here, because the elements after it still run and a sibling with
+    // something real to report is the answer the client should get.
+    if (result.issues.length === 0) unreportedAt ??= position
     else issues.push(...result.issues)
   }
 
   if (issues.length > 0) raiseValidationError(source, issues)
+  if (unreportedAt !== undefined) raiseUnreportedFailure(source, unreportedAt)
 
-  // Nothing failed, so an output's position in this array is its element's
-  // position in the tuple - which is what lets the merge name the offender.
+  // Nothing failed and every element contributed, so an output's position in
+  // this array is its element's position in the tuple - which is what lets the
+  // merge name the offender.
   return mergeOutputs(source, outputs)
 }
 
@@ -132,11 +149,16 @@ async function validatedValueFor(
  * A lone element has nothing to merge into, so its output passes through
  * **untouched** - a primitive or a union included. That is the whole of what
  * makes `x` and `[x]` the same declaration.
+ *
+ * **Zero elements is not an empty merge.** No contribution would spread into
+ * `{}`, and handing that to the handler would claim a source validated that
+ * nothing ever looked at.
  */
 function mergeOutputs(
   source: ValidationSource,
   outputs: readonly unknown[]
 ): unknown {
+  if (outputs.length === 0) raiseUnvalidatedSource(source)
   if (outputs.length === 1) return outputs[0]
 
   const merged: Record<string, unknown> = {}
@@ -165,30 +187,76 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * The one shape every request-time developer mistake below takes: a plain
+ * `500` carrying a sentence, no issues payload and, above all, **no marker**.
+ * An observability hook that skips validation failures must still report every
+ * one of these, which is the entire point of the marker being on the `400`
+ * alone.
+ *
+ * They are latent by nature. Such a route serves `200`s until a request
+ * reaches the case, and hoisting them is impossible - what a schema answers is
+ * unknowable without running it. The declaration guard closes the cases it can
+ * see; these close the rest.
+ */
+function raiseSourceFault(message: string): never {
+  throw createError({
+    statusCode: 500,
+    message: `[nuxt-handler-validation] ${message}`,
+  })
+}
+
+/**
  * The runtime half of the composition rules: an element that produced
  * something there is no honest way to merge.
- *
- * A plain `500` naming the source and the element's position - a developer
- * mistake, not a client's. No issues payload and, above all, **no marker**: an
- * observability hook that skips validation failures must still report this one,
- * which is the entire point of the marker being on the `400` alone.
- *
- * It is latent by nature. Such a route serves `200`s until a request parses
- * cleanly into a non-object, and hoisting it is impossible - an output's shape
- * is unknowable without a parse. The declaration guard closes the case it can
- * see; this closes the rest.
  */
 function raiseUnmergeableOutput(
   source: ValidationSource,
   position: number,
   value: unknown
 ): never {
-  throw createError({
-    statusCode: 500,
-    message:
-      `[nuxt-handler-validation] cannot merge the validated ${source}: the schema at index ${position} produced ${describeValue(value)}. ` +
-      `Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.`,
-  })
+  raiseSourceFault(
+    `cannot merge the validated ${source}: the schema at index ${position} produced ${describeValue(value)}. ` +
+      `Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.`
+  )
+}
+
+/**
+ * A schema that answered neither way: an `issues` array with nothing in it.
+ *
+ * The interface permits the shape - a failure result is only
+ * `{ issues: ReadonlyArray<Issue> }` - but it names no output to deliver and
+ * no reason to send a client, so it is a broken schema rather than a rejected
+ * request. Reading it as a success would invent a value; reading it as a
+ * failure would answer `400` with an empty payload - and that answer carries
+ * the marker, which would let an observability hook skip the route's own bug.
+ * It takes the unmarked `500` instead.
+ */
+function raiseUnreportedFailure(
+  source: ValidationSource,
+  position: number
+): never {
+  raiseSourceFault(
+    `cannot deliver the validated ${source}: the schema at index ${position} reported a failure with no issues. ` +
+      `A Standard Schema answers with a value or with at least one issue, so this result names neither an output to deliver nor a reason to reject the request.`
+  )
+}
+
+/**
+ * A declared source no schema ran for - an empty tuple, from the callers the
+ * types cannot see. The slot type is a *non-empty* tuple, so a typed
+ * declaration cannot reach here.
+ *
+ * The handler's second parameter is the door to validated values, and a source
+ * standing behind it that nothing validated is the same silent loss the merge
+ * refuses one element at a time. Undeclaring the source is the fix: an absent
+ * key is absent from the second parameter, which is a compile error at the read
+ * instead of an empty object at request time.
+ */
+function raiseUnvalidatedSource(source: ValidationSource): never {
+  raiseSourceFault(
+    `cannot deliver the validated ${source}: no schema ran for it. ` +
+      `A source slot holds a schema or a non-empty tuple of them - remove the key instead of declaring it empty.`
+  )
 }
 
 // `typeof` answers "object" for every shape this rejects, so the ones an author

@@ -464,6 +464,27 @@ describe('any Standard Schema', () => {
     await expect(response.json()).resolves.toEqual({ type: 'undefined' })
   })
 
+  it('refuses a result that reports neither an output nor an issue', async () => {
+    // The other side of that discrimination, and the one the interface leaves
+    // ambiguous: a failure result is only `{ issues: ReadonlyArray<Issue> }`,
+    // so an empty array type-checks while naming no output to deliver and no
+    // reason to send the client. Read as a success it would hand the handler a
+    // value the schema never produced; read as a failure it would answer `400`
+    // with an empty `issues` payload, which tells a client nothing and, being
+    // marked, invites an observability hook to skip the route's own bug.
+    const handler = defineValidatedEventHandler(
+      { validate: { query: schemaReturning({ issues: [] }) } },
+      (event, { query }) => ({ received: query })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.not.toMatchObject({
+      data: { issues: expect.anything() },
+    })
+  })
+
   it('lets a throwing `validate` be a 500, not a validation failure', async () => {
     const handler = defineValidatedEventHandler(
       {
@@ -870,6 +891,37 @@ describe('the projected issues', () => {
         path: ['user', 0, 'Symbol(secret)'],
       },
       { source: 'query', message: 'A pathless issue', path: [] },
+    ])
+  })
+
+  it('survives a null path segment instead of failing while building the 400', async () => {
+    // `typeof null === 'object'`, so a segment the interface never permits used
+    // to be read as an object segment and dereferenced - turning a validation
+    // failure into an unhandled `500` from inside the answer itself. It
+    // stringifies like every other segment the projection cannot name: a
+    // segment is never dropped and never `null`.
+    const handler = defineValidatedEventHandler(
+      {
+        validate: {
+          query: schemaReturning({
+            issues: [{ message: 'Expected a number', path: [null, 'page'] }],
+          } as unknown as StandardSchemaV1.Result<unknown>),
+        },
+      },
+      () => 'the body never runs'
+    )
+
+    const response = await request(handler, '/api/test')
+    const body = (await response.json()) as { data: { issues: unknown[] } }
+
+    expect(response.status).toBe(400)
+    expect(response.statusText).toBe('Validation Error')
+    expect(body.data.issues).toEqual([
+      {
+        source: 'query',
+        message: 'Expected a number',
+        path: ['null', 'page'],
+      },
     ])
   })
 })

@@ -25,13 +25,21 @@ function projectIssues(
 // Object segments collapse to their `key`; anything that is not already a
 // string or a number - a symbol key, most of all - stringifies, so a segment
 // is never dropped and never `null`.
+//
+// The null check is not redundant: `typeof null === 'object'`, so without it a
+// `null` segment - which the interface forbids and a hand-written schema can
+// still produce - is read as an object segment and dereferenced, throwing from
+// inside the `400` this is building and turning a validation failure into an
+// unhandled `500`. It stringifies like every other segment that is neither a
+// string nor a number.
 function projectPath(
   path: StandardSchemaV1.Issue['path']
 ): Array<string | number> {
   if (path === undefined) return []
 
   return Array.from(path, (segment) => {
-    const key = typeof segment === 'object' ? segment.key : segment
+    const key =
+      segment !== null && typeof segment === 'object' ? segment.key : segment
 
     return typeof key === 'string' || typeof key === 'number'
       ? key
