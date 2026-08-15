@@ -1,0 +1,71 @@
+{
+  "name": "@dphonys/nuxt-handler-validation",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Declare a Nitro handler's request schemas once and receive the validated, fully-typed values in the handler's second parameter.",
+  "keywords": [
+    "nuxt",
+    "nuxt-handler-validation",
+    "nuxt-module"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DPHonys/dph-nuxt-stuff.git",
+    "directory": "packages/nuxt-handler-validation"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "nuxt-module-build build",
+    "dev": "pnpm run dev:prepare && nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "lint": "eslint .",
+    "prebuild": "nuxt-module-build prepare",
+    "prepack": "pnpm run build",
+    "pretest": "nuxt-module-build prepare",
+    "pretypecheck": "pnpm run build",
+    "publint": "publint",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "typecheck": "nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json"
+  },
+  "dependencies": {
+    "@nuxt/kit": "catalog:"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "catalog:",
+    "@nuxt/module-builder": "catalog:",
+    "@nuxt/schema": "catalog:",
+    "@nuxt/test-utils": "catalog:",
+    "@types/node": "catalog:",
+    "nuxt": "catalog:",
+    "publint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "vue-tsc": "catalog:"
+  },
+  "engines": {
+    "node": "^22.19.0 || ^24.11.0 || >=26.0.0"
+  }
+}

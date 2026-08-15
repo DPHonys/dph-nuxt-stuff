@@ -10,7 +10,17 @@ const nuxtModuleWorkspace = {
   // build entry, and the runtime tree reaches a consumer's app through the
   // published subpath specifiers and the module's registration calls
   // (`addPlugin`, `addServerHandler`, ...), never through an import.
-  entry: ['src/module.ts', 'src/runtime/**/*.{ts,vue}'],
+  entry: [
+    'src/module.ts',
+    'src/runtime/**/*.{ts,vue}',
+
+    // Fixture apps scaffolded into every module package and booted by the test
+    // suite, reached by a `rootDir`/`cwd` path, never by import.
+    'test/fixtures/**/*.{ts,vue}',
+    // The fixture glob above would otherwise match an app's generated
+    // `.nuxt/**/*.d.ts` as entries.
+    '!test/fixtures/**/.nuxt/**',
+  ],
 
   // A negated `project` pattern, not `ignore`: `ignore` only mutes findings
   // while the generated tree still enters the module graph.
@@ -55,18 +65,6 @@ export default {
       // The inherited `@nuxt/schema` exemption would suppress nothing in this
       // package, and an idle ignore fails the run via the hint promotion above.
       ignoreDependencies: ['@nuxt/devtools'],
-
-      entry: [
-        ...nuxtModuleWorkspace.entry,
-
-        // Fixture app booted by @nuxt/test-utils, reached by `rootDir` path,
-        // never by import. Package-scoped because the scaffold creates no
-        // `test/fixtures/`.
-        'test/fixtures/**/*.{ts,vue}',
-        // The fixture glob above would otherwise match the app's generated
-        // `.nuxt/**/*.d.ts` as entries.
-        '!test/fixtures/**/.nuxt/**',
-      ],
     },
 
     'packages/nuxt-handler-validation-old': {
@@ -85,14 +83,6 @@ export default {
         // reached by path, never by import, and the package tsconfig excludes
         // them for the same reason.
         'test/types/fixtures/**/*.ts',
-
-        // Fixture app booted by `loadNuxt`, reached by `cwd` path, never by
-        // import. Package-scoped because the scaffold creates no
-        // `test/fixtures/`.
-        'test/fixtures/**/*.{ts,vue}',
-        // The fixture glob above would otherwise match the app's generated
-        // `.nuxt/**/*.d.ts` as entries.
-        '!test/fixtures/**/.nuxt/**',
       ],
     },
 
