@@ -67,6 +67,20 @@ export default {
       ignoreDependencies: ['@nuxt/devtools'],
     },
 
+    'packages/nuxt-handler-validation': {
+      ...nuxtModuleWorkspace,
+
+      entry: [
+        ...nuxtModuleWorkspace.entry,
+
+        // Deliberately broken sources, compiled by `test/types/compile-harness.ts`
+        // so a suite can assert on the diagnostics they produce. They are
+        // reached by path, never by import, and the package tsconfig excludes
+        // them for the same reason.
+        'test/types/fixtures/**/*.ts',
+      ],
+    },
+
     'packages/nuxt-handler-validation-old': {
       ...nuxtModuleWorkspace,
 
