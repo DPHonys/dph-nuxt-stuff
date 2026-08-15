@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  // No @types/node needed - this sandbox is pure types, no runtime at all.
+  "compilerOptions": {
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["src"],
+  // Override the root's exclude - it masks `packages/`, which is this package.
+  "exclude": ["node_modules"]
+}

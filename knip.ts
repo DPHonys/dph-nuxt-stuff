@@ -96,6 +96,14 @@ export default {
       ],
     },
 
+    'packages/nuxt-handler-validation-sandbox': {
+      // Types-only design sandbox, not a Nuxt module: the sandbox usage files
+      // are the entries - `tsc --noEmit` is what reaches them, never an
+      // import - and they pull the declared surface into the graph.
+      entry: ['src/sandbox/*.ts'],
+      project: ['**/*.ts'],
+    },
+
     'packages/nuxt-handler-validation/playground': {
       ...playgroundWorkspace,
 
