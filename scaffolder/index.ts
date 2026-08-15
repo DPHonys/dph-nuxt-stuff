@@ -1,11 +1,17 @@
 import { createProductionScaffolder } from './internal/production'
-import type { ScaffoldOutcome } from './internal/types'
+import type { ScaffoldOutcome, ScaffoldRequest } from './internal/types'
 
-export type { ScaffoldOutcome } from './internal/types'
+export type { ScaffoldOutcome, ScaffoldRequest } from './internal/types'
 
 export interface RunScaffolderOptions {
   repositoryRoot: string
   signal?: AbortSignal
+  /**
+   * When present, scaffolds without prompting — for scripts and agents. The
+   * request is validated up front and every failure exits non-zero instead of
+   * falling back to a prompt.
+   */
+  request?: ScaffoldRequest
 }
 
 /**
@@ -16,5 +22,6 @@ export interface RunScaffolderOptions {
 export async function runScaffolder(
   options: RunScaffolderOptions
 ): Promise<ScaffoldOutcome> {
-  return createProductionScaffolder().run(options)
+  const { request, ...runOptions } = options
+  return createProductionScaffolder(request ? { request } : {}).run(runOptions)
 }
