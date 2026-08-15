@@ -28,10 +28,14 @@ Each phase ends with the canonical checks green: `pnpm run check` and
 
 ## Phase 1 — scaffold the new package
 
-1. `pnpm scaffold` (interactive): template `nuxt-module`, name
-   `nuxt-handler-validation`, description — v1's one-liner still holds:
-   "Declare a Nitro handler's request schemas once and receive the validated,
-   fully-typed values in the handler's second parameter."
+1. Scaffold non-interactively (passing any flag opts out of the prompts;
+   `--template` and `--name` are required together, `--description` optional):
+
+   ```sh
+   pnpm scaffold --template nuxt-module --name nuxt-handler-validation \
+     --description "Declare a Nitro handler's request schemas once and receive the validated, fully-typed values in the handler's second parameter."
+   ```
+
 2. `pnpm install`; the empty scaffold must pass the canonical checks before
    any v2 code lands.
 
