@@ -82,17 +82,29 @@ export type SourceValue<T> = T extends readonly [
   : OutputOf<T>
 
 /**
- * The handler's second parameter: exactly the declared sources, each typed as
- * its slot's delivered value.
+ * The handler's second parameter: exactly the sources the declaration
+ * **guarantees**, each typed as its slot's delivered value.
  *
  * Mapping over `keyof S` - the inferred literal type, not the constraint - is
  * what makes undeclared sources vanish instead of arriving as `unknown` or as
  * optional keys; reading one is a compile error naming the missing key.
+ *
+ * A key is guaranteed only when its slot type **cannot be `undefined`**, and
+ * that clause is what keeps the promise honest for a declaration written
+ * against the public type. `keyof S` is only the four literal keys while `S` is
+ * inferred; a declaration annotated `const schemas: ValidationSchemas = { query }`
+ * hands `S` the whole interface, whose four optional keys would otherwise all
+ * arrive - `unknown` at compile time and `undefined` at request time, because
+ * the plan skips the slots the object does not hold. Such a declaration
+ * guarantees no source at all, so it delivers none: every read is a compile
+ * error naming the key, which is the same error a genuinely undeclared source
+ * gets. Annotate with `satisfies ValidationSchemas` (or leave the literal
+ * inline) to keep the sources readable.
  */
 export type ValidatedContext<S extends ValidationSchemas> = {
-  [K in Extract<keyof S, ValidationSource>]: SourceValue<
-    Exclude<S[K], undefined>
-  >
+  [K in Extract<keyof S, ValidationSource> as undefined extends S[K]
+    ? never
+    : K]: SourceValue<S[K]>
 }
 
 /**

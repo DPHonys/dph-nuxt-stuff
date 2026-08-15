@@ -34,6 +34,12 @@ interface SourcePlan {
  * of requests should answer them none of those times. Walking `SOURCE_WALK`
  * rather than the declaration's own keys is what makes the fail-fast order the
  * package's promise instead of the author's key order.
+ *
+ * It is also where a slot holding something that is not a schema is refused.
+ * That is the one malformed declaration knowable without a request, so it is
+ * answered here - once, loudly - instead of becoming an unattributed
+ * `TypeError: Cannot read properties of null (reading '~standard')` on every
+ * request the route ever serves.
  */
 export function sourcePlan(schemas: ValidationSchemas): readonly SourcePlan[] {
   const plan: SourcePlan[] = []
@@ -48,10 +54,60 @@ export function sourcePlan(schemas: ValidationSchemas): readonly SourcePlan[] {
     // it. Flattened rather than tested with `Array.isArray`, which cannot
     // narrow a *readonly* tuple out of the union and would need a cast to say
     // what this says exactly.
-    plan.push({ source, read, schemas: [slot].flat() })
+    const elements = [slot].flat()
+
+    // Typed as schemas already, checked anyway: the callers this catches are
+    // exactly the ones the types never saw.
+    for (const [position, element] of elements.entries()) {
+      if (!isStandardSchema(element)) raiseUnschemaedSource(source, position)
+    }
+
+    plan.push({ source, read, schemas: elements })
   }
 
   return plan
+}
+
+/**
+ * A slot element the request-time walk could call `~standard.validate` on.
+ *
+ * The whole contract is that one property, so that is the whole test: this is
+ * not a validity check on a schema library's object, only the difference
+ * between a schema and a `null`, a string or a bare options object that the
+ * types would have refused.
+ */
+function isStandardSchema(value: unknown): value is StandardSchemaV1 {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('~standard' in value)) return false
+
+  const standard: unknown = value['~standard']
+
+  return (
+    typeof standard === 'object' &&
+    standard !== null &&
+    'validate' in standard &&
+    typeof standard.validate === 'function'
+  )
+}
+
+/**
+ * A source slot holding something that cannot validate anything - from the
+ * callers the types cannot see, since the slot type admits only schemas.
+ *
+ * Raised **at route evaluation**, and that placement is the point: the mistake
+ * is in the declaration, so it belongs to the file that wrote it rather than to
+ * whichever request happens to arrive first. A plain `Error` rather than the
+ * `500`s below, for the same reason - there is no request to answer, and the
+ * route never becomes servable in the first place.
+ */
+function raiseUnschemaedSource(
+  source: ValidationSource,
+  position: number
+): never {
+  throw new Error(
+    `[nuxt-handler-validation] cannot validate ${source}: the value at index ${position} is not a Standard Schema. ` +
+      `A source slot holds a schema or a non-empty tuple of them - every element must carry a '~standard' property.`
+  )
 }
 
 /**

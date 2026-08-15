@@ -25,6 +25,39 @@ export interface ValidationDeclarationError<Msg extends string> {
 /** The keys of any member of a union - distributes, unlike bare `keyof`. */
 type KeysOfUnion<T> = T extends unknown ? keyof T : never
 
+/**
+ * One key, unless it is the whole key space - `string`, `number` or `symbol`
+ * itself, which is what an index signature contributes to `keyof`.
+ */
+type NamedKey<K> = string extends K
+  ? never
+  : number extends K
+    ? never
+    : symbol extends K
+      ? never
+      : K
+
+/**
+ * The keys an output actually **names**, which is the only thing an overlap can
+ * be proven from.
+ *
+ * An index signature widens `keyof` to `string | number` and takes every named
+ * key down with it (`keyof ({ page: number } & Record<string, unknown>)` is
+ * `string | number`, not `'page' | string`), so comparing raw keys would make a
+ * passthrough or record output collide with every sibling - a refusal whose
+ * sentence names the wrong cause and whose advice does not apply. Such an
+ * output contributes nothing here instead: the guard cannot prove that merge
+ * overlaps, and decision 6's later-wins spread is what stands behind the ones
+ * it cannot see.
+ */
+type NamedKeys<T> = NamedKey<KeysOfUnion<T>>
+
+/**
+ * Whether a type is `any`: `1 & T` collapses to `any` only when `T` already is,
+ * and `0 extends any` is the one case that holds.
+ */
+type IsAny<T> = 0 extends 1 & T ? true : false
+
 /** The tuple of a composed slot's element outputs, positions preserved. */
 type ElementOutputs<T extends readonly StandardSchemaV1[]> = {
   [I in keyof T]: OutputOf<T[I]>
@@ -40,7 +73,7 @@ type HasKeyOverlap<Outputs extends readonly unknown[]> =
     infer Head,
     ...infer Rest extends readonly unknown[],
   ]
-    ? [KeysOfUnion<Head> & KeysOfUnion<Rest[number]>] extends [never]
+    ? [NamedKeys<Head> & NamedKeys<Rest[number]>] extends [never]
       ? HasKeyOverlap<Rest>
       : true
     : false
@@ -54,13 +87,21 @@ type HasKeyOverlap<Outputs extends readonly unknown[]> =
  * output (`Date`, `Map`) passes this gate and is the runtime merge's to
  * refuse.
  *
- * Distributes, so a union output qualifies only if **every** member does.
+ * Distributes, so a union output qualifies only if **every** member does -
+ * except for `any`, which is answered before the distribution can happen.
+ * `any` matches both branches of every conditional, so it would distribute to
+ * `boolean` and be refused; decision 6 names an `any`-typed schema as a case
+ * the **runtime** merge exists to handle, which a compile-time refusal here
+ * would make unreachable from typed code.
  */
-type IsMergeableOutput<O> = O extends object
-  ? O extends readonly unknown[] | ((...args: never[]) => unknown)
-    ? false
-    : true
-  : false
+type IsMergeableOutput<O> =
+  IsAny<O> extends true
+    ? true
+    : O extends object
+      ? O extends readonly unknown[] | ((...args: never[]) => unknown)
+        ? false
+        : true
+      : false
 
 /**
  * The two composition rules, checked only where composition happens - a tuple

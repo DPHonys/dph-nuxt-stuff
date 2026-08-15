@@ -108,6 +108,57 @@ export function interfaceTypedOutput(): void {
   )
 }
 
+// --- An index-signature output composes ------------------------------------
+
+// A passthrough or record output names no keys the compiler can compare - an
+// index signature widens `keyof` to `string`, taking the named keys with it -
+// so the overlap rule has nothing to prove and does not refuse the merge. The
+// runtime's later-wins spread is what stands behind the keys it cannot see.
+export function passthroughOutput(): void {
+  defineValidatedEventHandler(
+    {
+      validate: {
+        query: [z.looseObject({ page: z.coerce.number() }), sorting],
+      },
+    },
+    async (_event, { query }) => {
+      type _sort = Assert<Equal<typeof query.sort, 'asc' | 'desc'>>
+      return query.page
+    }
+  )
+}
+
+export function recordOutput(): void {
+  defineValidatedEventHandler(
+    { validate: { query: [z.record(z.string(), z.unknown()), sorting] } },
+    async (_event, { query }) => {
+      type _sort = Assert<Equal<typeof query.sort, 'asc' | 'desc'>>
+      return query.sort
+    }
+  )
+}
+
+// --- An `any`-typed schema composes ----------------------------------------
+
+// Decision 6 names an `any`-typed schema as a case the *runtime* merge exists
+// to handle, so the declaration guard may not refuse it: `any` satisfies both
+// branches of every conditional, and answering it before the object test is
+// what keeps that runtime path reachable from typed code.
+declare const untypedSchema: any
+
+export function anyTypedElement(): void {
+  defineValidatedEventHandler(
+    { validate: { query: [pagination, untypedSchema] } },
+    async (_event, { query }) => {
+      // The merge is `any`, which is the honest report rather than a defect of
+      // this fixture: an element that promises nothing takes the whole slot's
+      // type with it, and the runtime's later-wins spread is what runs.
+      type _merged = Assert<Equal<typeof query, any>>
+      return query.page
+    }
+  )
+}
+
 /** Keeps the file in vitest's inventory. */
 describe('the composition surface', () => {
   it('is asserted by the compiler, not by this suite', () => {

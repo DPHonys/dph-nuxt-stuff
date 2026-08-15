@@ -44,7 +44,7 @@ const NON_OBJECT_OUTPUT =
 
 describe('the declaration guard’s diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
-    expect(diagnostics).toHaveLength(8)
+    expect(diagnostics).toHaveLength(10)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -116,6 +116,32 @@ describe('the declaration guard’s diagnostics', () => {
 
     expect(undeclared?.code).toBe(PROPERTY_DOES_NOT_EXIST)
     expect(undeclared?.message).toContain('ValidatedContext<')
+    expect(undeclared?.line).toBe(lineContaining(FIXTURE, '=> validated.body'))
+  })
+
+  it('delivers no source at all from a declaration annotated with the public type', () => {
+    // The promise is that an undeclared source is *absent*, and an annotated
+    // declaration is the case that used to break it: `keyof S` widened to the
+    // interface's four optional keys, so `validated.body` compiled as `unknown`
+    // and arrived `undefined`. A slot that can be `undefined` is now no key at
+    // all - which costs the annotated `query` too, and deliberately: the type
+    // says the object *may* hold a query, so reading one is the same guess.
+    const [undeclared, declared] = saying(
+      diagnostics,
+      "does not exist on type 'ValidatedContext<ValidationSchemas>'"
+    )
+
+    expect(undeclared?.code).toBe(PROPERTY_DOES_NOT_EXIST)
+    expect(undeclared?.message).toContain("Property 'body'")
+    expect(undeclared?.line).toBe(
+      lineContaining(FIXTURE, 'undeclared: validated.body')
+    )
+
+    expect(declared?.code).toBe(PROPERTY_DOES_NOT_EXIST)
+    expect(declared?.message).toContain("Property 'query'")
+    expect(declared?.line).toBe(
+      lineContaining(FIXTURE, 'declared: validated.query')
+    )
   })
 
   it('makes an explicit response type argument an arity error', () => {

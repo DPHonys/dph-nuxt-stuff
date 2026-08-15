@@ -63,6 +63,17 @@ function schemaReportingNothing<Output>(): StandardSchemaV1<unknown, Output> {
   }
 }
 
+/**
+ * A declaration whose `query` slot holds whatever a caller the types never saw
+ * put there - a `null`, a bare options object, a schema someone forgot to call.
+ * The cast is the plain-JS route file this package cannot stop from compiling.
+ */
+function declaring(slot: unknown): { validate: { query: StandardSchemaV1 } } {
+  return { validate: { query: slot } } as {
+    validate: { query: StandardSchemaV1 }
+  }
+}
+
 /** A query both units above reject: a bad `page`, a missing `size`, a bad `sort`. */
 const SPOILED = '/api/test?page=x&sort=sideways'
 
@@ -378,6 +389,53 @@ describe('a source no schema ran for', () => {
     expect(status).toBe(500)
     expect((error as Error).message).toContain('query')
     expect(readValidationMarker(error)).toBeUndefined()
+  })
+})
+
+describe('a source slot holding something that is not a schema', () => {
+  it('is refused when the route is evaluated, not once per request', () => {
+    // Before this refusal existed the plan took the `null` happily and every
+    // request the route ever served answered `500` with an unattributed
+    // `TypeError: Cannot read properties of null (reading '~standard')` -
+    // a message naming neither this package nor the source that broke.
+    expect(() =>
+      defineValidatedEventHandler(declaring(null), () => 'never evaluated')
+    ).toThrowError(
+      "[nuxt-handler-validation] cannot validate query: the value at index 0 is not a Standard Schema. A source slot holds a schema or a non-empty tuple of them - every element must carry a '~standard' property."
+    )
+  })
+
+  it('names the offending element of a composed tuple', () => {
+    expect(() =>
+      defineValidatedEventHandler(
+        declaring([pagination, { parse: () => ({}) }]),
+        () => 'never evaluated'
+      )
+    ).toThrowError('cannot validate query: the value at index 1')
+  })
+
+  it('takes anything carrying the `~standard` contract, and nothing else', () => {
+    expect(() =>
+      defineValidatedEventHandler(
+        declaring({
+          '~standard': {
+            version: 1,
+            vendor: 'hand-written',
+            validate: () => ({ value: undefined }),
+          },
+        }),
+        () => 'never evaluated'
+      )
+    ).not.toThrow()
+
+    // The contract is the `validate` function, so the marker property alone is
+    // not enough to call something a schema.
+    expect(() =>
+      defineValidatedEventHandler(
+        declaring({ '~standard': { version: 1, vendor: 'broken' } }),
+        () => 'never evaluated'
+      )
+    ).toThrowError('is not a Standard Schema')
   })
 })
 

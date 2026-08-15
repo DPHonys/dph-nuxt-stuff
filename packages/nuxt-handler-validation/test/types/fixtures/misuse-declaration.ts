@@ -16,6 +16,7 @@
 import * as v from 'valibot'
 import { z } from 'zod'
 import { defineValidatedEventHandler } from '../../../src/runtime/server'
+import type { ValidationSchemas } from '../../../src/runtime/types'
 
 const pagination = z.object({
   page: z.coerce.number(),
@@ -96,6 +97,25 @@ export const widenedArray = defineValidatedEventHandler(
     },
   },
   async (_event, _validated) => null
+)
+
+// --- A declaration annotated with the public type guarantees nothing ------
+
+// Annotating widens the declaration to the interface, whose four keys are all
+// optional - so no source is guaranteed to be there, and none is delivered.
+// The read that motivates this (`body`, never declared) and the read that pays
+// for it (`query`, written right here) get the same error, because the type
+// can no longer tell them apart. `satisfies ValidationSchemas` keeps both.
+const annotatedSchemas: ValidationSchemas = {
+  query: z.object({ page: z.coerce.number() }),
+}
+
+export const annotatedDeclaration = defineValidatedEventHandler(
+  { validate: annotatedSchemas },
+  async (_event, validated) => ({
+    undeclared: validated.body,
+    declared: validated.query,
+  })
 )
 
 // --- An explicit response type argument is an arity error -----------------
