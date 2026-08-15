@@ -10,6 +10,12 @@ package and this sandbox disappear.
 Each phase ends with the canonical checks green: `pnpm run check` and
 `pnpm run knip`.
 
+> **Working tickets:** the phases below are cut into eight self-contained,
+> blocker-ordered tickets in `.scratch/nuxt-handler-validation-v2/issues/`
+> (gitignored, machine-local). The tickets pair each capability with its
+> tests — superseding the "phase 4: tests" grouping — and are the thing a
+> fresh implementation session should pick up, blockers-first.
+
 ## Phase 0 — retire v1 in place
 
 1. `git mv packages/nuxt-handler-validation packages/nuxt-handler-validation-old`.
