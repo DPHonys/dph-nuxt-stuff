@@ -70,6 +70,11 @@ export default {
     'packages/nuxt-handler-validation': {
       ...nuxtModuleWorkspace,
 
+      // The inherited `@nuxt/schema` exemption would suppress nothing in this
+      // package - the module-setup suite imports its types - and an idle
+      // ignore fails the run via the hint promotion above.
+      ignoreDependencies: ['@nuxt/devtools'],
+
       entry: [
         ...nuxtModuleWorkspace.entry,
 
@@ -106,6 +111,16 @@ export default {
       // import - and they pull the declared surface into the graph.
       entry: ['src/sandbox/*.ts'],
       project: ['**/*.ts'],
+    },
+
+    'packages/nuxt-handler-validation/playground': {
+      ...playgroundWorkspace,
+
+      // Compiler-asserted, never imported: `vue-tsc --project
+      // playground/tsconfig.json` is what runs it. It has to live in an app
+      // because the config typing it asserts only exists in a generated
+      // `.nuxt`.
+      entry: ['module-options.check.ts'],
     },
 
     'packages/nuxt-handler-validation-old/playground': {

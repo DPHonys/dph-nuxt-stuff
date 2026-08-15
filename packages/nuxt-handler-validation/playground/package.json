@@ -7,6 +7,8 @@
   },
   "dependencies": {
     "@dphonys/nuxt-handler-validation": "workspace:*",
-    "nuxt": "catalog:"
+    "nuxt": "catalog:",
+    "valibot": "catalog:",
+    "zod": "catalog:"
   }
 }

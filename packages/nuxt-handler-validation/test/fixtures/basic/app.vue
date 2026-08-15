@@ -1,9 +1,3 @@
-<script setup lang="ts">
-import { useNuxtApp } from '#app'
-
-const { $handlerValidation } = useNuxtApp()
-</script>
-
 <template>
-  <p>{{ $handlerValidation.message }}</p>
+  <p>Nuxt Handler Validation test fixture</p>
 </template>
