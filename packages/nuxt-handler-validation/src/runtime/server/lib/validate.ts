@@ -1,5 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
+import { createError } from 'h3'
 import type { ValidationSchemas, ValidationSource } from '../../types'
 import { raiseValidationError } from './issues'
 import type { SourceReader } from './sources'
@@ -14,11 +15,15 @@ import { SOURCE_WALK } from './sources'
  * A declared source: how it comes off the event, and what validates it.
  * Sources the declaration left out are absent, so the request-time walk has
  * nothing to skip.
+ *
+ * The schemas are always a **list**, never "a schema or a list": a bare slot is
+ * its own one-element list, settled here once, so nothing downstream has to ask
+ * which shape the author wrote and `x` and `[x]` cannot drift apart.
  */
 interface SourcePlan {
   readonly source: ValidationSource
   readonly read: SourceReader
-  readonly schema: StandardSchemaV1
+  readonly schemas: readonly StandardSchemaV1[]
 }
 
 /**
@@ -38,10 +43,12 @@ export function sourcePlan(schemas: ValidationSchemas): readonly SourcePlan[] {
 
     if (slot === undefined) continue
 
-    // A slot may also hold a tuple of schemas - the composition model - whose
-    // elements are delivered as one merged value. Until that merge exists, the
-    // slot is the lone schema it holds.
-    plan.push({ source, read, schema: slot as StandardSchemaV1 })
+    // The one place a slot's two written shapes become one runtime shape: a
+    // tuple is already the element list, and a bare schema is the list holding
+    // it. Flattened rather than tested with `Array.isArray`, which cannot
+    // narrow a *readonly* tuple out of the union and would need a cast to say
+    // what this says exactly.
+    plan.push({ source, read, schemas: [slot].flat() })
   }
 
   return plan
@@ -62,10 +69,10 @@ export async function validatedContext(
 ): Promise<Record<string, unknown>> {
   const validated: Record<string, unknown> = {}
 
-  for (const { source, read, schema } of plan) {
+  for (const { source, read, schemas } of plan) {
     validated[source] = await validatedValueFor(
       source,
-      schema,
+      schemas,
       await read(event)
     )
   }
@@ -74,23 +81,124 @@ export async function validatedContext(
 }
 
 /**
- * Validate one source and deliver the value the handler receives for it.
+ * Validate one source against every schema composed on it, and deliver the one
+ * value the handler receives for it.
  *
- * A schema's own `validate` is awaited, so an async Standard Schema is no
- * special case; whatever it rejects arrives as one `400` carrying **all** of
- * that schema's issues, because a form with two bad fields should not need two
- * round trips.
+ * Every element runs, **sequentially and in tuple order**, and every one of
+ * them sees the same raw source, read once. Sequential rather than
+ * `Promise.all`, so async schemas run in an order the author can predict from
+ * the tuple they wrote.
+ *
+ * An early element's failure does not stop the later ones: fail-fast is a rule
+ * *across* sources, so within one source every issue arrives together in the
+ * one `400` - which is what makes reordering a tuple invisible to a client, and
+ * what spares a form with two bad fields a second round trip. A schema's own
+ * `validate` is awaited, so an async Standard Schema is no special case.
  */
 async function validatedValueFor(
   source: ValidationSource,
-  schema: StandardSchemaV1,
+  schemas: readonly StandardSchemaV1[],
   raw: unknown
 ): Promise<unknown> {
-  const result = await schema['~standard'].validate(raw)
+  const issues: StandardSchemaV1.Issue[] = []
+  const outputs: unknown[] = []
 
-  // Discriminated on `issues`, never on `'value' in result`: a successful
-  // result whose output is `undefined` may carry no `value` key at all.
-  if (result.issues !== undefined) raiseValidationError(source, result.issues)
+  for (const schema of schemas) {
+    const result = await schema['~standard'].validate(raw)
 
-  return result.value
+    // Discriminated on `issues`, never on `'value' in result`: a successful
+    // result whose output is `undefined` may carry no `value` key at all.
+    if (result.issues === undefined) outputs.push(result.value)
+    else issues.push(...result.issues)
+  }
+
+  if (issues.length > 0) raiseValidationError(source, issues)
+
+  // Nothing failed, so an output's position in this array is its element's
+  // position in the tuple - which is what lets the merge name the offender.
+  return mergeOutputs(source, outputs)
+}
+
+/**
+ * The source's element outputs as the one value the handler is handed: a plain
+ * object spread, in tuple order.
+ *
+ * **Later-wins**, deliberately, for the overlaps the compile-time rule cannot
+ * see - a plain-JS caller, an `any`-typed schema, a passthrough key riding into
+ * an otherwise-disjoint merge. Spread intuition, at zero per-request cost:
+ * there is no overlap detection here, because paying for one on every request
+ * to re-check what the declaration already refused would be the wrong trade.
+ *
+ * A lone element has nothing to merge into, so its output passes through
+ * **untouched** - a primitive or a union included. That is the whole of what
+ * makes `x` and `[x]` the same declaration.
+ */
+function mergeOutputs(
+  source: ValidationSource,
+  outputs: readonly unknown[]
+): unknown {
+  if (outputs.length === 1) return outputs[0]
+
+  const merged: Record<string, unknown> = {}
+
+  for (const [position, value] of outputs.entries()) {
+    if (!isPlainObject(value)) raiseUnmergeableOutput(source, position, value)
+
+    Object.assign(merged, value)
+  }
+
+  return merged
+}
+
+// A plain object and nothing else - the same line the declaration guard draws,
+// one step further. Anything with a prototype of its own (an array, a `Date`, a
+// class instance) carries its meaning outside its own enumerable keys, and a
+// spread would take those keys and drop the meaning: a contribution silently
+// lost is the failure the raise below exists to prevent. A null prototype
+// passes, because h3's form-urlencoded body has one.
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) return false
+
+  const prototype: unknown = Object.getPrototypeOf(value)
+
+  return prototype === Object.prototype || prototype === null
+}
+
+/**
+ * The runtime half of the composition rules: an element that produced
+ * something there is no honest way to merge.
+ *
+ * A plain `500` naming the source and the element's position - a developer
+ * mistake, not a client's. No issues payload and, above all, **no marker**: an
+ * observability hook that skips validation failures must still report this one,
+ * which is the entire point of the marker being on the `400` alone.
+ *
+ * It is latent by nature. Such a route serves `200`s until a request parses
+ * cleanly into a non-object, and hoisting it is impossible - an output's shape
+ * is unknowable without a parse. The declaration guard closes the case it can
+ * see; this closes the rest.
+ */
+function raiseUnmergeableOutput(
+  source: ValidationSource,
+  position: number,
+  value: unknown
+): never {
+  throw createError({
+    statusCode: 500,
+    message:
+      `[nuxt-handler-validation] cannot merge the validated ${source}: the schema at index ${position} produced ${describeValue(value)}. ` +
+      `Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.`,
+  })
+}
+
+// `typeof` answers "object" for every shape this rejects, so the ones an author
+// is likely to have produced are named instead.
+function describeValue(value: unknown): string {
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return 'an array'
+  if (typeof value === 'object') {
+    return `an instance of ${value.constructor?.name ?? 'an anonymous class'}`
+  }
+
+  return `a value of type ${typeof value}`
 }

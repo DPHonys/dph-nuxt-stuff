@@ -21,6 +21,10 @@ import { createApp, createRouter, toWebHandler } from 'h3'
  * filled by the router's match, so every claim a suite makes about params
  * - decoding, catch-all joining, the anonymous key - is a claim about that
  * matcher, and it has to be h3's.
+ *
+ * `onError` is h3's own error hook - the process-side seam an observability
+ * plugin sits on, and the only place a suite can see the thrown error itself
+ * rather than the body it was serialized into. A response is still sent.
  */
 export function request(
   handler: EventHandler,
@@ -29,9 +33,13 @@ export function request(
     init?: RequestInit
     debug?: boolean
     route?: string
+    onError?: (error: unknown) => void
   } = {}
 ): Promise<Response> {
-  const app = createApp({ debug: options.debug ?? false })
+  const app = createApp({
+    debug: options.debug ?? false,
+    ...(options.onError === undefined ? {} : { onError: options.onError }),
+  })
 
   if (options.route === undefined) {
     app.use('/api/test', handler)
