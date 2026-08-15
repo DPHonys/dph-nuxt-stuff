@@ -11,7 +11,7 @@ publishing.
 dph-nuxt-stuff/
 ├── packages/          # Publishable Nuxt modules and plugins
 ├── templates/         # Template sources consumed by the Scaffolder
-├── scaffolder/        # Interactive CLI that generates new packages
+├── scaffolder/        # CLI (interactive or flag-driven) that generates new packages
 ├── release/
 │   ├── publishing-contract/   # Enforces the Publication boundary in every check
 │   └── release-preparation/   # Executable spec of pnpm independent releases
@@ -45,6 +45,16 @@ Generate a new package interactively from a template:
 ```sh
 pnpm scaffold
 ```
+
+Scripts and agents scaffold without prompts by passing flags up front:
+
+```sh
+pnpm scaffold --template nuxt-module --name nuxt-image-tools --description "Image tools"
+```
+
+`--description` is optional. Passing any scaffold flag opts into the
+non-interactive mode, which is all-or-nothing: missing required flags and
+invalid input exit non-zero instead of falling back to a prompt.
 
 Generated packages start with `private: true` and a seeded `0.0.1` version.
 They stay out of publication until a maintainer deliberately admits them by

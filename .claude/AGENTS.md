@@ -89,6 +89,18 @@ Examples:
 
 ## Adding a New Package
 
+Scaffold it non-interactively with the repository Scaffolder:
+
+```bash
+pnpm scaffold --template nuxt-module --name <scaffold-name> --description "..."
+```
+
+`--description` is optional. The Scaffolder renders the template, runs
+`pnpm install`, and formats the result; failures exit non-zero without
+prompting. Run `pnpm scaffold` with no flags for the interactive prompts.
+
+For a package shape no template covers:
+
 1. Create `packages/<your-package>/`
 2. Add a `package.json` with `name`, `version`, and appropriate `exports`
 3. Add a `src/` directory with your entry point

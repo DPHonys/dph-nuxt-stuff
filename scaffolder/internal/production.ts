@@ -1,14 +1,29 @@
 import { spawn } from 'node:child_process'
 import { detectPackageManager, installDependencies } from 'nypm'
 import { createClackInteraction } from './interaction'
+import { createClackNonInteractiveInteraction } from './non-interactive'
 import { createProductionTemplateRegistry } from './nuxt-module'
 import { createScaffolder, productionNonce } from './scaffolder'
-import type { FormatterAdapter, InstallerAdapter, Scaffolder } from './types'
+import type {
+  FormatterAdapter,
+  InstallerAdapter,
+  ScaffoldRequest,
+  Scaffolder,
+} from './types'
 
-export function createProductionScaffolder(): Scaffolder {
+export interface ProductionScaffolderOptions {
+  /** When present, answers the interaction from flags instead of prompts. */
+  request?: ScaffoldRequest
+}
+
+export function createProductionScaffolder(
+  options: ProductionScaffolderOptions = {}
+): Scaffolder {
   return createScaffolder({
     registry: createProductionTemplateRegistry(),
-    interaction: createClackInteraction(),
+    interaction: options.request
+      ? createClackNonInteractiveInteraction(options.request)
+      : createClackInteraction(),
     installer: createProductionInstaller(),
     formatter: createProductionFormatter(),
     now: () => new Date(),
