@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  modules: ['@dphonys/nuxt-handler-validation'],
+  modules: ['@dphonys/nuxt-handler-validation-old'],
   devtools: { enabled: true },
   compatibilityDate: 'latest',
   // Written here on purpose: it is one of the four config forms the closed

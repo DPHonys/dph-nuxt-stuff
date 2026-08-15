@@ -1,4 +1,4 @@
-import type { ValidationIssue } from '@dphonys/nuxt-handler-validation/types'
+import type { ValidationIssue } from '@dphonys/nuxt-handler-validation-old/types'
 
 /**
  * What the Nitro `error` hook was handed, in order - read back by

@@ -1,4 +1,4 @@
-import { recognizeValidationError } from '@dphonys/nuxt-handler-validation/server'
+import { recognizeValidationError } from '@dphonys/nuxt-handler-validation-old/server'
 
 /** Only what this route reaches for on a rejection - nothing is assumed present. */
 interface Rejection {

@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 /**
  * The three published entries, resolved the way a consumer resolves them:
  * through the package name, against the built `dist`. The playground is the
- * only directory in the workspace with `@dphonys/nuxt-handler-validation` in
+ * only directory in the workspace with `@dphonys/nuxt-handler-validation-old` in
  * its `node_modules`, which is what makes it the consumer's seat here.
  *
  * Both halves matter and neither implies the other: `exports` can point at a
@@ -26,9 +26,9 @@ const BUILT_MODULE = fileURLToPath(
   new URL('../../dist/module.mjs', import.meta.url)
 )
 
-const MODULE_ENTRY = '@dphonys/nuxt-handler-validation'
-const TYPES_ENTRY = '@dphonys/nuxt-handler-validation/types'
-const SERVER_ENTRY = '@dphonys/nuxt-handler-validation/server'
+const MODULE_ENTRY = '@dphonys/nuxt-handler-validation-old'
+const TYPES_ENTRY = '@dphonys/nuxt-handler-validation-old/types'
+const SERVER_ENTRY = '@dphonys/nuxt-handler-validation-old/server'
 
 beforeAll(() => {
   if (existsSync(BUILT_MODULE)) return

@@ -9,7 +9,7 @@ const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
  * Anything registered *by this module* points into its own runtime tree, so
  * one pattern separates its registrations from Nuxt's and Nitro's own.
  */
-const FROM_THIS_PACKAGE = /nuxt-handler-validation\/src\/runtime\//
+const FROM_THIS_PACKAGE = /nuxt-handler-validation-old\/src\/runtime\//
 
 /** Nitro's own instance type, without a dependency on `nitropack` for it. */
 type NitroInstance = Parameters<NuxtHooks['nitro:init']>[0]

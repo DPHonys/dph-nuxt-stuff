@@ -1,4 +1,4 @@
-import { recognizeValidationError } from '@dphonys/nuxt-handler-validation/server'
+import { recognizeValidationError } from '@dphonys/nuxt-handler-validation-old/server'
 import { observedErrors } from '~~/server/utils/observed-errors'
 
 /**

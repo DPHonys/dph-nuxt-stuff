@@ -35,5 +35,5 @@ export const strayKey: NuxtConfig['handlerValidation'] = {
 
 /** The array module form, which carries the options in a tuple position. */
 export const arrayForm: NuxtConfig['modules'] = [
-  ['@dphonys/nuxt-handler-validation', {}],
+  ['@dphonys/nuxt-handler-validation-old', {}],
 ]

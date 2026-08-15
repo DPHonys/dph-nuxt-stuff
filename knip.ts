@@ -69,7 +69,7 @@ export default {
       ],
     },
 
-    'packages/nuxt-handler-validation': {
+    'packages/nuxt-handler-validation-old': {
       ...nuxtModuleWorkspace,
 
       // The inherited `@nuxt/schema` exemption would suppress nothing in this
@@ -104,7 +104,7 @@ export default {
       project: ['**/*.ts'],
     },
 
-    'packages/nuxt-handler-validation/playground': {
+    'packages/nuxt-handler-validation-old/playground': {
       ...playgroundWorkspace,
 
       // Compiler-asserted, never imported: `vue-tsc --project
