@@ -142,7 +142,18 @@ function mergeOutputs(
   for (const [position, value] of outputs.entries()) {
     if (!isPlainObject(value)) raiseUnmergeableOutput(source, position, value)
 
-    Object.assign(merged, value)
+    // Defined rather than assigned, so a `__proto__` key lands as an own
+    // property instead of calling the setter that would swap the merged
+    // object's prototype. h3's readers drop that key before this point; the
+    // guarantee is held here rather than borrowed from them.
+    for (const [key, entry] of Object.entries(value)) {
+      Object.defineProperty(merged, key, {
+        value: entry,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      })
+    }
   }
 
   return merged

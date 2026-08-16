@@ -202,6 +202,32 @@ describe('the merge of a tuple’s outputs', () => {
     })
   })
 
+  it('leaves the merged object’s prototype alone, whatever the keys', async () => {
+    // `JSON.parse` keeps `__proto__` as an own key, where an assignment onto a
+    // plain object would call the setter that swaps the prototype. h3's readers
+    // strip that key from every source, so this stands in for the schema that
+    // reconstructs one.
+    const polluting = schemaOutputting<{ page: number }>(
+      () => JSON.parse('{"page":1,"__proto__":{"admin":true}}') as unknown
+    )
+    const benign = schemaOutputting<{ size: number }>(() => ({ size: 2 }))
+
+    const handler = defineValidatedEventHandler(
+      { validate: { query: [polluting, benign] } },
+      (event, { query }) => ({
+        inherited: (query as Record<string, unknown>).admin ?? null,
+        ownPrototype: Object.getPrototypeOf(query) === Object.prototype,
+      })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    await expect(response.json()).resolves.toEqual({
+      inherited: null,
+      ownPrototype: true,
+    })
+  })
+
   it('runs async elements sequentially, in tuple order', async () => {
     const order: string[] = []
 
