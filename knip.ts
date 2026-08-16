@@ -1,24 +1,17 @@
 import type { KnipConfig, WorkspaceProjectConfig } from 'knip'
 
-/**
- * The Nuxt module shape, described once. knip resolves exactly one
- * `workspaces` key per workspace (most specific wins, no merging), so a
- * package that needs anything of its own restates this by spreading it.
- */
+// knip resolves exactly one `workspaces` key per workspace (most specific wins,
+// no merging), so a package needing anything of its own spreads these.
+
 const nuxtModuleWorkspace = {
-  // Entries knip cannot discover by following imports: `src/module.ts` is the
-  // build entry, and the runtime tree reaches a consumer's app through the
-  // published subpath specifiers and the module's registration calls
-  // (`addPlugin`, `addServerHandler`, ...), never through an import.
+  // Entries knip cannot reach by following imports: the build entry, the
+  // runtime tree a consumer gets through published subpaths and the module's
+  // registration calls, and the fixture apps booted by path.
   entry: [
     'src/module.ts',
     'src/runtime/**/*.{ts,vue}',
-
-    // Fixture apps scaffolded into every module package and booted by the test
-    // suite, reached by a `rootDir`/`cwd` path, never by import.
     'test/fixtures/**/*.{ts,vue}',
-    // The fixture glob above would otherwise match an app's generated
-    // `.nuxt/**/*.d.ts` as entries.
+    // The fixture glob would otherwise match a generated `.nuxt/**/*.d.ts`.
     '!test/fixtures/**/.nuxt/**',
   ],
 
@@ -26,18 +19,13 @@ const nuxtModuleWorkspace = {
   // while the generated tree still enters the module graph.
   project: ['**/*.{ts,vue}', '!**/.nuxt/**'],
 
-  // Scaffolded into every module package, imported by neither `src/` nor
-  // `test/`, and both kept deliberately: `@nuxt/schema` is a type dependency
-  // of the generated `dist/types.d.mts`, and `@nuxt/devtools` is resolved by
-  // the playground at dev-server startup.
+  // Scaffolded, imported by nothing, both kept: `@nuxt/schema` types the
+  // generated `dist/types.d.mts`, `@nuxt/devtools` is resolved at dev startup.
   ignoreDependencies: ['@nuxt/devtools', '@nuxt/schema'],
 } satisfies WorkspaceProjectConfig
 
-/**
- * A package's playground, described once for the same reason. Playgrounds are
- * their own workspace, so the package-level exclusion above does not reach
- * their generated `.nuxt` tree.
- */
+// Playgrounds are their own workspace, so the exclusion above does not reach
+// their generated `.nuxt` tree.
 const playgroundWorkspace = {
   project: ['**/*.{ts,vue}', '!.nuxt/**'],
 } satisfies WorkspaceProjectConfig
@@ -62,26 +50,23 @@ export default {
     'packages/nuxt-handler-errors': {
       ...nuxtModuleWorkspace,
 
-      // The inherited `@nuxt/schema` exemption would suppress nothing in this
-      // package, and an idle ignore fails the run via the hint promotion above.
+      // The inherited `@nuxt/schema` exemption would suppress nothing here, and
+      // an idle ignore fails the run via the hint promotion above.
       ignoreDependencies: ['@nuxt/devtools'],
     },
 
     'packages/nuxt-handler-validation': {
       ...nuxtModuleWorkspace,
 
-      // The inherited `@nuxt/schema` exemption would suppress nothing in this
-      // package - the module-setup suite imports its types - and an idle
-      // ignore fails the run via the hint promotion above.
+      // As above: this package's suites import `@nuxt/schema`'s types.
       ignoreDependencies: ['@nuxt/devtools'],
 
       entry: [
         ...nuxtModuleWorkspace.entry,
 
-        // Deliberately broken sources, compiled by `test/types/compile-harness.ts`
-        // so a suite can assert on the diagnostics they produce. They are
-        // reached by path, never by import, and the package tsconfig excludes
-        // them for the same reason.
+        // Deliberately broken sources, compiled by path by
+        // `test/types/compile-harness.ts` so a suite can assert on their
+        // diagnostics. The package tsconfig excludes them for the same reason.
         'test/types/fixtures/**/*.ts',
       ],
     },
@@ -89,8 +74,7 @@ export default {
     'packages/nuxt-handler-validation/playground': {
       ...playgroundWorkspace,
 
-      // Compiler-asserted, never imported: `vue-tsc --project
-      // playground/tsconfig.json` is what runs it. It has to live in an app
+      // Compiler-asserted by `vue-tsc`, never imported. It lives in an app
       // because the config typing it asserts only exists in a generated
       // `.nuxt`.
       entry: ['module-options.check.ts'],
