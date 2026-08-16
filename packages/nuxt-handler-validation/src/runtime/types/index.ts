@@ -53,12 +53,46 @@ export type OutputOf<Schema> = Schema extends StandardSchemaV1
   : never
 
 /**
- * A composed tuple's delivered value: the intersection of its elements'
- * outputs, built element by element.
+ * One object type restated as its own keys, so a merge reads back as the flat
+ * record the runtime actually hands over - `{ page: number; sort: 'asc' |
+ * 'desc' }` on hover, not `{ page: number } & { sort: 'asc' | 'desc' }`. The
+ * mapped type is homomorphic, so optional and readonly modifiers survive.
+ *
+ * Restating is only sound for a type whose keys the compiler can enumerate.
+ * `keyof` widens to the whole key space for an index-signature output (a
+ * passthrough or record schema) and for `any`, and restating from a widened
+ * `keyof` would drop every named key beside it - the passthrough's `page`
+ * swallowed by its own `[k: string]: unknown`. Such a type is left as the
+ * intersection it already was: honest, if less pretty, which is the same
+ * trade the declaration guard makes for the keys it cannot see.
+ */
+type Flattened<T> = string extends keyof T
+  ? T
+  : number extends keyof T
+    ? T
+    : symbol extends keyof T
+      ? T
+      : { [K in keyof T]: T[K] }
+
+/**
+ * Two delivered values merged into one. Both sides distribute first, so a
+ * union output stays a union of merges (`{ a } | { b }` against `{ c }` is
+ * `{ a; c } | { b; c }`, never `{ a; b; c }`) - the runtime hands back
+ * whichever branch matched, and a distributed union is what narrowing needs.
+ */
+type Merged<Head, Rest> = Head extends unknown
+  ? Rest extends unknown
+    ? Flattened<Head & Rest>
+    : never
+  : never
+
+/**
+ * A composed tuple's delivered value: its elements' outputs merged element by
+ * element, each step flattened back into one object.
  *
  * Element by element rather than `UnionToIntersection` of the flattened
  * outputs, and the difference is honesty: one schema outputting a union of
- * objects must stay a union inside the intersection - the runtime hands back
+ * objects must stay a union through the merge, because the runtime hands back
  * whichever branch matched, never the branches' merge.
  */
 export type MergedOutput<T> = T extends readonly [
@@ -66,7 +100,7 @@ export type MergedOutput<T> = T extends readonly [
   ...infer Rest,
 ]
   ? Rest extends readonly [StandardSchemaV1, ...StandardSchemaV1[]]
-    ? OutputOf<Head> & MergedOutput<Rest>
+    ? Merged<OutputOf<Head>, MergedOutput<Rest>>
     : OutputOf<Head>
   : never
 

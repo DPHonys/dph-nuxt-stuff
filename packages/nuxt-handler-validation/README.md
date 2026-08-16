@@ -126,7 +126,7 @@ import { profileBody } from '~~/server/validation/profile'
 export default defineValidatedEventHandler(
   { validate: { query: [pagination, sorting], body: profileBody } },
   async (event, { query, body }) => {
-    // query: { page: number, size: number } & { sort: 'asc' | 'desc' }
+    // query: { page: number, size: number, sort: 'asc' | 'desc' }
     return listUsers(query, body)
   }
 )
@@ -136,6 +136,14 @@ export default defineValidatedEventHandler(
   value is the merge of their outputs. The wire is untouched - the client still
   sends a flat `?page=1&size=20&sort=asc` - and an issue's `path` stays relative
   to that raw source.
+- **The merged type is one flat record**, not a chain of `&`. It reads on hover
+  the way the runtime value looks, and it is spellable as a declared return
+  type. Two merges keep their intersection instead: one whose elements include
+  an index-signature output (a passthrough or record schema), because a flat
+  restating would have no name left for the sibling keys and would hand back the
+  index signature alone; and one including an `any`-typed element, which takes
+  the whole slot with it. A union output stays a union - it merges branch by
+  branch, so `kind` still narrows.
 - **Cross-library composition is free.** Tuple elements are independent Standard
   Schemas, so zod and valibot mix inside one tuple.
 - **A tuple, not an array.** A widened `StandardSchemaV1[]` cannot say how many

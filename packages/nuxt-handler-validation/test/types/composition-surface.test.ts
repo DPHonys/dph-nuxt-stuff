@@ -41,6 +41,17 @@ export function composedQuery(): void {
       type _sort = Assert<Equal<typeof query.sort, 'asc' | 'desc'>>
       type _body = Assert<Equal<typeof body, { name: string }>>
 
+      // Flat is the *type*, not just the reading: one record of every merged
+      // key, which is what a hover prints and what a declared return type has
+      // to be spelled as. An intersection of the elements' outputs would carry
+      // the same keys and fail this assertion.
+      type _flat = Assert<
+        Equal<
+          typeof query,
+          { page: number; size: number; sort: 'asc' | 'desc' }
+        >
+      >
+
       // The merged value satisfies each part whole, so a helper typed off one
       // reused schema's output takes it directly.
       const forHelper: { page: number; size: number } = query
@@ -108,6 +119,40 @@ export function interfaceTypedOutput(): void {
   )
 }
 
+// --- A union output stays a union through the merge ------------------------
+
+// Flattening distributes, so a schema outputting a union of objects merges
+// branch by branch. The runtime hands back whichever branch matched, never the
+// branches' merge - and a distributed union is what `kind` can narrow.
+export function unionElement(): void {
+  defineValidatedEventHandler(
+    {
+      validate: {
+        query: [
+          z.union([
+            z.object({ kind: z.literal('a'), a: z.coerce.number() }),
+            z.object({ kind: z.literal('b'), b: z.string() }),
+          ]),
+          sorting,
+        ],
+      },
+    },
+    async (_event, { query }) => {
+      type _branches = Assert<
+        Equal<
+          typeof query,
+          | { kind: 'a'; a: number; sort: 'asc' | 'desc' }
+          | { kind: 'b'; b: string; sort: 'asc' | 'desc' }
+        >
+      >
+      if (query.kind === 'a') {
+        type _narrowed = Assert<Equal<typeof query.a, number>>
+      }
+      return query.sort
+    }
+  )
+}
+
 // --- An index-signature output composes ------------------------------------
 
 // A passthrough or record output names no keys the compiler can compare - an
@@ -123,6 +168,11 @@ export function passthroughOutput(): void {
     },
     async (_event, { query }) => {
       type _sort = Assert<Equal<typeof query.sort, 'asc' | 'desc'>>
+      // Such a merge is the one that stays an intersection rather than being
+      // restated flat: `keyof` is the whole key space here, so a flat restating
+      // would have nothing to name `page` with and would hand back the index
+      // signature alone. The named key survives instead.
+      type _page = Assert<Equal<typeof query.page, number>>
       return query.page
     }
   )
