@@ -3,10 +3,6 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      // The `e2e` tier works against this package's own `dist` - it resolves
-      // the published entries the way a consumer does. The root pipeline only
-      // gives `test` the *dependencies'* builds, so the self-edge is what keeps
-      // that tier from reading a stale, or absent, build.
       "dependsOn": ["^build", "build"]
     }
   }
