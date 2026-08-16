@@ -59,9 +59,11 @@ export function defineValidatedEventHandler<
  *
  * Only a `400` validation failure is marked - every developer mistake this
  * package raises carries no marker, so the early return cannot swallow a bug.
- * Drop the sibling's `unhandled === false` half here: this marker is a
- * non-serialized symbol, so a marked payload cannot return across the wire.
+ * The marker is a non-serialized symbol: recognition works on the live server
+ * error, never on a payload that already crossed the wire.
  */
+// The sibling's recognizer also checks `unhandled === false`; that half is
+// dropped here because the non-serialized marker already cannot cross the wire.
 export function recognizeValidationError(
   error: unknown
 ): ValidationErrorData | undefined {
