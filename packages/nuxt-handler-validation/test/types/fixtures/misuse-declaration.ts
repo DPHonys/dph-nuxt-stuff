@@ -1,16 +1,8 @@
 /**
- * A DELIBERATELY BROKEN fixture - the deliberate-error run, compiled by
- * `misuse-diagnostics.test.ts` through the harness and never by
- * `pnpm typecheck` (the package tsconfig excludes this directory).
- *
- * Ported from the sandbox's `src/sandbox/misuse.ts`, with its
- * `@ts-expect-error` comments dropped: there they proved a call was rejected,
- * here the whole point is to let the diagnostic through so a suite can read the
- * sentence it carries and the key it lands on.
- *
- * Every case reports at the declaration - at the offending key where possible -
- * never as a lazy poison on a later property access, and never as an
- * overload-collapse paragraph (there are no overloads).
+ * A DELIBERATELY BROKEN fixture, compiled by `misuse-diagnostics.test.ts`
+ * through the harness and never by `pnpm typecheck` (the package tsconfig
+ * excludes this directory). No `@ts-expect-error` anywhere: the point is to let
+ * each diagnostic through so the suite can read it.
  */
 
 import * as v from 'valibot'
@@ -75,8 +67,7 @@ export const primitiveOutput = defineValidatedEventHandler(
   async (_event, _validated) => null
 )
 
-// The object test is structural, not Record-based - but arrays are still not
-// mergeable objects.
+// The object test is structural, but an array is still not a mergeable object.
 export const arrayOutput = defineValidatedEventHandler(
   {
     validate: {
@@ -102,10 +93,8 @@ export const widenedArray = defineValidatedEventHandler(
 // --- A declaration annotated with the public type guarantees nothing ------
 
 // Annotating widens the declaration to the interface, whose four keys are all
-// optional - so no source is guaranteed to be there, and none is delivered.
-// The read that motivates this (`body`, never declared) and the read that pays
-// for it (`query`, written right here) get the same error, because the type
-// can no longer tell them apart. `satisfies ValidationSchemas` keeps both.
+// optional, so no source is guaranteed and none is delivered - `body` and the
+// `query` written right here get the same error. `satisfies` keeps both.
 const annotatedSchemas: ValidationSchemas = {
   query: z.object({ page: z.coerce.number() }),
 }
@@ -120,8 +109,8 @@ export const annotatedDeclaration = defineValidatedEventHandler(
 
 // --- An explicit response type argument is an arity error -----------------
 
-// The sibling's rule: `Response` has no default, so annotating the schemas
-// type argument cannot silently collapse the response type to `any`.
+// `Response` has no default, so annotating the schemas type argument cannot
+// silently collapse the response type to `any`.
 export const explicitTypeArgument = defineValidatedEventHandler<{
   query: typeof pagination
 }>({ validate: { query: pagination } }, async (_event, _validated) => null)

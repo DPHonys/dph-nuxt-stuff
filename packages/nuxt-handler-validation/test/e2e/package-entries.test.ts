@@ -5,19 +5,10 @@ import { promisify } from 'node:util'
 import ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-/**
- * The three published entries, resolved the way a consumer resolves them:
- * through the package name, against the built `dist`. The playground is the
- * only directory in the workspace with `@dphonys/nuxt-handler-validation` in
- * its `node_modules`, which is what makes it the consumer's seat here.
- *
- * Both halves matter and neither implies the other: `exports` can point at a
- * file that does not exist (runtime), and the `types` condition can point
- * somewhere else entirely (types).
- *
- * The build is a task dependency, not something this suite performs - see this
- * package's `turbo.json`.
- */
+// The three published entries, resolved the way a consumer resolves them:
+// through the package name, against the built `dist`. The playground is the
+// only directory in the workspace with the package in its `node_modules`, and
+// the build is a task dependency - see this package's `turbo.json`.
 
 const run = promisify(execFile)
 
@@ -40,17 +31,13 @@ beforeAll(() => {
 })
 
 /**
- * Compile one virtual file from inside the consumer's directory and report what
- * the compiler said about it.
+ * Compile one virtual file from inside the consumer's directory - rooted there
+ * so TypeScript walks the same `node_modules` chain a consumer does - and
+ * report what the compiler said.
  *
- * Rooted at a path inside the consumer's directory so TypeScript walks the same
- * `node_modules` chain a consumer does. The file is virtual: module resolution
- * needs its path, not its presence on disk.
- *
- * Plain bundler options rather than the playground's generated tsconfig, on
- * purpose: `nuxt prepare` writes a `paths` entry mapping this package's
- * subpaths straight at `dist`, which short-circuits the very `exports` block
- * under test. An installed consumer has no such mapping.
+ * Plain bundler options rather than the playground's generated tsconfig:
+ * `nuxt prepare` writes a `paths` entry mapping this package's subpaths
+ * straight at `dist`, short-circuiting the very `exports` block under test.
  */
 function diagnosticsFor(source: string): string[] {
   const probe = `${PLAYGROUND}/__entry-resolution.probe.ts`
@@ -90,10 +77,9 @@ function diagnosticsFor(source: string): string[] {
 
 describe('the published entries', () => {
   it('all import at runtime from a consumer’s node_modules', async () => {
-    // A real Node process, not Vite's resolver: `exports` conditions are what
-    // is under test, and only Node applies them the way a consumer's Nitro
-    // build will. `--input-type=module` resolves bare specifiers against the
-    // working directory, which is why `cwd` is the consumer's.
+    // A real Node process, not Vite's resolver: only Node applies `exports`
+    // conditions the way a consumer's Nitro build will. `--input-type=module`
+    // resolves bare specifiers against `cwd`, which is why it is the consumer's.
     const source = [MODULE_ENTRY, TYPES_ENTRY, SERVER_ENTRY]
       .map((specifier) => `await import(${JSON.stringify(specifier)})`)
       .join('\n')
@@ -107,8 +93,7 @@ describe('the published entries', () => {
 
   it('all resolve for types, each through its own door', () => {
     // Each name is imported from the entry that owns it, so a broken re-export
-    // on one door cannot be covered by another. The list is the whole public
-    // surface DESIGN.md locked: nine types and the two runtime names.
+    // on one door cannot be covered by another.
     const failures = diagnosticsFor(
       [
         `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
@@ -122,11 +107,8 @@ describe('the published entries', () => {
   })
 
   it('publish none of v1’s composition vocabulary', () => {
-    // The deletion ledger, asserted from a consumer's seat: v1's definer and
-    // the four names that existed only to describe sets, fragments, groups and
-    // the phantom seam are gone from the published surface, not merely unused
-    // inside the package. A re-export left behind would be public API this
-    // package would then owe a major to remove.
+    // Asserted from a consumer's seat, because a re-export left behind would be
+    // public API this package would then owe a major to remove.
     const removed = [
       ['defineValidation', SERVER_ENTRY],
       ['ValidationFragment', TYPES_ENTRY],

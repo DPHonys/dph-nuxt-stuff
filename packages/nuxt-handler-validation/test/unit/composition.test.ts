@@ -7,12 +7,9 @@ import { defineValidatedEventHandler } from '../../src/runtime/server'
 import { readValidationMarker } from '../../src/runtime/shared/error-marker'
 import { request } from '../h3-app'
 
-/**
- * The per-source tuple - v2's whole composition model - driven through the same
- * seam as every other runtime claim: a handler mounted in a real h3 app,
- * answering real requests. What a suite here asserts is what a client got back
- * or what the handler body was handed, never an internal shape.
- */
+// The per-source tuple, driven through the same real-h3-app seam as every other
+// runtime claim; the compile-time half lives in
+// `test/types/composition-surface.test.ts`.
 
 /** The reuse story's two units, from a different library each on purpose. */
 const pagination = z.object({
@@ -23,14 +20,9 @@ const pagination = z.object({
 const sorting = v.object({ sort: v.picklist(['asc', 'desc']) })
 
 /**
- * A schema that accepts anything and produces whatever `produce` hands back,
- * under an output type of the caller's choosing.
- *
- * The gap between the two is the point: the runtime merge exists for the values
- * a declaration cannot describe - a key riding along that the type never
- * mentioned, an output that is an object to the compiler and something else at
- * request time - and this is the door to them, standing in for the `any`-typed
- * schema or plain-JS caller a suite cannot otherwise write.
+ * A schema producing whatever `produce` hands back, under an output type of the
+ * caller's choosing. The gap between the two is the point: it stands in for the
+ * `any`-typed schema or plain-JS caller a suite cannot otherwise write.
  */
 function schemaOutputting<Output>(
   produce: () => unknown
@@ -46,12 +38,8 @@ function schemaOutputting<Output>(
 
 /**
  * A schema whose result is neither branch of the interface: no `value`, and an
- * `issues` array with nothing in it.
- *
- * The Standard Schema types permit it - a failure result is only
- * `{ issues: ReadonlyArray<Issue> }` - so any hand-written schema can produce
- * one, and no library in the tree does. It names no output to merge and no
- * reason to send a client.
+ * `issues` array with nothing in it. The Standard Schema types permit it, so a
+ * hand-written schema can produce one; no library in the tree does.
  */
 function schemaReportingNothing<Output>(): StandardSchemaV1<unknown, Output> {
   return {
@@ -65,8 +53,7 @@ function schemaReportingNothing<Output>(): StandardSchemaV1<unknown, Output> {
 
 /**
  * A declaration whose `query` slot holds whatever a caller the types never saw
- * put there - a `null`, a bare options object, a schema someone forgot to call.
- * The cast is the plain-JS route file this package cannot stop from compiling.
+ * put there. The cast stands in for a plain-JS route file.
  */
 function declaring(slot: unknown): { validate: { query: StandardSchemaV1 } } {
   return { validate: { query: slot } } as {
@@ -120,8 +107,7 @@ describe('a source composed from a tuple', () => {
     const response = await request(handler, '/api/test?page=1&size=20&sort=asc')
 
     // The wire is untouched - the client sends one flat query string, and both
-    // elements parse the whole of it. Cross-library composition falls out of
-    // that: the contract is only the `~standard` interface.
+    // elements parse the whole of it.
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
       page: 1,
@@ -141,8 +127,7 @@ describe('a failing element of a tuple', () => {
     const response = await request(handler, SPOILED)
 
     // The first element rejected `page` and never saw `size`; the second still
-    // ran and rejected `sort`. Fail-fast is a rule across sources, never
-    // between one source's elements.
+    // ran and rejected `sort`. Fail-fast is a rule across sources only.
     expect(response.status).toBe(400)
     expect(response.statusText).toBe('Validation Error')
     await expect(issuesOf(response)).resolves.toEqual([
@@ -168,9 +153,8 @@ describe('a failing element of a tuple', () => {
       SPOILED
     )
 
-    // Compared as a set, because the array order does follow the tuple - what a
-    // client is promised is that the *set* does not, so reuse can be composed
-    // in any order without changing what a request gets back.
+    // Compared as a set, because the array order does follow the tuple - it is
+    // only the *set* a client is promised.
     expect(reordered.status).toBe(written.status)
     await expect(sortedIssuesOf(reordered)).resolves.toEqual(
       await sortedIssuesOf(written)
@@ -180,10 +164,8 @@ describe('a failing element of a tuple', () => {
 
 describe('the merge of a tuple’s outputs', () => {
   it('is later-wins for the keys the declaration could not see', async () => {
-    // Disjoint to the compiler, overlapping at runtime: exactly the blind spot
-    // decision 6 names - a passthrough key, a plain-JS caller, an `any`-typed
-    // schema. The declaration guard has nothing to refuse here, so the merge
-    // itself is the rule, and it is a plain spread.
+    // Disjoint to the compiler, overlapping at runtime, so the declaration
+    // guard has nothing to refuse and the merge itself is the rule.
     const first = schemaOutputting<{ page: number }>(() => ({
       page: 1,
       shared: 'first',
@@ -240,10 +222,8 @@ describe('the merge of a tuple’s outputs', () => {
 
     const response = await request(handler, '/api/test')
 
-    // The observation is the side-effect order, because that is the only thing
-    // a parallel run would change: under `Promise.all` the quick element
-    // finishes first. Tuple order is the promise, so async schemas compose
-    // predictably.
+    // The side-effect order is the whole observation: under `Promise.all` the
+    // quick element would finish first.
     expect(response.status).toBe(200)
     expect(order).toEqual(['slow', 'quick'])
   })
@@ -285,15 +265,15 @@ describe('an element output the merge cannot take', () => {
 
     const { error } = await errorFrom(handler)
 
-    // The whole point of marking only the 400: this is a bug in the route, and
-    // a hook that skips validation failures must not swallow it.
+    // Only the 400 is marked: this is a bug in the route, and a hook that skips
+    // validation failures must not swallow it.
     expect(readValidationMarker(error)).toBeUndefined()
   })
 
   it('refuses an exotic object the declaration guard let through', async () => {
-    // The accepted cost of the structural object test: a `Date` output passes
-    // the compile-time gate and is this merge's to refuse - its meaning lives
-    // outside its own enumerable keys, so a spread would drop it silently.
+    // The accepted cost of the structural object test: a `Date` passes the
+    // compile-time gate, and its meaning lives outside its own enumerable
+    // keys, so a spread would drop it silently.
     const handler = defineValidatedEventHandler(
       {
         validate: {
@@ -331,9 +311,8 @@ describe('an element that reports neither an output nor an issue', () => {
     const { status, error } = await errorFrom(handler)
 
     // The failure this replaces: the element contributed nothing, `issues`
-    // stayed empty, and the request answered `200` with the element simply
-    // missing from the merge. Silent data loss is the one outcome the merge
-    // may never produce.
+    // stayed empty, and the request answered 200 with it missing from the
+    // merge. Silent data loss is the one outcome the merge may never produce.
     expect(status).toBe(500)
     expect((error as Error).message).toContain('query')
     expect((error as Error).message).toContain('index 1')
@@ -342,9 +321,8 @@ describe('an element that reports neither an output nor an issue', () => {
   it('carries no marker, so an observability hook still reports it', async () => {
     const { error } = await errorFrom(handler)
 
-    // A schema answering neither way is a bug in the route, not a client's bad
-    // input - so it takes the unmarked `500`, never the marked `400` a hook is
-    // invited to skip.
+    // A bug in the route, not a client's bad input, so it takes the unmarked
+    // 500 rather than the marked 400 a hook is invited to skip.
     expect(readValidationMarker(error)).toBeUndefined()
   })
 
@@ -361,9 +339,8 @@ describe('an element that reports neither an output nor an issue', () => {
       SPOILED
     )
 
-    // Within one source every element still runs and every issue still arrives
-    // together: a real rejection is what the client hears about, and the void
-    // element is only the answer when nothing else had anything to say.
+    // A real rejection is what the client hears about; the void element is only
+    // the answer when nothing else had anything to say.
     expect(response.status).toBe(400)
     expect(response.statusText).toBe('Validation Error')
     await expect(issuesOf(response)).resolves.toEqual(['query:sort'])
@@ -372,9 +349,9 @@ describe('an element that reports neither an output nor an issue', () => {
 
 describe('a source no schema ran for', () => {
   it('is a 500, not a 200 delivering an empty object', async () => {
-    // The tuple type refuses `[]`, so this arrives only from the callers
-    // decision 6 names - plain JS, or an `any`-typed declaration. Delivering
-    // `{}` would tell the handler the query validated when nothing looked at it.
+    // The tuple type refuses `[]`, so this arrives only from plain JS or an
+    // `any`-typed declaration. Delivering `{}` would tell the handler the query
+    // validated when nothing looked at it.
     const declaredEmpty = [] as unknown as readonly [
       StandardSchemaV1<unknown, { page: number }>,
     ]
@@ -394,10 +371,9 @@ describe('a source no schema ran for', () => {
 
 describe('a source slot holding something that is not a schema', () => {
   it('is refused when the route is evaluated, not once per request', () => {
-    // Before this refusal existed the plan took the `null` happily and every
-    // request the route ever served answered `500` with an unattributed
-    // `TypeError: Cannot read properties of null (reading '~standard')` -
-    // a message naming neither this package nor the source that broke.
+    // Without this refusal every request the route serves answers 500 with an
+    // unattributed `TypeError: Cannot read properties of null` - naming neither
+    // this package nor the source that broke.
     expect(() =>
       defineValidatedEventHandler(declaring(null), () => 'never evaluated')
     ).toThrowError(
@@ -441,8 +417,6 @@ describe('a source slot holding something that is not a schema', () => {
 
 describe('a lone element', () => {
   it('delivers exactly what a bare schema does', async () => {
-    // `x` and `[x]` are one declaration: the tuple is normalized to an element
-    // list, and a bare schema is the list holding it.
     const schema = z.object({ page: z.coerce.number() })
 
     const bare = await request(
@@ -465,9 +439,8 @@ describe('a lone element', () => {
   })
 
   it('passes its output through untouched, primitives and unions included', async () => {
-    // Nothing to merge into, so nothing object-tests it: whichever branch of
-    // the union matched arrives as it is - a bare number as readily as an
-    // object. A two-element tuple would have refused the number.
+    // Nothing to merge into, so nothing object-tests it. A two-element tuple
+    // would have refused the number.
     const pageOrAll = z.union([
       z.object({ page: z.string() }).transform(({ page }) => Number(page)),
       z.object({ all: z.literal('yes') }),

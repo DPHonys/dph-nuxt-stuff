@@ -4,15 +4,9 @@ import { z } from 'zod'
 import { defineValidatedEventHandler } from '../../src/runtime/server'
 import type { Assert, Equal } from './assert'
 
-/**
- * The reuse story, ported from the sandbox's `src/sandbox/reuse.ts`. There is
- * no definer: a reusable validation is a schema value - a plain export with no
- * source keys to misspell - and composition is a tuple on the source it
- * targets. Cross-library composition falls out for free, because the tuple's
- * elements are independent Standard Schemas.
- *
- * **Compiled, never run**, for the reason `handler-surface.test.ts` states.
- */
+// The composition surface's compile-time contract; compiled, never run, for the
+// reason `handler-surface.test.ts` states. The runtime half lives in
+// `test/unit/composition.test.ts`.
 
 // --- "server/validation/listing.ts" - reusable units are schema values ----
 
@@ -34,17 +28,15 @@ export function composedQuery(): void {
   defineValidatedEventHandler(
     { validate: { query: [pagination, sorting], body: profileBody } },
     async (_event, { query, body }) => {
-      // Each element parsed the whole raw source; the delivered value is the
-      // merge of their outputs, flat - ?page=1&size=20&sort=asc on the wire.
+      // `?page=1&size=20&sort=asc` on the wire: each element parsed the whole
+      // of it, and the delivered value is the merge of their outputs.
       type _page = Assert<Equal<typeof query.page, number>>
       type _size = Assert<Equal<typeof query.size, number>>
       type _sort = Assert<Equal<typeof query.sort, 'asc' | 'desc'>>
       type _body = Assert<Equal<typeof body, { name: string }>>
 
-      // Flat is the *type*, not just the reading: one record of every merged
-      // key, which is what a hover prints and what a declared return type has
-      // to be spelled as. An intersection of the elements' outputs would carry
-      // the same keys and fail this assertion.
+      // Flat is the *type*, not just the reading: an intersection of the
+      // elements' outputs would carry the same keys and fail this assertion.
       type _flat = Assert<
         Equal<
           typeof query,
@@ -62,8 +54,6 @@ export function composedQuery(): void {
 
 // --- A set spanning several sources is an object of schema values ---------
 
-// v1 needed named sets for this; now it is just a module-level object, and
-// the route says which slot each schema fills - explicit, no machinery.
 const auth = {
   headers: z.object({ authorization: z.string() }),
   query: z.object({ tenant: z.string() }),
@@ -155,10 +145,8 @@ export function unionElement(): void {
 
 // --- An index-signature output composes ------------------------------------
 
-// A passthrough or record output names no keys the compiler can compare - an
-// index signature widens `keyof` to `string`, taking the named keys with it -
-// so the overlap rule has nothing to prove and does not refuse the merge. The
-// runtime's later-wins spread is what stands behind the keys it cannot see.
+// An index signature widens `keyof` to `string`, so the overlap rule has no
+// keys to compare and does not refuse the merge.
 export function passthroughOutput(): void {
   defineValidatedEventHandler(
     {
@@ -168,10 +156,9 @@ export function passthroughOutput(): void {
     },
     async (_event, { query }) => {
       type _sort = Assert<Equal<typeof query.sort, 'asc' | 'desc'>>
-      // Such a merge is the one that stays an intersection rather than being
-      // restated flat: `keyof` is the whole key space here, so a flat restating
-      // would have nothing to name `page` with and would hand back the index
-      // signature alone. The named key survives instead.
+      // Such a merge stays an intersection rather than being restated flat: a
+      // flat restating would have nothing to name `page` with, and would hand
+      // back the index signature alone.
       type _page = Assert<Equal<typeof query.page, number>>
       return query.page
     }
@@ -190,19 +177,17 @@ export function recordOutput(): void {
 
 // --- An `any`-typed schema composes ----------------------------------------
 
-// Decision 6 names an `any`-typed schema as a case the *runtime* merge exists
-// to handle, so the declaration guard may not refuse it: `any` satisfies both
-// branches of every conditional, and answering it before the object test is
-// what keeps that runtime path reachable from typed code.
+// The runtime merge exists to handle an `any`-typed schema, so the declaration
+// guard may not refuse one: `any` satisfies both branches of every conditional,
+// and answering it before the object test is what keeps that path reachable.
 declare const untypedSchema: any
 
 export function anyTypedElement(): void {
   defineValidatedEventHandler(
     { validate: { query: [pagination, untypedSchema] } },
     async (_event, { query }) => {
-      // The merge is `any`, which is the honest report rather than a defect of
-      // this fixture: an element that promises nothing takes the whole slot's
-      // type with it, and the runtime's later-wins spread is what runs.
+      // `any` is the honest report, not a defect of this fixture: an element
+      // that promises nothing takes the whole slot's type with it.
       type _merged = Assert<Equal<typeof query, any>>
       return query.page
     }

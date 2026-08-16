@@ -13,20 +13,10 @@ import { defineValidatedEventHandler } from '../../src/runtime/server'
 import type { ValidationSource } from '../../src/runtime/types'
 import { postJson, request, schemaReturning, sourcesOfIssues } from '../h3-app'
 
-/**
- * The primary seam: a handler built by `defineValidatedEventHandler`, mounted
- * in a real h3 app and driven by real requests (see `test/h3-app.ts` for the
- * mounting tools). Half of this package's decisions are claims about h3's own
- * behaviour, so the app is h3's, never a double of it - and every assertion is
- * about what a request got back or what the handler body was handed, never
- * about an internal shape.
- */
+// Handlers built by `defineValidatedEventHandler`, driven by real requests
+// through a real h3 app; the mounting tools live in `test/h3-app.ts`.
 
-/**
- * A POST whose body stream fails part-way through, so the failure comes out of
- * the read itself rather than out of anything this package did. `reason` is
- * what the read then rejects with.
- */
+/** A POST whose body stream errors part-way through, rejecting with `reason`. */
 function bodyFailingWith(reason: unknown): RequestInit {
   return {
     method: 'POST',
@@ -83,8 +73,7 @@ describe('a handler declaring a routerParams schema', () => {
       route: '/files/**',
     })
 
-    // h3's matcher decides this shape: one anonymous key, the remaining
-    // segments joined with slashes, decoded. The package adds nothing.
+    // h3's matcher decides this shape; the package adds nothing.
     await expect(response.json()).resolves.toEqual({ rest: 'a/b c/d.txt' })
   })
 
@@ -185,8 +174,6 @@ describe('a handler declaring a query schema', () => {
       data: { issues: Array<{ source: string; path: unknown[] }> }
     }
 
-    // The library aggregates within a source, so a form with two bad fields
-    // reports two issues in one answer - each still tagged with its source.
     expect(body.data.issues).toHaveLength(2)
     expect(body.data.issues.map((issue) => issue.source)).toEqual([
       'query',
@@ -211,9 +198,7 @@ describe('a handler declaring a query schema', () => {
     const verboseBody = (await verbose.json()) as Record<string, unknown>
 
     // The stack the verbose server adds is h3's; the payload this package
-    // raises has no environment branch and no redaction option, so it is the
-    // same object under both. The failing shape here would be a payload that
-    // says more in development than a client can rely on in production.
+    // raises has no environment branch, so it is the same object under both.
     expect(verbose.status).toBe(quiet.status)
     expect(verboseBody.statusMessage).toBe(quietBody.statusMessage)
     expect(verboseBody.data).toEqual(quietBody.data)
@@ -250,8 +235,6 @@ describe('a handler declaring a headers schema', () => {
       init: { headers: { 'X-Trace': 'sent-in-mixed-case' } },
     })
 
-    // The schema names the header the way the client sent it, and misses -
-    // h3 lowercases, and this package adds no lookup magic on top.
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({
       data: { issues: [{ source: 'headers', path: ['X-Trace'] }] },
@@ -310,20 +293,14 @@ describe('a handler declaring a body schema', () => {
       init: { method: 'POST' },
     })
 
-    // No special case anywhere: "optional body" is expressed in the schema,
-    // where every other kind of optionality lives.
+    // No special case anywhere: "optional body" is expressed in the schema.
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ type: 'undefined' })
   })
 })
 
 describe('the request method and the body read', () => {
-  /**
-   * A method-agnostic route: one handler serving every verb, declaring a body
-   * its schema is willing to see absent. This is the Nitro pattern
-   * (`server/api/users.ts`, no method in the filename) the skip rule exists to
-   * protect.
-   */
+  /** One handler serving every verb - the Nitro pattern the skip rule protects. */
   const methodAgnostic = defineValidatedEventHandler(
     { validate: { body: z.object({ name: z.string() }).optional() } },
     (event, { body }) => ({ method: event.method, body: body ?? null })
@@ -333,9 +310,8 @@ describe('the request method and the body read', () => {
   const payloadMethods = ['PATCH', 'POST', 'PUT', 'DELETE']
 
   /**
-   * Verbs outside that set, `HEAD` aside (it answers with no body to read).
-   * `PURGE` stands for the custom verbs the set says nothing about; `CONNECT`
-   * and `TRACE` are missing only because `Request` refuses to construct them.
+   * Verbs outside that set, `HEAD` aside. `CONNECT` and `TRACE` are missing
+   * only because `Request` refuses to construct them.
    */
   const nonPayloadMethods = ['GET', 'OPTIONS', 'PURGE']
 
@@ -361,10 +337,8 @@ describe('the request method and the body read', () => {
         init: { method },
       })
 
-      // Not 405: h3's `readRawBody` opens with `assertMethod` and hard-throws a
-      // bare "HTTP method is not allowed." for every verb outside its payload
-      // set. The read is skipped, so that throw is never reached - the body
-      // simply validates `undefined`, exactly as an empty one does.
+      // h3's `readRawBody` hard-throws a bare 405 for every verb outside its
+      // payload set; skipping the read is what keeps that throw unreachable.
       expect(response.status).toBe(200)
       await expect(response.json()).resolves.toEqual({ method, body: null })
     }
@@ -375,16 +349,13 @@ describe('the request method and the body read', () => {
       init: { method: 'HEAD' },
     })
 
-    // HEAD answers with no body of its own, so the status is the whole
-    // observation - and 405 is the failure this asserts against.
+    // HEAD sends no body to read, so the status is the whole observation.
     expect(response.status).toBe(200)
   })
 
   it('answers 400 tagged `body`, not 405, when a GET-only route declares one', async () => {
-    // The knowingly accepted cost of the per-request-method rule: a genuine
-    // mis-declaration (a `.get.ts` route file declaring a body) blames the
-    // client for a server bug, because the package cannot tell that typo from
-    // the legitimate pattern above. It still surfaces on the first request.
+    // The accepted cost of the skip rule: a genuine mis-declaration blames the
+    // client, because it is indistinguishable from the pattern above.
     const handler = defineValidatedEventHandler(
       { validate: { body: z.object({ name: z.string() }) } },
       () => 'the body never runs'
@@ -465,13 +436,10 @@ describe('any Standard Schema', () => {
   })
 
   it('refuses a result that reports neither an output nor an issue', async () => {
-    // The other side of that discrimination, and the one the interface leaves
-    // ambiguous: a failure result is only `{ issues: ReadonlyArray<Issue> }`,
-    // so an empty array type-checks while naming no output to deliver and no
-    // reason to send the client. Read as a success it would hand the handler a
-    // value the schema never produced; read as a failure it would answer `400`
-    // with an empty `issues` payload, which tells a client nothing and, being
-    // marked, invites an observability hook to skip the route's own bug.
+    // The other side of that discrimination: an empty `issues` array
+    // type-checks while naming no output and no reason. Read as a success it
+    // invents a value; read as a failure it sends a marked 400 with nothing in
+    // it, inviting a hook to skip the route's own bug.
     const handler = defineValidatedEventHandler(
       { validate: { query: schemaReturning({ issues: [] }) } },
       (event, { query }) => ({ received: query })
@@ -531,11 +499,7 @@ describe('a handler declaring several sources', () => {
     })
   )
 
-  /**
-   * One request shape, spoiled in exactly the sources named. Every source is
-   * declared on the handler, so what changes between calls is only which of
-   * them the request satisfies.
-   */
+  /** One request shape, spoiled in exactly the sources named. */
   function send(...bad: ValidationSource[]): Promise<Response> {
     const spoiled = (source: ValidationSource): boolean => bad.includes(source)
 
@@ -567,9 +531,8 @@ describe('a handler declaring several sources', () => {
   })
 
   it('stops at the first failing source, in the promised order', async () => {
-    // Each request is worse than the last only in the sources *after* the one
-    // it fails on, so the source named in the answer is the order itself:
-    // routerParams -> query -> headers -> body.
+    // Each request is spoiled only in the sources *after* the one it fails on,
+    // so the source named in the answer is the order itself.
     const allBad = await send('routerParams', 'query', 'headers', 'body')
     const fromQuery = await send('query', 'headers', 'body')
     const fromHeaders = await send('headers', 'body')
@@ -597,8 +560,7 @@ describe('a handler declaring several sources', () => {
     })
 
     // The payload is unparseable, so a body read would have answered with a
-    // `source: "body"` issue instead - the answer naming `query` is the proof
-    // that the stream was never touched.
+    // `source: "body"` issue - naming `query` is the proof it never happened.
     expect(response.status).toBe(400)
     expect(response.statusText).toBe('Validation Error')
     await expect(response.json()).resolves.toMatchObject({
@@ -628,19 +590,17 @@ describe('a body the read itself refuses', () => {
         init: postJson('{ not json at all', { 'content-type': contentType }),
       })
 
-      // Left to h3 this is its own `400 Bad Request` carrying "Invalid JSON
-      // body" as a message and no `data.issues` at all - a second failure
-      // shape a client would have to detect differently. `strict: true` is
-      // what makes the charset'd header behave like the bare one; the catch
-      // net is what makes all four answer in this package's one shape.
+      // Left to h3 this is its own 400 carrying "Invalid JSON body" and no
+      // `data.issues` - a second failure shape a client would have to detect
+      // differently. `strict: true` is what makes the charset'd header behave
+      // like the bare one.
       expect(response.status).toBe(400)
       expect(response.statusText).toBe('Validation Error')
 
       const body = (await response.json()) as { data: { issues: unknown[] } }
 
-      // `toEqual`: the message is this package's own and content-type-agnostic,
-      // never h3's "Invalid JSON body" - which would lie to the multipart case
-      // and would make h3's wording part of this package's wire contract.
+      // `toEqual`: the message is this package's own, never h3's "Invalid JSON
+      // body" - which would make h3's wording part of this wire contract.
       expect(body.data.issues).toEqual([
         {
           source: 'body',
@@ -693,13 +653,9 @@ describe('a body the read itself refuses', () => {
 })
 
 describe("what h3 v1's body read delivers", () => {
-  // These assertions describe h3 v1 under the door this package picked. They
-  // are not promises the package makes: h3 v2's body is a content-type-agnostic
-  // `event.req.json()` with no payload-method gate, so promising this table
-  // would turn that alignment from a rename into a re-implementation of h3 v1's
-  // branching. What *is* promised sits in the suites above: the order, the
-  // `400 + data.issues` shape, one issue for an unparseable body, and
-  // `undefined` for a method that cannot carry one.
+  // h3 v1's own behaviour, described rather than promised: h3 v2 parses without
+  // the content-type branching. What this package does promise sits in the
+  // suites above.
 
   it('parses a form-urlencoded body into an object of string | string[]', async () => {
     const handler = defineValidatedEventHandler(
@@ -735,8 +691,7 @@ describe("what h3 v1's body read delivers", () => {
       init: postJson('{ not json at all', { 'content-type': 'text/plain' }),
     })
 
-    // Not an error: h3 hands `text/*` over unparsed, for the schema to accept
-    // or reject.
+    // Not an error: h3 hands `text/*` over unparsed, for the schema to judge.
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
       body: '{ not json at all',
@@ -772,8 +727,7 @@ describe("what h3 v1's body read delivers", () => {
       (event, { body }) => ({ name: body.name })
     )
 
-    // The else-branch is not a failure path: a content type h3 has no rule for
-    // still parses, and valid JSON under it validates like any other body. The
+    // Not a failure path: a content type h3 has no rule for still parses. The
     // matching malformed case sits in the catch-net suite above.
     const response = await request(handler, '/api/test', {
       init: postJson(JSON.stringify({ name: 'ada' }), {
@@ -798,9 +752,8 @@ describe("h3's body memoization", () => {
       },
       async (event, { body }) => ({
         validated: body.name,
-        // Reading again inside the handler is legal and cheap - h3 memoizes
-        // its parse - but it yields what arrived, not what validated. The
-        // second parameter is the validated door; this is the other one.
+        // The other door: h3 memoizes its parse, so this is cheap, but it
+        // yields what arrived rather than what validated.
         readAgain: (await readBody<{ name: string }>(event)).name,
       })
     )
@@ -819,11 +772,9 @@ describe("h3's body memoization", () => {
   it('keeps every promised invariant when middleware pre-read the body non-strictly', async () => {
     const app = createApp({ debug: false })
 
-    // The upstream direction of the same memoization: a `server/middleware/*.ts`
-    // calling bare `readBody` caches a *non-strictly* parsed value first, and
-    // this package's `{ strict: true }` is then never consulted. Accepted and
-    // documented rather than closed - refusing the request would punish a
-    // legitimate middleware pattern.
+    // The upstream direction of the same memoization: middleware calling bare
+    // `readBody` caches a non-strictly parsed value first, so this package's
+    // `{ strict: true }` is never consulted. Accepted rather than closed.
     app.use(defineEventHandler(async (event) => void (await readBody(event))))
     app.use(
       '/api/test',
@@ -843,9 +794,8 @@ describe("h3's body memoization", () => {
     )
     const body = (await response.json()) as { data: { issues: unknown[] } }
 
-    // Everything promised survives: still `400`, still this package's shape,
-    // still exactly one `body` issue. Only the message drifts from ours to the
-    // schema's, which is no worse for the client.
+    // Only the message drifts from ours to the schema's, which is no worse for
+    // the client.
     expect(response.status).toBe(400)
     expect(response.statusText).toBe('Validation Error')
     expect(body.data.issues).toHaveLength(1)
@@ -859,8 +809,7 @@ describe('the projected issues', () => {
 
     // What a vendor hangs off an issue: valibot's path items carry the raw
     // request input, and none of the extras are JSON-safe. Every path form the
-    // interface permits sits in one issue - an object segment, a number, and a
-    // symbol.
+    // interface permits sits in this one issue.
     const vendorIssue = {
       message: 'Expected a number',
       path: [{ key: 'user' }, 0, secret],
@@ -895,11 +844,9 @@ describe('the projected issues', () => {
   })
 
   it('survives a null path segment instead of failing while building the 400', async () => {
-    // `typeof null === 'object'`, so a segment the interface never permits used
-    // to be read as an object segment and dereferenced - turning a validation
-    // failure into an unhandled `500` from inside the answer itself. It
-    // stringifies like every other segment the projection cannot name: a
-    // segment is never dropped and never `null`.
+    // `typeof null === 'object'`, so this segment used to be dereferenced as an
+    // object one - turning a validation failure into a 500 from inside the
+    // answer itself. It stringifies instead: never dropped, never `null`.
     const handler = defineValidatedEventHandler(
       {
         validate: {

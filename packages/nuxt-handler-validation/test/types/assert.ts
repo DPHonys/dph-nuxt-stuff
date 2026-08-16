@@ -1,10 +1,7 @@
 /**
- * The type-assertion helpers the compiler-asserted suites share, ported from
- * the sandbox's `src/sandbox/assert.ts` rather than restated per file.
- *
- * `Equal` is the invariant-position trick, so it distinguishes `{ a: string }`
- * from `{ a: string } | { a: string }`-style widenings that a bare `extends`
- * pair would call equal.
+ * The type-assertion helpers the compiler-asserted suites share. `Equal` is the
+ * invariant-position trick, so it distinguishes widenings a bare `extends` pair
+ * would call equal.
  */
 
 export type Equal<A, B> =

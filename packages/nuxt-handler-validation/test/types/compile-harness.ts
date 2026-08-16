@@ -1,19 +1,8 @@
 /**
- * Compile one fixture and read the diagnostics it produced.
- *
- * "This is a compile error" is a statement about a **diagnostic**, and the
- * `Assert<Equal<…>>` assertions in the suites next door cannot make it: they
- * prove a type resolved, never that the author is shown the sentence the guard
- * carries. Only a compiler run answers that, so this reads one.
- *
- * The three guard sentences are **public surface** - the locked promise of
- * `DESIGN.md` is that a broken declaration is told what it did, at the key it
- * did it - so they are asserted verbatim, and at the line the offending key
- * sits on.
- *
- * Ported from v1's `test/types/compile-harness.ts`, minus the overload-code
- * vocabulary v2 has no use for: the wrapper has one signature, so nothing
- * collapses into "no overload matches this call".
+ * Compile one fixture and read the diagnostics it produced. The
+ * `Assert<Equal<…>>` suites next door prove a type resolved, never that the
+ * author is shown the sentence a guard carries; only a compiler run answers
+ * that.
  *
  * Not a Vitest test file, so it is not matched by vitest's `include`; knip
  * reaches it through the suite importing it.
@@ -31,8 +20,7 @@ const NO_INPUTS_FOUND = 18003
 export const NOT_ASSIGNABLE = 2322
 export const PROPERTY_DOES_NOT_EXIST = 2339
 /**
- * TS2375 - the `exactOptionalPropertyTypes` flavour of TS2322, which is what a
- * guard failure on an **optional** source key reports as. Every key of
+ * TS2375 - the `exactOptionalPropertyTypes` flavour of TS2322. Every key of
  * `ValidationSchemas` is optional, so a stray key lands here rather than on the
  * plain assignability code its composed siblings use.
  */
@@ -66,9 +54,8 @@ export function saying(
 }
 
 /**
- * The 1-based line a fixture's offending key sits on, found by its text rather
- * than written down as a number: "the error lands at the key" is the claim, and
- * a hard-coded line turns any edit above it into a false failure.
+ * The 1-based line a fixture's offending key sits on, found by its text - a
+ * hard-coded line turns any edit above it into a false failure.
  */
 export function lineContaining(fixture: string, needle: string): number {
   const lines = readFileSync(fixture, 'utf8').split('\n')
@@ -82,9 +69,8 @@ export function lineContaining(fixture: string, needle: string): number {
 }
 
 /**
- * Compile one fixture against a tsconfig's own options, and return only the
- * diagnostics that fixture itself produced - a stray error from a library on
- * the way in is not what any assertion here is about.
+ * Compile one fixture against a tsconfig's own options, returning only the
+ * diagnostics that fixture itself produced.
  */
 export function compileFixture(
   tsconfigPath: string,
@@ -104,12 +90,9 @@ export function compileFixture(
     tsconfigPath
   )
 
-  // `readConfigFile` only surfaces read and JSON-syntax failures; a broken
-  // `extends` or an invalid option lands here, and ignoring it would compile
-  // the fixture against defaults instead of the intended config.
-  //
-  // TS18003 ("no inputs were found") is the exception: this harness supplies
-  // the file list itself, so the config is never asked to match any.
+  // A broken `extends` or an invalid option lands here rather than on
+  // `readConfigFile`, and ignoring it would compile the fixture against
+  // defaults. TS18003 is the exception: this harness supplies the file list.
   const fatal = parsed.errors.filter((error) => error.code !== NO_INPUTS_FOUND)
 
   if (fatal.length > 0) {

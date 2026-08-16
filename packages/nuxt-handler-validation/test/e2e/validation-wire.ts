@@ -3,29 +3,19 @@ import { expect, it } from 'vitest'
 import { VALIDATION_ERROR_KEY } from '../../src/runtime/shared/error-marker'
 
 /**
- * The whole wire contract, in one copy, run by two suites: `wire.test.ts`
- * against a production build and `wire-dev.test.ts` against a dev server.
+ * The whole wire contract, in one copy, run by `wire.test.ts` against a
+ * production build and `wire-dev.test.ts` against a dev server. "Identical in
+ * development and production" is asserted by there being exactly one copy.
  *
- * **"Identical in development and production" is asserted by there being
- * exactly one copy of these expectations.** Nothing in this package reads the
- * environment, and this is what would catch it if something started to. The two
- * suites are separate files because `@nuxt/test-utils` keeps one global test
- * context - two `setup()` calls in one file boot the wrong server for the wrong
- * suite - and the `e2e` project runs with `fileParallelism: false`, so they take
- * their turns over one build directory.
- *
- * The messages pinned below are the **playground's own**: every schema there
- * carries a custom message, so these assertions are that app's contract and not
- * whichever wording a schema library ships this week. Each issue's `source` and
- * `path`, and the envelope around them, are this package's.
+ * Every message pinned below is the playground's own custom one, so these
+ * assertions are that app's contract rather than a schema library's wording.
  */
 
 /**
- * The marker's key exactly as it would read if it ever reached a client,
- * derived from the constant rather than restated - a key rename must not leave
- * this suite passing against the old one. A missing description degrades to the
- * empty string, which every `not.toContain` below fails on, so the derivation
- * cannot quietly go vacuous.
+ * The marker's key as it would read if it ever reached a client, derived rather
+ * than restated so a rename cannot leave this passing against the old one. A
+ * missing description degrades to the empty string, which every
+ * `not.toContain` below fails on.
  */
 const MARKER_KEY: string = VALIDATION_ERROR_KEY.description ?? ''
 
@@ -84,9 +74,7 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
   it('answers a malformed JSON body in that same shape', async () => {
     const response = await fetch('/api/users', jsonPost('{"name":'))
 
-    // A parse failure is not a special case a client must detect differently:
-    // same status, same envelope, same issue shape, with the package's own
-    // content-type-agnostic wording rather than h3's.
+    // The wording is the package's own, content-type-agnostic one, not h3's.
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual(failureBody([UNPARSEABLE_BODY]))
   })
@@ -109,8 +97,8 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
   })
 
   it('delivers a composed tuple’s outputs as one flat value', async () => {
-    // Three schemas from two libraries compose `query`, all three ran against
-    // the same raw source, and the merge is flat - the wire is untouched.
+    // Three schemas from two libraries compose `query`, all three against the
+    // same raw source.
     expect(await $fetch('/api/reports?page=2&sort=desc&report=weekly')).toEqual(
       { report: 'weekly', page: 2, sort: 'desc' }
     )
@@ -128,9 +116,8 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
   it('answers a developer mistake of ours as a plain 500, whole', async () => {
     const response = await fetch('/api/unmergeable?q=hi')
 
-    // The other side of the same rule: a mis-declaration carries no issues
-    // payload at all, so a client cannot mistake this package's bug for its
-    // own bad input any more than an observability hook can.
+    // No issues payload at all, so a client cannot mistake this package's bug
+    // for its own bad input any more than an observability hook can.
     expect(response.status).toBe(500)
     expect(await response.json()).toEqual({
       ...nitroExtras,
@@ -185,10 +172,8 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
   })
 
   it('surfaces a fetched failure’s issues at err.data.data.issues', async () => {
-    // The depth the design spec documents, measured from inside a route that
-    // catches one - so the aggregator effort inherits the fact rather than
-    // guessing it. `recognized: false` is the other half of the marker promise:
-    // a failure that crossed a wire is not a locally raised one.
+    // `recognized: false` is the other half of the marker promise: a failure
+    // that crossed a wire is not a locally raised one.
     expect(await $fetch('/api/fetched-failure')).toEqual({
       rejected: true,
       atDataIssues: null,
@@ -199,9 +184,8 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
 }
 
 /**
- * What `/api/observed` reports, as it arrives over the wire - restated here
- * rather than imported from the playground on purpose: this suite asserts what
- * a caller receives, so nothing in it may lean on the fixture's own types.
+ * What `/api/observed` reports, as it arrives over the wire - restated rather
+ * than imported, so nothing here leans on the fixture's own types.
  */
 interface ObservedError {
   statusCode: number | undefined
@@ -211,9 +195,8 @@ interface ObservedError {
 }
 
 /**
- * A POST carrying an **already-serialized** payload, so a malformed body is as
- * easy to send as a valid one. Typed structurally rather than as `RequestInit`,
- * because it is handed to both `fetch` and ofetch's `$fetch`.
+ * A POST carrying an already-serialized payload. Typed structurally rather than
+ * as `RequestInit`, because it is handed to both `fetch` and ofetch's `$fetch`.
  */
 function jsonPost(body: string): {
   method: 'POST'

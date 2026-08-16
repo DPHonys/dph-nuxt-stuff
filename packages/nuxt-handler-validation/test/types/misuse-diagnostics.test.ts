@@ -11,20 +11,9 @@ import {
   WRONG_TYPE_ARGUMENT_COUNT,
 } from './compile-harness'
 
-/**
- * What an author actually reads when they misuse a declaration - the recorded
- * deliberate-error run.
- *
- * The `Assert<Equal<…>>` suites next door prove a declaration is accepted and
- * inferred; they cannot prove a rejected one says anything useful. The three
- * sentences below are **public surface** - DESIGN.md's locked promise is that a
- * broken declaration is told what it did, at the key it did it - so each is
- * asserted verbatim and at the offending key's own line.
- *
- * The run's length is pinned as well as its sentences, so a diagnostic that
- * appears, moves or vanishes fails here rather than passing quietly - which is
- * what makes this a regression fixture rather than an anecdote.
- */
+// What an author reads when they misuse a declaration. The three sentences
+// below are public surface - a broken declaration is told what it did, at the
+// key it did it - so each is asserted verbatim and at the offending key's line.
 
 const FIXTURE = fixturePath('misuse-declaration.ts')
 
@@ -44,14 +33,15 @@ const NON_OBJECT_OUTPUT =
 
 describe('the declaration guard’s diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
+    // The length is pinned as well as the sentences, so a diagnostic that
+    // appears, moves or vanishes fails here rather than passing quietly.
     expect(diagnostics).toHaveLength(10)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
   it('never collapses into an overload paragraph', () => {
-    // The whole reason the wrapper has one signature: v1's two overloads turned
-    // every rejection into a "No overload matches this call" essay, with the
-    // actionable sentence buried in one of its branches.
+    // The whole reason the wrapper has one signature: two overloads turn every
+    // rejection into an essay with the actionable sentence buried in a branch.
     for (const diagnostic of diagnostics) {
       expect(diagnostic.message).not.toContain('Overload')
     }
@@ -74,8 +64,8 @@ describe('the declaration guard’s diagnostics', () => {
   })
 
   it('refuses a non-object output at the source key that composed it', () => {
-    // Both flavours of the rule - a primitive output and an array output - get
-    // the same sentence, because the fix is the same either way.
+    // A primitive output and an array output get the same sentence, because the
+    // fix is the same either way.
     const [primitive, array] = saying(diagnostics, NON_OBJECT_OUTPUT)
 
     expect(primitive?.code).toBe(NOT_ASSIGNABLE)
@@ -88,8 +78,7 @@ describe('the declaration guard’s diagnostics', () => {
   })
 
   it('rejects a value that is not a schema at all', () => {
-    // No sentence of this package's own: the slot constraint already says the
-    // whole of it, and inventing a message here would only bury it.
+    // No sentence of this package's own: the slot constraint already says it.
     const [notASchema] = saying(
       diagnostics,
       "Type 'number' is not assignable to type 'SourceSchemas'"
@@ -101,7 +90,7 @@ describe('the declaration guard’s diagnostics', () => {
 
   it('rejects a widened array at the tuple constraint', () => {
     // An array of unknown length cannot type its merge, so the constraint - not
-    // a guard sentence - is what turns it away, naming the tuple it wanted.
+    // a guard sentence - is what turns it away.
     const [widened] = saying(
       diagnostics,
       'Source provides no match for required element at position 0 in target'
@@ -120,12 +109,10 @@ describe('the declaration guard’s diagnostics', () => {
   })
 
   it('delivers no source at all from a declaration annotated with the public type', () => {
-    // The promise is that an undeclared source is *absent*, and an annotated
-    // declaration is the case that used to break it: `keyof S` widened to the
-    // interface's four optional keys, so `validated.body` compiled as `unknown`
-    // and arrived `undefined`. A slot that can be `undefined` is now no key at
-    // all - which costs the annotated `query` too, and deliberately: the type
-    // says the object *may* hold a query, so reading one is the same guess.
+    // Annotating widens `keyof S` to the interface's four optional keys, so
+    // `validated.body` used to compile as `unknown` and arrive `undefined`. A
+    // slot that can be `undefined` is now no key at all - which costs the
+    // annotated `query` too, and deliberately.
     const [undeclared, declared] = saying(
       diagnostics,
       "does not exist on type 'ValidatedContext<ValidationSchemas>'"
@@ -145,8 +132,8 @@ describe('the declaration guard’s diagnostics', () => {
   })
 
   it('makes an explicit response type argument an arity error', () => {
-    // The sibling's no-default-`Response` rule, stated as a diagnostic: one
-    // explicit type argument cannot silently collapse the success type to `any`.
+    // `Response` has no default, so one explicit type argument cannot silently
+    // collapse the success type to `any`.
     const [arity] = diagnostics.filter(
       (diagnostic) => diagnostic.code === WRONG_TYPE_ARGUMENT_COUNT
     )

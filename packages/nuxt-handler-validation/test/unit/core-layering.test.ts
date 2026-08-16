@@ -4,23 +4,16 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-/**
- * The aggregator seam's locked constraint: nothing reachable from the `/server`
- * entry may pull `@nuxt/kit`. A future aggregator composes that entry directly
- * inside a runtime, where kit - a build-time package - has no business being.
- *
- * Asserted on the source rather than on `dist`, so the failure lands on the
- * import that broke it and needs no build to run. Type-only imports count:
- * `@nuxt/kit` has no place behind this entry in any form, and a type import is
- * one edit away from a value import.
- */
+// Nothing reachable from the `/server` entry may pull `@nuxt/kit`, a
+// build-time package. Asserted on the source rather than on `dist`, so the
+// failure lands on the import that broke it and needs no build to run.
 
 const CORE_ENTRY = fileURLToPath(
   new URL('../../src/runtime/server/index.ts', import.meta.url)
 )
 
-// The tree behind this entry is TypeScript, all of it. Extensionless first,
-// so a specifier that already carries `.ts` wins over a same-named directory.
+// Extensionless first, so a specifier that already carries `.ts` wins over a
+// same-named directory.
 const CANDIDATE_SUFFIXES = ['', '.ts', '/index.ts']
 
 /** Every bare (non-relative) specifier the entry reaches, transitively. */
@@ -35,8 +28,8 @@ function bareSpecifiersReachableFrom(entry: string): string[] {
     visited.add(file)
 
     // `preProcessFile` reads the import graph without building a program, and
-    // reports `import type` alongside value imports - which is what this guard
-    // wants to see.
+    // reports `import type` alongside value imports - a type import is one edit
+    // away from a value import, so it counts here.
     const scanned = ts.preProcessFile(readFileSync(file, 'utf8'), true, true)
 
     for (const { fileName: specifier } of scanned.importedFiles) {

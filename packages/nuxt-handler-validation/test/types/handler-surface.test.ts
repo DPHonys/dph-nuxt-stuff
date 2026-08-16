@@ -9,17 +9,9 @@ import {
 import type { ValidationErrorData } from '../../src/runtime/types'
 import type { Assert, Equal } from './assert'
 
-/**
- * The everyday route's compile-time contract, ported from the sandbox's
- * `src/sandbox/basic.ts`: a flat declaration, mixed schema libraries, validated
- * values eagerly typed in the second parameter, response type flowing out as a
- * plain h3 handler.
- *
- * **Compiled, never run.** Every declaration lives inside a function nothing
- * calls: vitest runs these files as well as type-checking them, and the
- * wrapper's body throws until the runtime core lands. What is under assertion
- * here is the compiler's verdict, which a call would add nothing to.
- */
+// The everyday route's compile-time contract. Compiled, never run: every
+// declaration lives inside a function nothing calls, because vitest runs these
+// files as well as type-checking them and only the compiler's verdict matters.
 
 declare function updateUser(
   id: number,
@@ -50,8 +42,8 @@ export function everydayRoute(): void {
     }
   )
 
-  // The wrapper returns a plain h3 EventHandler, so Nitro's typed routes read
-  // the response exactly as they do for defineEventHandler.
+  // A plain h3 EventHandler, so Nitro's typed routes read the response exactly
+  // as they do for `defineEventHandler`.
   const _flows: EventHandler = handler
   type _response = Assert<
     Equal<ReturnType<typeof handler>, Promise<{ ok: boolean; page: number }>>
@@ -83,8 +75,8 @@ export function unionOutput(): void {
       },
     },
     async (_event, { body }) => {
-      // The runtime hands back whichever branch matched - never the branches'
-      // merge - so the type is the union, and narrowing works.
+      // The runtime hands back whichever branch matched, never the branches'
+      // merge, so narrowing works.
       if (body.kind === 'a') {
         type _narrowed = Assert<Equal<typeof body.a, number>>
       }

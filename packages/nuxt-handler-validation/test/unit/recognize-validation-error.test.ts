@@ -9,14 +9,8 @@ import {
 } from '../../src/runtime/server'
 import { postJson, request } from '../h3-app'
 
-/**
- * The observability read, from the seat that consumes it: h3's `onError` hook -
- * the seat a Nitro `error` hook sits in - with a real handler raising a real
- * failure into it. What is asserted is what an operator can observe, which is
- * what the predicate answers; the marker's own shape is this package's to
- * change. `markedByAnotherCopy` is the one place the key is named, and naming
- * it there is the point.
- */
+// The observability read, from the seat that consumes it: h3's `onError` hook,
+// where a Nitro `error` hook sits.
 
 /** A handler that fails validation for any request that reaches it. */
 const failingHandler = defineValidatedEventHandler(
@@ -25,12 +19,10 @@ const failingHandler = defineValidatedEventHandler(
 )
 
 /**
- * A failure marked the way a **second physical copy** of this package marks
- * one: the same key, taken from the global symbol registry, written from
- * outside this module. A Nuxt layer, transitive version skew or an aggregator
- * resolving a different range all produce exactly this, which is why the key is
- * not a module-local `Symbol()` - silent non-recognition between two copies is
- * undebuggable from outside.
+ * A failure marked the way a second physical copy of this package marks one:
+ * the same key off the global symbol registry, written from outside this
+ * module. Version skew and Nuxt layers produce exactly this, which is why the
+ * key is not a module-local `Symbol()`.
  */
 function markedByAnotherCopy(payload: unknown): H3Error {
   return Object.defineProperty(
@@ -74,11 +66,9 @@ describe('a validation failure at the error hook', () => {
   it('carries the marker where no copy of the error can take it', async () => {
     const reported = await reportedBy(failingHandler, '/api/test?page=nope')
 
-    // Every way the error is copied on its way to a client goes through its
-    // enumerable string keys - Nitro's production handler builds a fresh body,
-    // and the response writer stringifies. A non-enumerable symbol survives
-    // none of them, which is what keeps a client from ever seeing the marker
-    // and a fetched failure from being mistaken for a locally raised one.
+    // Both copies the error meets on its way to a client: Nitro's production
+    // handler builds a fresh body, and the response writer stringifies. A
+    // non-enumerable symbol survives neither.
     expect(
       recognizeValidationError({ ...(reported as object) })
     ).toBeUndefined()
@@ -95,10 +85,8 @@ describe('a validation failure at the error hook', () => {
       data: { issues: unknown[] }
     }
 
-    // The wire payload is enumerable and reachable by every middleware, plugin
-    // and error handler in the chain. Editing it - or replacing it outright -
-    // must not reach the marker, or the predicate's promise would degrade from
-    // "what the wrapper raised" to "what this error currently says".
+    // The wire payload is enumerable, so every middleware in the chain can edit
+    // or replace it. None of that may reach the marker.
     reported.data.issues.push({ source: 'body', message: 'forged', path: [] })
     reported.data.issues.length = 0
     reported.data = { issues: [] }
@@ -118,19 +106,16 @@ describe('a validation failure at the error hook', () => {
       postJson('{ not json at all')
     )
 
-    // A payload the client sent wrong is a client mistake like any other, so
-    // the absorbed 4xx is marked exactly as a rejecting schema is.
+    // A client mistake like any other, so the absorbed 4xx is marked exactly as
+    // a rejecting schema is.
     expect(recognizeValidationError(reported)).toEqual({
       issues: [{ source: 'body', message: expect.any(String), path: [] }],
     })
   })
 })
 
-/**
- * The other half of the promise, and the one that makes the predicate safe to
- * put in front of a `return`: a hook that skips validation failures must still
- * report every bug this package raises.
- */
+// The half that makes the predicate safe in front of a `return`: a hook that
+// skips validation failures must still report every bug this package raises.
 describe('a developer mistake at the error hook', () => {
   it('is not recognized when a schema’s own `validate` throws', async () => {
     const broken: StandardSchemaV1 = {
@@ -154,9 +139,8 @@ describe('a developer mistake at the error hook', () => {
   })
 
   it('is not recognized when a source’s outputs cannot merge', async () => {
-    // The compile-time rule cannot see this one: the element's *declared*
-    // output is an object, and only the parse reveals a string. That is the
-    // composition `500`, and it is deliberately unmarked.
+    // The compile-time rule cannot see this one: the element's declared output
+    // is an object, and only the parse reveals a string.
     const notAnObject: StandardSchemaV1<unknown, { tag: string }> = {
       '~standard': {
         version: 1,
@@ -198,10 +182,8 @@ describe('what the predicate reads', () => {
     const raised = { data: { issues: [] } }
     const fetched = { data: { data: { issues: [] } } }
 
-    // `data` is the wire object. Reading it would make the answer a statement
-    // about the response rather than about the raise - and would recognize a
-    // failure that came back over a fetch, which is exactly what the sibling
-    // needs its `unhandled === false` half for and this package does not.
+    // `data` is the wire object, so reading it would recognize a failure that
+    // came back over a fetch as one this process raised.
     expect(recognizeValidationError(raised)).toBeUndefined()
     expect(recognizeValidationError(fetched)).toBeUndefined()
   })
@@ -223,8 +205,8 @@ describe('what the predicate reads', () => {
     ['a payload whose issues are not an array', { issues: { page: 'nope' } }],
   ])('answers undefined for a marker carrying %s', (_label, payload) => {
     // What `Symbol.for` costs: a version-skewed copy sharing the registry key
-    // can put anything behind it. A shape that is not this package's reads as
-    // unrecognized, never as a lie typed `ValidationErrorData`.
+    // can put anything behind it. Malformed reads as unrecognized, never as a
+    // lie typed `ValidationErrorData`.
     expect(
       recognizeValidationError(markedByAnotherCopy(payload))
     ).toBeUndefined()
