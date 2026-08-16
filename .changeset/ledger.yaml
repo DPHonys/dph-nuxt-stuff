@@ -10,7 +10,15 @@
   dir: packages/nuxt-handler-errors
   intents:
     - server-helpers-auto-import
+'@dphonys/nuxt-handler-errors@0.3.1':
+  dir: packages/nuxt-handler-errors
+  intents:
+    - errors-declares-side-effect-free
 '@dphonys/nuxt-handler-validation@0.1.0':
   dir: packages/nuxt-handler-validation
   intents:
     - gold-doors-fly
+'@dphonys/nuxt-handler-validation@0.1.1':
+  dir: packages/nuxt-handler-validation
+  intents:
+    - validation-declares-side-effect-free
