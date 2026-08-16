@@ -6,22 +6,21 @@
   // `createProgram` the fixture plus the parsed file list. The temp trees
   // extend it and add their own `paths` and `include`.
   //
-  // `skipLibCheck` is set on purpose - every Nuxt-generated tsconfig sets it,
-  // and it is what makes an unresolved `import("…")` in a `.d.ts` silent. The
-  // suite that extends this config exists to catch exactly that.
+  // It extends the repo base, as the sibling package's copy does, so a fixture
+  // is read under a consumer's settings and a tightening at the root reaches
+  // here. `skipLibCheck` arrives from there and is load-bearing rather than
+  // incidental: every Nuxt-generated tsconfig sets it, and it is what makes an
+  // unresolved `import("…")` in a `.d.ts` silent. The suite that extends this
+  // config exists to catch exactly that.
+  "extends": "../../../../tsconfig.json",
+
   "compilerOptions": {
-    "target": "ESNext",
-    "lib": ["ESNext"],
-    "module": "Preserve",
-    "moduleResolution": "Bundler",
-    "moduleDetection": "force",
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "strict": true,
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
-    "skipLibCheck": true,
     "noEmit": true,
+
+    // Not the base's `["node"]`: the trees that extend this config are written
+    // under `os.tmpdir()`, where no `@types/node` is reachable, and a `types`
+    // entry that resolves to nothing is a diagnostic these fixtures would then
+    // have to explain away.
     "types": []
   }
 }
