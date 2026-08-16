@@ -1,6 +1,7 @@
 {
   "name": "@dphonys/nuxt-handler-validation",
   "version": "0.0.1",
+  "private": true,
   "description": "Declare a Nitro handler's request schemas once and receive the validated, fully-typed values in the handler's second parameter.",
   "keywords": [
     "nuxt",
