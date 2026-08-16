@@ -7,6 +7,7 @@ import {
   defineValidatedEventHandler,
   recognizeValidationError,
 } from '../../src/runtime/server'
+import type { ValidationIssue } from '../../src/runtime/types'
 import { postJson, request } from '../h3-app'
 
 // The observability read, from the seat that consumes it: h3's `onError` hook,
@@ -82,16 +83,21 @@ describe('a validation failure at the error hook', () => {
       failingHandler,
       '/api/test?page=nope'
     )) as Record<string, unknown> & {
-      data: { issues: unknown[] }
+      data: { issues: ValidationIssue[] }
     }
 
+    const raised = structuredClone(reported.data.issues[0]!)
+
     // The wire payload is enumerable, so every middleware in the chain can edit
-    // or replace it. None of that may reach the marker.
+    // an issue in place, or replace the array, or replace `data` itself. None
+    // of that may reach the marker.
+    reported.data.issues[0]!.message = 'forged'
+    reported.data.issues[0]!.path.push('forged')
     reported.data.issues.push({ source: 'body', message: 'forged', path: [] })
     reported.data.issues.length = 0
     reported.data = { issues: [] }
 
-    expect(recognizeValidationError(reported)?.issues).toHaveLength(1)
+    expect(recognizeValidationError(reported)).toEqual({ issues: [raised] })
   })
 
   it('is recognized when the body itself could not be read', async () => {

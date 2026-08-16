@@ -12,7 +12,8 @@ export const VALIDATION_ERROR_KEY: unique symbol = Symbol.for(
  * Hang the marker on a validation failure, so an observability hook can tell a
  * client's bad input from a bug. Non-enumerable and symbol-keyed, so it
  * survives none of the copies the error takes on its way out; and it is this
- * function's own object, never the `data` middleware downstream can edit.
+ * function's own snapshot, sharing no object with the enumerable `data` a
+ * middleware downstream can edit.
  *
  * The carrier must be an `H3Error`: h3's `createError` is the identity function
  * for values passing its `__h3_error__` duck check, while any other thrown
@@ -22,7 +23,11 @@ export function markValidationError(
   error: H3Error,
   issues: readonly ValidationIssue[]
 ): void {
-  const marked: ValidationErrorData = { issues: [...issues] }
+  // Copied down to the `path` array: a shallow copy would leave every issue
+  // object shared with `data.issues`, where an edit in place still reaches here.
+  const marked: ValidationErrorData = {
+    issues: issues.map((issue) => ({ ...issue, path: [...issue.path] })),
+  }
 
   Object.defineProperty(error, VALIDATION_ERROR_KEY, {
     value: marked,
