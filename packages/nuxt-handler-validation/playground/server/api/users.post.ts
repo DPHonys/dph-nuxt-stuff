@@ -1,12 +1,8 @@
 import { z } from 'zod'
 
 /**
- * A bad body - and, reached with a payload that is not JSON at all, the
- * unparseable-body failure, which answers in the same shape rather than as a
- * special case a client must detect differently.
- *
- * Two fields, so one request can prove that every issue **within** one source
- * arrives together.
+ * A bad body - or, with a non-JSON payload, the unparseable-body failure. Two
+ * fields, so one request proves every issue in a source arrives together.
  */
 export default defineValidatedEventHandler(
   {

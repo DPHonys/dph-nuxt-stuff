@@ -1,13 +1,8 @@
 import { pagination } from '~~/server/validation/schemas'
 
 /**
- * A bad query, the smallest failure this package answers.
- *
- * There is deliberately **no import** of this package here: the module
- * registers `defineValidatedEventHandler` as a server auto-import, and this
- * route is where that registration is proven through a real build rather than
- * against a booted config. The explicit `/server` door is exercised by
- * `server/plugins/observe-validation-failures.ts`.
+ * A bad query, the smallest failure this package answers - and no import: the
+ * module registers `defineValidatedEventHandler` as a server auto-import.
  */
 export default defineValidatedEventHandler(
   { validate: { query: pagination } },
