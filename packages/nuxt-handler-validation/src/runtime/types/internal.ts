@@ -1,5 +1,3 @@
-// The declaration guard. A consumer meets these types in a diagnostic and never
-// names them; nothing here is re-exported from `./index`.
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { OutputOf, ValidationSource } from './index'
 

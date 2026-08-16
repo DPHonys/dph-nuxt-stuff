@@ -1,5 +1,3 @@
-// The `/server` entry - the whole runtime surface. No `@nuxt/kit` runtime may
-// be reachable from here; `test/unit/core-layering.test.ts` guards it.
 import type {
   EventHandler,
   EventHandlerRequest,
