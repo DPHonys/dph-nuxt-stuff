@@ -32,7 +32,6 @@ dph-nuxt-stuff/
 | **TypeScript**              | Stock TS 5 — the compiler consumers run               |
 | **Renovate**                | Automated dependency PRs                              |
 | **publint**                 | Validate package exports before publish               |
-| **pkg-pr-new**              | Preview releases on PRs                               |
 | **knip**                    | Dead code / unused dep detection                      |
 
 ## Dev Commands
@@ -122,6 +121,6 @@ before publishing missing package versions through npm trusted publishing.
 
 ## CI
 
-- **ci.yml** — typecheck + format + lint + preview releases (pkg-pr-new) on push/PR
+- **ci.yml** — typecheck + format + lint on push/PR
 - **release.yml** — triggered manually or on `v*` tag push
 - **semantic-pull-requests.yml** — validates PR title follows conventional commits
