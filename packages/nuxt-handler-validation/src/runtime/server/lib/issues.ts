@@ -1,0 +1,68 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
+import { createError } from 'h3'
+import { markValidationError } from '../../shared/error-marker'
+import type {
+  ValidationErrorData,
+  ValidationIssue,
+  ValidationSource,
+} from '../../types'
+
+// Projection by construction, never by filtering: nothing is copied across but
+// the message and the normalized path, so no vendor extra reaches a client.
+function projectIssues(
+  source: ValidationSource,
+  issues: readonly StandardSchemaV1.Issue[]
+): ValidationIssue[] {
+  return issues.map((issue) => ({
+    source,
+    message: issue.message,
+    path: projectPath(issue.path),
+  }))
+}
+
+// The null check is not redundant: `typeof null === 'object'`, so without it a
+// `null` segment - which the interface forbids and a hand-written schema can
+// still produce - is dereferenced, throwing from inside the `400` this is
+// building and turning a validation failure into an unhandled `500`.
+function projectPath(
+  path: StandardSchemaV1.Issue['path']
+): Array<string | number> {
+  if (path === undefined) return []
+
+  return Array.from(path, (segment) => {
+    const key =
+      segment !== null && typeof segment === 'object' ? segment.key : segment
+
+    return typeof key === 'string' || typeof key === 'number'
+      ? key
+      : String(key)
+  })
+}
+
+/**
+ * The one failure this package answers with: `400`, one fixed shape, identical
+ * in dev and prod, over one source's projected issues. It is also the only
+ * raise in the package that marks its error - what reaches here is a client's
+ * bad input, so an observability hook may skip it.
+ */
+export function raiseValidationError(
+  source: ValidationSource,
+  issues: readonly StandardSchemaV1.Issue[]
+): never {
+  const data: ValidationErrorData = { issues: projectIssues(source, issues) }
+
+  // The message is a human summary only. Nothing may parse it - the wire
+  // contract is the status, the reason phrase and `data.issues`.
+  const error = createError({
+    statusCode: 400,
+    statusMessage: 'Validation Error',
+    message: `Validation failed for ${source}`,
+    data,
+  })
+
+  // The mark goes on `createError`'s product, never on a value thrown bare:
+  // only an H3Error carries it as far as the `error` hook.
+  markValidationError(error, data.issues)
+
+  throw error
+}
