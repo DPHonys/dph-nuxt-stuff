@@ -1,6 +1,7 @@
 import { it } from 'vitest'
 import { ref } from 'vue'
 import type { ValidationFailed } from '../../src/runtime/types'
+import type { Assert, Equal } from './assert'
 import type { Forbidden, UserCreated, UserList } from './request-routes'
 
 /**
@@ -9,13 +10,6 @@ import type { Forbidden, UserCreated, UserList } from './request-routes'
  * request side is the same contract `request-typing.test.ts` asserts, re-added
  * reactive; what is asserted here is the reactive re-adding and the two refs.
  */
-
-type Equal<X, Y> =
-  (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
-    ? true
-    : false
-
-type Expect<T extends true> = T
 
 // Declared rather than imported: these live behind `#app`, which does not
 // resolve under a plain `vitest run`. `typeof import(…)` is a type query - it
@@ -32,12 +26,12 @@ export function refTypes(): void {
     body: { name: 'a', age: '1' },
     query: { team: 't' },
   })
-  type _data = Expect<
+  type _data = Assert<
     Equal<typeof _created.data.value, UserCreated | undefined>
   >
 
   if (_created.error.value) {
-    type _error = Expect<
+    type _error = Assert<
       Equal<
         NonNullable<typeof _created.error.value.data>['data']['__knownError__'],
         Forbidden | ValidationFailed
@@ -46,11 +40,11 @@ export function refTypes(): void {
   }
 
   const _listed = useTypedFetch('/api/users')
-  type _get = Expect<Equal<typeof _listed.data.value, UserList | undefined>>
+  type _get = Assert<Equal<typeof _listed.data.value, UserList | undefined>>
 
   // The lazy twin carries the same signature; only `lazy` is pre-set.
   const _lazy = useLazyTypedFetch('/api/users')
-  type _lazyData = Expect<Equal<typeof _lazy.data.value, UserList | undefined>>
+  type _lazyData = Assert<Equal<typeof _lazy.data.value, UserList | undefined>>
 }
 
 /** Each typed source is accepted plain, through a `ref`, or through a getter. */
@@ -114,10 +108,10 @@ export async function asyncDataUnion(): Promise<void> {
     })
   )
 
-  type _asyncData = Expect<Equal<typeof _data.value, UserCreated | undefined>>
+  type _asyncData = Assert<Equal<typeof _data.value, UserCreated | undefined>>
 
   if (error.value) {
-    type _error = Expect<
+    type _error = Assert<
       Equal<
         NonNullable<typeof error.value.data>['data']['__knownError__'],
         Forbidden | ValidationFailed
