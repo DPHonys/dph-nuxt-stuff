@@ -101,6 +101,26 @@ const PARENT_INTERNALS = {
   ],
 } as const
 
+/**
+ * The umbrella's own private helpers - the aliases `/types` is built from,
+ * named by §6.1 as not exported. None may be reachable through its door.
+ */
+const TYPES_PRIVATE = [
+  'BodyOption',
+  'ComputedOptions',
+  'Declared',
+  'DefaultMethod',
+  'HasErrors',
+  'HasValidate',
+  'InputFor',
+  'MethodArg',
+  'QueryOption',
+  'ReactiveSources',
+  'Resp',
+  'TypedSources',
+  'Vanilla',
+] as const
+
 beforeAll(() => {
   if (existsSync(BUILT_MODULE)) return
 
@@ -180,14 +200,28 @@ describe('the published entries', () => {
     const probes = [
       `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
       `import type { AtLeastOne, DefineTypedEventHandler, ReservedTagGuard, TypedContext, TypedErrors, TypedEventHandler, TypedHandlerFn, ValidationFailed } from '${TYPES_ENTRY}'`,
+      `import type { $TypedFetch, KnownApiRequestInputs, RequestInputOfRoute, TypedEventFetch, TypedFetch, TypedFetchTry, TypedRequestOptions } from '${TYPES_ENTRY}'`,
       `import type { CheckedEventHandler, Fail, KnownApiErrors, KnownErrorsOf, KnownErrorsOfHandler, KnownErrorsOfRoute, KnownVariant, TryResult } from '${TYPES_ENTRY}'`,
       `import type { RequestInput, RequestInputOfHandler, ValidatedContext, ValidatedEventHandler, ValidationIssue, ValidationSchemas, ValidationSchemasGuard } from '${TYPES_ENTRY}'`,
       `import { defineTypedEventHandler, defineError, payload, recognizeKnownError, recognizeValidationError } from '${SERVER_ENTRY}'`,
       `import { KNOWN_ERROR_KEY, matchError } from '${SHARED_ENTRY}'`,
-      `export type Probe = [ModuleOptions, AtLeastOne<{}, []>, DefineTypedEventHandler, ReservedTagGuard<[]>, TypedContext<{}, []>, TypedErrors<{}, []>, TypedEventHandler, TypedHandlerFn<{}, [], never, unknown>, ValidationFailed, CheckedEventHandler, Fail<never>, KnownApiErrors, KnownErrorsOf<[]>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, RequestInput<{}>, RequestInputOfHandler<never>, ValidatedContext<{}>, ValidatedEventHandler, ValidationIssue, ValidationSchemas, ValidationSchemasGuard<{}>, typeof defineTypedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof recognizeValidationError, typeof KNOWN_ERROR_KEY, typeof matchError]`,
+      `export type Probe = [ModuleOptions, AtLeastOne<{}, []>, DefineTypedEventHandler, ReservedTagGuard<[]>, TypedContext<{}, []>, TypedErrors<{}, []>, TypedEventHandler, TypedHandlerFn<{}, [], never, unknown>, ValidationFailed, CheckedEventHandler, Fail<never>, KnownApiErrors, KnownErrorsOf<[]>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, RequestInput<{}>, RequestInputOfHandler<never>, ValidatedContext<{}>, ValidatedEventHandler, ValidationIssue, ValidationSchemas, ValidationSchemasGuard<{}>, typeof defineTypedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof recognizeValidationError, typeof KNOWN_ERROR_KEY, typeof matchError, $TypedFetch, KnownApiRequestInputs, RequestInputOfRoute<'/api/users/:id'>, TypedEventFetch, TypedFetch, TypedFetchTry, TypedRequestOptions<'/api/users/:id', 'get'>]`,
     ]
 
     expect(diagnosticsFor(probes.join('\n'))).toEqual([])
+  })
+
+  it('keeps the request-typing helpers off the `/types` door', () => {
+    // Every alias `TypedRequestOptions` and the composable signatures are
+    // built from: implementation detail, and each one a name a consumer would
+    // reasonably expect to be able to bind a route to.
+    const failures = diagnosticsFor(
+      `import type { ${TYPES_PRIVATE.join(', ')} } from '${TYPES_ENTRY}'`
+    ).join('\n')
+
+    for (const name of TYPES_PRIVATE) {
+      expect(failures).toMatch(notExported(name))
+    }
   })
 
   it('keep the parents’ wrappers off every door', () => {
