@@ -1,7 +1,12 @@
 import errorsModule from '@dphonys/nuxt-handler-errors'
 import validationModule from '@dphonys/nuxt-handler-validation'
 import { loadNuxt, logger } from '@nuxt/kit'
-import type { Nuxt, NuxtConfig, NuxtHooks } from '@nuxt/schema'
+import type {
+  Nuxt,
+  NuxtConfig,
+  NuxtHooks,
+  ResolvedNuxtTemplate,
+} from '@nuxt/schema'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -9,6 +14,10 @@ const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
 
 /** Separates this module's registrations from Nuxt's, Nitro's and the parents'. */
 const FROM_THIS_PACKAGE = /nuxt-typed-handler\/src\/runtime\//
+
+// Where the map lands: Nitro's `typesDir`. Spelled out rather than imported
+// from `src/module.ts`, so a moved file fails here instead of being followed.
+const TEMPLATE_FILENAME = 'types/nuxt-typed-handler.d.ts'
 
 /** Nitro's own instance type, without a dependency on `nitropack` for it. */
 type NitroInstance = Parameters<NuxtHooks['nitro:init']>[0]
@@ -120,10 +129,76 @@ describe('module setup wiring', () => {
     )
   })
 
-  it('hoists its own types specifier onto the generated tsconfigs', () => {
-    expect(booted.nuxt.options.typescript.hoist).toContain(
-      '@dphonys/nuxt-typed-handler/types'
+  it('hoists its own types specifier, and neither parent’s', () => {
+    // The parents' specifiers are mapped through `paths` (§4.7): `hoist`
+    // resolves from the app's `modulesDir` alone and silently drops what it
+    // cannot find there - an umbrella-only install has no parent to find.
+    expect(
+      booted.nuxt.options.typescript.hoist.filter((entry) =>
+        entry.startsWith('@dphonys/')
+      )
+    ).toEqual(['@dphonys/nuxt-typed-handler/types'])
+  })
+
+  it('registers one map template, for the nuxt, shared and nitro programs', async () => {
+    // One filename, in Nitro's `typesDir`; `addTypeTemplate`'s context flags
+    // are observed through the hooks they subscribe - the public trace each
+    // leaves. Every program must reach the map, as each has call sites.
+    const templates = booted.nuxt.options.build.templates.filter(
+      (template) => template.filename === TEMPLATE_FILENAME
     )
+
+    expect(templates).toHaveLength(1)
+
+    const dst = templates[0]?.dst ?? ''
+    const payload = {
+      references: [],
+      declarations: [],
+      tsConfig: { compilerOptions: {} },
+      nodeTsConfig: { compilerOptions: {} },
+      nodeReferences: [],
+      sharedTsConfig: { compilerOptions: {} },
+      sharedReferences: [],
+    }
+
+    await booted.nuxt.callHook('prepare:types', payload)
+
+    expect(payload.references).toContainEqual({ path: dst })
+    expect(payload.sharedReferences).toContainEqual({ path: dst })
+    expect(payload.nodeReferences).not.toContainEqual({ path: dst })
+
+    const nitroPayload = { references: [], declarations: [] }
+
+    await booted.nuxt.callHook('nitro:prepare:types', nitroPayload)
+
+    expect(nitroPayload.references).toContainEqual({ path: dst })
+  })
+
+  it('re-renders exactly the map template when this nitro’s types:extend fires', async () => {
+    // `types:extend` fires inside Nitro's `writeTypes` after a fresh
+    // `scanHandlers`. `updateTemplates` is, publicly, one
+    // `builder:generateApp` call carrying a template filter.
+    const renders: { filter?: (template: ResolvedNuxtTemplate) => boolean }[] =
+      []
+
+    booted.nuxt.hook('builder:generateApp', (options) => {
+      renders.push(options ?? {})
+    })
+
+    await booted.nitro?.hooks.callHook('types:extend', { routes: {} })
+
+    // Exactly one: a duplicate hook registration re-renders every template
+    // twice per route change.
+    expect(renders).toHaveLength(1)
+
+    const selected = booted.nuxt.options.build.templates
+      .filter(
+        (template) =>
+          renders[0]?.filter?.(template as ResolvedNuxtTemplate) ?? false
+      )
+      .map((template) => template.filename)
+
+    expect(selected).toEqual([TEMPLATE_FILENAME])
   })
 
   it('writes the channel token under its own alias, defaulting to its name', () => {

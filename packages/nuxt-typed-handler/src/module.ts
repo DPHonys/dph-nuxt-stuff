@@ -9,11 +9,15 @@ import {
   addPlugin,
   addServerImports,
   addServerPlugin,
+  addTypeTemplate,
   createResolver,
   defineNuxtModule,
   hasNuxtModule,
   logger,
+  updateTemplates,
 } from '@nuxt/kit'
+import type { Nitro } from 'nitropack/types'
+import { typeMap, TYPES_SPECIFIER } from './build/type-map'
 
 export interface ModuleOptions {
   /**
@@ -31,6 +35,9 @@ export interface ModuleOptions {
 }
 
 const NAME = 'nuxt-typed-handler'
+
+/** The one generated file: both maps, its cold-start seed, and where it lands. */
+const TYPE_MAP = typeMap(NAME)
 
 /** The two packages this module replaces, and the keys they were configured under. */
 const PARENTS = [
@@ -77,7 +84,9 @@ export default defineNuxtModule<ModuleOptions>({
     // says push nothing.
     nuxt.options.build.transpile.push('@dphonys/nuxt-handler-errors')
 
-    nuxt.options.typescript.hoist.push('@dphonys/nuxt-typed-handler/types')
+    // Only this module's own specifier is hoisted: `hoist` resolves from the
+    // app's `modulesDir`, where an umbrella-only install has no parent.
+    nuxt.options.typescript.hoist.push(TYPES_SPECIFIER)
 
     // Named explicitly rather than through `addServerImportsDir`, whose scan
     // would auto-import whatever the runtime tree happens to export. Neither
@@ -158,6 +167,40 @@ export default defineNuxtModule<ModuleOptions>({
       channelToken,
       resolver.resolve('./runtime/server/handlers/channel-strip')
     )
+
+    // Captured here and read by `getContents` - on a dev-server restart the
+    // current instance and the hooked one are not the same object.
+    let nitro: Nitro | undefined
+
+    // One file carrying both maps. The context must name all three programs:
+    // passing a context at all opts out of everything it does not name.
+    addTypeTemplate(
+      {
+        filename: TYPE_MAP.filename,
+        getContents: () =>
+          nitro === undefined
+            ? TYPE_MAP.empty
+            : TYPE_MAP.emit(
+                [...nitro.scannedHandlers, ...nitro.options.handlers],
+                // Passed whole: `resolveNitroPath` reads arbitrary
+                // properties off it to expand `{{ }}` path templates.
+                nitro.options
+              ),
+      },
+      { nitro: true, nuxt: true, shared: true }
+    )
+
+    nuxt.hook('nitro:init', (instance) => {
+      nitro = instance
+
+      // `types:extend` fires inside Nitro's `writeTypes` after a fresh
+      // `scanHandlers`, so this map lands ahead of Nitro's own route types.
+      instance.hooks.hook('types:extend', async () => {
+        await updateTemplates({
+          filter: (template) => template.filename === TYPE_MAP.filename,
+        })
+      })
+    })
 
     // Exclusive by construction: a project lists this module *or* the
     // parents. After every module has registered, a parent beside this one

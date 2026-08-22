@@ -26,6 +26,17 @@ export interface Diagnostic {
   readonly code: number
   readonly message: string
   readonly line: number | undefined
+  /** Which file reported it - `compileForHover` sees the whole program. */
+  readonly fileName: string | undefined
+}
+
+/** A fixture compiled with its config's own files, ready to be read from. */
+export interface Compilation {
+  /** The fixture file the program is rooted at. */
+  readonly fixture: string
+  readonly diagnostics: readonly Diagnostic[]
+  /** A top-level `const` or `type` in the fixture, rendered as an editor would. */
+  readonly renderHover: (name: string) => string
 }
 
 /** The options every fixture compiles under - a consumer's own, extended. */
@@ -64,13 +75,12 @@ export function lineContaining(fixture: string, needle: string): number {
 }
 
 /**
- * Compile one fixture against a tsconfig's own options, returning only the
- * diagnostics that fixture itself produced.
+ * A tsconfig's own options and file list, parsed. A broken `extends` or an
+ * invalid option lands on `parseJsonConfigFileContent` rather than on
+ * `readConfigFile`, and ignoring it would compile a fixture against defaults.
+ * TS18003 is the exception: a caller here supplies the root file itself.
  */
-export function compileFixture(
-  tsconfigPath: string,
-  fixture: string
-): readonly Diagnostic[] {
+function parseTsConfig(tsconfigPath: string): ts.ParsedCommandLine {
   const read = ts.readConfigFile(tsconfigPath, ts.sys.readFile)
 
   if (read.error !== undefined) {
@@ -85,9 +95,6 @@ export function compileFixture(
     tsconfigPath
   )
 
-  // A broken `extends` or an invalid option lands here rather than on
-  // `readConfigFile`, and ignoring it would compile the fixture against
-  // defaults. TS18003 is the exception: this harness supplies the file list.
   const fatal = parsed.errors.filter((error) => error.code !== NO_INPUTS_FOUND)
 
   if (fatal.length > 0) {
@@ -102,8 +109,19 @@ export function compileFixture(
     )
   }
 
+  return parsed
+}
+
+/**
+ * Compile one fixture against a tsconfig's own options, returning only the
+ * diagnostics that fixture itself produced.
+ */
+export function compileFixture(
+  tsconfigPath: string,
+  fixture: string
+): readonly Diagnostic[] {
   const program = ts.createProgram([fixture], {
-    ...parsed.options,
+    ...parseTsConfig(tsconfigPath).options,
     noEmit: true,
   })
 
@@ -113,11 +131,149 @@ export function compileFixture(
       (diagnostic) =>
         normalize(diagnostic.file?.fileName) === normalize(fixture)
     )
-    .map((diagnostic) => ({
-      code: diagnostic.code,
-      message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
-      line: lineOf(diagnostic),
-    }))
+    .map(toDiagnostic)
+}
+
+/**
+ * Compile one fixture *with* its config's own files, and read types back out
+ * of the program - the flavour the generated map needs, whose content is a
+ * set of paths relative to where it is written. An unresolved `import("…")`
+ * in a `.d.ts` yields no diagnostic under `skipLibCheck` and collapses to
+ * `any`, so `renderHover` refuses to answer for a fixture that did not
+ * compile clean, and refuses to answer `any`.
+ *
+ * With the config's files, rather than the fixture alone, so a lookup does
+ * not silently resolve to a residue of something missing.
+ */
+export function compileForHover(
+  tsconfigPath: string,
+  fixture: string
+): Compilation {
+  const parsed = parseTsConfig(tsconfigPath)
+  const program = ts.createProgram(
+    [...new Set([fixture, ...parsed.fileNames])],
+    {
+      ...parsed.options,
+      noEmit: true,
+    }
+  )
+
+  const diagnostics = ts.getPreEmitDiagnostics(program).map(toDiagnostic)
+
+  return {
+    fixture,
+    diagnostics,
+    renderHover: (name) => renderHover(program, fixture, diagnostics, name),
+  }
+}
+
+/** Throws unless the compilation produced no diagnostic at all. */
+export function assertNoDiagnostics(compilation: Compilation): void {
+  if (compilation.diagnostics.length === 0) return
+
+  throw new Error(
+    [
+      `${compilation.fixture} did not compile clean:`,
+      ...compilation.diagnostics.map(
+        (diagnostic) =>
+          `  TS${diagnostic.code} at ${diagnostic.fileName ?? '<no file>'} - ${diagnostic.message}`
+      ),
+    ].join('\n')
+  )
+}
+
+// `NoTruncation` so nothing is shortened, `InTypeAlias` so the type is
+// expanded rather than echoed back as its own alias name - which would render
+// identically whatever it resolved to.
+const HOVER_FLAGS =
+  ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.InTypeAlias
+
+function renderHover(
+  program: ts.Program,
+  fixture: string,
+  diagnostics: readonly Diagnostic[],
+  name: string
+): string {
+  // The primary guard: a type read out of a fixture that did not compile is a
+  // guess, not a measurement.
+  const own = diagnostics.filter(
+    (diagnostic) => normalize(diagnostic.fileName) === normalize(fixture)
+  )
+
+  if (own.length > 0) {
+    throw new Error(
+      [
+        `Refusing to render \`${name}\`: ${fixture} did not compile clean.`,
+        ...own.map(
+          (diagnostic) => `  TS${diagnostic.code} - ${diagnostic.message}`
+        ),
+      ].join('\n')
+    )
+  }
+
+  const sourceFile = program.getSourceFile(fixture)
+
+  if (sourceFile === undefined) {
+    throw new Error(`${fixture} is not in the program.`)
+  }
+
+  const declaration = findTarget(sourceFile, name)
+
+  if (declaration === undefined) {
+    throw new Error(`No top-level \`const\` or \`type\` named \`${name}\`.`)
+  }
+
+  const checker = program.getTypeChecker()
+  const symbol = checker.getSymbolAtLocation(declaration.name)
+
+  if (symbol === undefined) {
+    throw new Error(`\`${name}\` has no symbol.`)
+  }
+
+  const type = ts.isTypeAliasDeclaration(declaration)
+    ? checker.getDeclaredTypeOfSymbol(symbol)
+    : checker.getTypeOfSymbolAtLocation(symbol, declaration)
+
+  const rendered = checker.typeToString(type, declaration, HOVER_FLAGS)
+
+  // The second guard, for the collapse that arrives *without* a diagnostic.
+  if (rendered === 'any' || rendered === 'unknown') {
+    throw new Error(
+      `\`${name}\` rendered as \`${rendered}\`, which proves nothing.`
+    )
+  }
+
+  return rendered
+}
+
+function findTarget(
+  sourceFile: ts.SourceFile,
+  name: string
+): ts.VariableDeclaration | ts.TypeAliasDeclaration | undefined {
+  for (const statement of sourceFile.statements) {
+    if (ts.isTypeAliasDeclaration(statement) && statement.name.text === name) {
+      return statement
+    }
+
+    if (!ts.isVariableStatement(statement)) continue
+
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.name.text === name) {
+        return declaration
+      }
+    }
+  }
+
+  return undefined
+}
+
+function toDiagnostic(diagnostic: ts.Diagnostic): Diagnostic {
+  return {
+    code: diagnostic.code,
+    message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+    line: lineOf(diagnostic),
+    fileName: diagnostic.file?.fileName,
+  }
 }
 
 // TypeScript reports file names with forward slashes; a path off `node:url` or
