@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import type {
   RawFetch,
@@ -35,6 +35,10 @@ function fakeFetch(defaults: RawOptions = {}): RawFetch {
 }
 
 describe('createCheckedFetch with the token as a value', () => {
+  beforeEach(() => {
+    sent = new Headers()
+  })
+
   it('attaches no channel header for an undefined token', async () => {
     await createCheckedFetch(fakeFetch(), { token: undefined })('/anything')
 
