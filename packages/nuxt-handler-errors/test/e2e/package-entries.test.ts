@@ -136,19 +136,29 @@ describe('the published entries', () => {
   it('keep the internals off the public doors', () => {
     // Asserted from a consumer's seat: a seam leaking onto a public entry
     // would be public API this package would then owe a major to remove.
-    const internal = [
-      ['resolveDeclared', SERVER_ENTRY],
+    const publicDoors = [MODULE_ENTRY, SERVER_ENTRY, SHARED_ENTRY] as const
+
+    // One representative per internals entry, tried against every public
+    // door: a cross product, so a seam cannot leak through the door nobody
+    // thought to list for it.
+    const representatives = [
+      'emitMap', // /internals/build
+      'resolveDeclared', // /internals/server
+      'createCheckedFetch', // /internals/shared
+      'wrapVanillaFetch', // /internals/app
+    ] as const
+
+    const internal: (readonly [name: string, entry: string])[] = [
+      ...representatives.flatMap((name) =>
+        publicDoors.map((entry) => [name, entry] as const)
+      ),
       ['createFail', SERVER_ENTRY],
       ['createKnownError', SERVER_ENTRY],
       ['raiseKnown', SERVER_ENTRY],
-      ['createCheckedFetch', SHARED_ENTRY],
       ['lazyGlobalFetch', SHARED_ENTRY],
       ['readFloor', SHARED_ENTRY],
-      ['wrapVanillaFetch', SHARED_ENTRY],
-      ['wrapVanillaFetch', MODULE_ENTRY],
-      ['emitMap', MODULE_ENTRY],
       ['addChannelToken', MODULE_ENTRY],
-    ] as const
+    ]
 
     for (const [name, entry] of internal) {
       const failures = diagnosticsFor(
