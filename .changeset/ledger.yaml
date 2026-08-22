@@ -14,6 +14,10 @@
   dir: packages/nuxt-handler-errors
   intents:
     - errors-declares-side-effect-free
+'@dphonys/nuxt-handler-errors@0.4.0':
+  dir: packages/nuxt-handler-errors
+  intents:
+    - every-peaches-dream
 '@dphonys/nuxt-handler-validation@0.1.0':
   dir: packages/nuxt-handler-validation
   intents:
