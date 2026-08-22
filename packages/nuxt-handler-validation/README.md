@@ -67,7 +67,8 @@ export default defineValidatedEventHandler(
 - **Mix libraries freely.** zod and valibot can sit in one declaration, or even
   in one composed tuple. Async schemas are supported; the wrapper awaits them.
 - **Your return type flows to Nitro's typed routes unchanged.** The wrapper
-  returns a plain h3 `EventHandler`, so `$fetch('/api/users/1')` infers the
+  returns a `ValidatedEventHandler` - still assignable to h3's `EventHandler`,
+  carrying the `RequestInput` brand - so `$fetch('/api/users/1')` infers the
   response exactly as it would with `defineEventHandler`. Nothing to unwrap.
 - `defineValidatedEventHandler` and `recognizeValidationError` are
   **auto-imported inside `server/`**, the same ambient position as
