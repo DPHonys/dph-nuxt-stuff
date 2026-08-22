@@ -1,6 +1,3 @@
-// Not application API: versioned with the umbrella module, not this package.
-// What this layer may import is asserted in `test/unit/layering.test.ts`.
-
 export { wrapVanillaFetch } from '../../app/composables/fetch-wrapper'
 export type {
   FetchWrapperOptions,

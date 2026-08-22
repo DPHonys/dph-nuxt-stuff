@@ -1,5 +1,3 @@
-// Not application API: versioned with the umbrella module, not this package.
-
 export { addChannelStripErrorHandler } from '../build/channel-strip'
 export { addChannelToken, normalizeChannelToken } from '../build/channel-token'
 export { warnCustomErrorHandler } from '../build/error-handler-warning'
