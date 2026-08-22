@@ -131,6 +131,11 @@ export type RequestInput<S extends ValidationSchemas> = {
     : K]: SourceInput<S[K]>
 }
 
+// Module-private and never exported, so only this package can brand a handler:
+// a structural `__requestInput__` key on a foreign handler must not spoof the
+// reader below.
+declare const validatedRequestInput: unique symbol
+
 /**
  * The handler `defineValidatedEventHandler` returns: an ordinary h3
  * `EventHandler` carrying the computed Request input in a phantom slot. The
@@ -142,7 +147,7 @@ export interface ValidatedEventHandler<
   Response extends EventHandlerResponse = EventHandlerResponse,
   Input = never,
 > extends EventHandler<Request, Response> {
-  __requestInput__?: Input
+  [validatedRequestInput]?: Input
 }
 
 /**
@@ -156,7 +161,7 @@ export interface ValidatedEventHandler<
 export type RequestInputOfHandler<T> =
   IsAny<T> extends true
     ? never
-    : T extends { __requestInput__?: infer I }
+    : T extends { [validatedRequestInput]?: infer I }
       ? Exclude<I, undefined>
       : never
 

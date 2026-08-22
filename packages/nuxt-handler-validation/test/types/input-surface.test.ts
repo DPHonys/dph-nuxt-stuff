@@ -154,6 +154,17 @@ export function unbrandedIsNever(): void {
   type _unbranded = Assert<Equal<RequestInputOfHandler<typeof _plain>, never>>
 
   type _unknown = Assert<Equal<RequestInputOfHandler<unknown>, never>>
+
+  // The brand is a module-private symbol, so a handler spelling out a
+  // look-alike string key cannot forge it.
+  type _spoofed = Assert<
+    Equal<
+      RequestInputOfHandler<
+        EventHandler & { __requestInput__?: { spoofed: true } }
+      >,
+      never
+    >
+  >
 }
 
 /** Keeps the file in vitest's inventory. */
