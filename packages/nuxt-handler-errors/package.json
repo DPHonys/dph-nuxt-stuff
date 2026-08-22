@@ -33,6 +33,9 @@
       "shared": [
         "./dist/runtime/shared/index.d.ts"
       ],
+      "internals/build": [
+        "./dist/internals/build.d.mts"
+      ],
       "internals/server": [
         "./dist/runtime/internals/server/index.d.ts"
       ],
@@ -60,6 +63,10 @@
     "./shared": {
       "types": "./dist/runtime/shared/index.d.ts",
       "import": "./dist/runtime/shared/index.js"
+    },
+    "./internals/build": {
+      "types": "./dist/internals/build.d.mts",
+      "import": "./dist/internals/build.mjs"
     },
     "./internals/server": {
       "types": "./dist/runtime/internals/server/index.d.ts",
@@ -109,6 +116,7 @@
     "nuxt": "catalog:",
     "publint": "catalog:",
     "typescript": "catalog:",
+    "unbuild": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "catalog:",
     "zod": "catalog:"

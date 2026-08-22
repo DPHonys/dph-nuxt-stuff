@@ -21,6 +21,7 @@ const MODULE_ENTRY = '@dphonys/nuxt-handler-errors'
 const TYPES_ENTRY = '@dphonys/nuxt-handler-errors/types'
 const SERVER_ENTRY = '@dphonys/nuxt-handler-errors/server'
 const SHARED_ENTRY = '@dphonys/nuxt-handler-errors/shared'
+const INTERNALS_BUILD_ENTRY = '@dphonys/nuxt-handler-errors/internals/build'
 const INTERNALS_SERVER_ENTRY = '@dphonys/nuxt-handler-errors/internals/server'
 const INTERNALS_SHARED_ENTRY = '@dphonys/nuxt-handler-errors/internals/shared'
 const INTERNALS_APP_ENTRY = '@dphonys/nuxt-handler-errors/internals/app'
@@ -94,6 +95,7 @@ describe('the published entries', () => {
       TYPES_ENTRY,
       SERVER_ENTRY,
       SHARED_ENTRY,
+      INTERNALS_BUILD_ENTRY,
       INTERNALS_SERVER_ENTRY,
       INTERNALS_SHARED_ENTRY,
     ]
@@ -116,13 +118,15 @@ describe('the published entries', () => {
         `import type { $CheckedFetch, CheckedEventHandler, CheckedFetch, Fail, Fallback, KnownApiErrors, KnownError, KnownErrorBody, KnownErrorCarrier, KnownErrorFor, KnownErrorGroup, KnownErrorKey, KnownErrorsOf, KnownErrorsOfHandler, KnownErrorsOfRoute, KnownVariant, TryResult, VariantsOf } from '${TYPES_ENTRY}'`,
         `import { defineCheckedEventHandler, defineError, payload, recognizeKnownError } from '${SERVER_ENTRY}'`,
         `import { KNOWN_ERROR_KEY, matchError } from '${SHARED_ENTRY}'`,
+        `import { addChannelStripErrorHandler, addChannelToken, emitMap, EMPTY_MAP, emptyMap, KNOWN_ERRORS_SLOT, normalizeChannelToken, TYPES_SPECIFIER, warnCustomErrorHandler } from '${INTERNALS_BUILD_ENTRY}'`,
+        `import type { EmitMapOptions, EmitMapSlot, NitroPathOptions, SlotImport } from '${INTERNALS_BUILD_ENTRY}'`,
         `import { createCheckedEventFetch, createChannelStripHandler, createFail, createKnownError, EventFetchUnavailableError, raiseKnown, resolveDeclared } from '${INTERNALS_SERVER_ENTRY}'`,
         `import type { DeclaredError, RawEventFetch } from '${INTERNALS_SERVER_ENTRY}'`,
         `import { CHANNEL_HEADER, createCheckedFetch, knownErrorMarker, lazyGlobalFetch, readFloor, toNuxtError, toTryResult } from '${INTERNALS_SHARED_ENTRY}'`,
         `import type { CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult } from '${INTERNALS_SHARED_ENTRY}'`,
         `import { wrapVanillaAsyncData, wrapVanillaFetch } from '${INTERNALS_APP_ENTRY}'`,
         `import type { FailureOf, KnownErrorRef, RawUseAsyncData, RawUseFetch, SuccessOf, TrySource, UseCheckedAsyncData, UseCheckedFetch } from '${INTERNALS_APP_ENTRY}'`,
-        `export type Probe = [ModuleOptions, $CheckedFetch, CheckedEventHandler, CheckedFetch, Fail<never>, Fallback, KnownApiErrors, KnownError<never>, KnownErrorBody<KnownVariant>, KnownErrorCarrier<KnownVariant>, KnownErrorFor<'/api/users/:id', 'get'>, KnownErrorGroup<KnownVariant>, KnownErrorKey, KnownErrorsOf<never>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, VariantsOf<never>, typeof defineCheckedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof KNOWN_ERROR_KEY, typeof matchError, typeof createCheckedEventFetch, typeof createChannelStripHandler, typeof createFail, typeof createKnownError, typeof EventFetchUnavailableError, typeof raiseKnown, typeof resolveDeclared, DeclaredError, RawEventFetch, typeof CHANNEL_HEADER, typeof createCheckedFetch, typeof knownErrorMarker, typeof lazyGlobalFetch, typeof readFloor, typeof toNuxtError, typeof toTryResult, CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult, typeof wrapVanillaAsyncData, typeof wrapVanillaFetch, FailureOf<TrySource>, KnownErrorRef<'/api/users/:id', 'get'>, RawUseAsyncData, RawUseFetch, SuccessOf<TrySource>, TrySource, UseCheckedAsyncData, UseCheckedFetch]`,
+        `export type Probe = [ModuleOptions, $CheckedFetch, CheckedEventHandler, CheckedFetch, Fail<never>, Fallback, KnownApiErrors, KnownError<never>, KnownErrorBody<KnownVariant>, KnownErrorCarrier<KnownVariant>, KnownErrorFor<'/api/users/:id', 'get'>, KnownErrorGroup<KnownVariant>, KnownErrorKey, KnownErrorsOf<never>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, VariantsOf<never>, typeof addChannelStripErrorHandler, typeof addChannelToken, typeof emitMap, typeof EMPTY_MAP, typeof emptyMap, typeof KNOWN_ERRORS_SLOT, typeof normalizeChannelToken, typeof TYPES_SPECIFIER, typeof warnCustomErrorHandler, EmitMapOptions, EmitMapSlot, NitroPathOptions, SlotImport, typeof defineCheckedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof KNOWN_ERROR_KEY, typeof matchError, typeof createCheckedEventFetch, typeof createChannelStripHandler, typeof createFail, typeof createKnownError, typeof EventFetchUnavailableError, typeof raiseKnown, typeof resolveDeclared, DeclaredError, RawEventFetch, typeof CHANNEL_HEADER, typeof createCheckedFetch, typeof knownErrorMarker, typeof lazyGlobalFetch, typeof readFloor, typeof toNuxtError, typeof toTryResult, CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult, typeof wrapVanillaAsyncData, typeof wrapVanillaFetch, FailureOf<TrySource>, KnownErrorRef<'/api/users/:id', 'get'>, RawUseAsyncData, RawUseFetch, SuccessOf<TrySource>, TrySource, UseCheckedAsyncData, UseCheckedFetch]`,
       ].join('\n')
     )
 
@@ -142,6 +146,8 @@ describe('the published entries', () => {
       ['readFloor', SHARED_ENTRY],
       ['wrapVanillaFetch', SHARED_ENTRY],
       ['wrapVanillaFetch', MODULE_ENTRY],
+      ['emitMap', MODULE_ENTRY],
+      ['addChannelToken', MODULE_ENTRY],
     ] as const
 
     for (const [name, entry] of internal) {

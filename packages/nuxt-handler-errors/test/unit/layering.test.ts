@@ -32,6 +32,10 @@ const ROWS: readonly Row[] = [
     entry: 'src/runtime/internals/app/index.ts',
     forbidden: ['@nuxt/kit', 'nitropack/runtime', CHANNEL_TOKEN_ALIAS],
   },
+  // Exempt: build-time by definition, so `@nuxt/kit` is its job, and the
+  // alias stays out because every helper takes the token as a value - listed
+  // so the table names every entry the package publishes.
+  { entry: 'src/internals/build.ts', forbidden: [CHANNEL_TOKEN_ALIAS] },
 ]
 
 // Extensionless first, so a specifier that already carries `.ts` wins over a
