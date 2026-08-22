@@ -131,14 +131,10 @@ function handlerIndex(args: readonly unknown[]): 0 | 1 {
   return 0
 }
 
-/** The loose runtime shape; the caller applies its own signature with one cast. */
 export type RawUseAsyncData = (...args: unknown[]) => unknown
 
-/**
- * Vanilla `useAsyncData` (or its lazy twin) with the try-shape unwrapped
- * before it reaches vanilla. The returned shape is loose on purpose: the
- * module layer that binds it owns the signature, and applies it with one cast.
- */
+// The returned shape is loose on purpose: the module layer that binds it
+// owns the signature, and applies it with one cast.
 export function wrapVanillaAsyncData(
   vanilla: typeof useAsyncData
 ): RawUseAsyncData {

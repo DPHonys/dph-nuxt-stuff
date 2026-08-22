@@ -1,14 +1,10 @@
 import { addTemplate, logger } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
-/**
- * `false` is the explicit opt-out. `''` collapses to the same - an empty
- * header value could never round-trip - but only `false` can mean it on
- * purpose, so an empty string additionally warns: it is how an unset env
- * var interpolated into the config would silently ship without gating.
- *
- * `name` is the calling module's name; it prefixes the warning.
- */
+// `false` is the explicit opt-out. `''` collapses to the same - an empty
+// header value could never round-trip - but only `false` can mean it on
+// purpose, so an empty string additionally warns: it is how an unset env
+// var interpolated into the config would silently ship without gating.
 export function normalizeChannelToken(
   channelToken: string | false,
   name: string
@@ -26,15 +22,8 @@ export function normalizeChannelToken(
     : channelToken
 }
 
-/**
- * Writes `<name>/channel-token.mjs` and points both builds at it through
- * the `#<name>/channel-token` alias: `nuxt.options.alias` reaches the app
- * build only, so the Nitro half rides `nitro:config`. Returns the alias.
- *
- * An alias rather than a published entry: the value only exists inside a
- * build. `write: true` is load-bearing - the Nitro build resolves the alias
- * from disk, not from Nuxt's virtual file system.
- */
+// An alias rather than a published entry: the value only exists inside a
+// build. Returns the alias.
 export function addChannelToken(
   nuxt: Nuxt,
   name: string,
@@ -42,6 +31,8 @@ export function addChannelToken(
 ): string {
   const specifier = `#${name}/channel-token`
 
+  // `write: true` is load-bearing: the Nitro build resolves the alias from
+  // disk, not from Nuxt's virtual file system.
   const template = addTemplate({
     filename: `${name}/channel-token.mjs`,
     write: true,
@@ -53,6 +44,7 @@ export function addChannelToken(
 
   nuxt.options.alias[specifier] = template.dst
 
+  // The Nitro half - `nuxt.options.alias` reaches the app build only.
   nuxt.hook('nitro:config', (nitroConfig) => {
     nitroConfig.alias = { ...nitroConfig.alias, [specifier]: template.dst }
   })

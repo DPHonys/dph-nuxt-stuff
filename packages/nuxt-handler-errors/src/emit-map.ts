@@ -43,12 +43,7 @@ export type NitroPathOptions = Pick<
   'alias' | 'buildDir' | 'srcDir'
 >
 
-/**
- * One `declare module` block of the emitted file, as data: which interface
- * it augments, where, and what it renders per handler. A module layer that
- * keys a second map off the same routes adds a slot rather than a second
- * emitter.
- */
+/** One `declare module` block of the emitted file, as data. */
 export interface EmitMapSlot {
   /** The interface the `declare module` block augments. */
   readonly interfaceName: string
@@ -66,11 +61,8 @@ export interface SlotImport {
   readonly from: string
 }
 
-/**
- * This package's own slot: `KnownApiErrors` in `TYPES_SPECIFIER`. `Serialize`
- * also closes the index-signature door: such a handler reaches
- * `KnownErrorsOfHandler` as `unknown`, and `Serialize<unknown>` is `never`.
- */
+// `Serialize` also closes the index-signature door: such a handler reaches
+// `KnownErrorsOfHandler` as `unknown`, and `Serialize<unknown>` is `never`.
 export const KNOWN_ERRORS_SLOT: EmitMapSlot = {
   interfaceName: 'KnownApiErrors',
   specifier: TYPES_SPECIFIER,

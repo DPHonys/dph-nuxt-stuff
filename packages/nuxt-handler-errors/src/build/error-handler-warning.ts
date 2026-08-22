@@ -1,11 +1,8 @@
 import { logger } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
-/**
- * Warns when the project sets a custom `nitro.errorHandler`. Call at setup,
- * before Nuxt fills the empty slot with its own handler, so the entries seen
- * are exactly the consumer's. `name` prefixes the warning.
- */
+// Call at setup, before Nuxt fills the empty slot with its own handler, so
+// the entries seen are exactly the consumer's.
 export function warnCustomErrorHandler(nuxt: Nuxt, name: string): void {
   if (nuxt.options.nitro.errorHandler === undefined) return
 

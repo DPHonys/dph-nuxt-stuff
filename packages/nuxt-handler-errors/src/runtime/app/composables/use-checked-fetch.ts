@@ -3,13 +3,10 @@ import { useFetch, useLazyFetch } from '#app'
 import type { FetchWrapperOptions, UseCheckedFetch } from './fetch-wrapper'
 import { wrapVanillaFetch } from './fetch-wrapper'
 
-// The parent's binding of the alias-free wrapper: the merge and the
-// signature live in `fetch-wrapper.ts`, re-exported from here unchanged.
 export type { KnownErrorRef, UseCheckedFetch } from './fetch-wrapper'
 
-// A getter rather than a snapshot: the alias is a live binding (the unit
-// double sets it after the composables are built), and the wrapper reads
-// `token` on every call.
+// A getter: the alias is a live binding the unit double sets after the
+// composables are built, and the wrapper reads `token` on every call.
 const bound: FetchWrapperOptions = {
   get token() {
     return configuredChannelToken

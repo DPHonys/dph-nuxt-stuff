@@ -12,11 +12,8 @@ import { warnCustomErrorHandler } from '../../src/build/error-handler-warning'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
 
-/**
- * Boots the fixture with `install` run from `modules:before` - the same
- * stage a module's `setup` runs at - and hands back the Nuxt and Nitro
- * instances so the test can read what the helper registered on both builds.
- */
+// `install` runs from `modules:before` - the same stage a module's `setup`
+// runs at.
 async function bootWith(
   install: (nuxt: Nuxt) => void
 ): Promise<{ nuxt: Nuxt; nitro: Nitro | undefined }> {
@@ -36,11 +33,8 @@ async function bootWith(
   return { nuxt, nitro }
 }
 
-/**
- * Everything the kit logger warns while `run` executes. The reporter seam
- * rather than a console spy: consola's default reporter writes to stdout
- * directly, so a `console.warn` spy never sees it.
- */
+// The reporter seam rather than a console spy: consola's default reporter
+// writes to stdout directly, so a `console.warn` spy never sees it.
 async function warningsDuring(run: () => Promise<void>): Promise<string[]> {
   const captured: string[] = []
   const reporter = {
@@ -171,9 +165,8 @@ describe('addChannelStripErrorHandler', () => {
       })
 
       try {
-        // The fixture's own module prepends its stripper too and Nitro
-        // appends its builtin, so the assertion is on relative order: the
-        // handler sits ahead of every entry it found, none dropped.
+        // The fixture's module prepends its own stripper and Nitro appends its
+        // builtin, so the assertion is on relative order.
         const ours = new Set([HANDLER, ...preserved])
         expect(chainOf(nitro).filter((entry) => ours.has(entry))).toEqual([
           HANDLER,

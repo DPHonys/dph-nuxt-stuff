@@ -4,9 +4,6 @@ import { knownErrorMarker } from '../../shared/wire'
 import type { KnownRaiseInput } from '../../shared/wire'
 import type { AnyKnownError, KnownVariant } from '../../types/known-error'
 
-// The pieces `defineCheckedEventHandler` is composed of, each usable on its
-// own by a module layer that composes them differently.
-
 /** What a `defineError` value resolves to once declared on a handler. */
 export interface DeclaredError {
   readonly tag: string
@@ -53,11 +50,8 @@ export function byDistinctTag(
   return [...distinct.values()]
 }
 
-/**
- * Resolve a handler's declared errors: the foreign-copy guard and the
- * first-occurrence-wins dedupe, at declaration rather than lazily inside
- * `fail` - so a foreign error fires before the route serves a request.
- */
+// At declaration, not lazily inside `fail` - so a foreign error fires before
+// the route serves a request.
 export function resolveDeclared(
   errors: readonly AnyKnownError[]
 ): DeclaredError[] {
@@ -66,10 +60,6 @@ export function resolveDeclared(
   )
 }
 
-/**
- * The known error as a value, not yet thrown: `statusCode`, `message` = the
- * tag, and the marker under `data`.
- */
 // `statusMessage` is never set - the reason phrase survives an escaped
 // server-to-server throw untouched, so the tag must not ride it.
 // `fatal`/`unhandled` are left alone, so the production serializer keeps
@@ -88,7 +78,6 @@ export function createKnownError(
   return createError(input)
 }
 
-/** `throw createKnownError(...)`. */
 export function raiseKnown(
   tag: string,
   status: number,
@@ -97,7 +86,6 @@ export function raiseKnown(
   throw createKnownError(tag, status, fields)
 }
 
-/** A `fail` scoped to exactly `declared`. */
 export function createFail(
   declared: readonly DeclaredError[]
 ): (tag: string, fields?: Record<string, unknown>) => never {

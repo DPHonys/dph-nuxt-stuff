@@ -4,12 +4,8 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-// Each runtime entry may reach only its own layer: nothing under `/server`
-// pulls `@nuxt/kit`, a build-time package, and the internals entries stay
-// alias-free besides - every factory takes the channel token as a value, so
-// a module layer composing them owns its own `#<name>/channel-token`
-// binding. Asserted on the source rather than on `dist`, so the failure lands
-// on the import that broke it and needs no build to run.
+// Asserted on the source rather than on `dist`, so the failure lands on the
+// import that broke it and needs no build to run.
 
 const CHANNEL_TOKEN_ALIAS = '#nuxt-handler-errors/channel-token'
 
@@ -32,9 +28,7 @@ const ROWS: readonly Row[] = [
     entry: 'src/runtime/internals/app/index.ts',
     forbidden: ['@nuxt/kit', 'nitropack/runtime', CHANNEL_TOKEN_ALIAS],
   },
-  // Exempt: build-time by definition, so `@nuxt/kit` is its job, and the
-  // alias stays out because every helper takes the token as a value - listed
-  // so the table names every entry the package publishes.
+  // Exempt - build-time by definition; listed so the table names every entry.
   { entry: 'src/internals/build.ts', forbidden: [CHANNEL_TOKEN_ALIAS] },
 ]
 
@@ -53,9 +47,8 @@ function bareSpecifiersReachableFrom(entry: string): string[] {
     if (file === undefined || visited.has(file)) continue
     visited.add(file)
 
-    // `preProcessFile` reads the import graph without building a program, and
-    // reports `import type` alongside value imports - a type import is one edit
-    // away from a value import, so it counts here.
+    // `preProcessFile` reports `import type` alongside value imports - a type
+    // import is one edit away from a value import, so it counts here.
     const scanned = ts.preProcessFile(readFileSync(file, 'utf8'), true, true)
 
     for (const { fileName: specifier } of scanned.importedFiles) {

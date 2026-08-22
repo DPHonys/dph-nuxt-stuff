@@ -3,10 +3,6 @@ import type { NuxtError } from 'nuxt/app'
 import type { $CheckedFetch, TryResult } from '../types/fetch'
 import { CHANNEL_HEADER } from './channel'
 
-// The alias-free half of `checked-fetch.ts`: what a module layer can reach
-// without the `#nuxt-handler-errors/channel-token` binding. The token is a
-// value here; the parent binding hands its alias in.
-
 export type RawTryResult = TryResult<unknown, NuxtError>
 
 /** The one option this wrapper reads. Everything else is forwarded untouched. */
@@ -25,12 +21,9 @@ export interface RawFetch {
 }
 
 export interface CheckedFetchFactoryOptions {
-  /**
-   * The channel token to attach, or undefined for no gating. Read on every
-   * call, never captured - a binding may hand in a getter over a live import.
-   */
+  /** Read on every call, never captured - a binding may hand in a getter. */
   readonly token: string | undefined
-  /** Instance-level headers `create(defaults)` threads through. Internal; defaults to empty. */
+  /** What `create(defaults)` threads through; defaults to empty. */
   readonly instanceHeaders?: Headers
 }
 
@@ -114,8 +107,7 @@ function nextInstanceHeaders(current: Headers, defaults: RawOptions): Headers {
 }
 
 // Every member forwards; only the headers and `.try`'s try/catch are added.
-// `options` is passed down whole, not spread, so a getter-backed `token`
-// stays live on every created instance.
+// `options` goes down whole, not spread, so a getter-backed `token` stays live.
 function build(
   base: RawFetch,
   options: CheckedFetchFactoryOptions,
@@ -146,7 +138,6 @@ function build(
   }) as $CheckedFetch
 }
 
-/** Today's factory with the token injected instead of read from the alias. */
 export function createCheckedFetch(
   base: RawFetch,
   options: CheckedFetchFactoryOptions
@@ -156,12 +147,11 @@ export function createCheckedFetch(
 
 // `globalThis.$fetch` read at CALL time rather than captured, so the two
 // installing plugins are a single assignment each rather than an ordering
-// problem. `create` is the one member that resolves it when `create` itself
-// is called: the instance it returns is vanilla's own, bound to whatever
-// `globalThis.$fetch` was at that moment.
+// problem. `create` resolves it once, when called: the returned instance is
+// bound to that moment's `$fetch`.
 const vanilla = (): RawFetch => globalThis.$fetch as RawFetch
 
-/** The lazy `globalThis.$fetch` proxy, so a module layer can build its global at plugin time. */
+/** Lets a module layer build its global before `$fetch` is installed. */
 export const lazyGlobalFetch: RawFetch = Object.assign(
   (request: unknown, opts?: RawOptions): Promise<unknown> =>
     vanilla()(request, opts),

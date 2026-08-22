@@ -206,7 +206,6 @@ function checkedHeaders(
   })
 }
 
-/** The loose runtime shape; the caller applies its own signature with one cast. */
 export type RawUseFetch = (
   request: unknown,
   arg1?: unknown,
@@ -214,20 +213,12 @@ export type RawUseFetch = (
 ) => unknown
 
 export interface FetchWrapperOptions {
-  /**
-   * The channel token to attach, or undefined for no gating. Read once per
-   * composable call (not per request the returned `computed` re-evaluates
-   * for) and never captured at bind time - a binding may hand in a getter
-   * over a live import.
-   */
+  /** Read once per composable call, never at bind time - a binding may hand in a getter. */
   readonly token: string | undefined
 }
 
-/**
- * Vanilla `useFetch` (or its lazy twin) with the checked header merge laid
- * over it. The returned shape is loose on purpose: the module layer that
- * binds it owns the signature, and applies it with one cast.
- */
+// The returned shape is loose on purpose: the module layer that binds it
+// owns the signature, and applies it with one cast.
 export function wrapVanillaFetch(
   vanilla: typeof useFetch,
   options: FetchWrapperOptions

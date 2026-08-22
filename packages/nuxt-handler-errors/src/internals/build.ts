@@ -1,9 +1,4 @@
-// The build-time internals `@dphonys/nuxt-typed-handler` composes its own
-// `module.ts` from: the slot-aware map emitter and the channel helpers, each
-// parameterised on the caller's module name. Versioned with the umbrella, not
-// this package's semver; not for application code. Bundled by rollup through
-// `build.config.ts`, so it may import `@nuxt/kit` freely - it never reaches a
-// runtime bundle.
+// Not application API: versioned with the umbrella module, not this package.
 
 export { addChannelStripErrorHandler } from '../build/channel-strip'
 export { addChannelToken, normalizeChannelToken } from '../build/channel-token'

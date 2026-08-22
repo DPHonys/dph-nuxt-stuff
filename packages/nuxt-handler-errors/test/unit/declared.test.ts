@@ -8,9 +8,8 @@ import {
 import { defineError } from '../../src/runtime/server'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared'
 
-// The pieces `defineCheckedEventHandler` is composed of, each through the
-// `/internals/server` door the umbrella uses. The wrapper's own behaviour is
-// asserted in `define-error.test.ts`; this file covers the seams alone.
+// The wrapper's own behaviour is asserted in `define-error.test.ts`; this
+// file covers the seams alone, through the `/internals/server` door.
 describe('resolveDeclared', () => {
   const authErrors = defineError({
     unauthorized: { status: 401 },

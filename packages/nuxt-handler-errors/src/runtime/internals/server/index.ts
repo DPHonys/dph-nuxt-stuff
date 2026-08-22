@@ -1,7 +1,5 @@
-// The Nitro-side internals `@dphonys/nuxt-typed-handler` composes its own
-// handler from. Versioned with the umbrella, not this package's semver; not
-// for application code. May import `h3`; must not reach `@nuxt/kit`, `#app`,
-// or the channel-token alias - the layering suite enforces it.
+// Not application API: versioned with the umbrella module, not this package.
+// What this layer may import is asserted in `test/unit/layering.test.ts`.
 
 export {
   createFail,

@@ -1,8 +1,5 @@
-// The isomorphic internals `@dphonys/nuxt-typed-handler` composes its own
-// fetch surfaces from. Versioned with the umbrella, not this package's semver;
-// not for application code. May import `h3`; must not reach `@nuxt/kit`,
-// `nitropack/runtime`, `#app`, or the channel-token alias - every factory
-// takes the token as a value, and the layering suite enforces it.
+// Not application API: versioned with the umbrella module, not this package.
+// What this layer may import is asserted in `test/unit/layering.test.ts`.
 
 export {
   createCheckedFetch,

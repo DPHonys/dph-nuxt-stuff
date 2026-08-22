@@ -29,9 +29,6 @@ export interface ModuleOptions {
   channelToken: string | false
 }
 
-// The one string the channel-token alias and template, the warning prefix,
-// the default token and the map template derive from - the build helpers
-// take it so another module layer composing them gets its own set.
 const NAME = 'nuxt-handler-errors'
 
 // Must live under `types/` - Nitro's `typesDir` - because every handler

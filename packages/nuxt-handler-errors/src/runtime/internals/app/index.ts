@@ -1,8 +1,5 @@
-// The app-side internals `@dphonys/nuxt-typed-handler` composes its own
-// composables from. Versioned with the umbrella, not this package's semver;
-// not for application code. Imports `#app` and `vue`; must not reach
-// `@nuxt/kit`, `nitropack/runtime`, or the channel-token alias - the wrappers
-// take the token as a value, and the layering suite enforces it.
+// Not application API: versioned with the umbrella module, not this package.
+// What this layer may import is asserted in `test/unit/layering.test.ts`.
 
 export { wrapVanillaFetch } from '../../app/composables/fetch-wrapper'
 export type {

@@ -6,18 +6,14 @@ import type {
 } from '../../src/runtime/shared/checked-fetch-factory'
 import { createCheckedFetch } from '../../src/runtime/shared/checked-fetch-factory'
 
-// The factory with the channel token handed in as a value - the seam a module
-// layer composes its own global from. `checked-fetch.test.ts` covers the same
-// behaviour through the parent's alias binding; this file proves the token
-// needs no alias at all.
+// `checked-fetch.test.ts` covers the same behaviour through the alias
+// binding; this file proves the token needs no alias at all.
 
 /** The headers the last call put on the wire, once ofetch's defaults merge. */
 let sent: Headers = new Headers()
 
-/**
- * A stand-in for vanilla's namespace. `create` is ofetch's own shallow
- * spread: a `headers` key replaces the instance's wholesale.
- */
+// `create` is ofetch's own shallow spread: a `headers` key replaces the
+// instance's wholesale.
 function fakeFetch(defaults: RawOptions = {}): RawFetch {
   const record = (opts?: RawOptions): Promise<unknown> => {
     sent = new Headers(defaults.headers)

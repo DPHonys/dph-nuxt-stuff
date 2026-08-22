@@ -5,10 +5,8 @@ import { promisify } from 'node:util'
 import ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-// The published entries, resolved the way a consumer resolves them: through
-// the package name, against the built `dist`. The playground is the only
-// directory in the workspace with the package in its `node_modules`, and the
-// build is a task dependency - see the root `turbo.json`.
+// Resolved the way a consumer resolves them: through the package name, from
+// the playground - the one workspace directory with the package in `node_modules`.
 
 const run = promisify(execFile)
 
@@ -35,15 +33,9 @@ beforeAll(() => {
   )
 })
 
-/**
- * Compile one virtual file from inside the consumer's directory - rooted there
- * so TypeScript walks the same `node_modules` chain a consumer does - and
- * report what the compiler said.
- *
- * Plain bundler options rather than the playground's generated tsconfig:
- * `nuxt prepare` writes a `paths` entry mapping this package's subpaths
- * straight at `dist`, short-circuiting the very `exports` block under test.
- */
+// Plain bundler options rather than the playground's generated tsconfig: its
+// `paths` map this package's subpaths straight at `dist`, short-circuiting
+// the very `exports` block under test.
 function diagnosticsFor(source: string): string[] {
   const probe = `${PLAYGROUND}/__entry-resolution.probe.ts`
 
@@ -83,13 +75,9 @@ function diagnosticsFor(source: string): string[] {
 describe('the published entries', () => {
   it('all import at runtime from a consumer’s node_modules', async () => {
     // A real Node process, not Vite's resolver: only Node applies `exports`
-    // conditions the way a consumer's Nitro build will. `--input-type=module`
-    // resolves bare specifiers against `cwd`, which is why it is the consumer's.
-    //
-    // `/internals/app` is absent on purpose: it imports `#app`, a specifier
-    // that exists only inside a Nuxt build, so plain Node cannot load it. Its
-    // `exports` wiring is covered by the types probe below, which walks the
-    // same `exports` block; loading it for real is the playground's job.
+    // conditions the way a consumer's Nitro build will.
+    // `/internals/app` is absent on purpose: it imports `#app`, which exists
+    // only inside a Nuxt build. The types probe below covers its wiring.
     const source = [
       MODULE_ENTRY,
       TYPES_ENTRY,
@@ -138,9 +126,8 @@ describe('the published entries', () => {
     // would be public API this package would then owe a major to remove.
     const publicDoors = [MODULE_ENTRY, SERVER_ENTRY, SHARED_ENTRY] as const
 
-    // One representative per internals entry, tried against every public
-    // door: a cross product, so a seam cannot leak through the door nobody
-    // thought to list for it.
+    // A cross product, so a seam cannot leak through the door nobody thought
+    // to list for it.
     const representatives = [
       'emitMap', // /internals/build
       'resolveDeclared', // /internals/server

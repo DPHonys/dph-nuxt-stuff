@@ -414,12 +414,8 @@ describe('the emitted map', () => {
   })
 })
 
-/**
- * A throwaway second target, declared ambiently in the tree: the shape the
- * umbrella's own map takes, minus the umbrella. `RouteKind` tells a handler
- * function from a bare value, so the hover proves the import resolved and
- * the augmentation landed rather than collapsing to the error type.
- */
+// A throwaway second target. `RouteKind` tells a handler from a bare value,
+// so the hover proves the augmentation landed rather than collapsing to the error type.
 const THROWAWAY_SPECIFIER = 'throwaway-inputs'
 const THROWAWAY_PATH = 'types/throwaway.d.ts'
 const THROWAWAY_DECLARATION = [
