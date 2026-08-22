@@ -2,13 +2,17 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import type { ValidationSchemas, ValidationSource } from '../../types'
-import { raiseValidationError } from './issues'
+import type { OnInvalid } from './issues'
+import { projectIssues, raiseValidationError } from './issues'
 import type { SourceReader } from './sources'
 import { SOURCE_WALK } from './sources'
 
-// The schemas are always a list - a bare slot is its own one-element list,
-// settled here so nothing downstream asks which shape the author wrote.
-interface SourcePlan {
+/**
+ * One resolved source slot: its reader and its schema list. The schemas are
+ * always a list - a bare slot is its own one-element list, settled here so
+ * nothing downstream asks which shape the author wrote.
+ */
+export interface SourcePlan {
   readonly source: ValidationSource
   readonly read: SourceReader
   readonly schemas: readonly StandardSchemaV1[]
@@ -71,18 +75,31 @@ function raiseUnschemaedSource(
   )
 }
 
-/** Run one request through the plan, in the plan's order. */
+/** What a caller may swap in per request; the parent passes nothing. */
+export interface ValidatedContextOptions {
+  /** Defaults to `raiseValidationError`. */
+  readonly onInvalid?: OnInvalid
+}
+
+/**
+ * Run one request through the plan, in the plan's order. Every client-input
+ * rejection - a rejecting schema and an unparseable body alike - goes through
+ * `onInvalid`; the developer-mistake `500`s never do.
+ */
 export async function validatedContext(
   event: H3Event,
-  plan: readonly SourcePlan[]
+  plan: readonly SourcePlan[],
+  options: ValidatedContextOptions = {}
 ): Promise<Record<string, unknown>> {
+  const onInvalid = options.onInvalid ?? raiseValidationError
   const validated: Record<string, unknown> = {}
 
   for (const { source, read, schemas } of plan) {
     validated[source] = await validatedValueFor(
       source,
       schemas,
-      await read(event)
+      await read(event, onInvalid),
+      onInvalid
     )
   }
 
@@ -96,7 +113,8 @@ export async function validatedContext(
 async function validatedValueFor(
   source: ValidationSource,
   schemas: readonly StandardSchemaV1[],
-  raw: unknown
+  raw: unknown,
+  onInvalid: OnInvalid
 ): Promise<unknown> {
   const issues: StandardSchemaV1.Issue[] = []
   const outputs: unknown[] = []
@@ -118,7 +136,8 @@ async function validatedValueFor(
     else issues.push(...result.issues)
   }
 
-  if (issues.length > 0) raiseValidationError(source, issues)
+  // Projected before the hook sees them: raw issues never cross the seam.
+  if (issues.length > 0) onInvalid(source, projectIssues(source, issues))
   if (unreportedAt !== undefined) raiseUnreportedFailure(source, unreportedAt)
 
   // Every element contributed, so an output's position here is its element's
