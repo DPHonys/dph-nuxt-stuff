@@ -131,12 +131,40 @@ describe('the published entries', () => {
       ['raiseValidationError', SERVER_ENTRY],
       ['markValidationError', MODULE_ENTRY],
       ['markValidationError', SERVER_ENTRY],
+      ['readValidationMarker', MODULE_ENTRY],
+      ['readValidationMarker', SERVER_ENTRY],
+      ['VALIDATION_ERROR_KEY', MODULE_ENTRY],
+      ['VALIDATION_ERROR_KEY', SERVER_ENTRY],
     ] as const
 
-    for (const [name, entry] of internal) {
-      const failures = diagnosticsFor(
-        `import { ${name} } from '${entry}'\nexport const probe = ${name}`
-      )
+    const internalTypes = [
+      ['OnInvalid', MODULE_ENTRY],
+      ['OnInvalid', SERVER_ENTRY],
+      ['SourcePlan', MODULE_ENTRY],
+      ['SourcePlan', SERVER_ENTRY],
+      ['ValidatedContextOptions', MODULE_ENTRY],
+      ['ValidatedContextOptions', SERVER_ENTRY],
+    ] as const
+
+    const probes = [
+      ...internal.map(
+        ([name, entry]) =>
+          [
+            name,
+            `import { ${name} } from '${entry}'\nexport const probe = ${name}`,
+          ] as const
+      ),
+      ...internalTypes.map(
+        ([name, entry]) =>
+          [
+            name,
+            `import type { ${name} } from '${entry}'\nexport type Probe = ${name}`,
+          ] as const
+      ),
+    ]
+
+    for (const [name, source] of probes) {
+      const failures = diagnosticsFor(source)
 
       // TS2305 or, when a near-miss exists on the door, TS2724's "named".
       expect(failures.join('\n')).toMatch(
