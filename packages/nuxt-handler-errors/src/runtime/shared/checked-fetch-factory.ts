@@ -1,11 +1,38 @@
 import { createError } from 'h3'
 import type { NuxtError } from 'nuxt/app'
-import type { TryResult } from '../types/fetch'
+import type { $CheckedFetch, TryResult } from '../types/fetch'
+import { CHANNEL_HEADER } from './channel'
 
 // The alias-free half of `checked-fetch.ts`: what a module layer can reach
-// without the `#nuxt-handler-errors/channel-token` binding.
+// without the `#nuxt-handler-errors/channel-token` binding. The token is a
+// value here; the parent binding hands its alias in.
 
 export type RawTryResult = TryResult<unknown, NuxtError>
+
+/** The one option this wrapper reads. Everything else is forwarded untouched. */
+export interface RawOptions {
+  headers?: HeadersInit
+}
+
+// Vanilla's namespace reduced to the shapes this file touches - the real
+// `$Fetch` would make every forwarding call site fight route-literal
+// inference. The cast ending `createCheckedFetch` makes the claim once.
+export interface RawFetch {
+  (request: unknown, opts?: RawOptions): Promise<unknown>
+  raw: (request: unknown, opts?: RawOptions) => Promise<unknown>
+  create: (defaults: RawOptions) => RawFetch
+  native: typeof globalThis.fetch
+}
+
+export interface CheckedFetchFactoryOptions {
+  /**
+   * The channel token to attach, or undefined for no gating. Read on every
+   * call, never captured - a binding may hand in a getter over a live import.
+   */
+  readonly token: string | undefined
+  /** Instance-level headers `create(defaults)` threads through. Internal; defaults to empty. */
+  readonly instanceHeaders?: Headers
+}
 
 // h3's `createError` - the same normalisation `useFetch`'s error ref goes
 // through, so one matcher serves both surfaces at one depth.
@@ -50,3 +77,99 @@ export async function toTryResult(
     return { data: undefined, error: toNuxtError(cause) }
   }
 }
+
+const ACCEPT = 'accept'
+
+// Without `accept`, Nitro's `isJsonRequest` falls back to a path test that
+// fails outside `/api/**`, and a declared 403 arrives as an HTML string.
+const ACCEPT_JSON = 'application/json'
+
+// Built through a `Headers` (the one merge that accepts all three legal input
+// forms) and handed on AS a `Headers` - ofetch's `mergeHeaders` takes one
+// correctly. The event-bound wrapper and the composable must flatten instead;
+// the three merges are deliberately unshared.
+function withCheckedHeaders(
+  opts: RawOptions | undefined,
+  instanceHeaders: Headers,
+  token: string | undefined
+): RawOptions {
+  const headers = new Headers(opts?.headers)
+
+  if (!headers.has(ACCEPT) && !instanceHeaders.has(ACCEPT)) {
+    headers.set(ACCEPT, ACCEPT_JSON)
+  }
+
+  if (token !== undefined) {
+    headers.set(CHANNEL_HEADER, token)
+  }
+
+  return { ...opts, headers }
+}
+
+// Mirrors ofetch's own SHALLOW defaults spread: a `headers` key replaces the
+// instance's wholesale - accumulating across creates would drift from what
+// ofetch actually sends.
+function nextInstanceHeaders(current: Headers, defaults: RawOptions): Headers {
+  return 'headers' in defaults ? new Headers(defaults.headers) : current
+}
+
+// Every member forwards; only the headers and `.try`'s try/catch are added.
+// `options` is passed down whole, not spread, so a getter-backed `token`
+// stays live on every created instance.
+function build(
+  base: RawFetch,
+  options: CheckedFetchFactoryOptions,
+  instanceHeaders: Headers
+): $CheckedFetch {
+  const call = (request: unknown, opts?: RawOptions): Promise<unknown> =>
+    base(request, withCheckedHeaders(opts, instanceHeaders, options.token))
+
+  return Object.assign(call, {
+    try: (request: unknown, opts?: RawOptions): Promise<RawTryResult> =>
+      toTryResult(() => call(request, opts)),
+
+    raw: (request: unknown, opts?: RawOptions): Promise<unknown> =>
+      base.raw(
+        request,
+        withCheckedHeaders(opts, instanceHeaders, options.token)
+      ),
+
+    native: (...args: Parameters<typeof globalThis.fetch>): Promise<Response> =>
+      base.native(...args),
+
+    create: (defaults: RawOptions): $CheckedFetch =>
+      build(
+        base.create(defaults),
+        options,
+        nextInstanceHeaders(instanceHeaders, defaults)
+      ),
+  }) as $CheckedFetch
+}
+
+/** Today's factory with the token injected instead of read from the alias. */
+export function createCheckedFetch(
+  base: RawFetch,
+  options: CheckedFetchFactoryOptions
+): $CheckedFetch {
+  return build(base, options, options.instanceHeaders ?? new Headers())
+}
+
+// `globalThis.$fetch` read at CALL time rather than captured, so the two
+// installing plugins are a single assignment each rather than an ordering
+// problem.
+const vanilla = (): RawFetch => globalThis.$fetch as RawFetch
+
+/** The lazy `globalThis.$fetch` proxy, so a module layer can build its global at plugin time. */
+export const lazyGlobalFetch: RawFetch = Object.assign(
+  (request: unknown, opts?: RawOptions): Promise<unknown> =>
+    vanilla()(request, opts),
+  {
+    raw: (request: unknown, opts?: RawOptions): Promise<unknown> =>
+      vanilla().raw(request, opts),
+
+    create: (defaults: RawOptions): RawFetch => vanilla().create(defaults),
+
+    native: (...args: Parameters<typeof globalThis.fetch>): Promise<Response> =>
+      vanilla().native(...args),
+  }
+)

@@ -35,6 +35,12 @@
       ],
       "internals/server": [
         "./dist/runtime/internals/server/index.d.ts"
+      ],
+      "internals/shared": [
+        "./dist/runtime/internals/shared/index.d.ts"
+      ],
+      "internals/app": [
+        "./dist/runtime/internals/app/index.d.ts"
       ]
     }
   },
@@ -58,6 +64,14 @@
     "./internals/server": {
       "types": "./dist/runtime/internals/server/index.d.ts",
       "import": "./dist/runtime/internals/server/index.js"
+    },
+    "./internals/shared": {
+      "types": "./dist/runtime/internals/shared/index.d.ts",
+      "import": "./dist/runtime/internals/shared/index.js"
+    },
+    "./internals/app": {
+      "types": "./dist/runtime/internals/app/index.d.ts",
+      "import": "./dist/runtime/internals/app/index.js"
     }
   },
   "publishConfig": {

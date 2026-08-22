@@ -24,6 +24,14 @@ const ROWS: readonly Row[] = [
     entry: 'src/runtime/internals/server/index.ts',
     forbidden: ['@nuxt/kit', '#app', CHANNEL_TOKEN_ALIAS],
   },
+  {
+    entry: 'src/runtime/internals/shared/index.ts',
+    forbidden: ['@nuxt/kit', 'nitropack/runtime', '#app', CHANNEL_TOKEN_ALIAS],
+  },
+  {
+    entry: 'src/runtime/internals/app/index.ts',
+    forbidden: ['@nuxt/kit', 'nitropack/runtime', CHANNEL_TOKEN_ALIAS],
+  },
 ]
 
 // Extensionless first, so a specifier that already carries `.ts` wins over a

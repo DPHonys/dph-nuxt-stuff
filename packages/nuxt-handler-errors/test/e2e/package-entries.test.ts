@@ -22,6 +22,8 @@ const TYPES_ENTRY = '@dphonys/nuxt-handler-errors/types'
 const SERVER_ENTRY = '@dphonys/nuxt-handler-errors/server'
 const SHARED_ENTRY = '@dphonys/nuxt-handler-errors/shared'
 const INTERNALS_SERVER_ENTRY = '@dphonys/nuxt-handler-errors/internals/server'
+const INTERNALS_SHARED_ENTRY = '@dphonys/nuxt-handler-errors/internals/shared'
+const INTERNALS_APP_ENTRY = '@dphonys/nuxt-handler-errors/internals/app'
 
 beforeAll(() => {
   if (existsSync(BUILT_MODULE)) return
@@ -82,12 +84,18 @@ describe('the published entries', () => {
     // A real Node process, not Vite's resolver: only Node applies `exports`
     // conditions the way a consumer's Nitro build will. `--input-type=module`
     // resolves bare specifiers against `cwd`, which is why it is the consumer's.
+    //
+    // `/internals/app` is absent on purpose: it imports `#app`, a specifier
+    // that exists only inside a Nuxt build, so plain Node cannot load it. Its
+    // `exports` wiring is covered by the types probe below, which walks the
+    // same `exports` block; loading it for real is the playground's job.
     const source = [
       MODULE_ENTRY,
       TYPES_ENTRY,
       SERVER_ENTRY,
       SHARED_ENTRY,
       INTERNALS_SERVER_ENTRY,
+      INTERNALS_SHARED_ENTRY,
     ]
       .map((specifier) => `await import(${JSON.stringify(specifier)})`)
       .join('\n')
@@ -110,7 +118,11 @@ describe('the published entries', () => {
         `import { KNOWN_ERROR_KEY, matchError } from '${SHARED_ENTRY}'`,
         `import { createCheckedEventFetch, createChannelStripHandler, createFail, createKnownError, EventFetchUnavailableError, raiseKnown, resolveDeclared } from '${INTERNALS_SERVER_ENTRY}'`,
         `import type { DeclaredError, RawEventFetch } from '${INTERNALS_SERVER_ENTRY}'`,
-        `export type Probe = [ModuleOptions, $CheckedFetch, CheckedEventHandler, CheckedFetch, Fail<never>, Fallback, KnownApiErrors, KnownError<never>, KnownErrorBody<KnownVariant>, KnownErrorCarrier<KnownVariant>, KnownErrorFor<'/api/users/:id', 'get'>, KnownErrorGroup<KnownVariant>, KnownErrorKey, KnownErrorsOf<never>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, VariantsOf<never>, typeof defineCheckedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof KNOWN_ERROR_KEY, typeof matchError, typeof createCheckedEventFetch, typeof createChannelStripHandler, typeof createFail, typeof createKnownError, typeof EventFetchUnavailableError, typeof raiseKnown, typeof resolveDeclared, DeclaredError, RawEventFetch]`,
+        `import { CHANNEL_HEADER, createCheckedFetch, knownErrorMarker, lazyGlobalFetch, readFloor, toNuxtError, toTryResult } from '${INTERNALS_SHARED_ENTRY}'`,
+        `import type { CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult } from '${INTERNALS_SHARED_ENTRY}'`,
+        `import { wrapVanillaAsyncData, wrapVanillaFetch } from '${INTERNALS_APP_ENTRY}'`,
+        `import type { FailureOf, KnownErrorRef, RawUseAsyncData, RawUseFetch, SuccessOf, TrySource, UseCheckedAsyncData, UseCheckedFetch } from '${INTERNALS_APP_ENTRY}'`,
+        `export type Probe = [ModuleOptions, $CheckedFetch, CheckedEventHandler, CheckedFetch, Fail<never>, Fallback, KnownApiErrors, KnownError<never>, KnownErrorBody<KnownVariant>, KnownErrorCarrier<KnownVariant>, KnownErrorFor<'/api/users/:id', 'get'>, KnownErrorGroup<KnownVariant>, KnownErrorKey, KnownErrorsOf<never>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, VariantsOf<never>, typeof defineCheckedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof KNOWN_ERROR_KEY, typeof matchError, typeof createCheckedEventFetch, typeof createChannelStripHandler, typeof createFail, typeof createKnownError, typeof EventFetchUnavailableError, typeof raiseKnown, typeof resolveDeclared, DeclaredError, RawEventFetch, typeof CHANNEL_HEADER, typeof createCheckedFetch, typeof knownErrorMarker, typeof lazyGlobalFetch, typeof readFloor, typeof toNuxtError, typeof toTryResult, CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult, typeof wrapVanillaAsyncData, typeof wrapVanillaFetch, FailureOf<TrySource>, KnownErrorRef<'/api/users/:id', 'get'>, RawUseAsyncData, RawUseFetch, SuccessOf<TrySource>, TrySource, UseCheckedAsyncData, UseCheckedFetch]`,
       ].join('\n')
     )
 
@@ -125,6 +137,11 @@ describe('the published entries', () => {
       ['createFail', SERVER_ENTRY],
       ['createKnownError', SERVER_ENTRY],
       ['raiseKnown', SERVER_ENTRY],
+      ['createCheckedFetch', SHARED_ENTRY],
+      ['lazyGlobalFetch', SHARED_ENTRY],
+      ['readFloor', SHARED_ENTRY],
+      ['wrapVanillaFetch', SHARED_ENTRY],
+      ['wrapVanillaFetch', MODULE_ENTRY],
     ] as const
 
     for (const [name, entry] of internal) {
