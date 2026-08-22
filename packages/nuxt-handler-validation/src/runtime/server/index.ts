@@ -1,23 +1,21 @@
-import type {
-  EventHandler,
-  EventHandlerRequest,
-  EventHandlerResponse,
-  H3Event,
-} from 'h3'
+import type { EventHandlerRequest, EventHandlerResponse, H3Event } from 'h3'
 import { defineEventHandler } from 'h3'
 import { readValidationMarker } from '../shared/error-marker'
 import type {
+  RequestInput,
   ValidatedContext,
+  ValidatedEventHandler,
   ValidationErrorData,
   ValidationSchemas,
+  ValidationSchemasGuard,
 } from '../types'
-import type { ValidationSchemasGuard } from '../types/internal'
 import { sourcePlan, validatedContext } from './lib/validate'
 
 /**
  * Declare what a route validates, and get the validated values eagerly in the
  * handler's second parameter. Undeclared sources are absent from it rather than
- * `unknown`, and the returned handler is an ordinary h3 `EventHandler`.
+ * `unknown`, and the returned handler is an ordinary h3 `EventHandler` that
+ * additionally carries the computed Request input as a phantom type slot.
  *
  * Sources validate in the order `routerParams -> query -> headers -> body`,
  * fail-fast across sources: the first failure answers `400` and no later source
@@ -34,14 +32,14 @@ export function defineValidatedEventHandler<
 >(
   options: { validate: S & ValidationSchemasGuard<S> },
   handler: (event: H3Event<Request>, validated: ValidatedContext<S>) => Response
-): EventHandler<Request, Response> {
+): ValidatedEventHandler<Request, Response, RequestInput<S>> {
   const plan = sourcePlan(options.validate)
 
   // Cast because the wrapper always hands h3 one promise, while the public
   // signature reports the handler's own `Response` for Nitro's typed routes.
   return defineEventHandler(async (event: H3Event<Request>) =>
     handler(event, (await validatedContext(event, plan)) as ValidatedContext<S>)
-  ) as EventHandler<Request, Response>
+  ) as ValidatedEventHandler<Request, Response, RequestInput<S>>
 }
 
 /**

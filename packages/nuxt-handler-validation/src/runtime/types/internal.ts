@@ -27,8 +27,9 @@ type NamedKey<K> = string extends K
 type NamedKeys<T> = NamedKey<KeysOfUnion<T>>
 
 // `1 & T` collapses to `any` only when `T` already is, and `0 extends any` is
-// the one case that holds.
-type IsAny<T> = 0 extends 1 & T ? true : false
+// the one case that holds. Exported for `RequestInputOfHandler` next door,
+// which does not re-export it: `/types` keeps no `IsAny`.
+export type IsAny<T> = 0 extends 1 & T ? true : false
 
 type ElementOutputs<T extends readonly StandardSchemaV1[]> = {
   [I in keyof T]: OutputOf<T[I]>

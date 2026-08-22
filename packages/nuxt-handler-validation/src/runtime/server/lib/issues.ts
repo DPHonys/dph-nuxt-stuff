@@ -7,9 +7,21 @@ import type {
   ValidationSource,
 } from '../../types'
 
-// Projection by construction, never by filtering: nothing is copied across but
-// the message and the normalized path, so no vendor extra reaches a client.
-function projectIssues(
+/**
+ * The per-request failure door. Receives projected issues, all from one
+ * source, and must not return.
+ */
+export type OnInvalid = (
+  source: ValidationSource,
+  issues: readonly ValidationIssue[]
+) => never
+
+/**
+ * Projection by construction, never by filtering: nothing is copied across but
+ * the message and the normalized path, so no vendor extra reaches a client or
+ * an `onInvalid` hook. Module-level for `validate.ts`; no entry re-exports it.
+ */
+export function projectIssues(
   source: ValidationSource,
   issues: readonly StandardSchemaV1.Issue[]
 ): ValidationIssue[] {
@@ -40,16 +52,16 @@ function projectPath(
 }
 
 /**
- * The one failure this package answers with: `400`, one fixed shape, identical
- * in dev and prod, over one source's projected issues. It is also the only
- * raise in the package that marks its error - what reaches here is a client's
- * bad input, so an observability hook may skip it.
+ * The default `onInvalid`: `400`, one fixed shape, identical in dev and prod,
+ * over one source's projected issues. It is also the only raise in the package
+ * that marks its error - what reaches here is a client's bad input, so an
+ * observability hook may skip it.
  */
 export function raiseValidationError(
   source: ValidationSource,
-  issues: readonly StandardSchemaV1.Issue[]
+  issues: readonly ValidationIssue[]
 ): never {
-  const data: ValidationErrorData = { issues: projectIssues(source, issues) }
+  const data: ValidationErrorData = { issues: [...issues] }
 
   // The message is a human summary only. Nothing may parse it - the wire
   // contract is the status, the reason phrase and `data.issues`.
