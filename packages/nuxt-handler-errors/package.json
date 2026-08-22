@@ -32,6 +32,18 @@
       ],
       "shared": [
         "./dist/runtime/shared/index.d.ts"
+      ],
+      "internals/build": [
+        "./dist/internals/build.d.mts"
+      ],
+      "internals/server": [
+        "./dist/runtime/internals/server/index.d.ts"
+      ],
+      "internals/shared": [
+        "./dist/runtime/internals/shared/index.d.ts"
+      ],
+      "internals/app": [
+        "./dist/runtime/internals/app/index.d.ts"
       ]
     }
   },
@@ -51,6 +63,23 @@
     "./shared": {
       "types": "./dist/runtime/shared/index.d.ts",
       "import": "./dist/runtime/shared/index.js"
+    },
+    "./internals/build": {
+      "types": "./dist/internals/build.d.mts",
+      "import": "./dist/internals/build.mjs"
+    },
+    "./internals/server": {
+      "types": "./dist/runtime/internals/server/index.d.ts",
+      "import": "./dist/runtime/internals/server/index.js"
+    },
+    "./internals/shared": {
+      "types": "./dist/runtime/internals/shared/index.d.ts",
+      "import": "./dist/runtime/internals/shared/index.js"
+    },
+    "./package.json": "./package.json",
+    "./internals/app": {
+      "types": "./dist/runtime/internals/app/index.d.ts",
+      "import": "./dist/runtime/internals/app/index.js"
     }
   },
   "publishConfig": {
@@ -88,6 +117,7 @@
     "nuxt": "catalog:",
     "publint": "catalog:",
     "typescript": "catalog:",
+    "unbuild": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "catalog:",
     "zod": "catalog:"

@@ -277,6 +277,9 @@ pnpm --filter @dphonys/nuxt-handler-errors build
 pnpm --filter @dphonys/nuxt-handler-errors publint
 ```
 
+The `internals/*` entries, consumed only by `@dphonys/nuxt-typed-handler`, are
+documented in [`INTERNALS.md`](./INTERNALS.md).
+
 ## License
 
 Licensed under the [MIT License](./LICENSE).

@@ -75,3 +75,73 @@ _Avoid_: Prior CI result, release smoke test
 **First-release bootstrap**:
 The one-time authenticated publication that creates a new npm package name so its per-package trusted publisher can be registered for later OIDC releases.
 _Avoid_: Normal release, package admission
+
+## Handler Packages
+
+This context names the concepts shared across the handler packages (`nuxt-handler-errors`, `nuxt-handler-validation`, and the umbrella that composes them). Each package README is the authority for its own terms; only cross-package terms live here.
+
+### Language
+
+**Handler**:
+A Nitro route handler produced by one of the repository's `define…EventHandler` wrappers; always a plain h3 `EventHandler`.
+_Avoid_: Endpoint, route function
+
+**Known error**:
+A failure a Handler declares with `defineError` and raises with `fail`; marked on the wire and typed at every call site from the route path.
+_Avoid_: Expected error, business error
+
+**Validation source**:
+One of the four request inputs a Handler may validate: `routerParams`, `query`, `headers`, `body`.
+_Avoid_: Input, field
+
+**Validated context**:
+The Handler's second parameter: output-typed validated values, one key per declared Validation source, undeclared sources absent.
+_Avoid_: Parsed request, payload
+
+**Handler context**:
+The Umbrella Handler's second parameter: the Validated context's keys plus `fail` when Known errors are declared; the only door to validated values and to raising a Known error.
+_Avoid_: Context object, helpers, second argument
+
+**Built-in validation-failed variant**:
+The Known error every Umbrella route implicitly carries when it declares any Validation source, always on, carrying the rejected source's issues; call sites handle input rejection with a typed arm, and it is recognised both as a Known error and as a validation failure.
+_Avoid_: Validation error, 400
+
+**Reserved tag**:
+A Known-error tag the Umbrella keeps for itself (`validation-failed`) and refuses in any route's declared errors, whether or not that route validates.
+_Avoid_: Built-in tag, system error
+
+**Checked fetch family**:
+The fetch composables and globals that carry a route's Known-error union to the call site (`useCheckedFetch`, `$checkedFetch.try`, and their siblings).
+_Avoid_: Safe fetch
+
+**Request typing**:
+Typing a fetch call's `body` and `query` options per `(route, method)` from the route's Request input; compile-time only. A source is typed when the route declares it, required when sending nothing would fail validation, and otherwise exactly what the vanilla fetch accepts.
+_Avoid_: Client validation, request schema
+
+**Request input**:
+The shape a client must send for a route, per Validation source: the declared schemas' _input_ types, with a composed tuple's inputs intersected. What Request typing reads; distinct from the Validated context, which is the output side.
+_Avoid_: Validation input, request schema
+
+**Declared source**:
+A Validation source present in a route's Request input. Request typing applies per Declared source; an undeclared source is untouched, whatever else the route declares.
+_Avoid_: Branded source, validated field
+
+**Typed fetch family**:
+The Umbrella's mirror of the Checked fetch family (`useTypedFetch`, `$typedFetch` and siblings): carries both the route's Known-error union and its Request typing to the call site.
+_Avoid_: Better fetch, umbrella fetch
+
+**Parent package**:
+`nuxt-handler-errors` or `nuxt-handler-validation`: standalone modules that also expose an Internals entry.
+_Avoid_: Base package, core package
+
+**Umbrella**:
+The composed module (`nuxt-typed-handler`) built on both Parent packages' Internals entries; installed instead of the parents, never alongside.
+_Avoid_: Aggregator, meta-package
+
+**Internals entry**:
+A Parent package's side-split package entries (`/internals/build`, `/internals/server`, `/internals/app`, `/internals/shared`) exposing the pieces the Umbrella composes; versioned with the Umbrella (which pins the Parent package exactly) rather than by the Parent package's semver, documented for the Umbrella only, never for app authors.
+_Avoid_: Core, private API
+
+**Module layer**:
+The thin `src/module.ts` of a package: auto-imports, templates, plugins; Nuxt wiring rather than logic.
+_Avoid_: Setup, plugin

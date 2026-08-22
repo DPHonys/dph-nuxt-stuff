@@ -3,14 +3,15 @@ import {
   addPlugin,
   addServerImports,
   addServerPlugin,
-  addTemplate,
   addTypeTemplate,
   createResolver,
   defineNuxtModule,
-  logger,
   updateTemplates,
 } from '@nuxt/kit'
 import type { Nitro } from 'nitropack/types'
+import { addChannelStripErrorHandler } from './build/channel-strip'
+import { addChannelToken, normalizeChannelToken } from './build/channel-token'
+import { warnCustomErrorHandler } from './build/error-handler-warning'
 import { emitMap, EMPTY_MAP, TYPES_SPECIFIER } from './emit-map'
 
 export interface ModuleOptions {
@@ -28,39 +29,25 @@ export interface ModuleOptions {
   channelToken: string | false
 }
 
-const DEFAULT_CHANNEL_TOKEN = 'nuxt-handler-errors'
-
-// An alias rather than a published entry: the value only exists inside a
-// build - the module writes it as a template and points both builds at it.
-const CHANNEL_TOKEN_SPECIFIER = '#nuxt-handler-errors/channel-token'
+const NAME = 'nuxt-handler-errors'
 
 // Must live under `types/` - Nitro's `typesDir` - because every handler
 // specifier the emitter computes is relative to it, and an unresolved
 // `import('…')` in a `.d.ts` produces no diagnostic.
-const TEMPLATE_FILENAME = 'types/nuxt-handler-errors.d.ts'
+const TEMPLATE_FILENAME = `types/${NAME}.d.ts`
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
-    name: 'nuxt-handler-errors',
+    name: NAME,
     configKey: 'handlerErrors',
     // The ceiling is the only guard against the h3 v2 / Nitro 3 line.
     compatibility: { nuxt: '>=4.5.1 <5.0.0' },
   },
   defaults: {
-    channelToken: DEFAULT_CHANNEL_TOKEN,
+    channelToken: NAME,
   },
   setup(options, nuxt) {
-    // Read at setup, before Nuxt fills the empty slot with its own handler,
-    // so the entries here are exactly the consumer's.
-    if (nuxt.options.nitro.errorHandler !== undefined) {
-      logger.warn(
-        '[nuxt-handler-errors] A custom `nitro.errorHandler` is set. Known ' +
-          'failures travel as `error.data` on ordinary HTTP errors - an error ' +
-          'handler that does not serialize `data` silently drops every ' +
-          'declared payload, and checked call sites will read those failures ' +
-          'as unknown. Make sure your handler keeps `data` in the response body.'
-      )
-    }
+    warnCustomErrorHandler(nuxt, NAME)
 
     nuxt.options.typescript.hoist.push(TYPES_SPECIFIER)
 
@@ -135,63 +122,13 @@ export default defineNuxtModule<ModuleOptions>({
       resolver.resolve('./runtime/server/plugins/event-checked-fetch')
     )
 
-    // `false` is the explicit opt-out. `''` collapses to the same - an empty
-    // header value could never round-trip - but only `false` can mean it on
-    // purpose, so an empty string additionally warns: it is how an unset env
-    // var interpolated into the config would silently ship without gating.
-    if (options.channelToken === '') {
-      logger.warn(
-        '[nuxt-handler-errors] `channelToken` is an empty string, so channel ' +
-          'gating is disabled. If that is intended, set `channelToken: false`; ' +
-          'an empty string usually means an unset value reached the config.'
-      )
-    }
-
-    const channelToken =
-      options.channelToken === false || options.channelToken === ''
-        ? undefined
-        : options.channelToken
-
-    // `write: true` is load-bearing: the Nitro build resolves the alias from
-    // disk, not from Nuxt's virtual file system.
-    const channelTokenTemplate = addTemplate({
-      filename: 'nuxt-handler-errors/channel-token.mjs',
-      write: true,
-      getContents: () =>
-        `export const configuredChannelToken = ${
-          channelToken === undefined
-            ? 'undefined'
-            : JSON.stringify(channelToken)
-        }\n`,
-    })
-
-    nuxt.options.alias[CHANNEL_TOKEN_SPECIFIER] = channelTokenTemplate.dst
-
-    // The stripping seam: prepend to the error-handler array and preserve
-    // every existing entry - the chain runs in order with the builtin last.
-    nuxt.hook('nitro:config', (nitroConfig) => {
-      // The Nitro half of the alias - `nuxt.options.alias` reaches the app
-      // build only.
-      nitroConfig.alias = {
-        ...nitroConfig.alias,
-        [CHANNEL_TOKEN_SPECIFIER]: channelTokenTemplate.dst,
-      }
-
-      if (channelToken === undefined) return
-
-      const existing = nitroConfig.errorHandler
-      const entries =
-        existing === undefined
-          ? []
-          : Array.isArray(existing)
-            ? existing
-            : [existing]
-
-      nitroConfig.errorHandler = [
-        resolver.resolve('./runtime/server/handlers/channel-strip'),
-        ...entries,
-      ]
-    })
+    const channelToken = normalizeChannelToken(options.channelToken, NAME)
+    addChannelToken(nuxt, NAME, channelToken)
+    addChannelStripErrorHandler(
+      nuxt,
+      channelToken,
+      resolver.resolve('./runtime/server/handlers/channel-strip')
+    )
 
     // Captured here and read by `getContents` - on a dev-server restart the
     // current instance and the hooked one are not the same object.

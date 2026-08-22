@@ -10,7 +10,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
-import { emitMap } from '../../src/emit-map'
+import { emitMap, KNOWN_ERRORS_SLOT } from '../../src/emit-map'
+import type { EmitMapSlot } from '../../src/emit-map'
 import { assertNoDiagnostics, compileFixture } from './compile-harness'
 import type { Compilation } from './compile-harness'
 
@@ -410,5 +411,126 @@ describe('the emitted map', () => {
       expect(rendered).toContain('"rate-limited"')
       expect(rendered).not.toContain('"user-not-found"')
     })
+  })
+})
+
+// A throwaway second target. `RouteKind` tells a handler from a bare value,
+// so the hover proves the augmentation landed rather than collapsing to the error type.
+const THROWAWAY_SPECIFIER = 'throwaway-inputs'
+const THROWAWAY_PATH = 'types/throwaway.d.ts'
+const THROWAWAY_DECLARATION = [
+  `declare module '${THROWAWAY_SPECIFIER}' {`,
+  `  export interface RouteKinds {}`,
+  `  export type RouteKind<H> = H extends (...args: never[]) => unknown ? 'handler' : 'value'`,
+  `}`,
+  ``,
+].join('\n')
+
+const THROWAWAY_SLOT: EmitMapSlot = {
+  interfaceName: 'RouteKinds',
+  specifier: THROWAWAY_SPECIFIER,
+  // `Serialize` is already on the known-errors slot's line: merged, not repeated.
+  imports: [
+    { names: ['Serialize'], from: 'nitropack/types' },
+    { names: ['RouteKind'], from: THROWAWAY_SPECIFIER },
+  ],
+  extract: (handlerType) => `Serialize<RouteKind<${handlerType}>>`,
+}
+
+/** `buildAppTree`, with two slots and the throwaway declaration in the program. */
+function buildTwoSlotTree(name: string): AppTree {
+  const root = join(ROOT, name)
+  mkdirSync(root, { recursive: true })
+  symlinkSync(
+    join(PACKAGE_ROOT, 'node_modules'),
+    join(root, 'node_modules'),
+    'junction'
+  )
+
+  for (const [path, contents] of Object.entries(appFiles(DEFINITIONS_A))) {
+    write(root, path, contents)
+  }
+
+  const emitted = emitMap(appHandlers(root), {
+    nitroOptions: {
+      buildDir: join(root, BUILD_DIR),
+      srcDir: join(root, 'server'),
+      alias: {},
+    },
+    slots: [KNOWN_ERRORS_SLOT, THROWAWAY_SLOT],
+  })
+
+  write(root, MAP_PATH, emitted)
+  write(root, THROWAWAY_PATH, THROWAWAY_DECLARATION)
+  write(
+    root,
+    'tsconfig.json',
+    `${JSON.stringify(
+      {
+        extends: join(TYPE_SUITE, 'tsconfig.fixtures.json'),
+        compilerOptions: {
+          paths: {
+            '@dphonys/nuxt-handler-errors/types': [
+              join(PACKAGE_ROOT, 'src/runtime/types/index.ts'),
+            ],
+            '@dphonys/nuxt-handler-errors/server': [
+              join(PACKAGE_ROOT, 'src/runtime/server/index.ts'),
+            ],
+            '@dphonys/nuxt-handler-errors/shared': [
+              join(PACKAGE_ROOT, 'src/runtime/shared/index.ts'),
+            ],
+          },
+        },
+        include: [MAP_PATH, THROWAWAY_PATH],
+      },
+      undefined,
+      2
+    )}\n`
+  )
+
+  return { root, emitted }
+}
+
+describe('the emitted map, with a second slot', () => {
+  const app = attach(buildTwoSlotTree('app-two-slots'))
+
+  const compilation = app.compile(
+    'consumer.ts',
+    [
+      ...CONSUMER_PRELUDE,
+      `import type { RouteKinds } from '${THROWAWAY_SPECIFIER}'`,
+      ``,
+      `export type Declared = KnownApiErrors['/api/users/:id']['get']`,
+      `export type Handler = RouteKinds['/api/legacy']['get']`,
+      `export type Value = RouteKinds['/api/indexed']['get']`,
+      ``,
+      `type _tags = Expect<Equal<Declared['tag'], 'user-not-found' | 'user-suspended'>>`,
+      `type _handler = Expect<Equal<Handler, 'handler'>>`,
+      `type _value = Expect<Equal<Value, 'value'>>`,
+      ``,
+    ].join('\n')
+  )
+
+  it('shares one import line between the slots', () => {
+    expect(
+      app.emitted.split('\n').filter((line) => line.startsWith('import type'))
+    ).toEqual([
+      `import type { Serialize, Simplify } from 'nitropack/types'`,
+      `import type { KnownErrorsOfHandler } from '@dphonys/nuxt-handler-errors/types'`,
+      `import type { RouteKind } from '${THROWAWAY_SPECIFIER}'`,
+    ])
+  })
+
+  it('compiles clean with both augmentations in the program', () => {
+    assertNoDiagnostics(compilation)
+  })
+
+  it('resolves the known-errors augmentation as before', () => {
+    expect(compilation.renderHover('Declared')).toContain('"user-not-found"')
+  })
+
+  it('resolves the second augmentation against the throwaway specifier', () => {
+    expect(compilation.renderHover('Handler')).toBe('"handler"')
+    expect(compilation.renderHover('Value')).toBe('"value"')
   })
 })
