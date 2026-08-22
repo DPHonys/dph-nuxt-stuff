@@ -4,13 +4,27 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-// Nothing reachable from the `/server` entry may pull `@nuxt/kit`, a
-// build-time package. Asserted on the source rather than on `dist`, so the
-// failure lands on the import that broke it and needs no build to run.
+// Asserted on the source rather than on `dist`, so the failure lands on the
+// import that broke it and needs no build to run.
 
-const CORE_ENTRY = fileURLToPath(
-  new URL('../../src/runtime/server/index.ts', import.meta.url)
-)
+interface Row {
+  readonly entry: string
+  readonly forbidden: readonly string[]
+}
+
+// `h3` is not on the shared row: `error-marker.ts` imports only its `H3Error`
+// type, and the walker does not tell a type import from a value one.
+const ROWS: readonly Row[] = [
+  { entry: 'src/runtime/server/index.ts', forbidden: ['@nuxt/kit'] },
+  {
+    entry: 'src/runtime/internals/server/index.ts',
+    forbidden: ['@nuxt/kit', '#app'],
+  },
+  {
+    entry: 'src/runtime/internals/shared/index.ts',
+    forbidden: ['@nuxt/kit', 'nitropack/runtime', '#app'],
+  },
+]
 
 // Extensionless first, so a specifier that already carries `.ts` wins over a
 // same-named directory.
@@ -57,12 +71,19 @@ function resolveRelative(from: string, specifier: string): string | undefined {
   )
 }
 
-describe('the /server core entry', () => {
-  it('imports `@nuxt/kit` nowhere, as a value or as a type', () => {
-    const kit = bareSpecifiersReachableFrom(CORE_ENTRY).filter((specifier) =>
-      /^@nuxt\/kit(?:\/|$)/.test(specifier)
+/** `@nuxt/kit` and `@nuxt/kit/…` alike. */
+function matches(specifier: string, forbidden: string): boolean {
+  return specifier === forbidden || specifier.startsWith(`${forbidden}/`)
+}
+
+describe.each(ROWS)('the $entry entry', ({ entry, forbidden }) => {
+  it(`reaches none of ${forbidden.join(', ')}, as a value or as a type`, () => {
+    const reached = bareSpecifiersReachableFrom(
+      fileURLToPath(new URL(`../../${entry}`, import.meta.url))
+    ).filter((specifier) =>
+      forbidden.some((banned) => matches(specifier, banned))
     )
 
-    expect(kit).toEqual([])
+    expect(reached).toEqual([])
   })
 })

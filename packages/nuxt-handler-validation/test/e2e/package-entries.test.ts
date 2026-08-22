@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 import ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-// The three published entries, resolved the way a consumer resolves them:
+// The published code entries, resolved the way a consumer resolves them:
 // through the package name, against the built `dist`. The playground is the
 // only directory in the workspace with the package in its `node_modules`, and
 // the build is a task dependency - see this package's `turbo.json`.
@@ -20,6 +20,10 @@ const BUILT_MODULE = fileURLToPath(
 const MODULE_ENTRY = '@dphonys/nuxt-handler-validation'
 const TYPES_ENTRY = '@dphonys/nuxt-handler-validation/types'
 const SERVER_ENTRY = '@dphonys/nuxt-handler-validation/server'
+const INTERNALS_SERVER_ENTRY =
+  '@dphonys/nuxt-handler-validation/internals/server'
+const INTERNALS_SHARED_ENTRY =
+  '@dphonys/nuxt-handler-validation/internals/shared'
 
 beforeAll(() => {
   if (existsSync(BUILT_MODULE)) return
@@ -80,7 +84,13 @@ describe('the published entries', () => {
     // A real Node process, not Vite's resolver: only Node applies `exports`
     // conditions the way a consumer's Nitro build will. `--input-type=module`
     // resolves bare specifiers against `cwd`, which is why it is the consumer's.
-    const source = [MODULE_ENTRY, TYPES_ENTRY, SERVER_ENTRY]
+    const source = [
+      MODULE_ENTRY,
+      TYPES_ENTRY,
+      SERVER_ENTRY,
+      INTERNALS_SERVER_ENTRY,
+      INTERNALS_SHARED_ENTRY,
+    ]
       .map((specifier) => `await import(${JSON.stringify(specifier)})`)
       .join('\n')
 
@@ -99,11 +109,39 @@ describe('the published entries', () => {
         `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
         `import type { MergedOutput, OutputOf, SourceSchemas, SourceValue, ValidatedContext, ValidationErrorData, ValidationIssue, ValidationSchemas, ValidationSource } from '${TYPES_ENTRY}'`,
         `import { defineValidatedEventHandler, recognizeValidationError } from '${SERVER_ENTRY}'`,
-        `export type Probe = [ModuleOptions, ValidationSchemas, SourceSchemas, ValidationSource, ValidatedContext<ValidationSchemas>, SourceValue<SourceSchemas>, MergedOutput<readonly []>, OutputOf<SourceSchemas>, ValidationIssue, ValidationErrorData, typeof defineValidatedEventHandler, typeof recognizeValidationError]`,
+        `import { raiseValidationError, sourcePlan, validatedContext } from '${INTERNALS_SERVER_ENTRY}'`,
+        `import type { OnInvalid, SourcePlan, ValidatedContextOptions } from '${INTERNALS_SERVER_ENTRY}'`,
+        `import { markValidationError, readValidationMarker, VALIDATION_ERROR_KEY } from '${INTERNALS_SHARED_ENTRY}'`,
+        `export type Probe = [ModuleOptions, ValidationSchemas, SourceSchemas, ValidationSource, ValidatedContext<ValidationSchemas>, SourceValue<SourceSchemas>, MergedOutput<readonly []>, OutputOf<SourceSchemas>, ValidationIssue, ValidationErrorData, typeof defineValidatedEventHandler, typeof recognizeValidationError, typeof raiseValidationError, typeof sourcePlan, typeof validatedContext, OnInvalid, SourcePlan, ValidatedContextOptions, typeof markValidationError, typeof readValidationMarker, typeof VALIDATION_ERROR_KEY]`,
       ].join('\n')
     )
 
     expect(failures).toEqual([])
+  })
+
+  it('keep the internals off the public doors', () => {
+    // Asserted from a consumer's seat: a seam leaking onto a public entry
+    // would be public API this package would then owe a major to remove.
+    const internal = [
+      ['sourcePlan', MODULE_ENTRY],
+      ['sourcePlan', SERVER_ENTRY],
+      ['validatedContext', MODULE_ENTRY],
+      ['validatedContext', SERVER_ENTRY],
+      ['raiseValidationError', MODULE_ENTRY],
+      ['raiseValidationError', SERVER_ENTRY],
+      ['markValidationError', SERVER_ENTRY],
+    ] as const
+
+    for (const [name, entry] of internal) {
+      const failures = diagnosticsFor(
+        `import { ${name} } from '${entry}'\nexport const probe = ${name}`
+      )
+
+      // TS2305 or, when a near-miss exists on the door, TS2724's "named".
+      expect(failures.join('\n')).toMatch(
+        new RegExp(`has no exported member (?:named )?'${name}'`)
+      )
+    }
   })
 
   it('publish none of v1’s composition vocabulary', () => {
