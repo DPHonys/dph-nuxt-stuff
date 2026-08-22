@@ -12,6 +12,6 @@ export function assertNoReservedTag(
   if (declared?.some((entry) => entry.tag === RESERVED_TAG) !== true) return
 
   throw new Error(
-    '[nuxt-typed-handler] The error tag "validation-failed" is reserved for the built-in validation variant. Rename the declared error.'
+    `[nuxt-typed-handler] The error tag "${RESERVED_TAG}" is reserved for the built-in validation variant. Rename the declared error.`
   )
 }

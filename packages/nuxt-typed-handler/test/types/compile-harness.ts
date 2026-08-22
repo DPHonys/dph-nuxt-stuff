@@ -1,8 +1,7 @@
 /**
- * Compile one fixture and read the diagnostics it produced. The
- * `Assert<Equal<…>>` suites next door prove a type resolved, never that the
- * author is shown the sentence a guard carries; only a compiler run answers
- * that.
+ * Compile one fixture and read the diagnostics it produced. A type resolving
+ * proves nothing about what the author is shown - the sentence a guard
+ * carries is only a compiler run's to answer.
  *
  * Not a Vitest test file, so it is not matched by vitest's `include`; knip
  * reaches it through the suite importing it.

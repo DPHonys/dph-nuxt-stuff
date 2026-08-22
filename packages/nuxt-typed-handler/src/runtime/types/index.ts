@@ -2,7 +2,6 @@ export type * from '@dphonys/nuxt-handler-errors/types'
 export type * from '@dphonys/nuxt-handler-validation/types'
 
 export type {
-  AnyKnownError,
   AtLeastOne,
   DefineTypedEventHandler,
   ReservedTagGuard,
@@ -10,6 +9,5 @@ export type {
   TypedErrors,
   TypedEventHandler,
   TypedHandlerFn,
-  TypedHandlerOptions,
   ValidationFailed,
 } from './handler'

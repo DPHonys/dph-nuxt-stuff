@@ -14,7 +14,9 @@ export const onInvalid: OnInvalid = (_source, issues) => {
   const error = createKnownError(RESERVED_TAG, 400, { issues: [...issues] })
 
   // Beside the marker, not inside it: what a client reads once the marker is
-  // stripped, and the path the validation parent documents.
+  // stripped, and the path the validation parent documents. A second copy on
+  // purpose, so neither place shares an array with the other or the hook's
+  // input.
   ;(error.data as Record<string, unknown>).issues = [...issues]
   markValidationError(error, issues)
 

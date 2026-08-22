@@ -179,12 +179,12 @@ describe('the published entries', () => {
     // name, plus re-exported parent names - at least one per parent per door.
     const probes = [
       `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
-      `import type { AnyKnownError, AtLeastOne, DefineTypedEventHandler, ReservedTagGuard, TypedContext, TypedErrors, TypedEventHandler, TypedHandlerFn, TypedHandlerOptions, ValidationFailed } from '${TYPES_ENTRY}'`,
+      `import type { AtLeastOne, DefineTypedEventHandler, ReservedTagGuard, TypedContext, TypedErrors, TypedEventHandler, TypedHandlerFn, ValidationFailed } from '${TYPES_ENTRY}'`,
       `import type { CheckedEventHandler, Fail, KnownApiErrors, KnownErrorsOf, KnownErrorsOfHandler, KnownErrorsOfRoute, KnownVariant, TryResult } from '${TYPES_ENTRY}'`,
       `import type { RequestInput, RequestInputOfHandler, ValidatedContext, ValidatedEventHandler, ValidationIssue, ValidationSchemas, ValidationSchemasGuard } from '${TYPES_ENTRY}'`,
       `import { defineTypedEventHandler, defineError, payload, recognizeKnownError, recognizeValidationError } from '${SERVER_ENTRY}'`,
       `import { KNOWN_ERROR_KEY, matchError } from '${SHARED_ENTRY}'`,
-      `export type Probe = [ModuleOptions, AnyKnownError, AtLeastOne<{}, []>, DefineTypedEventHandler, ReservedTagGuard<[]>, TypedContext<{}, []>, TypedErrors<{}, []>, TypedEventHandler, TypedHandlerFn<{}, [], never, unknown>, TypedHandlerOptions<{}, []>, ValidationFailed, CheckedEventHandler, Fail<never>, KnownApiErrors, KnownErrorsOf<[]>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, RequestInput<{}>, RequestInputOfHandler<never>, ValidatedContext<{}>, ValidatedEventHandler, ValidationIssue, ValidationSchemas, ValidationSchemasGuard<{}>, typeof defineTypedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof recognizeValidationError, typeof KNOWN_ERROR_KEY, typeof matchError]`,
+      `export type Probe = [ModuleOptions, AtLeastOne<{}, []>, DefineTypedEventHandler, ReservedTagGuard<[]>, TypedContext<{}, []>, TypedErrors<{}, []>, TypedEventHandler, TypedHandlerFn<{}, [], never, unknown>, ValidationFailed, CheckedEventHandler, Fail<never>, KnownApiErrors, KnownErrorsOf<[]>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, RequestInput<{}>, RequestInputOfHandler<never>, ValidatedContext<{}>, ValidatedEventHandler, ValidationIssue, ValidationSchemas, ValidationSchemasGuard<{}>, typeof defineTypedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof recognizeValidationError, typeof KNOWN_ERROR_KEY, typeof matchError]`,
     ]
 
     expect(diagnosticsFor(probes.join('\n'))).toEqual([])

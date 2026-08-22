@@ -29,7 +29,7 @@ export interface ModuleOptions {
 
 const NAME = 'nuxt-typed-handler'
 
-/** The package this module replaces, and the key it used to be configured under. */
+/** The two packages this module replaces, and the keys they were configured under. */
 const PARENTS = [
   {
     packageName: '@dphonys/nuxt-handler-errors',
@@ -68,8 +68,10 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     // Required by the errors parent's internals contract: its app internals
-    // import `#app`, and Nuxt transpiles only what `modules` lists. The
-    // validation parent's contract says push nothing.
+    // import `#app`, and Nuxt transpiles only what `modules` lists. Pushed
+    // ahead of the typed fetch family that binds those internals, so the
+    // contract holds from the first build. The validation parent's contract
+    // says push nothing.
     nuxt.options.build.transpile.push('@dphonys/nuxt-handler-errors')
 
     nuxt.options.typescript.hoist.push('@dphonys/nuxt-typed-handler/types')
