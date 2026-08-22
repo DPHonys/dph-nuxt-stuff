@@ -24,6 +24,74 @@ const INTERNALS_SERVER_ENTRY = '@dphonys/nuxt-handler-errors/internals/server'
 const INTERNALS_SHARED_ENTRY = '@dphonys/nuxt-handler-errors/internals/shared'
 const INTERNALS_APP_ENTRY = '@dphonys/nuxt-handler-errors/internals/app'
 
+// The full published internals contract, per entry. Both the positive probe
+// (each name resolves through its own door) and the boundary check (no name
+// resolves through a public door) derive from it, so a new seam cannot be
+// added without being covered by both.
+const INTERNALS = [
+  {
+    entry: INTERNALS_BUILD_ENTRY,
+    runtime: [
+      'addChannelStripErrorHandler',
+      'addChannelToken',
+      'emitMap',
+      'EMPTY_MAP',
+      'emptyMap',
+      'KNOWN_ERRORS_SLOT',
+      'normalizeChannelToken',
+      'TYPES_SPECIFIER',
+      'warnCustomErrorHandler',
+    ],
+    types: ['EmitMapOptions', 'EmitMapSlot', 'NitroPathOptions', 'SlotImport'],
+  },
+  {
+    entry: INTERNALS_SERVER_ENTRY,
+    runtime: [
+      'createCheckedEventFetch',
+      'createChannelStripHandler',
+      'createFail',
+      'createKnownError',
+      'EventFetchUnavailableError',
+      'raiseKnown',
+      'resolveDeclared',
+    ],
+    types: ['DeclaredError', 'RawEventFetch'],
+  },
+  {
+    entry: INTERNALS_SHARED_ENTRY,
+    runtime: [
+      'CHANNEL_HEADER',
+      'createCheckedFetch',
+      'knownErrorMarker',
+      'lazyGlobalFetch',
+      'readFloor',
+      'toNuxtError',
+      'toTryResult',
+    ],
+    types: [
+      'CheckedFetchFactoryOptions',
+      'RawFetch',
+      'RawOptions',
+      'RawTryResult',
+    ],
+  },
+  {
+    entry: INTERNALS_APP_ENTRY,
+    runtime: ['wrapVanillaAsyncData', 'wrapVanillaFetch'],
+    types: [
+      'FailureOf',
+      'FetchWrapperOptions',
+      'KnownErrorRef',
+      'RawUseAsyncData',
+      'RawUseFetch',
+      'SuccessOf',
+      'TrySource',
+      'UseCheckedAsyncData',
+      'UseCheckedFetch',
+    ],
+  },
+] as const
+
 beforeAll(() => {
   if (existsSync(BUILT_MODULE)) return
 
@@ -100,25 +168,19 @@ describe('the published entries', () => {
   it('all resolve for types, each through its own door', () => {
     // Each name is imported from the entry that owns it, so a broken re-export
     // on one door cannot be covered by another.
-    const failures = diagnosticsFor(
-      [
-        `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
-        `import type { $CheckedFetch, CheckedEventHandler, CheckedFetch, Fail, Fallback, KnownApiErrors, KnownError, KnownErrorBody, KnownErrorCarrier, KnownErrorFor, KnownErrorGroup, KnownErrorKey, KnownErrorsOf, KnownErrorsOfHandler, KnownErrorsOfRoute, KnownVariant, TryResult, VariantsOf } from '${TYPES_ENTRY}'`,
-        `import { defineCheckedEventHandler, defineError, payload, recognizeKnownError } from '${SERVER_ENTRY}'`,
-        `import { KNOWN_ERROR_KEY, matchError } from '${SHARED_ENTRY}'`,
-        `import { addChannelStripErrorHandler, addChannelToken, emitMap, EMPTY_MAP, emptyMap, KNOWN_ERRORS_SLOT, normalizeChannelToken, TYPES_SPECIFIER, warnCustomErrorHandler } from '${INTERNALS_BUILD_ENTRY}'`,
-        `import type { EmitMapOptions, EmitMapSlot, NitroPathOptions, SlotImport } from '${INTERNALS_BUILD_ENTRY}'`,
-        `import { createCheckedEventFetch, createChannelStripHandler, createFail, createKnownError, EventFetchUnavailableError, raiseKnown, resolveDeclared } from '${INTERNALS_SERVER_ENTRY}'`,
-        `import type { DeclaredError, RawEventFetch } from '${INTERNALS_SERVER_ENTRY}'`,
-        `import { CHANNEL_HEADER, createCheckedFetch, knownErrorMarker, lazyGlobalFetch, readFloor, toNuxtError, toTryResult } from '${INTERNALS_SHARED_ENTRY}'`,
-        `import type { CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult } from '${INTERNALS_SHARED_ENTRY}'`,
-        `import { wrapVanillaAsyncData, wrapVanillaFetch } from '${INTERNALS_APP_ENTRY}'`,
-        `import type { FailureOf, KnownErrorRef, RawUseAsyncData, RawUseFetch, SuccessOf, TrySource, UseCheckedAsyncData, UseCheckedFetch } from '${INTERNALS_APP_ENTRY}'`,
-        `export type Probe = [ModuleOptions, $CheckedFetch, CheckedEventHandler, CheckedFetch, Fail<never>, Fallback, KnownApiErrors, KnownError<never>, KnownErrorBody<KnownVariant>, KnownErrorCarrier<KnownVariant>, KnownErrorFor<'/api/users/:id', 'get'>, KnownErrorGroup<KnownVariant>, KnownErrorKey, KnownErrorsOf<never>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, VariantsOf<never>, typeof addChannelStripErrorHandler, typeof addChannelToken, typeof emitMap, typeof EMPTY_MAP, typeof emptyMap, typeof KNOWN_ERRORS_SLOT, typeof normalizeChannelToken, typeof TYPES_SPECIFIER, typeof warnCustomErrorHandler, EmitMapOptions, EmitMapSlot, NitroPathOptions, SlotImport, typeof defineCheckedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof KNOWN_ERROR_KEY, typeof matchError, typeof createCheckedEventFetch, typeof createChannelStripHandler, typeof createFail, typeof createKnownError, typeof EventFetchUnavailableError, typeof raiseKnown, typeof resolveDeclared, DeclaredError, RawEventFetch, typeof CHANNEL_HEADER, typeof createCheckedFetch, typeof knownErrorMarker, typeof lazyGlobalFetch, typeof readFloor, typeof toNuxtError, typeof toTryResult, CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult, typeof wrapVanillaAsyncData, typeof wrapVanillaFetch, FailureOf<TrySource>, KnownErrorRef<'/api/users/:id', 'get'>, RawUseAsyncData, RawUseFetch, SuccessOf<TrySource>, TrySource, UseCheckedAsyncData, UseCheckedFetch]`,
-      ].join('\n')
-    )
+    const probes = [
+      `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
+      `import type { $CheckedFetch, CheckedEventHandler, CheckedFetch, Fail, Fallback, KnownApiErrors, KnownError, KnownErrorBody, KnownErrorCarrier, KnownErrorFor, KnownErrorGroup, KnownErrorKey, KnownErrorsOf, KnownErrorsOfHandler, KnownErrorsOfRoute, KnownVariant, TryResult, VariantsOf } from '${TYPES_ENTRY}'`,
+      `import { defineCheckedEventHandler, defineError, payload, recognizeKnownError } from '${SERVER_ENTRY}'`,
+      `import { KNOWN_ERROR_KEY, matchError } from '${SHARED_ENTRY}'`,
+      ...INTERNALS.flatMap(({ entry, runtime, types }) => [
+        `import { ${runtime.join(', ')} } from '${entry}'`,
+        `import type { ${types.join(', ')} } from '${entry}'`,
+      ]),
+      `export type Probe = [ModuleOptions, $CheckedFetch, CheckedEventHandler, CheckedFetch, Fail<never>, Fallback, KnownApiErrors, KnownError<never>, KnownErrorBody<KnownVariant>, KnownErrorCarrier<KnownVariant>, KnownErrorFor<'/api/users/:id', 'get'>, KnownErrorGroup<KnownVariant>, KnownErrorKey, KnownErrorsOf<never>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, VariantsOf<never>, typeof defineCheckedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof KNOWN_ERROR_KEY, typeof matchError, ${INTERNALS.flatMap(({ runtime }) => runtime.map((name) => `typeof ${name}`)).join(', ')}, EmitMapOptions, EmitMapSlot, NitroPathOptions, SlotImport, DeclaredError, RawEventFetch, CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult, FetchWrapperOptions, KnownErrorRef<'/api/users/:id', 'get'>, RawUseFetch, UseCheckedFetch, FailureOf<TrySource>, RawUseAsyncData, SuccessOf<TrySource>, TrySource, UseCheckedAsyncData]`,
+    ]
 
-    expect(failures).toEqual([])
+    expect(diagnosticsFor(probes.join('\n'))).toEqual([])
   })
 
   it('keep the internals off the public doors', () => {
@@ -126,33 +188,22 @@ describe('the published entries', () => {
     // would be public API this package would then owe a major to remove.
     const publicDoors = [MODULE_ENTRY, SERVER_ENTRY, SHARED_ENTRY] as const
 
-    // A cross product, so a seam cannot leak through the door nobody thought
-    // to list for it.
-    const representatives = [
-      'emitMap', // /internals/build
-      'resolveDeclared', // /internals/server
-      'createCheckedFetch', // /internals/shared
-      'wrapVanillaFetch', // /internals/app
-    ] as const
+    // The whole contract against every door, types included, so a seam
+    // cannot leak through the door nobody thought to list for it.
+    const runtime = INTERNALS.flatMap((entry) => entry.runtime)
+    const types = INTERNALS.flatMap((entry) => entry.types)
 
-    const internal: (readonly [name: string, entry: string])[] = [
-      ...representatives.flatMap((name) =>
-        publicDoors.map((entry) => [name, entry] as const)
-      ),
-      ['createFail', SERVER_ENTRY],
-      ['createKnownError', SERVER_ENTRY],
-      ['raiseKnown', SERVER_ENTRY],
-      ['lazyGlobalFetch', SHARED_ENTRY],
-      ['readFloor', SHARED_ENTRY],
-      ['addChannelToken', MODULE_ENTRY],
-    ]
-
-    for (const [name, entry] of internal) {
+    for (const door of publicDoors) {
       const failures = diagnosticsFor(
-        `import { ${name} } from '${entry}'\nexport const probe = ${name}`
-      )
+        [
+          `import { ${runtime.join(', ')} } from '${door}'`,
+          `import type { ${types.join(', ')} } from '${door}'`,
+        ].join('\n')
+      ).join('\n')
 
-      expect(failures.join('\n')).toContain(`has no exported member '${name}'`)
+      for (const name of [...runtime, ...types]) {
+        expect(failures).toContain(`has no exported member '${name}'`)
+      }
     }
   })
 })
