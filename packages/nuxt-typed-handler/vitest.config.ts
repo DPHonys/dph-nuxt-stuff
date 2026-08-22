@@ -5,10 +5,22 @@ import { defineConfig } from 'vitest/config'
 // asserted by the compiler under `typecheck`, and `e2e` builds real apps. The
 // `include` patterns also feed knip's entry points.
 
-// The channel-token alias only resolves inside a real build, so `unit`
-// aliases it to a double. Scoped to `unit` on purpose: the e2e tier must see
-// the real thing. The parents' internals are imported for real.
+// These specifiers only resolve inside a real build, so `unit` aliases them
+// to doubles. Scoped to `unit` on purpose: the e2e tier must see the real
+// thing. The parents' internals are imported for real.
 const aliases = [
+  {
+    find: /^#app$/,
+    replacement: fileURLToPath(
+      new URL('./test/doubles/nuxt-app.ts', import.meta.url)
+    ),
+  },
+  {
+    find: /^nitropack\/runtime$/,
+    replacement: fileURLToPath(
+      new URL('./test/doubles/nitro-runtime.ts', import.meta.url)
+    ),
+  },
   {
     find: /^#nuxt-typed-handler\/channel-token$/,
     replacement: fileURLToPath(

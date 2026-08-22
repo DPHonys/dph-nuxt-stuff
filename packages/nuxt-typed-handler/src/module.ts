@@ -5,7 +5,10 @@ import {
   warnCustomErrorHandler,
 } from '@dphonys/nuxt-handler-errors/internals/build'
 import {
+  addImports,
+  addPlugin,
   addServerImports,
+  addServerPlugin,
   createResolver,
   defineNuxtModule,
   hasNuxtModule,
@@ -90,6 +93,62 @@ export default defineNuxtModule<ModuleOptions>({
         'recognizeKnownError',
         'recognizeValidationError',
       ].map((name) => ({ name, from: serverEntry }))
+    )
+
+    // None of the five uses `addServerImports`: every one reaches `#app`,
+    // which the Nitro build does not have.
+    const fetchComposables = resolver.resolve(
+      './runtime/app/composables/use-typed-fetch'
+    )
+    const asyncDataComposables = resolver.resolve(
+      './runtime/app/composables/use-typed-async-data'
+    )
+    const requestComposable = resolver.resolve(
+      './runtime/app/composables/use-request-typed-fetch'
+    )
+
+    addImports([
+      { name: 'useTypedFetch', from: fetchComposables },
+      { name: 'useLazyTypedFetch', from: fetchComposables },
+      { name: 'useTypedAsyncData', from: asyncDataComposables },
+      { name: 'useLazyTypedAsyncData', from: asyncDataComposables },
+      { name: 'useRequestTypedFetch', from: requestComposable },
+    ])
+
+    // `matchError` is deliberately not auto-imported: its callers include a
+    // consumer's `shared/` directory, where app-side auto-imports do not reach.
+
+    // Without this registration duplicate calls collapse onto one
+    // `useAsyncData` entry. `argumentLength: 3` is vanilla's own.
+    nuxt.options.optimization.keyedComposables.push(
+      { name: 'useTypedFetch', source: fetchComposables, argumentLength: 3 },
+      {
+        name: 'useLazyTypedFetch',
+        source: fetchComposables,
+        argumentLength: 3,
+      },
+      {
+        name: 'useTypedAsyncData',
+        source: asyncDataComposables,
+        argumentLength: 3,
+      },
+      {
+        name: 'useLazyTypedAsyncData',
+        source: asyncDataComposables,
+        argumentLength: 3,
+      }
+    )
+
+    // `$typedFetch` on both `globalThis`es. The app half is `client`-only:
+    // during SSR the one global is Nitro's.
+    addPlugin({
+      src: resolver.resolve('./runtime/app/plugins/typed-fetch.client'),
+      mode: 'client',
+    })
+    addServerPlugin(resolver.resolve('./runtime/server/plugins/typed-fetch'))
+
+    addServerPlugin(
+      resolver.resolve('./runtime/server/plugins/event-typed-fetch')
     )
 
     const channelToken = normalizeChannelToken(options.channelToken, NAME)

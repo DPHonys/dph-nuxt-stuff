@@ -154,6 +154,99 @@ describe('module setup wiring', () => {
     expect(chain?.length).toBeGreaterThan(1)
   })
 
+  it('auto-imports the five app composables and nothing from `shared`', async () => {
+    // `matchError` is deliberately absent - `/shared` is its only way in.
+    // Read through `imports:extend`, which is where `addImports` puts them.
+    const collected: Parameters<NuxtHooks['imports:extend']>[0] = []
+    await booted.nuxt.callHook('imports:extend', collected)
+
+    const names = collected
+      .map((entry) => entry.name)
+      .filter((name) => name.includes('Typed') || name === 'matchError')
+
+    expect(names).toEqual([
+      'useTypedFetch',
+      'useLazyTypedFetch',
+      'useTypedAsyncData',
+      'useLazyTypedAsyncData',
+      'useRequestTypedFetch',
+    ])
+  })
+
+  it('registers all four wrappers as keyed, with vanilla\u2019s argument length', () => {
+    // Without these Nuxt injects no per-call-site key and duplicate calls
+    // collapse onto one `useAsyncData` entry. `useRequestTypedFetch` is not
+    // among them: it hands back a fetcher, it caches nothing.
+    const entries = booted.nuxt.options.optimization.keyedComposables.filter(
+      ({ name }) => name.includes('Typed')
+    )
+
+    // `toEqual` over the whole filtered list, so a duplicate registration
+    // fails too. `argumentLength: 3` is vanilla's own.
+    expect(entries).toEqual([
+      {
+        name: 'useTypedFetch',
+        source: expect.stringMatching(
+          /\/runtime\/app\/composables\/use-typed-fetch$/
+        ),
+        argumentLength: 3,
+      },
+      {
+        name: 'useLazyTypedFetch',
+        source: expect.stringMatching(
+          /\/runtime\/app\/composables\/use-typed-fetch$/
+        ),
+        argumentLength: 3,
+      },
+      {
+        name: 'useTypedAsyncData',
+        source: expect.stringMatching(
+          /\/runtime\/app\/composables\/use-typed-async-data$/
+        ),
+        argumentLength: 3,
+      },
+      {
+        name: 'useLazyTypedAsyncData',
+        source: expect.stringMatching(
+          /\/runtime\/app\/composables\/use-typed-async-data$/
+        ),
+        argumentLength: 3,
+      },
+    ])
+  })
+
+  it('registers the app $typedFetch plugin, client-only', () => {
+    // `mode: 'client'` is load-bearing - an all-modes app plugin writes the
+    // same `globalThis` during SSR and masks the Nitro plugin's deletion.
+    const entries = booted.nuxt.options.plugins.filter((plugin) =>
+      /\/runtime\/app\/plugins\/typed-fetch\.client(?:\.\w+)?$/.test(
+        typeof plugin === 'string' ? plugin : plugin.src
+      )
+    )
+
+    // `toMatchObject` because kit stamps each entry with a marker symbol.
+    expect(entries).toHaveLength(1)
+    expect(entries).toMatchObject([{ mode: 'client' }])
+  })
+
+  it('registers the two Nitro plugins separately, so each is deletable', () => {
+    // `?? ''` because Nitro's own option type admits a hole in the array.
+    const registered = (booted.nuxt.options.nitro.plugins ?? []).map(
+      (plugin) => plugin ?? ''
+    )
+
+    expect(
+      registered.filter((plugin) =>
+        plugin.endsWith('/runtime/server/plugins/typed-fetch')
+      )
+    ).toHaveLength(1)
+    expect(
+      registered.filter((plugin) =>
+        plugin.endsWith('/runtime/server/plugins/event-typed-fetch')
+      )
+    ).toHaveLength(1)
+  })
+
   it('warns about nothing on a clean boot', () => {
     expect(booted.warnings).toEqual([])
   })
