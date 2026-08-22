@@ -215,8 +215,10 @@ export type RawUseFetch = (
 
 export interface FetchWrapperOptions {
   /**
-   * The channel token to attach, or undefined for no gating. Read on every
-   * call, never captured - a binding may hand in a getter over a live import.
+   * The channel token to attach, or undefined for no gating. Read once per
+   * composable call (not per request the returned `computed` re-evaluates
+   * for) and never captured at bind time - a binding may hand in a getter
+   * over a live import.
    */
   readonly token: string | undefined
 }

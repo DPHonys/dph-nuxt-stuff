@@ -2,8 +2,9 @@
 
 The `internals/*` entries are the seams `@dphonys/nuxt-typed-handler` composes
 its own module from. They are **not for application code**: nothing here is
-auto-imported, documented in the README, or needed to use the package on its
-own. Applications use `.`, `/types`, `/server` and `/shared` only.
+auto-imported or needed to use the package on its own, and their API is
+documented only in this file - the README merely links here. Applications use
+`.`, `/types`, `/server` and `/shared` only.
 
 ## Semver posture
 

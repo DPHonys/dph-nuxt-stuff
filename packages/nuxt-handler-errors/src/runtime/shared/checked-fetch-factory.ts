@@ -156,7 +156,9 @@ export function createCheckedFetch(
 
 // `globalThis.$fetch` read at CALL time rather than captured, so the two
 // installing plugins are a single assignment each rather than an ordering
-// problem.
+// problem. `create` is the one member that resolves it when `create` itself
+// is called: the instance it returns is vanilla's own, bound to whatever
+// `globalThis.$fetch` was at that moment.
 const vanilla = (): RawFetch => globalThis.$fetch as RawFetch
 
 /** The lazy `globalThis.$fetch` proxy, so a module layer can build its global at plugin time. */
