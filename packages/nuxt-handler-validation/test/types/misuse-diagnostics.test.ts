@@ -140,4 +140,20 @@ describe('the declaration guard’s diagnostics', () => {
 
     expect(arity?.message).toContain('Expected 2-3 type arguments, but got 1')
   })
+
+  it('fires the same sentence at the same key on a handler read back through the brand', () => {
+    // The wrapper returns `ValidatedEventHandler<…, RequestInput<S>>`, but the
+    // guard intersects the parameter, not the return, so a broken declaration
+    // is still told what it did at the key it did it - and nothing else is
+    // reported, not even at the brand read.
+    const fixture = fixturePath('misuse-branded.ts')
+    const branded = compileFixture(FIXTURE_TSCONFIG, fixture)
+
+    expect(branded).toHaveLength(1)
+
+    const [stray] = saying(branded, STRAY_KEY)
+
+    expect(stray?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
+    expect(stray?.line).toBe(lineContaining(fixture, 'boyd:'))
+  })
 })
