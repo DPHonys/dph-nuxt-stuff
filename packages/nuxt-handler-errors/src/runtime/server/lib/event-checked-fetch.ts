@@ -1,6 +1,6 @@
 import { CHANNEL_HEADER } from '../../shared/channel'
-import type { RawTryResult } from '../../shared/checked-fetch'
-import { toTryResult } from '../../shared/checked-fetch'
+import type { RawTryResult } from '../../shared/checked-fetch-factory'
+import { toTryResult } from '../../shared/checked-fetch-factory'
 import type { CheckedFetch } from '../../types'
 
 // Named `RawInit` because h3's `fetchWithEvent(event, req, init, options)`

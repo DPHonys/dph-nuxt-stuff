@@ -32,6 +32,9 @@
       ],
       "shared": [
         "./dist/runtime/shared/index.d.ts"
+      ],
+      "internals/server": [
+        "./dist/runtime/internals/server/index.d.ts"
       ]
     }
   },
@@ -51,6 +54,10 @@
     "./shared": {
       "types": "./dist/runtime/shared/index.d.ts",
       "import": "./dist/runtime/shared/index.js"
+    },
+    "./internals/server": {
+      "types": "./dist/runtime/internals/server/index.d.ts",
+      "import": "./dist/runtime/internals/server/index.js"
     }
   },
   "publishConfig": {

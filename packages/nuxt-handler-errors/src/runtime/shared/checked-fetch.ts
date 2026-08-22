@@ -1,8 +1,13 @@
 import { configuredChannelToken } from '#nuxt-handler-errors/channel-token'
-import { createError } from 'h3'
-import type { NuxtError } from 'nuxt/app'
-import type { $CheckedFetch, TryResult } from '../types/fetch'
+import type { $CheckedFetch } from '../types/fetch'
 import { CHANNEL_HEADER } from './channel'
+import type { RawTryResult } from './checked-fetch-factory'
+import { toTryResult } from './checked-fetch-factory'
+
+// Moved to the alias-free factory file so the Nitro internals can reach them
+// without this file's channel-token binding; re-exported from here unchanged.
+export { toNuxtError, toTryResult } from './checked-fetch-factory'
+export type { RawTryResult } from './checked-fetch-factory'
 
 /** The one option this wrapper reads. Everything else is forwarded untouched. */
 interface RawOptions {
@@ -18,8 +23,6 @@ interface RawFetch {
   create: (defaults: RawOptions) => RawFetch
   native: typeof globalThis.fetch
 }
-
-export type RawTryResult = TryResult<unknown, NuxtError>
 
 const ACCEPT = 'accept'
 
@@ -53,50 +56,6 @@ function withCheckedHeaders(
 // ofetch actually sends.
 function nextInstanceHeaders(current: Headers, defaults: RawOptions): Headers {
   return 'headers' in defaults ? new Headers(defaults.headers) : current
-}
-
-// h3's `createError` - the same normalisation `useFetch`'s error ref goes
-// through, so one matcher serves both surfaces at one depth.
-export function toNuxtError(cause: unknown): NuxtError {
-  // `createError(null)` reads `input.message` and throws, and `.try` must be
-  // total - a thrown `null` is a failure like any other.
-  const input =
-    typeof cause === 'string' ||
-    (typeof cause === 'object' && cause !== null && !Array.isArray(cause))
-      ? cause
-      : { message: String(cause) }
-
-  const error = createError(input as Parameters<typeof createError>[0])
-
-  // A bare `H3Error` sets only `statusCode`; the `NuxtError` face this hands
-  // out has to be runtime-true on the server as well.
-  if (!('status' in error)) {
-    Object.defineProperty(error, 'status', {
-      get: () => error.statusCode,
-      configurable: true,
-    })
-  }
-
-  if (!('statusText' in error)) {
-    Object.defineProperty(error, 'statusText', {
-      get: () => error.statusMessage,
-      configurable: true,
-    })
-  }
-
-  return error as NuxtError
-}
-
-// Catches everything a fetch can throw - HTTP, network, abort, parse - and
-// normalises it; there is no rethrow channel.
-export async function toTryResult(
-  call: () => Promise<unknown>
-): Promise<RawTryResult> {
-  try {
-    return { data: await call(), error: undefined }
-  } catch (cause) {
-    return { data: undefined, error: toNuxtError(cause) }
-  }
 }
 
 // Every member forwards; only the headers and `.try`'s try/catch are added.
