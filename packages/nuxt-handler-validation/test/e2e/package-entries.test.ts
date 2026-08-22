@@ -107,12 +107,12 @@ describe('the published entries', () => {
     const failures = diagnosticsFor(
       [
         `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
-        `import type { MergedOutput, OutputOf, SourceSchemas, SourceValue, ValidatedContext, ValidationErrorData, ValidationIssue, ValidationSchemas, ValidationSource } from '${TYPES_ENTRY}'`,
+        `import type { InputOf, MergedInput, MergedOutput, OutputOf, RequestInput, RequestInputOfHandler, SourceInput, SourceSchemas, SourceValue, ValidatedContext, ValidatedEventHandler, ValidationDeclarationError, ValidationErrorData, ValidationIssue, ValidationSchemas, ValidationSchemasGuard, ValidationSource } from '${TYPES_ENTRY}'`,
         `import { defineValidatedEventHandler, recognizeValidationError } from '${SERVER_ENTRY}'`,
         `import { raiseValidationError, sourcePlan, validatedContext } from '${INTERNALS_SERVER_ENTRY}'`,
         `import type { OnInvalid, SourcePlan, ValidatedContextOptions } from '${INTERNALS_SERVER_ENTRY}'`,
         `import { markValidationError, readValidationMarker, VALIDATION_ERROR_KEY } from '${INTERNALS_SHARED_ENTRY}'`,
-        `export type Probe = [ModuleOptions, ValidationSchemas, SourceSchemas, ValidationSource, ValidatedContext<ValidationSchemas>, SourceValue<SourceSchemas>, MergedOutput<readonly []>, OutputOf<SourceSchemas>, ValidationIssue, ValidationErrorData, typeof defineValidatedEventHandler, typeof recognizeValidationError, typeof raiseValidationError, typeof sourcePlan, typeof validatedContext, OnInvalid, SourcePlan, ValidatedContextOptions, typeof markValidationError, typeof readValidationMarker, typeof VALIDATION_ERROR_KEY]`,
+        `export type Probe = [ModuleOptions, ValidationSchemas, SourceSchemas, ValidationSource, ValidatedContext<ValidationSchemas>, SourceValue<SourceSchemas>, MergedOutput<readonly []>, OutputOf<SourceSchemas>, InputOf<SourceSchemas>, MergedInput<readonly []>, SourceInput<SourceSchemas>, RequestInput<ValidationSchemas>, ValidatedEventHandler, RequestInputOfHandler<unknown>, ValidationSchemasGuard<ValidationSchemas>, ValidationDeclarationError<ValidationSource>, ValidationIssue, ValidationErrorData, typeof defineValidatedEventHandler, typeof recognizeValidationError, typeof raiseValidationError, typeof sourcePlan, typeof validatedContext, OnInvalid, SourcePlan, ValidatedContextOptions, typeof markValidationError, typeof readValidationMarker, typeof VALIDATION_ERROR_KEY]`,
       ].join('\n')
     )
 
@@ -129,6 +129,7 @@ describe('the published entries', () => {
       ['validatedContext', SERVER_ENTRY],
       ['raiseValidationError', MODULE_ENTRY],
       ['raiseValidationError', SERVER_ENTRY],
+      ['markValidationError', MODULE_ENTRY],
       ['markValidationError', SERVER_ENTRY],
     ] as const
 
