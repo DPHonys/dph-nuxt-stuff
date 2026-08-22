@@ -1,4 +1,15 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
+import type {
+  EventHandler,
+  EventHandlerRequest,
+  EventHandlerResponse,
+} from 'h3'
+import type { IsAny } from './internal'
+
+export type {
+  ValidationDeclarationError,
+  ValidationSchemasGuard,
+} from './internal'
 
 /** The four sources, in the settled fail-fast order. Every key is optional. */
 export interface ValidationSchemas {
@@ -24,6 +35,11 @@ export type SourceSchemas =
 /** A schema's output (`InferOutput`), so transforms land already applied. */
 export type OutputOf<Schema> = Schema extends StandardSchemaV1
   ? StandardSchemaV1.InferOutput<Schema>
+  : never
+
+/** A schema's input (`InferInput`) - what the client sends, before transforms. */
+export type InputOf<Schema> = Schema extends StandardSchemaV1
+  ? StandardSchemaV1.InferInput<Schema>
   : never
 
 // One object type restated as its own keys, so a merge reads back on hover as
@@ -68,6 +84,30 @@ export type SourceValue<T> = T extends readonly [
   : OutputOf<T>
 
 /**
+ * A composed tuple's input: the intersection of element inputs, flattened to
+ * one record - every element parses the whole raw source, so the wire must
+ * satisfy all of them. Outputs merge later-wins; inputs intersect.
+ */
+// Not distributed the way `Merged` is: a union input means "send either", and
+// intersecting the union whole keeps that, where distributing would split it.
+export type MergedInput<T> = T extends readonly [
+  infer Head extends StandardSchemaV1,
+  ...infer Rest,
+]
+  ? Rest extends readonly [StandardSchemaV1, ...StandardSchemaV1[]]
+    ? Flattened<InputOf<Head> & MergedInput<Rest>>
+    : InputOf<Head>
+  : never
+
+/** One slot's input: a lone schema's input, or the tuple's intersection. */
+export type SourceInput<T> = T extends readonly [
+  StandardSchemaV1,
+  ...StandardSchemaV1[],
+]
+  ? MergedInput<T>
+  : InputOf<T>
+
+/**
  * The handler's second parameter: exactly the sources the declaration
  * guarantees, each typed as its slot's delivered value. A key is guaranteed
  * only when its slot type cannot be `undefined`, so a declaration annotated
@@ -79,6 +119,46 @@ export type ValidatedContext<S extends ValidationSchemas> = {
     ? never
     : K]: SourceValue<S[K]>
 }
+
+/**
+ * The Request input: keys = declared sources, values = what the client sends.
+ * Same key rule as `ValidatedContext` - a slot typed `| undefined` declares
+ * nothing and contributes no key.
+ */
+export type RequestInput<S extends ValidationSchemas> = {
+  [K in Extract<keyof S, ValidationSource> as undefined extends S[K]
+    ? never
+    : K]: SourceInput<S[K]>
+}
+
+/**
+ * The handler `defineValidatedEventHandler` returns: an ordinary h3
+ * `EventHandler` carrying the computed Request input in a phantom slot. The
+ * slot is never assigned at runtime; it exists so a typed client can read what
+ * the route expects from `RequestInputOfHandler`.
+ */
+export interface ValidatedEventHandler<
+  Request extends EventHandlerRequest = EventHandlerRequest,
+  Response extends EventHandlerResponse = EventHandlerResponse,
+  Input = never,
+> extends EventHandler<Request, Response> {
+  __requestInput__?: Input
+}
+
+/**
+ * The Request input a branded handler carries, or `never` for `any` and for
+ * any handler this package did not produce. `never` rather than `{}` on
+ * purpose: a reader guards `[Input] extends [never]` before keying on it.
+ */
+// `IsAny` first because `any` otherwise matches the slot with `I = unknown`;
+// `Exclude` because an unbranded handler matches the optional slot with
+// `I = undefined`, which is the same "no brand" answer and must read `never`.
+export type RequestInputOfHandler<T> =
+  IsAny<T> extends true
+    ? never
+    : T extends { __requestInput__?: infer I }
+      ? Exclude<I, undefined>
+      : never
 
 /**
  * One projected issue - the whole of what a client is told about a rejected

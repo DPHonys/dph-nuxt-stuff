@@ -151,7 +151,6 @@ describe('the published entries', () => {
       ['defineValidation', SERVER_ENTRY],
       ['ValidationFragment', TYPES_ENTRY],
       ['ValidationGroup', TYPES_ENTRY],
-      ['ValidatedEventHandler', TYPES_ENTRY],
     ] as const
 
     for (const [name, entry] of removed) {
