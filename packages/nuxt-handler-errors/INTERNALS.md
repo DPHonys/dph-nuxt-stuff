@@ -6,13 +6,36 @@ auto-imported or needed to use the package on its own, and their API is
 documented only in this file - the README merely links here. Applications use
 `.`, `/types`, `/server` and `/shared` only.
 
-## Semver posture
+## Versioning posture
 
-The internals are semver-honoured: every name below is part of the published
-contract, and removing one, renaming one, or changing a parameter shape is a
-**major**. They are described here only, and consumed only by
-`@dphonys/nuxt-typed-handler`; an application importing them gets no support
-for doing so.
+The internals are **not** covered by this package's semver. They are versioned
+with `@dphonys/nuxt-typed-handler`, which pins this package to an **exact**
+version (`"@dphonys/nuxt-handler-errors": "x.y.z"`, bumped in lockstep from the
+workspace) and is the only supported consumer. Renaming, removing or reshaping
+a name below is therefore an ordinary change here, released together with the
+umbrella that absorbs it; it is never a major for application code, which
+cannot reach these entries through any supported door. An application importing
+them gets no support for doing so.
+
+## Consuming from a module layer
+
+A module layer composing these entries must:
+
+- Depend on this package as a regular `dependency`, not a peer, pinned exactly.
+  The foreign-copy guard in `resolveDeclared` is a per-instance `Symbol`, so
+  every handler and every `defineError` value must resolve to the one
+  `dist/runtime/server/lib/declared.js`; pnpm's dedupe does the rest as long
+  as the pin matches what the parent's own `/server` entry resolves.
+- Push this package onto `nuxt.options.build.transpile`. Nuxt transpiles only
+  the packages listed in `modules`; the umbrella is installed _instead of_ the
+  parent, so the parent is never listed, and `/internals/app` (which imports
+  `#app`) would otherwise be externalised by the Vite SSR and Nitro builds. A
+  workspace playground hides this - linked packages are never externalised -
+  so prove it against a packed tarball.
+- Own its own `#<name>/channel-token` binding: one getter-backed
+  `CheckedFetchFactoryOptions`, one `wrapVanillaFetch` call, and a one-line
+  error handler over `createChannelStripHandler`, each reading the alias
+  `addChannelToken(nuxt, name, token)` returns.
 
 ## Entries
 

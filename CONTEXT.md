@@ -139,7 +139,7 @@ The composed module (`nuxt-typed-handler`) built on both Parent packages' Intern
 _Avoid_: Aggregator, meta-package
 
 **Internals entry**:
-A Parent package's side-split package entries (`/internals/build`, `/internals/server`, `/internals/app`, `/internals/shared`) exposing the pieces the Umbrella composes; semver-honoured, documented for the Umbrella only, never for app authors.
+A Parent package's side-split package entries (`/internals/build`, `/internals/server`, `/internals/app`, `/internals/shared`) exposing the pieces the Umbrella composes; versioned with the Umbrella (which pins the Parent package exactly) rather than by the Parent package's semver, documented for the Umbrella only, never for app authors.
 _Avoid_: Core, private API
 
 **Module layer**:

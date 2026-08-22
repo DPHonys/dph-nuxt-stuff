@@ -76,6 +76,7 @@
       "types": "./dist/runtime/internals/shared/index.d.ts",
       "import": "./dist/runtime/internals/shared/index.js"
     },
+    "./package.json": "./package.json",
     "./internals/app": {
       "types": "./dist/runtime/internals/app/index.d.ts",
       "import": "./dist/runtime/internals/app/index.js"
