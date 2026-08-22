@@ -17,6 +17,7 @@ import {
   updateTemplates,
 } from '@nuxt/kit'
 import type { Nitro } from 'nitropack/types'
+import { addParentTypesPaths } from './build/parent-types-paths'
 import { typeMap, TYPES_SPECIFIER } from './build/type-map'
 
 export interface ModuleOptions {
@@ -85,8 +86,11 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.build.transpile.push('@dphonys/nuxt-handler-errors')
 
     // Only this module's own specifier is hoisted: `hoist` resolves from the
-    // app's `modulesDir`, where an umbrella-only install has no parent.
+    // app's `modulesDir`, where an umbrella-only install has no parent. The
+    // parents' `/types` specifiers, which the generated map augments and
+    // imports from, are mapped through `paths` from this module's location.
     nuxt.options.typescript.hoist.push(TYPES_SPECIFIER)
+    addParentTypesPaths(nuxt, import.meta.url)
 
     // Named explicitly rather than through `addServerImportsDir`, whose scan
     // would auto-import whatever the runtime tree happens to export. Neither
