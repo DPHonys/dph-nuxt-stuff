@@ -30,6 +30,10 @@ Bring your own schema library. Anything implementing Standard Schema works -
 
 **Requirements:** Nuxt `>=4.5.1 <5.0.0`, Node 22.19+ / 24.11+ / 26+.
 
+Using both this package and `nuxt-handler-errors`? Install
+`@dphonys/nuxt-typed-handler` instead - see its
+[_Coming from…_ section](https://github.com/DPHonys/dph-nuxt-stuff/blob/main/packages/nuxt-typed-handler/README.md#coming-from-nuxt-handler-errors--nuxt-handler-validation).
+
 ## Quick start
 
 ```ts
