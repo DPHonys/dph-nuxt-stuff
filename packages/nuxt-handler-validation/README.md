@@ -388,15 +388,26 @@ such as `handlerValidation: { channelToken: 'x' }` is a compile error.
 Runtime, from `@dphonys/nuxt-handler-validation/server`, both auto-imported
 inside `server/`:
 
-| Export                                          | Role                                                                                    |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `defineValidatedEventHandler({ validate }, fn)` | The wrapper. One signature. Returns a plain h3 `EventHandler`.                          |
-| `recognizeValidationError(error)`               | Observability predicate, process-side only. Returns `ValidationErrorData \| undefined`. |
+| Export                                          | Role                                                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `defineValidatedEventHandler({ validate }, fn)` | The wrapper. One signature. Returns a `ValidatedEventHandler`, an h3 `EventHandler` subtype. |
+| `recognizeValidationError(error)`               | Observability predicate, process-side only. Returns `ValidationErrorData \| undefined`.      |
 
 Types, from `@dphonys/nuxt-handler-validation/types` - type-only, safe to
 import from app code: `ValidationSchemas`, `SourceSchemas`, `ValidationSource`,
 `ValidatedContext<S>`, `SourceValue<T>`, `MergedOutput<T>`, `OutputOf<S>`,
-`ValidationIssue`, `ValidationErrorData`.
+`ValidationIssue`, `ValidationErrorData`, and the request-input family:
+
+| Type                              | Role                                                                                                     |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `InputOf<S>`                      | A schema's input - what the client sends, before transforms.                                             |
+| `MergedInput<T>`                  | A composed tuple's input: the intersection of its element inputs, flattened to one record.               |
+| `SourceInput<T>`                  | One slot's input - a lone schema's input, or the tuple's intersection.                                   |
+| `RequestInput<S>`                 | The request input: keys are the declared sources, values what the client sends for each.                 |
+| `ValidatedEventHandler`           | What `defineValidatedEventHandler` returns: an h3 `EventHandler` carrying its `RequestInput` as a brand. |
+| `RequestInputOfHandler<T>`        | Reads that brand off a handler type; `never` for `any` and for handlers this package did not produce.    |
+| `ValidationSchemasGuard<S>`       | The compile-time guard behind the declaration diagnostics above.                                         |
+| `ValidationDeclarationError<Msg>` | The sentence-shaped type those diagnostics surface.                                                      |
 
 **On the name.** `defineValidatedEventHandler` mirrors the _current_ vanilla
 `defineEventHandler`, so its role is obvious on sight. It is deliberately not
@@ -415,6 +426,9 @@ pnpm --filter @dphonys/nuxt-handler-validation test
 pnpm --filter @dphonys/nuxt-handler-validation build
 pnpm --filter @dphonys/nuxt-handler-validation publint
 ```
+
+The `internals/*` entries, consumed only by `@dphonys/nuxt-typed-handler`, are
+documented in [`INTERNALS.md`](./INTERNALS.md).
 
 ## License
 
