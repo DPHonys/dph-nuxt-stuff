@@ -1,0 +1,7 @@
+{
+  "extends": ["./.nuxt/tsconfig.json", "../../tsconfig.json"],
+  // `test/types/fixtures` holds deliberately broken sources: they are compiled
+  // by `test/types/compile-harness.ts`, which asserts on the diagnostics they
+  // produce, so this project must not report them as its own failures.
+  "exclude": ["dist", "node_modules", "playground", "test/types/fixtures"]
+}

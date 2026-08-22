@@ -79,6 +79,22 @@ export default {
       ],
     },
 
+    'packages/nuxt-typed-handler': {
+      ...nuxtModuleWorkspace,
+
+      // As above: this package's suites import `@nuxt/schema`'s types.
+      ignoreDependencies: ['@nuxt/devtools'],
+
+      entry: [
+        ...nuxtModuleWorkspace.entry,
+
+        // Deliberately broken sources, compiled by path by
+        // `test/types/compile-harness.ts` so a suite can assert on their
+        // diagnostics. The package tsconfig excludes them for the same reason.
+        'test/types/fixtures/**/*.ts',
+      ],
+    },
+
     'packages/nuxt-handler-validation/playground': {
       ...playgroundWorkspace,
 

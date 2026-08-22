@@ -1,0 +1,13 @@
+{
+  "name": "@dphonys/nuxt-typed-handler-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build"
+  },
+  "dependencies": {
+    "@dphonys/nuxt-typed-handler": "workspace:*",
+    "nuxt": "catalog:",
+    "zod": "catalog:"
+  }
+}
