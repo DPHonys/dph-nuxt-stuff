@@ -13,3 +13,13 @@ export const createUser = z.object({
   name: z.string().min(1, 'name is required'),
   email: z.string().email('email must be an address'),
 })
+
+/** The second half of the search query, composed with `pagination` as a tuple. */
+export const sorting = z.object({
+  sort: z.enum(['name', 'created']).optional(),
+})
+
+/** What updating an item takes; the `default` handler's declared body. */
+export const itemUpdate = z.object({
+  qty: z.number(),
+})

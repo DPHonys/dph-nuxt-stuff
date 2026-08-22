@@ -4,6 +4,7 @@ import type {
   TypedRequestOptions,
   ValidationFailed,
 } from '../../src/runtime/types'
+import type { Assert, Equal } from './assert'
 import type {
   Forbidden,
   Item,
@@ -21,14 +22,12 @@ import type {
  * Ported from the ticket 10 prototype with its one divergence flipped: `body`
  * is omitted on `get`/`head` for **branded** routes only, so an unbranded
  * route stays `NitroFetchOptions<R>` minus `params`, key for key.
+ *
+ * Hand-written because fifty-one routes is the size the stack-depth rules
+ * have to hold at, and no playground is that. The same rows re-pointed onto
+ * the map the emitter really writes live in
+ * `playground/request-typing.check.ts`, over that app's own routes.
  */
-
-type Equal<X, Y> =
-  (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
-    ? true
-    : false
-
-type Expect<T extends true> = T
 
 // The global is ambient - `/types` declares it, and nothing binds it here.
 declare const $typedFetch: typeof globalThis.$typedFetch
@@ -36,10 +35,10 @@ declare const $typedFetch: typeof globalThis.$typedFetch
 // The fixture really merged into both map interfaces - an augmentation that
 // silently opened a second, unrelated interface would leave every row below
 // asserting the degraded reading and still pass.
-type _ErrorsMapAugmented = Expect<
+type _ErrorsMapAugmented = Assert<
   Equal<MapsAreAugmented[0]['/api/plain']['get'], never>
 >
-type _InputsMapAugmented = Expect<
+type _InputsMapAugmented = Assert<
   Equal<MapsAreAugmented[1]['/api/users']['post'], UserCreateInput>
 >
 
@@ -50,7 +49,7 @@ export async function declaredSources(): Promise<void> {
     body: { name: 'a', age: '30' },
     query: { team: 't', page: 2 },
   })
-  type _resp = Expect<Equal<typeof _created, UserCreated>>
+  type _resp = Assert<Equal<typeof _created, UserCreated>>
 
   // @ts-expect-error - body is required on the declared route
   await $typedFetch('/api/users', { method: 'post', query: { team: 't' } })
@@ -88,17 +87,17 @@ export async function declaredSources(): Promise<void> {
 /** The method: `get` by default, either case, and it keys the lookup. */
 export async function methodSelection(): Promise<void> {
   const _listed = await $typedFetch('/api/users')
-  type _get = Expect<Equal<typeof _listed, { users: string[] }>>
+  type _get = Assert<Equal<typeof _listed, { users: string[] }>>
 
   const _searched = await $typedFetch('/api/users', { query: { search: 'x' } })
-  type _get2 = Expect<Equal<typeof _searched, { users: string[] }>>
+  type _get2 = Assert<Equal<typeof _searched, { users: string[] }>>
 
   const _upper = await $typedFetch('/api/users', {
     method: 'POST',
     body: { name: 'a', age: '1' },
     query: { team: 't' },
   })
-  type _upperResp = Expect<Equal<typeof _upper, UserCreated>>
+  type _upperResp = Assert<Equal<typeof _upper, UserCreated>>
 
   // @ts-expect-error - excess query key on the get route: an all-optional schema still closes it
   await $typedFetch('/api/users', { query: { search: 'x', zzz: 1 } })
@@ -129,7 +128,7 @@ export async function rawCarriersRejected(): Promise<void> {
 /** A `default` (method-less) handler answers every verb it is not keyed for. */
 export async function defaultHandler(): Promise<void> {
   const _got = await $typedFetch('/api/items/42')
-  type _default = Expect<Equal<typeof _got, Item>>
+  type _default = Assert<Equal<typeof _got, Item>>
 
   await $typedFetch('/api/items/42', { method: 'post', body: { qty: 1 } })
   // @ts-expect-error - post on the default handler requires the declared body
@@ -155,7 +154,7 @@ export async function optionsSurface(): Promise<void> {
   })
 
   type Headers_ = TypedRequestOptions<'/api/users', 'get'>['headers']
-  type _headersVanilla = Expect<
+  type _headersVanilla = Assert<
     Equal<Headers_, NitroFetchOptions<'/api/users', 'get'>['headers']>
   >
 }
@@ -184,27 +183,27 @@ export async function vanillaDegradation(): Promise<void> {
   await $typedFetch('/api/plain', { method: 'get', body: 'x' })
 
   type VanillaGet = TypedRequestOptions<'/api/plain', 'get'>
-  type _getKeys = Expect<
+  type _getKeys = Assert<
     Equal<
       keyof VanillaGet,
       Exclude<keyof NitroFetchOptions<'/api/plain'>, 'params'>
     >
   >
-  type _getBody = Expect<
+  type _getBody = Assert<
     Equal<VanillaGet['body'], NitroFetchOptions<'/api/plain'>['body']>
   >
 
   type VanillaPost = TypedRequestOptions<'/api/errors-only', 'post'>
-  type _postKeys = Expect<
+  type _postKeys = Assert<
     Equal<
       keyof VanillaPost,
       Exclude<keyof NitroFetchOptions<'/api/errors-only'>, 'params'>
     >
   >
-  type _bodyVanilla = Expect<
+  type _bodyVanilla = Assert<
     Equal<VanillaPost['body'], NitroFetchOptions<'/api/errors-only'>['body']>
   >
-  type _queryVanilla = Expect<
+  type _queryVanilla = Assert<
     Equal<VanillaPost['query'], NitroFetchOptions<'/api/errors-only'>['query']>
   >
 
@@ -252,16 +251,16 @@ export async function tryResults(): Promise<void> {
   if (result.error) {
     const variant = result.error.data!.data.__knownError__
     // The built-in variant rides the errors map: the wrapper's slot carries it.
-    type _union = Expect<Equal<typeof variant, Forbidden | ValidationFailed>>
+    type _union = Assert<Equal<typeof variant, Forbidden | ValidationFailed>>
 
     if (variant.tag === 'validation-failed') {
-      type _issues = Expect<
+      type _issues = Assert<
         Equal<typeof variant.issues, ValidationFailed['issues']>
       >
     }
   } else {
     // Narrowed by the sibling guard alone - no second check and no `!`.
-    type _data = Expect<Equal<typeof result.data, UserCreated>>
+    type _data = Assert<Equal<typeof result.data, UserCreated>>
   }
 }
 
@@ -270,7 +269,7 @@ export async function tryUnionEdges(): Promise<void> {
   const validateOnly = await $typedFetch.try('/api/users')
 
   if (validateOnly.error) {
-    type _validateOnly = Expect<
+    type _validateOnly = Assert<
       Equal<
         NonNullable<typeof validateOnly.error.data>['data']['__knownError__'],
         ValidationFailed
@@ -281,7 +280,7 @@ export async function tryUnionEdges(): Promise<void> {
   const unbranded = await $typedFetch.try('/api/plain')
 
   if (unbranded.error) {
-    type _untyped = Expect<Equal<typeof unbranded.error.data, unknown>>
+    type _untyped = Assert<Equal<typeof unbranded.error.data, unknown>>
   }
 }
 
@@ -305,7 +304,7 @@ export async function createdInstance(): Promise<void> {
   })
 
   if (viaCreate.error) {
-    type _createTry = Expect<
+    type _createTry = Assert<
       Equal<
         NonNullable<typeof viaCreate.error.data>['data']['__knownError__'],
         Forbidden | ValidationFailed
@@ -328,10 +327,10 @@ export async function rawAndExplicitResponse(): Promise<void> {
     body: { name: 'a', age: '1' },
     query: { team: 't' },
   })
-  type _rawData = Expect<Equal<typeof _raw._data, UserCreated | undefined>>
+  type _rawData = Assert<Equal<typeof _raw._data, UserCreated | undefined>>
 
   const _custom = await $typedFetch<{ custom: true }>('/api/plain')
-  type _customResp = Expect<Equal<typeof _custom, { custom: true }>>
+  type _customResp = Assert<Equal<typeof _custom, { custom: true }>>
 }
 
 it('is asserted by the compiler', () => {})
