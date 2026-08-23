@@ -186,7 +186,12 @@ describe('the published entries', () => {
   it('keep the internals off the public doors', () => {
     // Asserted from a consumer's seat: a seam leaking onto a public entry
     // would be public API this package would then owe a major to remove.
-    const publicDoors = [MODULE_ENTRY, SERVER_ENTRY, SHARED_ENTRY] as const
+    const publicDoors = [
+      MODULE_ENTRY,
+      TYPES_ENTRY,
+      SERVER_ENTRY,
+      SHARED_ENTRY,
+    ] as const
 
     // The whole contract against every door, types included, so a seam
     // cannot leak through the door nobody thought to list for it.
@@ -201,8 +206,13 @@ describe('the published entries', () => {
         ].join('\n')
       ).join('\n')
 
+      // TS2305 reads `has no exported member 'X'`; TS2724 reads `has no
+      // exported member named 'X'` when a public name is close enough to
+      // suggest. Both mean the seam is absent.
       for (const name of [...runtime, ...types]) {
-        expect(failures).toContain(`has no exported member '${name}'`)
+        expect(failures).toMatch(
+          new RegExp(`has no exported member (named )?'${name}'`)
+        )
       }
     }
   })
