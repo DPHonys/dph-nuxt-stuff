@@ -1,13 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
-// Three tiers, as in both parents: `unit` is fast, `types` suites are
-// asserted by the compiler under `typecheck`, and `e2e` builds real apps. The
-// `include` patterns also feed knip's entry points.
-
-// These specifiers only resolve inside a real build, so `unit` aliases them
-// to doubles. Scoped to `unit` on purpose: the e2e tier must see the real
-// thing. The parents' internals are imported for real.
 const aliases = [
   {
     find: /^#app$/,

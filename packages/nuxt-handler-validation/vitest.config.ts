@@ -1,9 +1,5 @@
 import { defineConfig } from 'vitest/config'
 
-// Three tiers, mirroring the sibling: `unit` is fast, `types` suites are
-// asserted by the compiler under `typecheck`, and `e2e` works against real
-// built artifacts. The `include` patterns also feed knip's entry points.
-
 export default defineConfig({
   test: {
     projects: [
