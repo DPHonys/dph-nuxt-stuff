@@ -26,3 +26,7 @@
   dir: packages/nuxt-handler-validation
   intents:
     - validation-declares-side-effect-free
+'@dphonys/nuxt-handler-validation@0.2.0':
+  dir: packages/nuxt-handler-validation
+  intents:
+    - validation-internals-entries
