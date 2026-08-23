@@ -36,6 +36,9 @@ export default defineConfig({
         test: {
           name: 'types',
           include: ['test/types/**/*.test.ts'],
+          // Each file compiles a real TypeScript program, which a loaded CI runner
+          // stretches well past vitest's 5s default.
+          testTimeout: 60_000,
         },
       },
       {
