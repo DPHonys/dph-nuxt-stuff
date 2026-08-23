@@ -73,8 +73,8 @@
     "typecheck": "nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json"
   },
   "dependencies": {
-    "@dphonys/nuxt-handler-errors": "workspace:0.3.1",
-    "@dphonys/nuxt-handler-validation": "workspace:0.1.1",
+    "@dphonys/nuxt-handler-errors": "workspace:0.4.0",
+    "@dphonys/nuxt-handler-validation": "workspace:0.2.0",
     "@nuxt/kit": "catalog:",
     "h3": "catalog:",
     "nitropack": "catalog:",

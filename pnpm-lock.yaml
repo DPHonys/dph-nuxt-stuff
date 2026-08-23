@@ -269,10 +269,10 @@ importers:
   packages/nuxt-typed-handler:
     dependencies:
       '@dphonys/nuxt-handler-errors':
-        specifier: workspace:0.3.1
+        specifier: workspace:0.4.0
         version: link:../nuxt-handler-errors
       '@dphonys/nuxt-handler-validation':
-        specifier: workspace:0.1.1
+        specifier: workspace:0.2.0
         version: link:../nuxt-handler-validation
       '@nuxt/kit':
         specifier: 'catalog:'
