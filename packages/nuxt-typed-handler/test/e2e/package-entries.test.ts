@@ -134,7 +134,11 @@ beforeAll(() => {
 // `paths` map this package's subpaths straight at `dist`, short-circuiting
 // the very `exports` block under test.
 function diagnosticsFor(source: string): string[] {
-  const probe = `${PLAYGROUND}/__entry-resolution.probe.ts`
+  // Forward slashes, since TypeScript normalizes the names it hands back.
+  const probe = `${PLAYGROUND}/__entry-resolution.probe.ts`.replaceAll(
+    '\\',
+    '/'
+  )
 
   const options: ts.CompilerOptions = {
     target: ts.ScriptTarget.ESNext,

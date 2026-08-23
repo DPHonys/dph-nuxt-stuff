@@ -272,6 +272,14 @@ describe('declaration-time misuse', () => {
     )
   })
 
+  it('throws on an empty `validate` just the same - it plans nothing', () => {
+    expect(() =>
+      defineTypedEventHandler({ validate: {} } as never, () => null)
+    ).toThrow(
+      '[nuxt-typed-handler] defineTypedEventHandler needs validate, errors, or both.'
+    )
+  })
+
   it('lets `fail("validation-failed")` hit the parent’s undeclared-tag Error', async () => {
     // `declared` can never carry the tag, so the parent's plain `Error` is
     // the whole answer - no umbrella wording, no marker.

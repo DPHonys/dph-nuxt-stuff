@@ -44,8 +44,9 @@ export const defineTypedEventHandler: DefineTypedEventHandler = (
   const plan = options.validate ? sourcePlan(options.validate) : undefined
   const fail = declared === undefined ? undefined : createFail(declared)
 
-  // The compile guard's answer for a JavaScript caller.
-  if (plan === undefined && fail === undefined) {
+  // The compile guard's answer for a JavaScript caller - `validate: {}` plans
+  // nothing, so it counts for nothing here either.
+  if ((plan === undefined || plan.length === 0) && fail === undefined) {
     throw new Error(
       '[nuxt-typed-handler] defineTypedEventHandler needs validate, errors, or both.'
     )
