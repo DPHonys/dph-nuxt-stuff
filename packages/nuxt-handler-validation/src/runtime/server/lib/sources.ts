@@ -1,10 +1,13 @@
 import type { H3Event, HTTPMethod } from 'h3'
 import { getQuery, getRequestHeaders, getRouterParams, readBody } from 'h3'
 import type { ValidationSource } from '../../types'
-import { raiseValidationError } from './issues'
+import type { OnInvalid } from './issues'
 
-/** How one source is taken off the event. */
-export type SourceReader = (event: H3Event) => unknown
+/**
+ * How one source is taken off the event. A read that already knows the input
+ * is bad reports through `onInvalid`, the same door a rejecting schema uses.
+ */
+export type SourceReader = (event: H3Event, onInvalid: OnInvalid) => unknown
 
 // Exactly h3 v1's `PayloadMethods`, copied because h3 does not export it. A
 // method h3 refuses but this file would read gets `assertMethod`'s bare `405`.
@@ -39,7 +42,10 @@ function isClientError(error: unknown): boolean {
  * raw string instead of failing. h3 memoizes the parse, so a middleware that
  * read the body first has already cached a non-strict one.
  */
-async function readBodyForValidation(event: H3Event): Promise<unknown> {
+async function readBodyForValidation(
+  event: H3Event,
+  onInvalid: OnInvalid
+): Promise<unknown> {
   // Skipped, never attempted-and-caught, so a method-agnostic route file still
   // works for `GET`. The accepted cost: a real mis-declaration
   // (`users.get.ts` declaring a body) answers `400` instead of `500`.
@@ -53,8 +59,10 @@ async function readBodyForValidation(event: H3Event): Promise<unknown> {
     if (!isClientError(error)) throw error
 
     // Raised rather than returned, because there is nothing to validate: one
-    // issue, in this package's own shape, exactly like a rejecting schema.
-    raiseValidationError('body', [{ message: UNPARSEABLE_BODY_MESSAGE }])
+    // issue, already in the projected shape, exactly like a rejecting schema.
+    onInvalid('body', [
+      { source: 'body', message: UNPARSEABLE_BODY_MESSAGE, path: [] },
+    ])
   }
 }
 
