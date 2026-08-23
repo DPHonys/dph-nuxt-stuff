@@ -23,15 +23,12 @@ export interface ValidationFailed {
   issues: ValidationIssue[]
 }
 
-/** The element type of an `errors` slot - what the errors parent composes. */
 export type AnyKnownError = KnownError<KnownVariant>
 
-/** Whether `validate` declared at least one source. */
 type HasValidate<S extends ValidationSchemas> = [keyof S] extends [never]
   ? false
   : true
 
-/** Whether `errors` was declared at all. */
 type HasErrors<A extends ReadonlyArray<AnyKnownError>> = [A[number]] extends [
   never,
 ]
@@ -43,8 +40,8 @@ type HasErrors<A extends ReadonlyArray<AnyKnownError>> = [A[number]] extends [
  * `EventHandler` carrying both parents' phantom slots, so each parent's
  * extractor reads its own.
  */
-// The validation parent keys its slot on a private symbol, so the only way
-// to carry it is to extend the parent's own branded handler type.
+// Extends rather than restates: the validation slot is keyed on a private
+// symbol.
 export interface TypedEventHandler<
   Request extends EventHandlerRequest = EventHandlerRequest,
   Response extends EventHandlerResponse = EventHandlerResponse,
@@ -55,10 +52,7 @@ export interface TypedEventHandler<
     CheckedEventHandler<Request, Response, Errors>,
     ValidatedEventHandler<Request, Response, Input> {}
 
-/**
- * The Handler context: the validated sources, flat, plus `fail` exactly when
- * `errors` is declared.
- */
+/** The validated sources, flat, plus `fail` exactly when `errors` is declared. */
 export type TypedContext<
   S extends ValidationSchemas,
   A extends ReadonlyArray<AnyKnownError>,
@@ -68,13 +62,12 @@ export type TypedContext<
     : // eslint-disable-next-line ts/no-empty-object-type
       {})
 
-/** What the route can fail with: the declared union, plus the built-in variant when it validates. */
+/** The declared union, plus the built-in variant when the route validates. */
 export type TypedErrors<
   S extends ValidationSchemas,
   A extends ReadonlyArray<AnyKnownError>,
 > = KnownErrorsOf<A> | (HasValidate<S> extends true ? ValidationFailed : never)
 
-/** A typed handler body. The success type infers from it with no annotation. */
 export type TypedHandlerFn<
   S extends ValidationSchemas,
   A extends ReadonlyArray<AnyKnownError>,
@@ -114,7 +107,6 @@ type ConflictGuard<A extends ReadonlyArray<AnyKnownError>> = Omit<
   'errors'
 >
 
-/** The options argument, with every guard intersected ahead of the slots. */
 export type TypedHandlerOptions<
   S extends ValidationSchemas,
   A extends ReadonlyArray<AnyKnownError>,

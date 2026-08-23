@@ -6,8 +6,6 @@ import type { TypedEventFetch } from '../../types/fetch'
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', (event) => {
-    // The parent's event-bound factory, handed the umbrella's token; the
-    // umbrella owns only the type, applied with this one cast.
     event.$typedFetch = createCheckedEventFetch(
       () => event.$fetch as RawEventFetch | undefined,
       configuredChannelToken

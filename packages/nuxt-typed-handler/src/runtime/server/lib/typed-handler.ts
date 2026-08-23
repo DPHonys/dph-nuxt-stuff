@@ -38,8 +38,7 @@ export const defineTypedEventHandler: DefineTypedEventHandler = (
   options,
   handler
 ) => {
-  // Declaration time, in this order: the foreign-copy guard first, then the
-  // reserved tag, then the not-a-schema check - each with its owner's message.
+  // In this order, so each declaration fault reports with its owner's message.
   const declared = options.errors ? resolveDeclared(options.errors) : undefined
   assertNoReservedTag(declared)
   const plan = options.validate ? sourcePlan(options.validate) : undefined
@@ -52,13 +51,12 @@ export const defineTypedEventHandler: DefineTypedEventHandler = (
     )
   }
 
-  // A fresh plain object per request; `fail` present exactly when declared.
   // Cast because the loose record is typed at this seam and nowhere else.
   const contextFor = (validated: Record<string, unknown>): never =>
     (fail === undefined ? validated : { ...validated, fail }) as never
 
-  // One `defineEventHandler`, and no validation call at all on a route that
-  // declares none: no body read, no await.
+  // No validation call at all on a route that declares none: no body read,
+  // no await.
   return defineEventHandler((event) =>
     plan === undefined
       ? handler(event, contextFor({}))

@@ -25,10 +25,9 @@ type Reactive<T> =
     ? ComputedOptions<T> | MaybeRefOrGetter<T>
     : MaybeRefOrGetter<T>
 
-// Each typed source re-added the way vanilla types its own: a plain value, a
-// ref, a getter, or an object whose leaves are any of those. A plain literal
-// is still excess-key checked; through `ref()` or a getter the check does
-// not fire - a union target, and `ref()` infers its own type.
+// Each typed source re-added the way vanilla types its own. A plain literal
+// is still excess-key checked; through `ref()` or a getter it is not - a
+// union target, and `ref()` infers its own type.
 type ReactiveSources<O> = { [K in keyof O]: Reactive<O[K]> }
 
 /**
@@ -62,8 +61,7 @@ export interface UseTypedFetch {
 
 /**
  * `useAsyncData` whose handler returns `.try` results instead of throwing.
- * Request-side it adds nothing: the inner `$typedFetch.try` call types its own
- * options, and its error union is what lands on the `error` ref - so the
- * signature is the parent's exactly.
+ * The parent's signature exactly: the inner `$typedFetch.try` call types its
+ * own options, and its error union is what lands on the `error` ref.
  */
 export type UseTypedAsyncData = UseCheckedAsyncData

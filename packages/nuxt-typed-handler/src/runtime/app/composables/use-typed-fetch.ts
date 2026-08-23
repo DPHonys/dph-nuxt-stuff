@@ -4,9 +4,8 @@ import { wrapVanillaFetch } from '@dphonys/nuxt-handler-errors/internals/app'
 import { useFetch, useLazyFetch } from '#app'
 import type { UseTypedFetch } from '../../types/composables'
 
-// A getter, never spread: the alias is a live binding the unit double sets
-// after the composables are built, and the wrapper reads `token` on every
-// call. The one getter-backed options object the internals contract asks for.
+// A getter: the alias is a live binding the unit double sets after the
+// composables are built, and the wrapper reads `token` on every call.
 const bound: FetchWrapperOptions = {
   get token() {
     return configuredChannelToken

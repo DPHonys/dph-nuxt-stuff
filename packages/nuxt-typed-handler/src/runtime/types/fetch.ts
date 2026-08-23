@@ -12,11 +12,10 @@ import type {
 } from 'nitropack/types'
 import type { RequestInputOfRoute } from './index'
 
-// Stack-depth rules, each a requirement on this file rather than a style:
-// `M`'s default references only `R`; anything deriving a method from the
-// options lives in an alias default, never in a signature parameter's
-// constraint; `MatchedRoutes<R>` is evaluated once per lookup (inside
-// `RequestInputOfRoute`); no type parameter appears in its own constraint.
+// Stack-depth rules, each one a `TS2321 Excessive stack depth` per
+// `InternalApi` key if broken: `M`'s default references only `R`; a method
+// derived from the options lives in an alias default, never in a signature
+// parameter's constraint; no type parameter appears in its own constraint.
 
 /** The methods a call may name for a route: Nitro's, in either case. */
 export type MethodArg<R extends NitroFetchRequest> =
@@ -28,13 +27,13 @@ export type DefaultMethod<R extends NitroFetchRequest> =
   'get' extends MethodArg<R> ? 'get' : MethodArg<R>
 
 // `R extends string` because `NitroFetchRequest` also admits a `Request`
-// object no route path can be read out of - it degrades to no declared
-// inputs.
+// object no route path can be read out of.
 type InputFor<R, M extends string> = R extends string
   ? RequestInputOfRoute<R, Extract<Lowercase<M>, RouterMethod>>
   : never
 
-/** Required iff `{} extends Input` is false: an all-optional, `unknown` or `any` input stays optional but typed. */
+// Required only when the input cannot be omitted: an all-optional, `unknown`
+// or `any` input stays optional but typed.
 type Declared<I, K extends keyof I> =
   // eslint-disable-next-line ts/no-empty-object-type
   {} extends I[K] ? { [P in K]?: I[K] } : { [P in K]-?: I[K] }
@@ -48,9 +47,8 @@ type QueryOption<I> = [I] extends [never]
     ? Declared<I, 'query'>
     : Vanilla<'query'>
 
-// An unbranded route keeps vanilla's `body` on every method, so the
-// degradation stays key for key; a branded route omits it - neither typed nor
-// vanilla - when the resolved method is `get` or `head`.
+// A route declaring nothing keeps vanilla's `body` on every method; a
+// declaring route has none at all on `get` and `head`.
 type BodyOption<I, M extends string> = [I] extends [never]
   ? Vanilla<'body'>
   : Lowercase<M> extends 'get' | 'head'
@@ -79,7 +77,6 @@ export type TypedRequestOptions<
   'method' | 'body' | 'query' | 'params'
 > & { method?: M } & TypedSources<R, M>
 
-/** Nitro's typed response for the route, method and explicit `T`. */
 export type Resp<R, T, M extends string> = TypedInternalResponse<
   R,
   T,
@@ -87,9 +84,8 @@ export type Resp<R, T, M extends string> = TypedInternalResponse<
 >
 
 /**
- * The error one call can produce - the errors parent's reading of the
- * known-errors map, which already carries `validation-failed` for every
- * validating route.
+ * The error one call can produce. The known-errors map already carries
+ * `validation-failed` for every validating route.
  */
 export type TypedErrorFor<R, M extends string> = KnownErrorFor<
   R,
@@ -130,7 +126,7 @@ export interface TypedFetch<
   try: TypedFetchTry<DefaultT, DefaultR>
 }
 
-/** What `event.$typedFetch` is typed as: the seam exactly, no `.raw`, `.create` or `.native`. */
+/** What `event.$typedFetch` is typed as: no `.raw`, `.create` or `.native`. */
 export type TypedEventFetch = TypedFetch
 
 // ofetch's `FetchOptions` and `FetchResponse`, indexed out of Nitro's own
@@ -161,8 +157,7 @@ export interface $TypedFetch<
 
   /**
    * Like `$fetch.create`: a derived instance with defaults, keeping `.try`.
-   * Defaults are vanilla ofetch options, not route-scoped: a default `query`
-   * never relaxes a call's own requiredness.
+   * A default `query` never relaxes a call's own requiredness.
    */
   // Must return the *typed* interface, or `.try` vanishes one level down.
   create: <T = DefaultT, R extends NitroFetchRequest = DefaultR>(

@@ -3,9 +3,8 @@ import type { DeclaredError } from '@dphonys/nuxt-handler-errors/internals/serve
 /** The tag of the built-in variant; no umbrella route may declare it. */
 export const RESERVED_TAG = 'validation-failed'
 
-// At declaration, like the parent's foreign-copy guard: the route never
-// becomes servable. The compile guard says the same thing; this is the
-// answer a JavaScript caller gets.
+// The compile guard's answer for a JavaScript caller: thrown at declaration,
+// so the route never becomes servable.
 export function assertNoReservedTag(
   declared: readonly DeclaredError[] | undefined
 ): void {

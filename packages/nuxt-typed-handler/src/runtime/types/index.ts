@@ -19,27 +19,24 @@ export type {
  * reopens it with `declare module`, and empty means no handler has declared
  * anything yet.
  */
-// The map and its lookup live in this file, as the errors parent's own pair
-// does, because the emitted template augments this module by its package
-// specifier: a `declare module` on a barrel that merely re-exports an
-// interface opens a second, unrelated one.
+// Declared here, not re-exported: the emitted template augments this module
+// by its package specifier, and a `declare module` on a barrel that merely
+// re-exports an interface opens a second, unrelated one.
 export interface KnownApiRequestInputs {}
 
 /**
  * A route's declared Request input from its path alone; `never` means
  * "declares no sources" - the call site then types exactly as vanilla.
  */
-// Mirrors the errors parent's `KnownErrorsOfRoute`: `MatchedRoutes` once per
-// lookup, every method read through `Lowercase`, and the `default` fallback
-// by presence rather than Nitro's on-`never` rule - `never` is a legitimate
-// value here.
+// The `default` fallback is by presence rather than Nitro's on-`never` rule:
+// `never` is a legitimate value here.
 export type RequestInputOfRoute<
   R extends string,
   M extends RouterMethod | Uppercase<RouterMethod> = 'get',
 > =
   MatchedRoutes<R> extends infer Key
-    ? // Distributes over multiple matched keys, and doubles as the totality
-      // guard: a route this map lacks answers `never` rather than `TS2536`.
+    ? // Distributes over multiple matched keys; a route this map lacks answers
+      // `never` rather than `TS2536`.
       Key extends keyof KnownApiRequestInputs
       ? Lowercase<M> extends keyof KnownApiRequestInputs[Key]
         ? KnownApiRequestInputs[Key][Lowercase<M>]

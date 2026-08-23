@@ -37,10 +37,8 @@ export interface ModuleOptions {
 
 const NAME = 'nuxt-typed-handler'
 
-/** The one generated file: both maps, its cold-start seed, and where it lands. */
 const TYPE_MAP = typeMap(NAME)
 
-/** The two packages this module replaces, and the keys they were configured under. */
 const PARENTS = [
   {
     packageName: '@dphonys/nuxt-handler-errors',
@@ -67,9 +65,8 @@ export default defineNuxtModule<ModuleOptions>({
   setup(options, nuxt) {
     warnCustomErrorHandler(nuxt, NAME)
 
-    // A parent's key left behind configures nothing now: this module owns the
-    // one option, under its own key. Own keys only, any value - `false` has
-    // nothing left to switch off.
+    // Any value, `false` included: a parent's key configures nothing here, and
+    // `false` has nothing left to switch off.
     for (const { configKey } of PARENTS) {
       if (!Object.hasOwn(nuxt.options, configKey)) continue
 
@@ -78,23 +75,18 @@ export default defineNuxtModule<ModuleOptions>({
       )
     }
 
-    // Required by the errors parent's internals contract: its app internals
-    // import `#app`, and Nuxt transpiles only what `modules` lists. Pushed
-    // ahead of the typed fetch family that binds those internals, so the
-    // contract holds from the first build. The validation parent's contract
-    // says push nothing.
+    // The errors parent's app internals import `#app`, and Nuxt transpiles
+    // only what `modules` lists.
     nuxt.options.build.transpile.push('@dphonys/nuxt-handler-errors')
 
     // Only this module's own specifier is hoisted: `hoist` resolves from the
     // app's `modulesDir`, where an umbrella-only install has no parent. The
-    // parents' `/types` specifiers, which the generated map augments and
-    // imports from, are mapped through `paths` from this module's location.
+    // parents' `/types` go through `paths` instead.
     nuxt.options.typescript.hoist.push(TYPES_SPECIFIER)
     addParentTypesPaths(nuxt, import.meta.url)
 
-    // Named explicitly rather than through `addServerImportsDir`, whose scan
-    // would auto-import whatever the runtime tree happens to export. Neither
-    // parent wrapper is among them: the umbrella's wrapper is the one door.
+    // Named rather than scanned with `addServerImportsDir`: the parents'
+    // wrappers must not become auto-imports.
     const resolver = createResolver(import.meta.url)
     const serverEntry = resolver.resolve('./runtime/server/index')
 
@@ -108,7 +100,7 @@ export default defineNuxtModule<ModuleOptions>({
       ].map((name) => ({ name, from: serverEntry }))
     )
 
-    // None of the five uses `addServerImports`: every one reaches `#app`,
+    // None of the composables use `addServerImports`: all five reach `#app`,
     // which the Nitro build does not have.
     const fetchComposables = resolver.resolve(
       './runtime/app/composables/use-typed-fetch'
@@ -176,8 +168,8 @@ export default defineNuxtModule<ModuleOptions>({
     // current instance and the hooked one are not the same object.
     let nitro: Nitro | undefined
 
-    // One file carrying both maps. The context must name all three programs:
-    // passing a context at all opts out of everything it does not name.
+    // The context must name all three programs: passing a context at all opts
+    // out of everything it does not name.
     addTypeTemplate(
       {
         filename: TYPE_MAP.filename,
@@ -206,11 +198,9 @@ export default defineNuxtModule<ModuleOptions>({
       })
     })
 
-    // Exclusive by construction: a project lists this module *or* the
-    // parents. After every module has registered, a parent beside this one
-    // is a configuration error, not a warning. Consumers list the package
-    // name in `modules`; a module listed as a value is known to kit by its
-    // `meta.name` alone, so both spellings are tried.
+    // A parent beside this module is a configuration error, not a warning.
+    // Both spellings: consumers list the package name, but a module passed as
+    // a value is known to kit by its `meta.name` alone.
     nuxt.hook('modules:done', () => {
       for (const { packageName, moduleName } of PARENTS) {
         if (

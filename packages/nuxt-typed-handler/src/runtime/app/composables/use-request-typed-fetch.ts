@@ -7,9 +7,6 @@ import type { TypedFetch } from '../../types/fetch'
  * Nuxt's `useRequestFetch()`, mirrored. A call made while rendering forwards
  * the incoming request's cookies and headers.
  */
-// The errors parent's `/internals/app` exposes no request-fetch wrapper, so
-// these few lines are its `useRequestCheckedFetch` reimplemented over the
-// umbrella's own global and `event.$typedFetch` (spec §11 D3).
 export function useRequestTypedFetch(): TypedFetch {
   if (import.meta.client) return $typedFetch
 

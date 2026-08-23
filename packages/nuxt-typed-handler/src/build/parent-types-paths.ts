@@ -3,49 +3,32 @@ import type { Nuxt } from '@nuxt/schema'
 import type { NitroConfig } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
 
-/**
- * The parents' `/types` specifiers, which the generated map reaches for: the
- * errors map *augments* the first, the request-inputs map *imports* from the
- * second. Neither resolves from an app that installed the umbrella alone.
- */
+// The generated map augments the first and imports from the second; neither
+// resolves from an app that installed the umbrella alone.
 const PARENT_TYPES_SPECIFIERS = [
   '@dphonys/nuxt-handler-errors/types',
   '@dphonys/nuxt-handler-validation/types',
 ] as const
 
-/** The slice of a tsconfig object the entry is written on. */
 interface PathsCarrier {
   compilerOptions?: { paths?: Record<string, string[]> }
 }
 
 /**
- * Map both parent `/types` specifiers on every generated tsconfig - app,
- * node, shared and Nitro - to the declaration each resolves to *from the
- * umbrella's own location*, so pnpm's nested layout is honoured.
- *
+ * Map both parent `/types` specifiers, on every generated tsconfig, to the
+ * declaration each resolves to from this module's own location (`from` is
+ * its `import.meta.url`), so pnpm's nested layout is honoured.
  * `typescript.hoist` cannot do this: it resolves from the app's `modulesDir`
- * alone and silently drops what it cannot find there. Each entry joins the
- * `paths` map Nuxt and Nitro wrote; only its own specifier's entry, if some
- * other layer already claimed one, is replaced.
- *
- * @param nuxt - The instance whose generated tsconfigs carry the entries.
- * @param from - This module's own URL (`import.meta.url`).
+ * alone and silently drops what it cannot find there.
  */
 export function addParentTypesPaths(nuxt: Nuxt, from: string): void {
-  // The *directory* this module was loaded from. `resolveTypePaths` searches
-  // paths, not module URLs: handed a `file://` URL it resolves from the
-  // process's working directory instead - an app root, where an
-  // umbrella-only install has no parent to find.
+  // A directory, not the URL: handed a `file://` URL, `resolveTypePaths`
+  // silently searches from the process's working directory instead.
   const searchPath = fileURLToPath(new URL('.', from))
 
-  // Resolved once, lazily, failure included: `prepare:types` and
-  // `nitro:config` both need it, and the parents are exact-pinned
-  // dependencies, so one answer holds for the whole build.
-  //
-  // `resolveTypePaths` rather than `resolvePath`: it answers with the
-  // declaration TypeScript loads for a subpath export, which is what a
-  // `paths` entry has to name. Its answers are extensionless, as Nuxt's own
-  // entries are - TypeScript retries `.d.ts` itself.
+  // Resolved once for both hooks, failure included. `resolveTypePaths` rather
+  // than `resolvePath`: a `paths` entry has to name the declaration
+  // TypeScript loads for a subpath export, not the runtime file.
   let declarations: Promise<Record<string, string[]>> | undefined
 
   const resolveDeclarations = (): Promise<Record<string, string[]>> => {
