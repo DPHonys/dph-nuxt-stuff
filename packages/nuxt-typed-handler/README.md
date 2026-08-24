@@ -488,8 +488,16 @@ and `ValidatedContext`. With GNU `sed` and
 [ripgrep](https://github.com/BurntSushi/ripgrep), from the app root:
 
 ```sh
-rg -l --glob '!node_modules' -e 'defineCheckedEventHandler|defineValidatedEventHandler|use(Lazy)?Checked(Fetch|AsyncData)|useRequestCheckedFetch|\$checkedFetch|@dphonys/nuxt-handler-(errors|validation)|handler(Errors|Validation)' | xargs sed -i -e 's/defineCheckedEventHandler/defineTypedEventHandler/g' -e 's/defineValidatedEventHandler/defineTypedEventHandler/g' -e 's/useRequestCheckedFetch/useRequestTypedFetch/g' -e 's/useLazyCheckedFetch/useLazyTypedFetch/g' -e 's/useCheckedFetch/useTypedFetch/g' -e 's/useLazyCheckedAsyncData/useLazyTypedAsyncData/g' -e 's/useCheckedAsyncData/useTypedAsyncData/g' -e 's/\$checkedFetch/$typedFetch/g' -e 's#@dphonys/nuxt-handler-errors/\(server\|shared\|types\)#@dphonys/nuxt-typed-handler/\1#g' -e 's#@dphonys/nuxt-handler-validation/\(server\|types\)#@dphonys/nuxt-typed-handler/\1#g' -e 's/\bhandlerErrors\b/typedHandler/g' -e 's/\bhandlerValidation\b/typedHandler/g'
+rg -l --glob '!node_modules' -e 'defineCheckedEventHandler|defineValidatedEventHandler|use(Lazy)?Checked(Fetch|AsyncData)|useRequestCheckedFetch|\$checkedFetch|@dphonys/nuxt-handler-(errors|validation)/' | xargs sed -i -e 's/defineCheckedEventHandler/defineTypedEventHandler/g' -e 's/defineValidatedEventHandler/defineTypedEventHandler/g' -e 's/useRequestCheckedFetch/useRequestTypedFetch/g' -e 's/useLazyCheckedFetch/useLazyTypedFetch/g' -e 's/useCheckedFetch/useTypedFetch/g' -e 's/useLazyCheckedAsyncData/useLazyTypedAsyncData/g' -e 's/useCheckedAsyncData/useTypedAsyncData/g' -e 's/\$checkedFetch/$typedFetch/g' -e 's#@dphonys/nuxt-handler-errors/\(server\|shared\|types\)#@dphonys/nuxt-typed-handler/\1#g' -e 's#@dphonys/nuxt-handler-validation/\(server\|types\)#@dphonys/nuxt-typed-handler/\1#g'
 ```
+
+`nuxt.config` is deliberately outside that pass - its option keys need a
+judgement no substitution can make. Edit it by hand: replace both `modules`
+entries with `'@dphonys/nuxt-typed-handler'`, rename `handlerErrors:
+{ channelToken }` to `typedHandler: { channelToken }`, and **delete**
+`handlerValidation` rather than renaming it. Renaming both keys would collide
+in one object, and `handlerValidation: false` would become a `typedHandler:
+false` this module has no off-switch for.
 
 ### Not a rename: a hand-nested route becomes one flat context
 
