@@ -226,7 +226,7 @@ export async function tryResults(): Promise<void> {
     >
 
     if (variant.tag === 'user-exists') {
-      type _payload = Assert<Equal<typeof variant.email, string>>
+      type _payload = Assert<Equal<typeof variant.data.email, string>>
     }
   } else {
     // Narrowed by the sibling guard alone - no second check and no `!`.

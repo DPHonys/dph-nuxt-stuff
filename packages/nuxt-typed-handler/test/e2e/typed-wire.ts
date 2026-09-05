@@ -124,7 +124,7 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
         [KNOWN_ERROR_KEY]: {
           tag: 'user-exists',
           status: 409,
-          email: 'taken@example.com',
+          data: { email: 'taken@example.com' },
         },
       },
     })
@@ -181,7 +181,7 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
         [KNOWN_ERROR_KEY]: {
           tag: 'user-not-found',
           status: 404,
-          userId: 'missing',
+          data: { userId: 'missing' },
         },
       },
     })

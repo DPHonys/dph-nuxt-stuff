@@ -4,7 +4,6 @@ import {
   fixturePath,
   FIXTURE_TSCONFIG,
   lineContaining,
-  NOT_ASSIGNABLE_EXACT_OPTIONAL,
   saying,
 } from './compile-harness'
 
@@ -18,6 +17,7 @@ const diagnostics = compileFixture(FIXTURE_TSCONFIG, FIXTURE)
 
 /** TS2345 - an argument that does not fit its parameter. */
 const ARGUMENT_NOT_ASSIGNABLE = 2345
+const NO_OVERLOAD_MATCHES = 2769
 
 /** The reserved-tag sentence, verbatim. */
 const RESERVED_TAG = 'validation-failed is reserved for the built-in variant'
@@ -29,30 +29,46 @@ describe('the declaration guards’ diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(5)
+    expect(diagnostics).toHaveLength(6)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
-  it('never collapses into an overload paragraph', () => {
-    for (const diagnostic of diagnostics) {
-      expect(diagnostic.message).not.toContain('Overload')
+  it('retains the actionable guard sentences inside overload diagnostics', () => {
+    const overloads = diagnostics.filter(
+      (diagnostic) => diagnostic.code === NO_OVERLOAD_MATCHES
+    )
+    expect(overloads).toHaveLength(4)
+    for (const guard of [
+      '__reservedErrorTag__',
+      '__declareSomething__',
+      'validation-declaration-error',
+      '__divergentErrorTag__',
+    ]) {
+      expect(
+        overloads.some((diagnostic) => diagnostic.message.includes(guard))
+      ).toBe(true)
     }
+    // After a rejected legacy declaration, TypeScript contextualizes its
+    // callback from the first overload's impossible record context.
+    const [context] = saying(diagnostics, 'This expression is not callable')
+    expect(context?.code).toBe(2349)
+    expect(context?.line).toBe(lineContaining(FIXTURE, "fail('forbidden')"))
   })
 
   it('refuses the reserved tag at the declaration that carries it', () => {
     const [reserved] = saying(diagnostics, RESERVED_TAG)
 
-    expect(reserved?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(reserved?.code).toBe(NO_OVERLOAD_MATCHES)
     expect(reserved?.message).toContain('__reservedErrorTag__')
     expect(reserved?.line).toBe(
-      lineContaining(FIXTURE, 'errors: [...userErrors, reserved]')
+      lineContaining(FIXTURE, 'export const reservedTag')
     )
   })
 
   it('refuses a bare `{}` at the argument itself', () => {
     const [bare] = saying(diagnostics, DECLARE_SOMETHING)
 
-    expect(bare?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(bare?.code).toBe(NO_OVERLOAD_MATCHES)
     expect(bare?.message).toContain('__declareSomething__')
     expect(bare?.line).toBe(lineContaining(FIXTURE, '({}, () => null)'))
   })
@@ -71,22 +87,22 @@ describe('the declaration guards’ diagnostics', () => {
     )
   })
 
-  it('still fires the validation parent’s stray-key sentence at the key', () => {
+  it('still fires the validation parent’s stray-key sentence at the call', () => {
     const [stray] = saying(
       diagnostics,
       "'boyd' is not a validation source - the sources are routerParams, query, headers and body"
     )
 
-    expect(stray?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
-    expect(stray?.line).toBe(lineContaining(FIXTURE, 'boyd:'))
+    expect(stray?.code).toBe(NO_OVERLOAD_MATCHES)
+    expect(stray?.line).toBe(lineContaining(FIXTURE, 'export const strayKey'))
   })
 
   it('still fires the errors parent’s divergent-tag guard at the declaration', () => {
     const [divergent] = saying(diagnostics, '__divergentErrorTag__')
 
-    expect(divergent?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(divergent?.code).toBe(NO_OVERLOAD_MATCHES)
     expect(divergent?.line).toBe(
-      lineContaining(FIXTURE, 'errors: [...userErrors, ...conflicting]')
+      lineContaining(FIXTURE, 'export const divergentTag')
     )
   })
 })

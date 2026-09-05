@@ -5,6 +5,12 @@ import type {
   H3Event,
 } from 'h3'
 import type {
+  ErrorDefinitions,
+  ErrorDefinitionsGuard,
+  ErrorFactories,
+  ErrorsOfDefinitions,
+} from './error-definitions'
+import type {
   AnyKnownError,
   ConflictGuard,
   Defs,
@@ -49,6 +55,7 @@ export type KnownErrorsOfHandler<T> =
 /**
  * Raise one of the route's declared failures. Throws; returns `never`, so
  * `return fail(…)` contributes nothing to the inferred success type.
+ * @deprecated Use handler-local error factories and throw their result.
  */
 export type Fail<E extends KnownVariant> = <T extends E['tag']>(
   tag: T,
@@ -57,6 +64,7 @@ export type Fail<E extends KnownVariant> = <T extends E['tag']>(
 
 /** The second argument a checked handler body receives. */
 export interface HandlerContext<E extends KnownVariant> {
+  /** @deprecated Use handler-local error factories. */
   fail: Fail<E>
 }
 
@@ -67,11 +75,12 @@ export type CheckedHandlerFn<
   E extends KnownVariant,
 > = (event: H3Event<Request>, ctx: HandlerContext<E>) => Response
 
+/** @deprecated Use a Standard Schema in a handler-local `data` slot. */
 export interface DefinePayload {
   <T extends SerializablePayload<T>>(): Payload<T>
 }
 
-/** One function for one or many, with arity separating the overloads. */
+/** @deprecated Use a handler-local errors definition record. */
 export interface DefineError {
   /** One definition → one error value. */
   <Tag extends string, const D extends VariantDef>(
@@ -89,6 +98,25 @@ export interface DefineError {
 // argument becomes an arity error instead of silently collapsing the
 // success type to `any`.
 export interface DefineCheckedEventHandler {
+  <
+    const D extends ErrorDefinitions | readonly AnyKnownError[],
+    Response extends EventHandlerResponse,
+    Request extends EventHandlerRequest = EventHandlerRequest,
+  >(
+    options: {
+      errors: D & ErrorDefinitionsGuard<Extract<D, ErrorDefinitions>>
+    } & (D extends ErrorDefinitions ? unknown : never),
+    handler: (
+      event: H3Event<Request>,
+      ctx: { readonly errors: ErrorFactories<Extract<D, ErrorDefinitions>> }
+    ) => Response
+  ): CheckedEventHandler<
+    Request,
+    Response,
+    ErrorsOfDefinitions<Extract<D, ErrorDefinitions>>
+  >
+
+  /** @deprecated Use a handler-local definition record and `throw errors.tag()`. */
   <
     const A extends ReadonlyArray<AnyKnownError>,
     Response extends EventHandlerResponse,

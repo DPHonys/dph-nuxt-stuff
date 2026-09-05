@@ -49,7 +49,7 @@ describe('the known-failure wire', async () => {
         [KNOWN_ERROR_KEY]: {
           tag: 'user-suspended',
           status: 403,
-          until: '2026-12-31',
+          data: { until: '2026-12-31' },
         },
       },
     })
@@ -68,7 +68,7 @@ describe('the known-failure wire', async () => {
     expect(error.data.data[KNOWN_ERROR_KEY]).toEqual({
       tag: 'user-not-found',
       status: 404,
-      userId: 'missing',
+      data: { userId: 'missing' },
     })
 
     // `data` surviving at all is the observable half of "`fatal`/`unhandled`

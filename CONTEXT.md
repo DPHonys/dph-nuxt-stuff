@@ -87,7 +87,7 @@ A Nitro route handler produced by one of the repository's `define…EventHandler
 _Avoid_: Endpoint, route function
 
 **Known error**:
-A failure a Handler declares with `defineError` and raises with `fail`; marked on the wire and typed at every call site from the route path.
+A failure a Handler declares in its local `errors` record and raises by throwing an `errors` factory result; typed at every call site from the route path.
 _Avoid_: Expected error, business error
 
 **Validation source**:
@@ -99,7 +99,7 @@ The Handler's second parameter: output-typed validated values, one key per decla
 _Avoid_: Parsed request, payload
 
 **Handler context**:
-The Umbrella Handler's second parameter: the Validated context's keys plus `fail` when Known errors are declared; the only door to validated values and to raising a Known error.
+The Umbrella Handler's second parameter: the Validated context's keys plus `errors` factories when Known errors are declared; the door to validated values and to creating a Known error.
 _Avoid_: Context object, helpers, second argument
 
 **Built-in validation-failed variant**:

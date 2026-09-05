@@ -1,6 +1,10 @@
 import type { defineCheckedEventHandler } from '@dphonys/nuxt-handler-errors/server'
 import type {
   CheckedEventHandler,
+  ErrorDefinitions,
+  ErrorDefinitionsGuard,
+  ErrorFactories,
+  ErrorsOfDefinitions,
   Fail,
   KnownError,
   KnownErrorsOf,
@@ -24,16 +28,19 @@ export interface ValidationFailed {
 }
 
 export type AnyKnownError = KnownError<KnownVariant>
+type ErrorDeclaration = ErrorDefinitions | readonly AnyKnownError[]
 
 type HasValidate<S extends ValidationSchemas> = [keyof S] extends [never]
   ? false
   : true
 
-type HasErrors<A extends ReadonlyArray<AnyKnownError>> = [A[number]] extends [
-  never,
-]
-  ? false
-  : true
+type HasErrors<A extends ErrorDeclaration> = A extends readonly AnyKnownError[]
+  ? [A[number]] extends [never]
+    ? false
+    : true
+  : [keyof A] extends [never]
+    ? false
+    : true
 
 /**
  * The handler `defineTypedEventHandler` returns: an ordinary h3
@@ -52,25 +59,35 @@ export interface TypedEventHandler<
     CheckedEventHandler<Request, Response, Errors>,
     ValidatedEventHandler<Request, Response, Input> {}
 
-/** The validated sources, flat, plus `fail` exactly when `errors` is declared. */
+/** Validated sources plus local `errors` factories (or legacy array-scoped `fail`). */
 export type TypedContext<
   S extends ValidationSchemas,
-  A extends ReadonlyArray<AnyKnownError>,
+  A extends ErrorDeclaration,
 > = ValidatedContext<S> &
-  (HasErrors<A> extends true
-    ? { fail: Fail<KnownErrorsOf<A>> }
-    : // eslint-disable-next-line ts/no-empty-object-type
-      {})
+  (A extends ErrorDefinitions
+    ? { readonly errors: ErrorFactories<A> }
+    : A extends readonly AnyKnownError[]
+      ? HasErrors<A> extends true
+        ? { fail: Fail<KnownErrorsOf<A>> }
+        : // eslint-disable-next-line ts/no-empty-object-type
+          {}
+      : never)
 
 /** The declared union, plus the built-in variant when the route validates. */
 export type TypedErrors<
   S extends ValidationSchemas,
-  A extends ReadonlyArray<AnyKnownError>,
-> = KnownErrorsOf<A> | (HasValidate<S> extends true ? ValidationFailed : never)
+  A extends ErrorDeclaration,
+> =
+  | (A extends ErrorDefinitions
+      ? ErrorsOfDefinitions<A>
+      : A extends readonly AnyKnownError[]
+        ? KnownErrorsOf<A>
+        : never)
+  | (HasValidate<S> extends true ? ValidationFailed : never)
 
 export type TypedHandlerFn<
   S extends ValidationSchemas,
-  A extends ReadonlyArray<AnyKnownError>,
+  A extends ErrorDeclaration,
   Request extends EventHandlerRequest,
   Response,
 > = (event: H3Event<Request>, ctx: TypedContext<S, A>) => Response
@@ -81,7 +98,7 @@ export type TypedHandlerFn<
 /** Bare `{}` is a compile error: a route must declare something. */
 export type AtLeastOne<
   S extends ValidationSchemas,
-  A extends ReadonlyArray<AnyKnownError>,
+  A extends ErrorDeclaration,
 > =
   HasValidate<S> extends true
     ? // eslint-disable-next-line ts/no-empty-object-type
@@ -92,8 +109,10 @@ export type AtLeastOne<
       : { __declareSomething__: 'declare validate, errors, or both' }
 
 /** `validation-failed` belongs to the built-in variant on every umbrella route. */
-export type ReservedTagGuard<A extends ReadonlyArray<AnyKnownError>> =
-  'validation-failed' extends KnownErrorsOf<A>['tag']
+export type ReservedTagGuard<A extends ErrorDeclaration> =
+  'validation-failed' extends (
+    A extends readonly AnyKnownError[] ? KnownErrorsOf<A>['tag'] : keyof A
+  )
     ? {
         __reservedErrorTag__: 'validation-failed is reserved for the built-in variant'
       }
@@ -117,9 +136,44 @@ export type TypedHandlerOptions<
     errors?: A
   }
 
-// `Response` has no default type parameter on purpose: an explicit type
-// argument becomes an arity error instead of collapsing the success type.
+// Keep the legacy signature last for consumers extracting its parameter types.
 export interface DefineTypedEventHandler {
+  <
+    // eslint-disable-next-line ts/no-empty-object-type
+    const S extends ValidationSchemas = {},
+    // Admit arrays to the generic constraint for legacy instantiation expressions;
+    // the options conditional still excludes them from this overload.
+    const D extends ErrorDefinitions | readonly AnyKnownError[] = never,
+    Response extends EventHandlerResponse = EventHandlerResponse,
+    Request extends EventHandlerRequest = EventHandlerRequest,
+  >(
+    options: {
+      validate?: S & ValidationSchemasGuard<S>
+      errors: D & ErrorDefinitionsGuard<Extract<D, ErrorDefinitions>>
+    } & (D extends ErrorDefinitions ? unknown : never) &
+      ReservedTagGuard<D> &
+      AtLeastOne<S, D>,
+    handler: TypedHandlerFn<S, Extract<D, ErrorDefinitions>, Request, Response>
+  ): TypedEventHandler<
+    Request,
+    Response,
+    TypedErrors<S, Extract<D, ErrorDefinitions>>,
+    RequestInput<S>
+  >
+
+  <
+    const S extends ValidationSchemas,
+    Response extends EventHandlerResponse,
+    Request extends EventHandlerRequest = EventHandlerRequest,
+  >(
+    options: {
+      validate: S & ValidationSchemasGuard<S>
+      errors?: never
+    } & AtLeastOne<S, []>,
+    handler: (event: H3Event<Request>, ctx: ValidatedContext<S>) => Response
+  ): TypedEventHandler<Request, Response, ValidationFailed, RequestInput<S>>
+
+  /** @deprecated Use a definition record and `throw errors.tag()`. */
   <
     // `{}` is the "declared nothing" default: no key, so no source and no
     // built-in variant.

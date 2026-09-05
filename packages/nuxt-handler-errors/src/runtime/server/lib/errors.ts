@@ -1,10 +1,13 @@
 import { defineEventHandler } from 'h3'
+import type { EventHandlerRequest, H3Event } from 'h3'
+import type { ErrorDefinitions } from '../../types/error-definitions'
 import type {
   DefineCheckedEventHandler,
   DefineError,
   DefinePayload,
 } from '../../types/handler'
 import type {
+  AnyKnownError,
   Defs,
   KnownErrorGroup,
   KnownVariant,
@@ -17,12 +20,14 @@ import {
   knownErrorValue,
   resolveDeclared,
 } from './declared'
+import { createErrorContext, finalizeError } from './error-context'
 
 /**
  * Marks a variant's payload type: `payload<{ userId: string }>()`. The
  * runtime value is inert - only the type argument matters, checked against
  * what survives JSON serialization. A Standard Schema may sit in the same
  * position instead.
+ * @deprecated Use a Standard Schema in a handler-local definition's `data` slot.
  */
 export const payload: DefinePayload = () => ({})
 
@@ -40,6 +45,7 @@ function buildGroup(
 /**
  * Declare one expected failure, or several at once: a tag and a definition
  * give back a single value, a definition record a spreadable group.
+ * @deprecated Use a handler-local errors definition record instead.
  *
  * ```ts
  * const forbidden = defineError('forbidden', { status: 403 })
@@ -70,29 +76,38 @@ export const defineError: DefineError = ((
 }) as DefineError
 
 /**
- * Declare the failures a route can produce, and get a `fail` scoped to
- * exactly those. The returned handler is an ordinary h3 `EventHandler`.
+ * Declare handler-local error factories. The returned handler is an ordinary
+ * h3 `EventHandler`; thrown factory errors are validated before escaping it.
  *
  * ```ts
  * export default defineCheckedEventHandler(
- *   { errors: [...userErrors, forbidden] },
- *   async (event, { fail }) => {
+ *   { errors: { notFound: { status: 404 } } },
+ *   async (event, { errors }) => {
  *     const userId = event.context.params?.id ?? ''
  *     const user = await lookup(userId)
- *     if (!user) return fail('user-not-found', { userId })
+ *     if (!user) throw errors.notFound()
  *     return user
  *   }
  * )
  * ```
  */
 export const defineCheckedEventHandler: DefineCheckedEventHandler = (
-  options,
-  handler
+  options: { errors: ErrorDefinitions | readonly AnyKnownError[] },
+  handler: (event: H3Event<EventHandlerRequest>, context: never) => any
 ) => {
-  const declared = resolveDeclared(options.errors)
-  const fail = createFail(declared)
+  if (Array.isArray(options.errors)) {
+    const fail = createFail(resolveDeclared(options.errors))
+    return defineEventHandler((event) => handler(event, { fail } as never))
+  }
+  const context = createErrorContext(options.errors as ErrorDefinitions)
 
   // No cast on the way out: the brand is an optional property, so a plain
   // `EventHandler` already inhabits `CheckedEventHandler`.
-  return defineEventHandler((event) => handler(event, { fail } as never))
+  return defineEventHandler(async (event) => {
+    try {
+      return await handler(event, context as never)
+    } catch (error) {
+      return finalizeError(error)
+    }
+  })
 }

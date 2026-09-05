@@ -1,12 +1,16 @@
-import { userErrors } from '../../errors/users'
+import { z } from 'zod'
 
 /** The errors parent's smoke: an `errors`-only route, byte for byte the parent's. */
 export default defineTypedEventHandler(
-  { errors: userErrors.pick('user-not-found') },
-  (event, { fail }) => {
+  {
+    errors: {
+      'user-not-found': { status: 404, data: z.object({ userId: z.string() }) },
+    },
+  },
+  (event, { errors }) => {
     const userId = event.context.params?.id ?? ''
 
-    if (userId === 'missing') return fail('user-not-found', { userId })
+    if (userId === 'missing') throw errors['user-not-found']({ userId })
 
     return { id: userId, name: `User ${userId}` }
   }

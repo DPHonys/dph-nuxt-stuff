@@ -3,6 +3,13 @@ import type { MatchedRoutes } from 'nitropack/types'
 import type { $CheckedFetch, CheckedFetch } from './fetch'
 
 export type {
+  ErrorDefinitions,
+  ErrorFactories,
+  ErrorsOfDefinitions,
+  ErrorDefinitionsGuard,
+} from './error-definitions'
+
+export type {
   $CheckedFetch,
   CheckedFetch,
   KnownErrorFor,

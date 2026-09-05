@@ -26,53 +26,62 @@ declared, in the route.
 ## Declaring what a route can fail with
 
 ```ts
-// server/errors/users.ts - or anywhere; the values travel, no registry exists.
-// Outside server/, import from '@dphonys/nuxt-handler-errors/server'.
-export const userErrors = defineError({
-  'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
-  'user-suspended': { status: 403, payload: payload<{ until: string }>() },
-})
-
-export const forbidden = defineError('forbidden', {
-  status: 403,
-  payload: payload<{ requiredRole: 'admin' | 'owner' }>(),
-})
-```
-
-```ts
 // server/api/users/[id].get.ts
-import { forbidden, userErrors } from '~~/server/errors/users'
+import { z } from 'zod'
 
 export default defineCheckedEventHandler(
-  { errors: [...userErrors.pick('user-not-found'), forbidden] },
-  async (event, { fail }) => {
+  {
+    errors: {
+      'user-not-found': { status: 404, data: z.object({ userId: z.string() }) },
+      forbidden: { status: 403 },
+    },
+  },
+  async (event, { errors }) => {
+    if (!event.context.user) throw errors.forbidden()
     const userId = event.context.params?.id ?? ''
     const user = await lookup(userId)
 
-    if (!user) return fail('user-not-found', { userId })
+    if (!user) throw errors['user-not-found']({ userId })
 
     return user
   }
 )
 ```
 
-- `defineError` is one function for one variant or many; the unit is the
-  **variant as a value**, and a group is an array of those values. **Spread is
-  the only composition operator**: `[...users, ...orders, forbidden]`.
-- `.pick()` narrows a group and is permissive about repetition; only a tag the
-  group never declared is a compile error.
-- `payload<T>()` is the no-library door. Any **Standard Schema** (zod, valibot,
-  anything with `~standard`) works in the same position and is read for its
-  inferred output type - **this module never executes it**. Either way the
-  payload must survive JSON serialization, or it is a compile error where it is
-  declared.
-- `fail` returns `never`, so the success type still infers from the handler body
-  with no annotation, and `fail('nope')` - a tag this route did not declare - is
-  a compile error.
-- Everything above is auto-imported inside `server/`, the same ambient position
-  as `defineEventHandler`. The explicit door is
-  `@dphonys/nuxt-handler-errors/server` - it is the form that works where
-  auto-imports do not reach (`shared/`, `imports.autoImport: false`).
+- **The contract belongs to the endpoint.** Keys are tags; each definition has
+  an HTTP error `status` (400-599) and an optional Standard Schema `data`.
+  There is no registry or separate error declaration file to keep in sync.
+- The second argument receives **local factories** in `errors`. A factory with
+  a schema takes its inferred input; one without `data` takes no arguments.
+  Undeclared keys are compile errors. Use `throw errors[tag](data)`, not
+  `return` and not `await`: factories synchronously return errors.
+- **Schemas execute at runtime**, whether synchronous or asynchronous. The
+  handler boundary finalizes validation before a declared failure leaves it;
+  transforms become the client's `data`, typed as the schema's output.
+  Invalid factory data is a programmer error and answers an unmarked **500**,
+  not the declared status. Schema output must be JSON-serializable.
+- **Successes are unchanged.** Throwing a failure leaves the normal return
+  type inferred from the handler body, with no success envelope or annotation.
+- Bring your own Standard Schema library (Zod above, Valibot, or another
+  implementation); none is bundled. `defineCheckedEventHandler` is
+  auto-imported inside `server/`, like `defineEventHandler`. Import it from
+  `@dphonys/nuxt-handler-errors/server` where auto-imports do not reach.
+
+### Migrating the deprecated API
+
+`defineError`, `payload<T>()`, array declarations, `.pick()` and `{ fail }`
+remain supported but are deprecated. Replace
+`{ errors: userErrors.pick('user-not-found') }` with an endpoint-local record
+as above, and `return fail('user-not-found', { userId })` with
+`throw errors['user-not-found']({ userId })`. Replace type-only `payload<T>()`
+with a runtime Standard Schema. Legacy schemas in `payload` were only read for
+types; the new `data` schemas actually validate.
+
+Keep existing tags and statuses to preserve matcher arms. Move client field
+reads from `e.userId` to `e.data.userId`: the new variant is
+`{ tag: 'user-not-found', status: 404, data: { userId } }`. Legacy declarations
+retain their flat payload shape; success responses and fetch/matching APIs do
+not change. Delete old declaration files once their usages are migrated.
 
 ## Handling them: `matchError`
 
@@ -85,8 +94,8 @@ const { data, error } = await useCheckedFetch('/api/users/42')
 matchError(
   error,
   {
-    forbidden: (e) => snack(`You need ${e.requiredRole}`),
-    'user-not-found': (e) => notFound(e.userId),
+    forbidden: () => snack('Sign in first'),
+    'user-not-found': (e) => notFound(e.data.userId),
   },
   (err, unrecognized) => {
     if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
@@ -101,7 +110,8 @@ One call absorbs the `if (error)` and the is-it-known check.
 - **The arms are exhaustive over what the route declared.** Adding a variant
   server-side breaks every call site - the compiler reporting that a new failure
   exists is the point.
-- Each arm receives the whole variant: `{ tag, status }` plus the payload.
+- Each arm receives `{ tag, status, data }`, or just `{ tag, status }` for a
+  definition without a data schema. Matching still uses the tag, not the data.
 - **The fallback is positional and required.** `() => {}` says "ignore" out
   loud, and is greppable.
 - The matcher returns `void`. Arms handle; they do not produce.
@@ -112,7 +122,7 @@ One call absorbs the `if (error)` and the is-it-known check.
 
 `useCheckedFetch`, `useLazyCheckedFetch`, `useRequestCheckedFetch`,
 `useCheckedAsyncData`, `useLazyCheckedAsyncData` are auto-imported, as are the
-server helpers (`defineCheckedEventHandler`, `defineError`, `payload`,
+server helpers (`defineCheckedEventHandler`,
 `recognizeKnownError`) inside `server/`. `$checkedFetch` is a global, like
 `$fetch`. `matchError` is imported from `@dphonys/nuxt-handler-errors/shared` -
 it is used on the server too.
@@ -167,7 +177,10 @@ export default defineEventHandler(async (event) => {
       error,
       {
         'c-gone': (e) => {
-          throw createError({ statusCode: 410, message: `gone: ${e.resource}` })
+          throw createError({
+            statusCode: 410,
+            message: `gone: ${e.data.resource}`,
+          })
         },
       },
       (err) => report(`upstream failure: ${err.status ?? 0}`)
