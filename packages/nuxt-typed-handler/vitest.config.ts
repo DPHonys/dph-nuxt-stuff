@@ -15,7 +15,7 @@ const aliases = [
     ),
   },
   {
-    find: /^#nuxt-handler-errors\/channel-token$/,
+    find: /^#nuxt-typed-handler\/channel-token$/,
     replacement: fileURLToPath(
       new URL('./test/doubles/channel-token.ts', import.meta.url)
     ),

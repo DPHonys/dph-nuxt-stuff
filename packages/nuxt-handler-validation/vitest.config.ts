@@ -1,9 +1,5 @@
 import { defineConfig } from 'vitest/config'
 
-// Three tiers, mirroring the sibling: `unit` is fast, `types` suites are
-// asserted by the compiler under `typecheck`, and `e2e` works against real
-// built artifacts. The `include` patterns also feed knip's entry points.
-
 export default defineConfig({
   test: {
     projects: [
@@ -17,6 +13,9 @@ export default defineConfig({
         test: {
           name: 'types',
           include: ['test/types/**/*.test.ts'],
+          // Each file compiles a real TypeScript program, which a loaded CI runner
+          // stretches well past vitest's 5s default.
+          testTimeout: 60_000,
         },
       },
       {

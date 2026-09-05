@@ -79,6 +79,22 @@ export default {
       ],
     },
 
+    'packages/nuxt-typed-handler': {
+      ...nuxtModuleWorkspace,
+
+      // As in both parents: this package's suites import `@nuxt/schema`'s types.
+      ignoreDependencies: ['@nuxt/devtools'],
+
+      entry: [
+        ...nuxtModuleWorkspace.entry,
+
+        // Deliberately broken sources, compiled by path by
+        // `test/types/compile-harness.ts` so a suite can assert on their
+        // diagnostics. The package tsconfig excludes them for the same reason.
+        'test/types/fixtures/**/*.ts',
+      ],
+    },
+
     'packages/nuxt-handler-validation/playground': {
       ...playgroundWorkspace,
 
@@ -86,6 +102,15 @@ export default {
       // because the config typing it asserts only exists in a generated
       // `.nuxt`.
       entry: ['module-options.check.ts'],
+    },
+
+    'packages/nuxt-typed-handler/playground': {
+      ...playgroundWorkspace,
+
+      // As in the validation playground above: compiler-asserted by `vue-tsc`,
+      // never imported. It lives in an app because the route map it reads is
+      // only generated inside one.
+      entry: ['request-typing.check.ts'],
     },
   },
 } satisfies KnipConfig

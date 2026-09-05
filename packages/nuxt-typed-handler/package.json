@@ -1,17 +1,17 @@
 {
-  "name": "@dphonys/nuxt-handler-errors",
-  "version": "0.4.0",
-  "description": "Declare a Nitro handler’s expected failures once and infer them at every call site from the route path.",
+  "name": "@dphonys/nuxt-typed-handler",
+  "version": "0.1.0",
+  "description": "Declare a Nitro handler's request schemas and expected failures once, and get both typed at every call site.",
   "keywords": [
     "nuxt",
-    "nuxt-handler-errors",
-    "nuxt-module"
+    "nuxt-module",
+    "nuxt-typed-handler"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DPHonys/dph-nuxt-stuff.git",
-    "directory": "packages/nuxt-handler-errors"
+    "directory": "packages/nuxt-typed-handler"
   },
   "files": [
     "dist"
@@ -32,18 +32,6 @@
       ],
       "shared": [
         "./dist/runtime/shared/index.d.ts"
-      ],
-      "internals/build": [
-        "./dist/internals/build.d.mts"
-      ],
-      "internals/server": [
-        "./dist/runtime/internals/server/index.d.ts"
-      ],
-      "internals/shared": [
-        "./dist/runtime/internals/shared/index.d.ts"
-      ],
-      "internals/app": [
-        "./dist/runtime/internals/app/index.d.ts"
       ]
     }
   },
@@ -64,23 +52,7 @@
       "types": "./dist/runtime/shared/index.d.ts",
       "import": "./dist/runtime/shared/index.js"
     },
-    "./internals/build": {
-      "types": "./dist/internals/build.d.mts",
-      "import": "./dist/internals/build.mjs"
-    },
-    "./internals/server": {
-      "types": "./dist/runtime/internals/server/index.d.ts",
-      "import": "./dist/runtime/internals/server/index.js"
-    },
-    "./internals/shared": {
-      "types": "./dist/runtime/internals/shared/index.d.ts",
-      "import": "./dist/runtime/internals/shared/index.js"
-    },
-    "./package.json": "./package.json",
-    "./internals/app": {
-      "types": "./dist/runtime/internals/app/index.d.ts",
-      "import": "./dist/runtime/internals/app/index.js"
-    }
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
@@ -101,11 +73,11 @@
     "typecheck": "nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json"
   },
   "dependencies": {
+    "@dphonys/nuxt-handler-errors": "workspace:0.4.0",
+    "@dphonys/nuxt-handler-validation": "workspace:0.2.0",
     "@nuxt/kit": "catalog:",
-    "@standard-schema/spec": "catalog:",
     "h3": "catalog:",
     "nitropack": "catalog:",
-    "pathe": "catalog:",
     "vue": "catalog:"
   },
   "devDependencies": {
@@ -117,7 +89,6 @@
     "nuxt": "catalog:",
     "publint": "catalog:",
     "typescript": "catalog:",
-    "unbuild": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "catalog:",
     "zod": "catalog:"
