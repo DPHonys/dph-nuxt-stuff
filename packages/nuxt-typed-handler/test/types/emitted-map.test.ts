@@ -48,10 +48,11 @@ afterAll(() => {
  */
 const APP_FILES: Record<string, string> = {
   'server/errors/users.ts': [
-    `import { defineError, payload } from '@dphonys/nuxt-typed-handler/server'`,
+    `import { defineError } from '@dphonys/nuxt-typed-handler/server'`,
+    `import { z } from 'zod'`,
     ``,
     `export const userErrors = defineError({`,
-    `  'user-exists': { status: 409, payload: payload<{ existingId: string, until: Date }>() },`,
+    `  'user-exists': { status: 409, payload: z.object({ existingId: z.string().transform(Number), until: z.date() }) },`,
     `  'user-not-found': { status: 404 },`,
     `})`,
     ``,
@@ -82,9 +83,9 @@ const APP_FILES: Record<string, string> = {
     `    validate: { body: createUser, query: pagination },`,
     `    errors: userErrors.pick('user-exists'),`,
     `  },`,
-    `  (_event, { body, query, fail }) => {`,
+    `  (_event, { body, query, errors }) => {`,
     `    if (body.fullName === '') {`,
-    `      return fail('user-exists', { existingId: '1', until: new Date() })`,
+    `      throw errors.userExists({ existingId: '1', until: new Date() })`,
     `    }`,
     ``,
     `    return { created: body.fullName, page: query.page }`,
@@ -100,7 +101,7 @@ const APP_FILES: Record<string, string> = {
     ``,
     `export default defineTypedEventHandler(`,
     `  { errors: userErrors.pick('user-not-found') },`,
-    `  (_event, { fail }) => fail('user-not-found'),`,
+    `  (_event, { errors }) => { throw errors.userNotFound() },`,
     `)`,
     ``,
   ].join('\n'),
@@ -266,7 +267,8 @@ describe('the emitted map, with both slots in one file', () => {
     const rendered = compilation.renderHover('BothErrors')
 
     expect(rendered).toContain('"user-exists"')
-    expect(rendered).toContain('existingId: string')
+    expect(rendered).toContain('existingId: number')
+    expect(rendered).not.toContain('payload:')
     // The definition declares `until: Date`; `Serialize` is the wire's view.
     expect(rendered).toContain('until: string')
     // The built-in variant every validating route can fail with.

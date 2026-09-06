@@ -1,16 +1,23 @@
-import { defineTypedEventHandler } from '../../../../../src/runtime/server'
-import { userErrors } from '../errors/users'
+import { z } from 'zod'
+import {
+  defineError,
+  defineTypedEventHandler,
+} from '../../../../../src/runtime/server'
 import { createUser, pagination } from '../validation/schemas'
+
+const userErrors = defineError({
+  'user-exists': { status: 409, payload: z.object({ email: z.string() }) },
+})
 
 /** Both halves declared: the generated map keys this route in both slots. */
 export default defineTypedEventHandler(
   {
     validate: { body: createUser, query: pagination },
-    errors: userErrors.pick('user-exists'),
+    errors: [...userErrors],
   },
-  (_event, { body, query, fail }) => {
+  (_event, { body, query, errors }) => {
     if (body.email === 'taken@example.com') {
-      return fail('user-exists', { email: body.email })
+      throw errors.userExists({ email: body.email })
     }
 
     return { created: body.name, page: query.page }

@@ -87,8 +87,24 @@ A Nitro route handler produced by one of the repository's `define…EventHandler
 _Avoid_: Endpoint, route function
 
 **Known error**:
-A failure a Handler declares with `defineError` and raises with `fail`; marked on the wire and typed at every call site from the route path.
+A failure a Handler selects from reusable error declarations and raises through a local Error factory; typed at every call site from the route path.
 _Avoid_: Expected error, business error
+
+**Error declaration**:
+A named failure contract with a kebab-case tag (`user-not-found`, reached in the Handler as `errors.userNotFound`), an HTTP error status and an optional Error payload; reusable individually or as part of an Error group.
+_Avoid_: Error record, registry entry
+
+**Error group**:
+A reusable collection of Error declarations from which a Handler may select all or a subset of its Known errors.
+_Avoid_: Registry, namespace
+
+**Error factory**:
+A Handler-local function that synchronously creates a throwable for one selected Error declaration; any payload validation must finish before it leaves the Handler as a Known error.
+_Avoid_: Fail helper, error raiser
+
+**Error payload**:
+The fields of a Known error beside its tag and status. A schema-backed payload validates input and supplies transformed output; a declaration without a payload carries no fields beyond its tag and status.
+_Avoid_: Nested data, response envelope
 
 **Validation source**:
 One of the four request inputs a Handler may validate: `routerParams`, `query`, `headers`, `body`.
@@ -99,7 +115,7 @@ The Handler's second parameter: output-typed validated values, one key per decla
 _Avoid_: Parsed request, payload
 
 **Handler context**:
-The Umbrella Handler's second parameter: the Validated context's keys plus `fail` when Known errors are declared; the only door to validated values and to raising a Known error.
+The Umbrella Handler's second parameter: the Validated context's keys plus `errors` factories when Known errors are declared; the door to validated values and to creating a Known error.
 _Avoid_: Context object, helpers, second argument
 
 **Built-in validation-failed variant**:

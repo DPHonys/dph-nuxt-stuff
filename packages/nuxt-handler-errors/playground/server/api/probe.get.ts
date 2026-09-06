@@ -14,9 +14,9 @@ export default defineEventHandler(async (event) => {
       suspended.error,
       {
         'user-not-found': (e) => (declared = `user-not-found: ${e.userId}`),
-        'user-suspended': (e) => (declared = `user-suspended until ${e.until}`),
+        'user-suspended': (e) => (declared = `userSuspended until ${e.until}`),
         forbidden: (e) => (declared = `forbidden, needs ${e.requiredRole}`),
-        'rate-limited': (e) => (declared = `rate-limited for ${e.retryAfter}s`),
+        'rate-limited': (e) => (declared = `rateLimited for ${e.retryAfter}s`),
       },
       (err, unrecognized) =>
         (declared = unrecognized

@@ -8,15 +8,15 @@ import type {
   AnyKnownError,
   ConflictGuard,
   Defs,
+  ErrorFactories,
+  InputOfDef,
+  InputsOfDefs,
   KnownError,
   KnownErrorGroup,
   KnownErrorsOf,
-  KnownVariant,
-  Payload,
-  PayloadArgs,
-  SerializableDef,
-  SerializableDefs,
-  SerializablePayload,
+  ValidDef,
+  ValidDefs,
+  ValidTag,
   VariantDef,
   VariantOfDef,
   VariantsOf,
@@ -46,43 +46,30 @@ export type KnownErrorsOfHandler<T> =
       ? Exclude<E, undefined>
       : never
 
-/**
- * Raise one of the route's declared failures. Throws; returns `never`, so
- * `return fail(…)` contributes nothing to the inferred success type.
- */
-export type Fail<E extends KnownVariant> = <T extends E['tag']>(
-  tag: T,
-  ...payload: PayloadArgs<E, T>
-) => never
-
 /** The second argument a checked handler body receives. */
-export interface HandlerContext<E extends KnownVariant> {
-  fail: Fail<E>
+export interface HandlerContext<A extends readonly AnyKnownError[]> {
+  readonly errors: ErrorFactories<A>
 }
 
 /** A checked handler body. The success type infers from it with no annotation. */
 export type CheckedHandlerFn<
   Request extends EventHandlerRequest,
   Response,
-  E extends KnownVariant,
-> = (event: H3Event<Request>, ctx: HandlerContext<E>) => Response
+  A extends readonly AnyKnownError[],
+> = (event: H3Event<Request>, ctx: HandlerContext<A>) => Response
 
-export interface DefinePayload {
-  <T extends SerializablePayload<T>>(): Payload<T>
-}
-
-/** One function for one or many, with arity separating the overloads. */
+/** Declare single errors or spreadable groups. */
 export interface DefineError {
   /** One definition → one error value. */
   <Tag extends string, const D extends VariantDef>(
-    tag: Tag,
-    def: SerializableDef<D> & D
-  ): KnownError<VariantOfDef<Tag, D>>
+    tag: Tag & ValidTag<Tag>,
+    def: ValidDef<D> & D
+  ): KnownError<VariantOfDef<Tag, D>, InputOfDef<Tag, D>>
 
   /** Several definitions → a spreadable group. */
   <const D extends Defs>(
-    defs: SerializableDefs<D> & D
-  ): KnownErrorGroup<VariantsOf<D>>
+    defs: ValidDefs<D> & D
+  ): KnownErrorGroup<VariantsOf<D>, InputsOfDefs<D>>
 }
 
 // `Response` has no default type parameter on purpose: an explicit type
@@ -95,6 +82,6 @@ export interface DefineCheckedEventHandler {
     Request extends EventHandlerRequest = EventHandlerRequest,
   >(
     options: ConflictGuard<A> & { errors: A },
-    handler: CheckedHandlerFn<Request, Response, KnownErrorsOf<A>>
+    handler: CheckedHandlerFn<Request, Response, A>
   ): CheckedEventHandler<Request, Response, KnownErrorsOf<A>>
 }

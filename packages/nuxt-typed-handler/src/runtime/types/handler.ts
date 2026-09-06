@@ -1,10 +1,9 @@
-import type { defineCheckedEventHandler } from '@dphonys/nuxt-handler-errors/server'
 import type {
   CheckedEventHandler,
-  Fail,
-  KnownError,
+  AnyKnownError,
+  ConflictGuard,
+  HandlerContext,
   KnownErrorsOf,
-  KnownVariant,
 } from '@dphonys/nuxt-handler-errors/types'
 import type {
   RequestInput,
@@ -23,15 +22,13 @@ export interface ValidationFailed {
   issues: ValidationIssue[]
 }
 
-export type AnyKnownError = KnownError<KnownVariant>
+export type { AnyKnownError } from '@dphonys/nuxt-handler-errors/types'
 
 type HasValidate<S extends ValidationSchemas> = [keyof S] extends [never]
   ? false
   : true
 
-type HasErrors<A extends ReadonlyArray<AnyKnownError>> = [A[number]] extends [
-  never,
-]
+type HasErrors<A extends readonly AnyKnownError[]> = [A[number]] extends [never]
   ? false
   : true
 
@@ -52,25 +49,25 @@ export interface TypedEventHandler<
     CheckedEventHandler<Request, Response, Errors>,
     ValidatedEventHandler<Request, Response, Input> {}
 
-/** The validated sources, flat, plus `fail` exactly when `errors` is declared. */
+/** Validated sources plus factories for nonempty error declarations. */
 export type TypedContext<
   S extends ValidationSchemas,
-  A extends ReadonlyArray<AnyKnownError>,
+  A extends readonly AnyKnownError[],
 > = ValidatedContext<S> &
   (HasErrors<A> extends true
-    ? { fail: Fail<KnownErrorsOf<A>> }
+    ? HandlerContext<A>
     : // eslint-disable-next-line ts/no-empty-object-type
       {})
 
 /** The declared union, plus the built-in variant when the route validates. */
 export type TypedErrors<
   S extends ValidationSchemas,
-  A extends ReadonlyArray<AnyKnownError>,
+  A extends readonly AnyKnownError[],
 > = KnownErrorsOf<A> | (HasValidate<S> extends true ? ValidationFailed : never)
 
 export type TypedHandlerFn<
   S extends ValidationSchemas,
-  A extends ReadonlyArray<AnyKnownError>,
+  A extends readonly AnyKnownError[],
   Request extends EventHandlerRequest,
   Response,
 > = (event: H3Event<Request>, ctx: TypedContext<S, A>) => Response
@@ -81,7 +78,7 @@ export type TypedHandlerFn<
 /** Bare `{}` is a compile error: a route must declare something. */
 export type AtLeastOne<
   S extends ValidationSchemas,
-  A extends ReadonlyArray<AnyKnownError>,
+  A extends readonly AnyKnownError[],
 > =
   HasValidate<S> extends true
     ? // eslint-disable-next-line ts/no-empty-object-type
@@ -92,20 +89,13 @@ export type AtLeastOne<
       : { __declareSomething__: 'declare validate, errors, or both' }
 
 /** `validation-failed` belongs to the built-in variant on every umbrella route. */
-export type ReservedTagGuard<A extends ReadonlyArray<AnyKnownError>> =
+export type ReservedTagGuard<A extends readonly AnyKnownError[]> =
   'validation-failed' extends KnownErrorsOf<A>['tag']
     ? {
         __reservedErrorTag__: 'validation-failed is reserved for the built-in variant'
       }
     : // eslint-disable-next-line ts/no-empty-object-type
       {}
-
-// The errors parent's `ConflictGuard`, read off its wrapper's options type
-// because the parent's `/types` entry does not export the guard by name.
-type ConflictGuard<A extends ReadonlyArray<AnyKnownError>> = Omit<
-  Parameters<typeof defineCheckedEventHandler<A, EventHandlerResponse>>[0],
-  'errors'
->
 
 export type TypedHandlerOptions<
   S extends ValidationSchemas,
@@ -117,8 +107,6 @@ export type TypedHandlerOptions<
     errors?: A
   }
 
-// `Response` has no default type parameter on purpose: an explicit type
-// argument becomes an arity error instead of collapsing the success type.
 export interface DefineTypedEventHandler {
   <
     // `{}` is the "declared nothing" default: no key, so no source and no

@@ -1,39 +1,28 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { defineEventHandler } from 'h3'
+import type { EventHandlerRequest, H3Event } from 'h3'
 import type {
   DefineCheckedEventHandler,
   DefineError,
-  DefinePayload,
 } from '../../types/handler'
 import type {
+  AnyKnownError,
   Defs,
   KnownErrorGroup,
   KnownVariant,
   VariantDef,
 } from '../../types/known-error'
 import type { DeclaredError } from './declared'
-import {
-  byDistinctTag,
-  createFail,
-  knownErrorValue,
-  resolveDeclared,
-} from './declared'
+import { knownErrorValue, resolveDeclared } from './declared'
+import { createErrorContext } from './error-context'
 
-/**
- * Marks a variant's payload type: `payload<{ userId: string }>()`. The
- * runtime value is inert - only the type argument matters, checked against
- * what survives JSON serialization. A Standard Schema may sit in the same
- * position instead.
- */
-export const payload: DefinePayload = () => ({})
-
+// Record keys are unique, so a group never holds two entries for one tag.
 function buildGroup(
   entries: readonly DeclaredError[]
 ): KnownErrorGroup<KnownVariant> {
-  const distinct = byDistinctTag(entries)
-
-  return Object.assign(distinct.map(knownErrorValue), {
+  return Object.assign(entries.map(knownErrorValue), {
     pick: (...tags: readonly string[]) =>
-      buildGroup(distinct.filter((entry) => tags.includes(entry.tag))),
+      buildGroup(entries.filter((entry) => tags.includes(entry.tag))),
   }) as KnownErrorGroup<KnownVariant>
 }
 
@@ -45,8 +34,8 @@ function buildGroup(
  * const forbidden = defineError('forbidden', { status: 403 })
  *
  * const userErrors = defineError({
- *   'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
- *   'user-suspended': { status: 403, payload: payload<{ until: string }>() },
+ *   'user-not-found': { status: 404, payload: z.object({ userId: z.string() }) },
+ *   'user-suspended': { status: 403, payload: z.object({ until: z.string() }) },
  * })
  * ```
  */
@@ -55,44 +44,76 @@ export const defineError: DefineError = ((
   def?: VariantDef
 ): unknown => {
   if (typeof tagOrDefs === 'string') {
-    return knownErrorValue({
-      tag: tagOrDefs,
-      status: (def as VariantDef).status,
-    })
+    return knownErrorValue(declaration(tagOrDefs, def as VariantDef))
   }
-
+  if (!tagOrDefs || typeof tagOrDefs !== 'object' || Array.isArray(tagOrDefs)) {
+    throw new TypeError('[nuxt-handler-errors] invalid error definitions')
+  }
   return buildGroup(
-    Object.entries(tagOrDefs).map(([tag, entry]) => ({
-      tag,
-      status: entry.status,
-    }))
+    Object.entries(tagOrDefs).map(([tag, entry]) => declaration(tag, entry))
   )
 }) as DefineError
 
+// Mirrors the `IsTag` type: kebab-case, each `-` followed by a letter.
+const TAG = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/
+
+// The compile-time guards' answer for a JavaScript caller, kept to what a
+// typo would produce: a bad tag, a non-error status, a misspelt key, or a
+// payload that is not a Standard Schema.
+function declaration(tag: string, def: VariantDef): DeclaredError {
+  if (!TAG.test(tag)) {
+    throw new TypeError(
+      `[nuxt-handler-errors] error tag must be kebab-case, such as user-not-found: ${tag}`
+    )
+  }
+  if (
+    !def ||
+    typeof def !== 'object' ||
+    !Number.isInteger(def.status) ||
+    def.status < 400 ||
+    def.status > 599 ||
+    Object.keys(def).some((key) => key !== 'status' && key !== 'payload')
+  ) {
+    throw new TypeError('[nuxt-handler-errors] invalid error definition')
+  }
+  const schema = def.payload as StandardSchemaV1 | undefined
+  if (
+    schema !== undefined &&
+    typeof schema?.['~standard']?.validate !== 'function'
+  ) {
+    throw new TypeError(
+      `[nuxt-handler-errors] invalid Standard Schema for ${tag}`
+    )
+  }
+  return { tag, status: def.status, schema }
+}
+
 /**
- * Declare the failures a route can produce, and get a `fail` scoped to
- * exactly those. The returned handler is an ordinary h3 `EventHandler`.
+ * Declare handler-local error factories. The returned handler is an ordinary
+ * h3 `EventHandler`; a factory's result is a finished `H3Error` to throw.
  *
  * ```ts
  * export default defineCheckedEventHandler(
- *   { errors: [...userErrors, forbidden] },
- *   async (event, { fail }) => {
+ *   { errors: [defineError('not-found', { status: 404 })] },
+ *   async (event, { errors }) => {
  *     const userId = event.context.params?.id ?? ''
  *     const user = await lookup(userId)
- *     if (!user) return fail('user-not-found', { userId })
+ *     if (!user) throw errors.notFound()
  *     return user
  *   }
  * )
  * ```
  */
 export const defineCheckedEventHandler: DefineCheckedEventHandler = (
-  options,
-  handler
+  options: { errors: readonly AnyKnownError[] },
+  handler: (event: H3Event<EventHandlerRequest>, context: never) => any
 ) => {
-  const declared = resolveDeclared(options.errors)
-  const fail = createFail(declared)
+  const context = createErrorContext(resolveDeclared(options.errors))
 
-  // No cast on the way out: the brand is an optional property, so a plain
-  // `EventHandler` already inhabits `CheckedEventHandler`.
-  return defineEventHandler((event) => handler(event, { fail } as never))
+  // `async` so a synchronous throw surfaces as a rejection, the same as an
+  // async body's. No cast on the way out: the brand is an optional property,
+  // so a plain `EventHandler` already inhabits `CheckedEventHandler`.
+  return defineEventHandler<EventHandlerRequest, any>(async (event) =>
+    handler(event, context as never)
+  )
 }

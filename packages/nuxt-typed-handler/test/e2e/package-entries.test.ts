@@ -50,10 +50,9 @@ const PARENT_INTERNALS = {
     // errors `/internals/server`
     'createCheckedEventFetch',
     'createChannelStripHandler',
-    'createFail',
+    'createErrorContext',
     'createKnownError',
     'EventFetchUnavailableError',
-    'raiseKnown',
     'resolveDeclared',
     // errors `/internals/shared`
     'CHANNEL_HEADER',
@@ -205,14 +204,38 @@ describe('the published entries', () => {
       `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
       `import type { AtLeastOne, DefineTypedEventHandler, ReservedTagGuard, TypedContext, TypedErrors, TypedEventHandler, TypedHandlerFn, ValidationFailed } from '${TYPES_ENTRY}'`,
       `import type { $TypedFetch, KnownApiRequestInputs, RequestInputOfRoute, TypedEventFetch, TypedFetch, TypedFetchTry, TypedRequestOptions } from '${TYPES_ENTRY}'`,
-      `import type { CheckedEventHandler, Fail, KnownApiErrors, KnownErrorsOf, KnownErrorsOfHandler, KnownErrorsOfRoute, KnownVariant, TryResult } from '${TYPES_ENTRY}'`,
+      `import type { AnyKnownError, CheckedEventHandler, ErrorFactories, KnownApiErrors, KnownErrorsOf, KnownErrorsOfHandler, KnownErrorsOfRoute, KnownVariant, TryResult } from '${TYPES_ENTRY}'`,
       `import type { RequestInput, RequestInputOfHandler, ValidatedContext, ValidatedEventHandler, ValidationIssue, ValidationSchemas, ValidationSchemasGuard } from '${TYPES_ENTRY}'`,
-      `import { defineTypedEventHandler, defineError, payload, recognizeKnownError, recognizeValidationError } from '${SERVER_ENTRY}'`,
+      `import { defineTypedEventHandler, defineError, recognizeKnownError, recognizeValidationError } from '${SERVER_ENTRY}'`,
       `import { KNOWN_ERROR_KEY, matchError } from '${SHARED_ENTRY}'`,
-      `export type Probe = [ModuleOptions, AtLeastOne<{}, []>, DefineTypedEventHandler, ReservedTagGuard<[]>, TypedContext<{}, []>, TypedErrors<{}, []>, TypedEventHandler, TypedHandlerFn<{}, [], never, unknown>, ValidationFailed, CheckedEventHandler, Fail<never>, KnownApiErrors, KnownErrorsOf<[]>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, RequestInput<{}>, RequestInputOfHandler<never>, ValidatedContext<{}>, ValidatedEventHandler, ValidationIssue, ValidationSchemas, ValidationSchemasGuard<{}>, typeof defineTypedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof recognizeValidationError, typeof KNOWN_ERROR_KEY, typeof matchError, $TypedFetch, KnownApiRequestInputs, RequestInputOfRoute<'/api/users/:id'>, TypedEventFetch, TypedFetch, TypedFetchTry, TypedRequestOptions<'/api/users/:id', 'get'>]`,
+      `export type Probe = [ModuleOptions, AtLeastOne<{}, []>, DefineTypedEventHandler, ReservedTagGuard<[]>, TypedContext<{}, []>, TypedErrors<{}, []>, TypedEventHandler, TypedHandlerFn<{}, [], never, unknown>, ValidationFailed, AnyKnownError, CheckedEventHandler, ErrorFactories<[]>, KnownApiErrors, KnownErrorsOf<[]>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, RequestInput<{}>, RequestInputOfHandler<never>, ValidatedContext<{}>, ValidatedEventHandler, ValidationIssue, ValidationSchemas, ValidationSchemasGuard<{}>, typeof defineTypedEventHandler, typeof defineError, typeof recognizeKnownError, typeof recognizeValidationError, typeof KNOWN_ERROR_KEY, typeof matchError, $TypedFetch, KnownApiRequestInputs, RequestInputOfRoute<'/api/users/:id'>, TypedEventFetch, TypedFetch, TypedFetchTry, TypedRequestOptions<'/api/users/:id', 'get'>]`,
     ]
 
     expect(diagnosticsFor(probes.join('\n'))).toEqual([])
+  })
+
+  it('retains transforming schema inputs separately from flat outputs', () => {
+    expect(
+      diagnosticsFor(
+        [
+          `import { defineError, defineTypedEventHandler } from '${SERVER_ENTRY}'`,
+          `import type { ErrorFactories, KnownErrorsOfHandler } from '${TYPES_ENTRY}'`,
+          `import { z } from 'zod'`,
+          `type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false`,
+          `type Expect<T extends true> = T`,
+          `const errors = defineError({ expired: { status: 410, payload: z.string().transform(value => ({ until: new Date(value) })) } })`,
+          `type _input = Expect<Equal<Parameters<ErrorFactories<typeof errors>['expired']>, [payload: string]>>`,
+          `const handler = defineTypedEventHandler({ errors }, (_event, { errors }) => {`,
+          `  errors.expired('2026-01-01')`,
+          `  // @ts-expect-error factories accept schema input, not output`,
+          `  errors.expired({ until: new Date() })`,
+          `  return null`,
+          `})`,
+          `type Output = KnownErrorsOfHandler<typeof handler>`,
+          `type _output = Expect<Equal<{ [K in keyof Output]: Output[K] }, { tag: 'expired', status: 410, until: Date }>>`,
+        ].join('\n')
+      )
+    ).toEqual([])
   })
 
   it('keeps the request-typing helpers off the `/types` door', () => {

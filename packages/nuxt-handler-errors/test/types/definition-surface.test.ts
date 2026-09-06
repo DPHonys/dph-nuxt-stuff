@@ -4,10 +4,10 @@ import { z } from 'zod'
 import {
   defineCheckedEventHandler,
   defineError,
-  payload,
 } from '../../src/runtime/server'
 import type { KnownRaiseInput } from '../../src/runtime/shared/wire'
 import type {
+  ErrorFactories,
   KnownErrorsOf,
   KnownErrorsOfHandler,
 } from '../../src/runtime/types'
@@ -29,22 +29,26 @@ type Expect<T extends true> = T
 // Definitions, composed by array spread
 // ---------------------------------------------------------------------------
 
+const userId = z.object({ userId: z.string() })
+
 const userErrors = defineError({
-  'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
-  'user-suspended': { status: 403, payload: payload<{ until: string }>() },
+  'user-not-found': { status: 404, payload: userId },
+  'user-suspended': { status: 403, payload: z.object({ until: z.string() }) },
 })
 
 const orderErrors = defineError({
-  'order-cancelled': { status: 410, payload: payload<{ orderId: string }>() },
+  'order-cancelled': {
+    status: 410,
+    payload: z.object({ orderId: z.string() }),
+  },
   maintenance: { status: 503 },
 })
 
 const forbidden = defineError('forbidden', {
   status: 403,
-  payload: payload<{ requiredRole: 'admin' | 'owner' }>(),
+  payload: z.object({ requiredRole: z.enum(['admin', 'owner']) }),
 })
 
-/** The other door into the payload position: any Standard Schema value. */
 const rateLimited = defineError('rate-limited', {
   status: 429,
   payload: z.object({ retryAfter: z.number() }),
@@ -83,19 +87,19 @@ export type AssertSchemaPayload = Expect<
 
 export const wholeGroups = defineCheckedEventHandler(
   { errors: routeErrors },
-  (event, { fail }) => {
-    if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
-    if (event.path === 'b') return fail('forbidden', { requiredRole: 'admin' })
-    if (event.path === 'c') return fail('maintenance')
-    if (event.path === 'd') return fail('rate-limited', { retryAfter: 30 })
+  (event, { errors }) => {
+    if (event.path === 'a') throw errors.userNotFound({ userId: 'u1' })
+    if (event.path === 'b') throw errors.forbidden({ requiredRole: 'admin' })
+    if (event.path === 'c') throw errors.maintenance()
+    if (event.path === 'd') throw errors.rateLimited({ retryAfter: 30 })
     // @ts-expect-error - undeclared tag
-    if (event.path === 'e') return fail('nope')
+    if (event.path === 'e') throw errors.nope()
     // @ts-expect-error - wrong payload field type
-    if (event.path === 'f') return fail('user-suspended', { until: 42 })
+    if (event.path === 'f') throw errors.userSuspended({ until: 42 })
     // @ts-expect-error - a payload-less variant takes no second argument
-    if (event.path === 'g') return fail('maintenance', {})
+    if (event.path === 'g') throw errors.maintenance({})
     // @ts-expect-error - missing payload
-    if (event.path === 'h') return fail('order-cancelled')
+    if (event.path === 'h') throw errors.orderCancelled()
     return { ok: true }
   }
 )
@@ -106,10 +110,10 @@ export const wholeGroups = defineCheckedEventHandler(
 
 export const pickedSubset = defineCheckedEventHandler(
   { errors: [...userErrors.pick('user-not-found'), forbidden] },
-  (event, { fail }) => {
-    if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
+  (event, { errors }) => {
+    if (event.path === 'a') throw errors.userNotFound({ userId: 'u1' })
     // @ts-expect-error - `user-suspended` was not picked
-    if (event.path === 'b') return fail('user-suspended', { until: 'x' })
+    if (event.path === 'b') throw errors.userSuspended({ until: 'x' })
     return { ok: true }
   }
 )
@@ -161,7 +165,7 @@ export type AssertHandlerCarriesUnion = Expect<
   >
 >
 
-// `fail` returns `never`, so the success type infers clean off the body.
+// Throwing factory results leaves the inferred success type unpolluted.
 export type AssertSuccessUnpolluted = Expect<
   Equal<Awaited<ReturnType<typeof wholeGroups>>, { ok: boolean }>
 >
@@ -181,16 +185,16 @@ export type AssertAnyYieldsNever = Expect<
 // The divergence guard
 // ---------------------------------------------------------------------------
 
-// The same tag declared again, identically: the union collapses, nothing
-// yells.
+// The same tag declared again with the same status and schema: the union
+// collapses, nothing yells.
 const userErrorsAgain = defineError({
-  'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
+  'user-not-found': { status: 404, payload: userId },
 })
 
 export const identicalRedeclarationPasses = defineCheckedEventHandler(
   { errors: [...userErrors, ...userErrorsAgain] },
-  (event, { fail }) => {
-    if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
+  (event, { errors }) => {
+    if (event.path === 'a') throw errors.userNotFound({ userId: 'u1' })
     return { ok: true }
   }
 )
@@ -202,7 +206,7 @@ export type AssertIdenticalCollapses = Expect<
   >
 >
 
-// The same tag with a different shape breaks `fail`'s payload lookup and the
+// The same tag with a different shape breaks the factory payload lookup and the
 // matcher's arms, so the guard names the tag in the diagnostic.
 const conflictingUserErrors = defineError({ 'user-not-found': { status: 410 } })
 
@@ -230,35 +234,91 @@ export const raiseSiteCannotLeakTheTag: KnownRaiseInput<{
   data: { __knownError__: { tag: 'user-not-found', status: 404 } },
 }
 
-export function payloadMustSurviveSerialization(): void {
-  // @ts-expect-error - `bigint` makes `JSON.stringify` throw inside Nitro
-  payload<{ amount: bigint }>()
-}
-
 /**
- * The two doors into the payload position, held to one rule: whatever
- * `payload<T>()` rejects, a schema with the same inferred output is rejected
- * for too. `Date` is the accepted half on purpose - `Serialize` maps it to
- * `string`, so it survives the wire.
+ * Whatever a schema infers as its output must survive `JSON.stringify` inside
+ * Nitro without replacing the variant's tag and status. Nested `Date` fields
+ * are accepted because `Serialize` maps them to strings.
  */
-export function schemaOutputMustSurviveSerializationToo(): void {
+export function schemaOutputMustSurviveSerialization(): void {
+  // @ts-expect-error a root Date serializes away the variant tag and status
+  defineError('dated', { status: 400, payload: z.date() })
+  // @ts-expect-error root toJSON replaces the whole variant on the wire
+  defineError('custom', {
+    status: 400,
+    payload: z
+      .string()
+      .transform(() => ({ toJSON: () => ({ value: 'lost floor' }) })),
+  })
+  // @ts-expect-error groups reject root toJSON too
+  defineError({ dated: { status: 400, payload: z.date() } })
+  // @ts-expect-error a valid branch cannot hide a root toJSON branch
+  defineError('union', {
+    status: 400,
+    payload: z.union([z.object({ value: z.string() }), z.date()]),
+  })
+  // @ts-expect-error the reserved `tag` field cannot overwrite the floor
+  defineError('bad', { status: 404, payload: z.object({ tag: z.string() }) })
   defineError(
     'paid',
     // @ts-expect-error - the schema's inferred output has a `bigint` field
     { status: 402, payload: z.object({ amount: z.bigint() }) }
   )
 
-  // @ts-expect-error - `__unserializablePayloadField__` names the tag `paid`
+  // @ts-expect-error - `__invalidPayload__` names the tag `paid`
   defineError({
     paid: { status: 402, payload: z.object({ amount: z.bigint() }) },
   })
 }
 
+// ---------------------------------------------------------------------------
+// Tags are kebab-case: `user-not-found` on the wire, `errors.userNotFound`
+// ---------------------------------------------------------------------------
+
+export function tagsMustBeKebabCase(): void {
+  // @ts-expect-error - `__invalidTag__` names `userNotFound`
+  defineError('userNotFound', { status: 404 })
+  // @ts-expect-error - `__invalidTag__` names `userNotFound`
+  defineError({ userNotFound: { status: 404 } })
+  // @ts-expect-error - a leading digit is not a tag
+  defineError('404', { status: 404 })
+  // @ts-expect-error - an empty tag is not a tag
+  defineError('', { status: 404 })
+  // @ts-expect-error - a double separator
+  defineError('user--gone', { status: 404 })
+  // @ts-expect-error - a trailing separator
+  defineError('user-', { status: 404 })
+  // @ts-expect-error - a separator must be followed by a letter
+  defineError('a-1b', { status: 404 })
+  // @ts-expect-error - `_` and `$` are not tag characters
+  defineError('$ok_1', { status: 404 })
+  // @ts-expect-error - ASCII only: `Δ` is a JavaScript identifier, not a tag
+  defineError({ Δ: { status: 404 } })
+  // Kebab-case and single lowercase words are accepted verbatim.
+  defineError('user-not-found', { status: 404 })
+  defineError({ v2: { status: 404 }, 'rate-limited-v2': { status: 410 } })
+}
+
+/** The factory name is the tag in camelCase. */
+export type AssertFactoryNames = Expect<
+  Equal<
+    keyof ErrorFactories<typeof _factoryErrors>,
+    'userNotFound' | 'rateLimitedV2' | 'single'
+  >
+>
+
+const _factoryErrors = [
+  ...defineError({
+    'user-not-found': { status: 404 },
+    'rate-limited-v2': { status: 429 },
+    single: { status: 410 },
+  }),
+]
+
 const _datedErrors = defineError({
   'trial-expired': { status: 402, payload: z.object({ endedAt: z.date() }) },
 })
 
-/** Both doors agree on `Date`, and agree with what the wire really carries. */
+/** A nested `Date` field is typed as what the wire really carries. */
 export type AssertSchemaDateSurvives = Expect<
   Equal<
     Extract<
@@ -268,9 +328,6 @@ export type AssertSchemaDateSurvives = Expect<
     Date
   >
 >
-
-// The phantom door, on the same `T`: accepted, so the pair really is one rule.
-const _datedPhantom = payload<{ endedAt: Date }>()
 
 describe('the definition surface', () => {
   it('is asserted by the compiler, not by this suite', () => {

@@ -41,10 +41,12 @@ const userErrors = defineError({
 })
 
 describe('a route declaring only errors', () => {
-  it('raises a declared tag through `fail` as the errors parent does', async () => {
+  it('throws a declared factory result as the errors parent does', async () => {
     const handler = defineTypedEventHandler(
       { errors: [...userErrors] },
-      (_event, { fail }) => fail('user-not-found')
+      (_event, { errors }) => {
+        throw errors.userNotFound()
+      }
     )
 
     const response = await request(handler, '/api/test')
@@ -77,7 +79,7 @@ describe('a route declaring only errors', () => {
 })
 
 describe('a route declaring only validation', () => {
-  it('hands the handler exactly the validation parent’s context - no `fail`', async () => {
+  it('hands the handler exactly the validation parent’s context without factories', async () => {
     const handler = defineTypedEventHandler(
       { validate: { query: z.object({ page: z.coerce.number() }) } },
       (_event, context) => ({
@@ -164,23 +166,23 @@ describe('a route declaring both', () => {
       errors: [...userErrors],
     },
     (_event, context) => {
-      if (context.query.page > 1) return context.fail('forbidden')
+      if (context.query.page > 1) throw context.errors.forbidden()
 
       return { keys: Object.keys(context).toSorted(), page: context.query.page }
     }
   )
 
-  it('delivers the validated sources and `fail` in one flat context', async () => {
+  it('delivers the validated sources and factories in one flat context', async () => {
     const response = await request(both, '/api/test?page=1')
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
-      keys: ['fail', 'query'],
+      keys: ['errors', 'query'],
       page: 1,
     })
   })
 
-  it('raises a declared failure through `fail`', async () => {
+  it('throws a declared factory result', async () => {
     const response = await request(both, '/api/test?page=2')
 
     expect(response.status).toBe(403)
@@ -280,14 +282,13 @@ describe('declaration-time misuse', () => {
     )
   })
 
-  it('lets `fail("validation-failed")` hit the parent’s undeclared-tag Error', async () => {
-    // `declared` can never carry the tag, so the parent's plain `Error` is
-    // the whole answer - no umbrella wording, no marker.
+  it('does not expose a factory for the built-in validation variant', async () => {
     const handler = defineTypedEventHandler(
       { errors: [...userErrors] },
-      // Cast because the compile guard already refuses the tag.
-      (_event, { fail }) =>
-        (fail as (tag: string) => never)('validation-failed')
+      (_event, { errors }) => {
+        expect('validation-failed' in errors).toBe(false)
+        return null
+      }
     )
 
     const seen: unknown[] = []
@@ -295,11 +296,7 @@ describe('declaration-time misuse', () => {
       onError: (error) => seen.push(error),
     })
 
-    expect(response.status).toBe(500)
-    expect(seen[0]).toBeInstanceOf(Error)
-    expect((seen[0] as Error).message).toBe(
-      '[nuxt-handler-errors] undeclared error tag: validation-failed'
-    )
-    expect(recognizeKnownError(seen[0])).toBeUndefined()
+    expect(response.status).toBe(204)
+    expect(seen).toEqual([])
   })
 })

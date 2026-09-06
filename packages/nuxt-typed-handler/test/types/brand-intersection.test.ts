@@ -29,7 +29,6 @@ declare const defineTypedEventHandler: typeof import('../../src/runtime/server/l
 declare const defineCheckedEventHandler: typeof import('@dphonys/nuxt-handler-errors/server').defineCheckedEventHandler
 declare const defineValidatedEventHandler: typeof import('@dphonys/nuxt-handler-validation/server').defineValidatedEventHandler
 declare const defineError: typeof import('@dphonys/nuxt-handler-errors/server').defineError
-declare const payload: typeof import('@dphonys/nuxt-handler-errors/server').payload
 
 /** `[A] extends [B]`, so a union on the left is answered whole. */
 type Extends<A, B> = [A] extends [B] ? true : false
@@ -49,7 +48,7 @@ const pagination = z.object({ page: z.string().transform(Number) })
 
 export function bothDeclared() {
   const userErrors = defineError({
-    'user-exists': { status: 409, payload: payload<{ email: string }>() },
+    'user-exists': { status: 409, payload: z.object({ email: z.string() }) },
   })
 
   return defineTypedEventHandler(
@@ -57,8 +56,10 @@ export function bothDeclared() {
       validate: { body: createUser, query: pagination },
       errors: userErrors.pick('user-exists'),
     },
-    (_event, { body, fail }) =>
-      body.name === '' ? fail('user-exists', { email: '' }) : { ok: true }
+    (_event, { body, errors }) => {
+      if (body.name === '') throw errors.userExists({ email: '' })
+      return { ok: true }
+    }
   )
 }
 
@@ -74,7 +75,9 @@ export function errorsOnly() {
 
   return defineTypedEventHandler(
     { errors: userErrors.pick('user-not-found') },
-    (_event, { fail }) => fail('user-not-found')
+    (_event, { errors }) => {
+      throw errors.userNotFound()
+    }
   )
 }
 
@@ -84,7 +87,9 @@ export function parentChecked() {
 
   return defineCheckedEventHandler(
     { errors: userErrors.pick('gone') },
-    (_event, { fail }) => fail('gone')
+    (_event, { errors }) => {
+      throw errors.gone()
+    }
   )
 }
 

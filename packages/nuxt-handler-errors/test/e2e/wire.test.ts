@@ -143,7 +143,7 @@ describe('the known-failure wire', async () => {
 
     // One `toEqual`: the interesting mutations move more than one field.
     expect(body).toEqual({
-      declared: 'user-suspended until 2026-12-31',
+      declared: 'userSuspended until 2026-12-31',
       undeclared: 'unknown: 403',
       // The event-bound instance forwards the request's identity …
       cookieViaEvent: 'chocolate',
@@ -156,7 +156,7 @@ describe('the known-failure wire', async () => {
     const html = await $fetch<string>('/')
 
     // `useCheckedFetch` + `matchError`, with the arms exhaustive.
-    expect(html).toContain('user-suspended until 2026-12-31')
+    expect(html).toContain('userSuspended until 2026-12-31')
     // `useCheckedAsyncData` over a repository built on `$checkedFetch.try`.
     expect(html).toContain('forbidden, needs owner')
     // The imperative shape: `.try` inside a function that can return.

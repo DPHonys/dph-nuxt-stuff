@@ -41,27 +41,29 @@ afterAll(() => {
 
 /** Two definition modules for the same path, declaring genuinely different failures. */
 const DEFINITIONS_A = [
-  `import { defineError, payload } from '@dphonys/nuxt-handler-errors/server'`,
+  `import { defineError } from '@dphonys/nuxt-handler-errors/server'`,
+  `import { z } from 'zod'`,
   ``,
   `export const userErrors = defineError({`,
-  `  'user-not-found': { status: 404, payload: payload<{ userId: string, until: Date }>() },`,
+  `  'user-not-found': { status: 404, payload: z.object({ userId: z.string().transform(Number), until: z.date() }) },`,
   `  'user-suspended': { status: 403 },`,
   `})`,
   ``,
-  `export const firstTag = 'user-not-found'`,
+  `export const firstFactory = 'userNotFound'`,
   ``,
 ].join('\n')
 
 const DEFINITIONS_B = [
-  `import { defineError, payload } from '@dphonys/nuxt-handler-errors/server'`,
+  `import { defineError } from '@dphonys/nuxt-handler-errors/server'`,
+  `import { z } from 'zod'`,
   ``,
   `export const userErrors = defineError({`,
-  `  'account-locked': { status: 423, payload: payload<{ userId: string, until: Date }>() },`,
+  `  'account-locked': { status: 423, payload: z.object({ userId: z.string(), until: z.date() }) },`,
   `  'rate-limited': { status: 429 },`,
   `  'quota-exceeded': { status: 402 },`,
   `})`,
   ``,
-  `export const firstTag = 'account-locked'`,
+  `export const firstFactory = 'accountLocked'`,
   ``,
 ].join('\n')
 
@@ -76,13 +78,13 @@ function appFiles(definitions: string): Record<string, string> {
 
     'server/api/users/[id].get.ts': [
       `import { defineCheckedEventHandler } from '@dphonys/nuxt-handler-errors/server'`,
-      `import { firstTag, userErrors } from '../../errors/user'`,
+      `import { firstFactory, userErrors } from '../../errors/user'`,
       ``,
       `export default defineCheckedEventHandler(`,
       `  { errors: [...userErrors] },`,
-      `  (event, { fail }) => {`,
+      `  (event, { errors }) => {`,
       `    const id = event.path.slice(1)`,
-      `    if (id === '') return fail(firstTag, { userId: id, until: new Date() })`,
+      `    if (id === '') throw errors[firstFactory]({ userId: id, until: new Date() })`,
       `    return { id }`,
       `  },`,
       `)`,
@@ -287,7 +289,9 @@ describe('the emitted map', () => {
         ``,
         `type _tags = Expect<Equal<Declared['tag'], 'user-not-found' | 'user-suspended'>>`,
         `type _payload = Expect<`,
-        `  Equal<Extract<Declared, { tag: 'user-not-found' }>['userId'], string>>`,
+        `  Equal<Extract<Declared, { tag: 'user-not-found' }>['userId'], number>>`,
+        `type _serialized = Expect<Equal<Extract<Declared, { tag: 'user-not-found' }>['until'], string>>`,
+        `type _flat = Expect<Equal<'payload' extends keyof Declared ? true : false, false>>`,
         `type _notCollapsed = Expect<Equal<IsAny<Declared>, false>>`,
         `type _notEmpty = Expect<Equal<IsNever<Declared>, false>>`,
         `type _default = Expect<Equal<Defaulted['tag'], Declared['tag']>>`,
@@ -307,7 +311,8 @@ describe('the emitted map', () => {
 
       expect(rendered).toContain('"user-not-found"')
       expect(rendered).toContain('"user-suspended"')
-      expect(rendered).toContain('userId: string')
+      expect(rendered).toContain('userId: number')
+      expect(rendered).not.toContain('payload:')
     })
 
     it('applies Serialize around the extractor, so a Date arrives as a string', () => {

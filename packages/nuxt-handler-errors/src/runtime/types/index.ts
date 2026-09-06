@@ -10,6 +10,10 @@ export type {
 } from './fetch'
 
 export type {
+  AnyKnownError,
+  ConflictGuard,
+  ErrorFactories,
+  FactoryName,
   KnownError,
   KnownErrorGroup,
   KnownErrorsOf,
@@ -17,7 +21,11 @@ export type {
   VariantsOf,
 } from './known-error'
 
-export type { CheckedEventHandler, Fail, KnownErrorsOfHandler } from './handler'
+export type {
+  CheckedEventHandler,
+  HandlerContext,
+  KnownErrorsOfHandler,
+} from './handler'
 
 export type { Fallback, KnownErrorCarrier } from './matcher'
 

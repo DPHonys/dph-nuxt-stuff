@@ -10,11 +10,9 @@ matchError(
   fetchError,
   {
     'user-not-found': (e) => (fetched.value = `user-not-found: ${e.userId}`),
-    'user-suspended': (e) =>
-      (fetched.value = `user-suspended until ${e.until}`),
+    'user-suspended': (e) => (fetched.value = `userSuspended until ${e.until}`),
     forbidden: (e) => (fetched.value = `forbidden, needs ${e.requiredRole}`),
-    'rate-limited': (e) =>
-      (fetched.value = `rate-limited for ${e.retryAfter}s`),
+    'rate-limited': (e) => (fetched.value = `rateLimited for ${e.retryAfter}s`),
   },
   (err, unrecognized) =>
     (fetched.value = unrecognized
@@ -37,9 +35,9 @@ matchError(
   repoError,
   {
     'user-not-found': (e) => (repo.value = `user-not-found: ${e.userId}`),
-    'user-suspended': (e) => (repo.value = `user-suspended until ${e.until}`),
+    'user-suspended': (e) => (repo.value = `userSuspended until ${e.until}`),
     forbidden: (e) => (repo.value = `forbidden, needs ${e.requiredRole}`),
-    'rate-limited': (e) => (repo.value = `rate-limited for ${e.retryAfter}s`),
+    'rate-limited': (e) => (repo.value = `rateLimited for ${e.retryAfter}s`),
   },
   (err) => (repo.value = `unknown: ${err.status ?? 0}`)
 )

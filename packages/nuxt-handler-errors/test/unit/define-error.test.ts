@@ -1,161 +1,203 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import {
   defineCheckedEventHandler,
   defineError,
-  payload,
 } from '../../src/runtime/server'
-import { KNOWN_ERROR_KEY } from '../../src/runtime/shared'
 
-// The definition surface's runtime behaviour - only the paths no type
-// assertion can reach; the rest of the contract lives in
-// `test/types/definition-surface.test.ts`.
+const event = {} as H3Event
+
 describe('defined errors at runtime', () => {
-  const authErrors = defineError({
+  const auth = defineError({
     unauthorized: { status: 401 },
     forbidden: {
       status: 403,
-      payload: payload<{ requiredRole: 'admin' | 'owner' }>(),
+      payload: z.object({ requiredRole: z.enum(['admin', 'owner']) }),
     },
   })
-
   const maintenance = defineError('maintenance', { status: 503 })
 
-  it('raises a declared variant as a marked error', () => {
-    const thrown = catchThrown(
-      defineCheckedEventHandler(
-        { errors: [...authErrors, maintenance] },
-        (_event, { fail }) => fail('forbidden', { requiredRole: 'owner' })
-      )
+  it('throws flat marked errors from composed singles and groups', async () => {
+    const handler = defineCheckedEventHandler(
+      { errors: [...auth, maintenance] },
+      (_event, { errors }) => {
+        throw errors.forbidden({ requiredRole: 'owner' })
+      }
     )
-
-    expect(thrown).toMatchObject({
+    await expect(handler(event)).rejects.toMatchObject({
       statusCode: 403,
       message: 'forbidden',
+      statusMessage: undefined,
+      fatal: false,
+      unhandled: false,
       data: {
-        [KNOWN_ERROR_KEY]: {
+        __knownError__: {
           tag: 'forbidden',
           status: 403,
           requiredRole: 'owner',
         },
       },
     })
-
-    // The reason phrase survives an escaped server-to-server throw untouched,
-    // so the tag must never ride it.
-    expect(
-      (thrown as { statusMessage?: unknown }).statusMessage
-    ).toBeUndefined()
-
-    // Left alone, so the production serializer keeps `data`.
-    expect(thrown).toMatchObject({ fatal: false, unhandled: false })
   })
 
-  it('keeps the floor authoritative when a payload field collides with it', () => {
-    const thrown = catchThrown(
-      defineCheckedEventHandler(
-        { errors: [...authErrors] },
-        (_event, { fail }) =>
-          (fail as (tag: string, fields: Record<string, unknown>) => never)(
-            'unauthorized',
-            { tag: 'spoofed', status: 200 }
-          )
-      )
+  it('accepts callable Standard Schema implementations', async () => {
+    const callable: StandardSchemaV1<unknown, { amount: number }> =
+      Object.assign(() => {}, {
+        '~standard': {
+          version: 1 as const,
+          vendor: 'test',
+          validate: (input: unknown) => ({ value: { amount: Number(input) } }),
+        },
+      })
+    const conflict = defineError('conflict', { status: 409, payload: callable })
+    const handler = defineCheckedEventHandler(
+      { errors: [conflict] },
+      (_event, { errors }) => {
+        throw errors.conflict('42')
+      }
     )
-
-    expect(thrown).toMatchObject({
-      data: { [KNOWN_ERROR_KEY]: { tag: 'unauthorized', status: 401 } },
+    await expect(handler(event)).rejects.toMatchObject({
+      data: { __knownError__: { tag: 'conflict', status: 409, amount: 42 } },
     })
   })
 
-  it('narrows to the picked tags, and forgets the rest', () => {
-    const picked = authErrors.pick('unauthorized')
-
+  it('narrows runtime factories to picked tags', async () => {
+    const picked = auth.pick('unauthorized', 'unauthorized')
     expect(picked).toHaveLength(1)
-    expect(
-      catchThrown(
-        defineCheckedEventHandler({ errors: [...picked] }, (_event, { fail }) =>
-          fail('unauthorized')
-        )
+    expect(auth.pick()).toHaveLength(0)
+    const handler = defineCheckedEventHandler(
+      { errors: [...picked] },
+      (_event, { errors }) => {
+        expect(Object.keys(errors)).toEqual(['unauthorized'])
+        throw errors.unauthorized()
+      }
+    )
+    await expect(handler(event)).rejects.toMatchObject({ statusCode: 401 })
+  })
+
+  it('deduplicates identical declarations', async () => {
+    const handler = defineCheckedEventHandler(
+      { errors: [...auth, defineError('unauthorized', { status: 401 })] },
+      (_event, { errors }) => {
+        throw errors.unauthorized()
+      }
+    )
+    await expect(handler(event)).rejects.toMatchObject({ statusCode: 401 })
+  })
+
+  it('rejects foreign declarations and inline records at declaration time', () => {
+    expect(() =>
+      defineCheckedEventHandler({ errors: [...auth, {} as never] }, () => null)
+    ).toThrow(/errors\[2\]/)
+    expect(() =>
+      defineCheckedEventHandler(
+        { errors: { bad: { status: 404 } } as never },
+        () => null
       )
-    ).toMatchObject({
-      statusCode: 401,
-      data: { [KNOWN_ERROR_KEY]: { tag: 'unauthorized', status: 401 } },
+    ).toThrow(TypeError)
+  })
+
+  it.each([
+    null,
+    [],
+    { bad: null },
+    { bad: { status: 200 } },
+    { bad: { status: 404.5 } },
+    { bad: { status: 404, data: {} } },
+    { bad: { status: 404, payload: () => {} } },
+    { bad: { status: 404, payload: {} } },
+    { userNotFound: { status: 404 } },
+    { 'user--gone': { status: 404 } },
+    { 'user-': { status: 404 } },
+    { '-user': { status: 404 } },
+    { 'a-1b': { status: 404 } },
+    { '404': { status: 404 } },
+    { '': { status: 404 } },
+    { $ok_1: { status: 404 } },
+    { Δ: { status: 404 } },
+    {
+      bad: {
+        status: 404,
+        payload: { '~standard': { version: 1, vendor: 'test' } },
+      },
+    },
+  ])('rejects malformed definitions: %j', (definitions) => {
+    expect(() => defineError(definitions as never)).toThrow(TypeError)
+  })
+
+  it('rejects tags that are not kebab-case, on both forms', () => {
+    expect(() => defineError('userNotFound' as never, { status: 404 })).toThrow(
+      '[nuxt-handler-errors] error tag must be kebab-case, such as user-not-found: userNotFound'
+    )
+    expect(() =>
+      defineError({ userNotFound: { status: 404 } } as never)
+    ).toThrow(
+      'error tag must be kebab-case, such as user-not-found: userNotFound'
+    )
+    expect(() => defineError('user-not-found', { status: 404 })).not.toThrow()
+    expect(() => defineError('v2', { status: 404 })).not.toThrow()
+  })
+
+  it('names factories in camelCase from kebab-case tags', async () => {
+    const handler = defineCheckedEventHandler(
+      {
+        errors: [
+          ...defineError({
+            'user-not-found': { status: 404 },
+            'rate-limited-v2': { status: 429 },
+            single: { status: 410 },
+          }),
+        ],
+      },
+      (_event, { errors }) => {
+        expect(Object.keys(errors)).toEqual([
+          'userNotFound',
+          'rateLimitedV2',
+          'single',
+        ])
+        throw errors.rateLimitedV2()
+      }
+    )
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 429,
+      data: { __knownError__: { tag: 'rate-limited-v2', status: 429 } },
     })
-
-    // `forbidden` is gone from the picked group at runtime too, not only in
-    // its type.
-    const dropped = catchThrown(
-      defineCheckedEventHandler({ errors: [...picked] }, (_event, { fail }) =>
-        (fail as (tag: string) => never)('forbidden')
-      )
-    )
-
-    expect(dropped).toBeInstanceOf(Error)
-    expect((dropped as { data?: unknown }).data).toBeUndefined()
   })
 
-  it('holds one error per distinct tag, first occurrence winning', () => {
-    // Repetition is absorbed rather than rejected - a union dedupes itself, so
-    // the types stay silent and the runtime list must say the same thing.
-    expect(authErrors.pick('unauthorized', 'unauthorized')).toHaveLength(1)
-    expect(authErrors.pick()).toHaveLength(0)
-
-    const other = defineError({ unauthorized: { status: 401 } })
-    const thrown = catchThrown(
-      defineCheckedEventHandler(
-        { errors: [...authErrors, ...other] },
-        (_event, { fail }) => fail('unauthorized')
-      )
+  it('makes payload-less factories zero-argument, and rejects any argument', async () => {
+    const empty = defineError('empty', { status: 400 })
+    const handler = defineCheckedEventHandler(
+      { errors: [empty] },
+      (_event, { errors }) => {
+        throw errors.empty()
+      }
     )
-
-    expect(thrown).toMatchObject({ statusCode: 401 })
+    await expect(handler(event)).rejects.toMatchObject({
+      data: { __knownError__: { tag: 'empty', status: 400 } },
+    })
+    const withArgument = defineCheckedEventHandler(
+      { errors: [empty] },
+      (_event, { errors }) => {
+        throw (errors.empty as (...args: unknown[]) => never)({})
+      }
+    )
+    await expect(withArgument(event)).rejects.toThrow(
+      '[nuxt-handler-errors] invalid arguments for empty'
+    )
   })
 
-  it('refuses an error it did not create, at the moment it is declared', () => {
-    // The runtime half rides a module-private `Symbol()`, so a second physical
-    // copy of the package produces values this copy cannot read - right shape,
-    // wrong brand. The throw must land at declaration, before the route has
-    // served anything; skipping the entry would surface later as a false
-    // "undeclared tag" 500.
-    const foreign = {} as (typeof authErrors)[number]
-
-    expect(() =>
-      defineCheckedEventHandler(
-        { errors: [...authErrors, foreign] },
-        () => 'never'
-      )
-    ).toThrow(/errors\[2\] is not an error created by this copy/)
-
-    expect(() =>
-      defineCheckedEventHandler({ errors: [...authErrors] }, () => 'ok')
-    ).not.toThrow()
-  })
-
-  it('refuses an unknown tag without ever marking it', () => {
-    // Unreachable through the typed surface - a programming mistake must not
-    // arrive at a client wearing the marker that means "the server declared
-    // this".
-    const thrown = catchThrown(
-      defineCheckedEventHandler(
-        { errors: [...authErrors] },
-        (_event, { fail }) => (fail as (tag: string) => never)('mfa-required')
-      )
+  it('answers an unmarked 500 when a schema rejects the payload', async () => {
+    const rejected = defineCheckedEventHandler(
+      { errors: [...auth] },
+      (_event, { errors }) => {
+        throw errors.forbidden({ requiredRole: 42 } as never)
+      }
     )
-
-    expect(thrown).toBeInstanceOf(Error)
-    expect((thrown as Error).message).toContain('mfa-required')
-    expect((thrown as { data?: unknown }).data).toBeUndefined()
+    await expect(rejected(event)).rejects.toMatchObject({
+      statusCode: 500,
+      message: 'Invalid declared error payload',
+    })
   })
 })
-
-/** What a handler threw when invoked; `fail` needs nothing off the event. */
-function catchThrown(handler: (event: H3Event) => unknown): unknown {
-  try {
-    handler({} as H3Event)
-  } catch (error) {
-    return error
-  }
-
-  throw new Error('expected the handler to throw')
-}

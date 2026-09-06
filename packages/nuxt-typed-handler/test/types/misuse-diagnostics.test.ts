@@ -19,6 +19,9 @@ const diagnostics = compileFixture(FIXTURE_TSCONFIG, FIXTURE)
 /** TS2345 - an argument that does not fit its parameter. */
 const ARGUMENT_NOT_ASSIGNABLE = 2345
 
+/** TS2339 - a property read that the type does not have. */
+const PROPERTY_MISSING = 2339
+
 /** The reserved-tag sentence, verbatim. */
 const RESERVED_TAG = 'validation-failed is reserved for the built-in variant'
 
@@ -29,13 +32,24 @@ describe('the declaration guards’ diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(5)
+    expect(diagnostics).toHaveLength(6)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
-  it('never collapses into an overload paragraph', () => {
-    for (const diagnostic of diagnostics) {
-      expect(diagnostic.message).not.toContain('Overload')
+  it('retains the actionable guard sentences with a single signature', () => {
+    expect(diagnostics.some((diagnostic) => diagnostic.code === 2769)).toBe(
+      false
+    )
+    for (const guard of [
+      '__reservedErrorTag__',
+      '__declareSomething__',
+      'validation-declaration-error',
+      '__divergentErrorTag__',
+      '__invalidTag__',
+    ]) {
+      expect(
+        diagnostics.some((diagnostic) => diagnostic.message.includes(guard))
+      ).toBe(true)
     }
   })
 
@@ -45,7 +59,7 @@ describe('the declaration guards’ diagnostics', () => {
     expect(reserved?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
     expect(reserved?.message).toContain('__reservedErrorTag__')
     expect(reserved?.line).toBe(
-      lineContaining(FIXTURE, 'errors: [...userErrors, reserved]')
+      lineContaining(FIXTURE, '{ errors: [...userErrors, reserved] }')
     )
   })
 
@@ -57,28 +71,36 @@ describe('the declaration guards’ diagnostics', () => {
     expect(bare?.line).toBe(lineContaining(FIXTURE, '({}, () => null)'))
   })
 
-  it('refuses `fail("validation-failed")` against the declared tags alone', () => {
-    // The built-in variant is never in `fail`'s union, so the compiler's own
-    // sentence names exactly the declared tags - no umbrella wording needed.
-    const [reservedFail] = saying(
+  it('refuses a factory for the built-in validation variant', () => {
+    const [reservedFactory] = saying(
       diagnostics,
-      `Argument of type '"validation-failed"' is not assignable to parameter of type '"user-not-found" | "forbidden"'`
+      "Property 'validationFailed' does not exist"
     )
 
-    expect(reservedFail?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
-    expect(reservedFail?.line).toBe(
-      lineContaining(FIXTURE, "fail('validation-failed')")
+    expect(reservedFactory?.code).toBe(PROPERTY_MISSING)
+    expect(reservedFactory?.line).toBe(
+      lineContaining(FIXTURE, 'throw errors.validationFailed()')
     )
   })
 
-  it('still fires the validation parent’s stray-key sentence at the key', () => {
+  it('still fires the validation parent’s stray-key sentence at the call', () => {
     const [stray] = saying(
       diagnostics,
       "'boyd' is not a validation source - the sources are routerParams, query, headers and body"
     )
 
     expect(stray?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
-    expect(stray?.line).toBe(lineContaining(FIXTURE, 'boyd:'))
+    expect(stray?.line).toBe(lineContaining(FIXTURE, '      boyd:'))
+  })
+
+  it('still fires the errors parent’s kebab-tag guard at the declaration', () => {
+    const [invalid] = saying(diagnostics, '__invalidTag__')
+
+    expect(invalid?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(invalid?.message).toContain('userGone')
+    expect(invalid?.line).toBe(
+      lineContaining(FIXTURE, 'defineError({ userGone: { status: 410 } })')
+    )
   })
 
   it('still fires the errors parent’s divergent-tag guard at the declaration', () => {
@@ -86,7 +108,7 @@ describe('the declaration guards’ diagnostics', () => {
 
     expect(divergent?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
     expect(divergent?.line).toBe(
-      lineContaining(FIXTURE, 'errors: [...userErrors, ...conflicting]')
+      lineContaining(FIXTURE, '{ errors: [...userErrors, ...conflicting] }')
     )
   })
 })
