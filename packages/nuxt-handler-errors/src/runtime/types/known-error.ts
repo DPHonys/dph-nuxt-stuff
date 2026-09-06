@@ -154,7 +154,7 @@ export type IsTag<T extends string> = string extends T
       : false
     : false
 
-/** `user-not-found` → `user-not-found`: the property a tag's factory sits on. */
+/** `user-not-found` → `userNotFound`: the property a tag's factory sits on. */
 export type FactoryName<T extends string> =
   T extends `${infer Head}-${infer Tail}`
     ? `${Head}${Capitalize<FactoryName<Tail>>}`

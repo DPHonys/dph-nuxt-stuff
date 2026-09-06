@@ -108,7 +108,9 @@ describe('handler-local factories', () => {
       }),
     })
     const { errors } = createErrorContext(resolveDeclared([asynchronous]))
-    expect(() => errors.slow!(null)).toThrow(
+    const call = () => errors.slow!(null)
+    expect(call).toThrow(TypeError)
+    expect(call).toThrow(
       '[nuxt-handler-errors] the payload schema for slow validates asynchronously'
     )
   })
