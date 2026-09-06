@@ -18,6 +18,11 @@
   dir: packages/nuxt-handler-errors
   intents:
     - every-peaches-dream
+'@dphonys/nuxt-handler-errors@0.5.0':
+  dir: packages/nuxt-handler-errors
+  intents:
+    - local-error-factories
+    - nuxt-declared-as-peer
 '@dphonys/nuxt-handler-validation@0.1.0':
   dir: packages/nuxt-handler-validation
   intents:
@@ -30,3 +35,12 @@
   dir: packages/nuxt-handler-validation
   intents:
     - validation-internals-entries
+'@dphonys/nuxt-handler-validation@0.2.1':
+  dir: packages/nuxt-handler-validation
+  intents:
+    - nuxt-declared-as-peer
+'@dphonys/nuxt-typed-handler@0.1.0':
+  dir: packages/nuxt-typed-handler
+  intents:
+    - dull-pens-love
+    - local-error-factories
