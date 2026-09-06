@@ -1,5 +1,4 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { H3Event } from 'h3'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
@@ -7,10 +6,11 @@ import {
   defineError,
 } from '../../src/runtime/server'
 import type { ErrorFactory } from '../../src/runtime/server/lib/error-context'
+import { createTestEvent } from '../h3-event'
 
-// SAFETY: the handlers under test never read the event - only the second
-// argument, the factories, is exercised; a bare object stands in.
-const event = {} as H3Event
+// The handlers under test never read the event - only the second argument,
+// the factories, is exercised.
+const event = createTestEvent()
 
 describe('defined errors at runtime', () => {
   const auth = defineError({
@@ -91,17 +91,18 @@ describe('defined errors at runtime', () => {
   })
 
   it('rejects foreign declarations and inline records at declaration time', () => {
-    // SAFETY: a JavaScript caller's mistake, deliberately outside the type -
-    // the declaration guard under test rejects it before reading it as an
-    // error value.
-    const foreign = {} as never
-    // SAFETY: as above - a definition record where an errors array belongs.
-    const inline = { bad: { status: 404 } } as never
+    // A JavaScript caller's mistakes, deliberately outside the type: a bare
+    // object where an error value belongs, and a definition record where an
+    // errors array belongs. The declaration guard under test rejects both.
+    const foreign = {}
+    const inline = { bad: { status: 404 } }
 
     expect(() =>
+      // @ts-expect-error a bare object is not an error value
       defineCheckedEventHandler({ errors: [...auth, foreign] }, () => null)
     ).toThrow(/errors\[2\]/)
     expect(() =>
+      // @ts-expect-error a definition record is not an errors array
       defineCheckedEventHandler({ errors: inline }, () => null)
     ).toThrow(TypeError)
   })
@@ -126,32 +127,32 @@ describe('defined errors at runtime', () => {
       },
     },
   ])('rejects malformed definitions: %j', (definitions) => {
-    // SAFETY: each row is a JavaScript caller's malformed record, deliberately
+    // Each row is a JavaScript caller's malformed record, deliberately
     // outside the type; the guard under test rejects it before reading it as
     // definitions.
-    const malformed = definitions as never
-
-    expect(() => defineError(malformed)).toThrow(TypeError)
+    // @ts-expect-error a malformed definition record
+    expect(() => defineError(definitions)).toThrow(TypeError)
   })
 
   it('rejects tags that are not identifiers, on both forms', () => {
-    // SAFETY: tags the `ValidTag` guard refuses at compile time, handed in
-    // as a JavaScript caller would; the runtime guard under test refuses them
-    // the same way.
-    const kebab = 'user-not-found' as never
-    // SAFETY: as above, the record form.
-    const kebabRecord = { 'user-not-found': { status: 404 } } as never
-    // SAFETY: as above - ASCII only: a Unicode identifier is legal to
-    // JavaScript but not a tag.
-    const delta = 'Δ' as never
+    // Tags the `ValidTag` guard refuses at compile time, handed in as a
+    // JavaScript caller would; the runtime guard under test refuses them the
+    // same way. ASCII only: a Unicode identifier is legal to JavaScript but
+    // not a tag.
+    const kebabRecord = { 'user-not-found': { status: 404 } }
 
-    expect(() => defineError(kebab, { status: 404 })).toThrow(
+    expect(() =>
+      // @ts-expect-error a kebab-case tag is not an identifier
+      defineError('user-not-found', { status: 404 })
+    ).toThrow(
       '[nuxt-handler-errors] error tag must be a valid identifier: user-not-found'
     )
+    // @ts-expect-error a kebab-case tag is not an identifier, record form
     expect(() => defineError(kebabRecord)).toThrow(
       'error tag must be a valid identifier: user-not-found'
     )
-    expect(() => defineError(delta, { status: 404 })).toThrow(
+    // @ts-expect-error a Unicode identifier is not a tag
+    expect(() => defineError('Δ', { status: 404 })).toThrow(
       'error tag must be a valid identifier: Δ'
     )
     expect(() => defineError('$ok_1', { status: 404 })).not.toThrow()
@@ -187,11 +188,10 @@ describe('defined errors at runtime', () => {
     const rejected = defineCheckedEventHandler(
       { errors: [...auth] },
       (_event, { errors }) => {
-        // SAFETY: a payload the schema refuses, deliberately outside its input
-        // type; the factory validates it at runtime, which is the claim.
-        const rejectedRole = { requiredRole: 42 } as never
-
-        throw errors.forbidden(rejectedRole)
+        // A payload the schema refuses, deliberately outside its input type;
+        // the factory validates it at runtime, which is the claim.
+        // @ts-expect-error a role the schema's enum does not name
+        throw errors.forbidden({ requiredRole: 42 })
       }
     )
     await expect(rejected(event)).rejects.toMatchObject({

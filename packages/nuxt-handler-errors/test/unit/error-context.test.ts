@@ -1,5 +1,4 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { H3Event } from 'h3'
 import { createError, H3Error } from 'h3'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -12,10 +11,11 @@ import {
   defineError,
 } from '../../src/runtime/server'
 import type { ErrorFactory } from '../../src/runtime/server/lib/error-context'
+import { createTestEvent } from '../h3-event'
 
-// SAFETY: the handlers under test never read the event - only the second
-// argument, the factories, is exercised; a bare object stands in.
-const event = {} as H3Event
+// The handlers under test never read the event - only the second argument,
+// the factories, is exercised.
+const event = createTestEvent()
 
 const schema = (
   validate: StandardSchemaV1<
@@ -48,23 +48,16 @@ type Junk =
 /**
  * A schema whose declared output is clean, so the definition compiles, and
  * whose runtime value is whatever `produce` says - the factory's own
- * validation of the output is what is under test.
+ * validation of the output is what is under test. The lie is zod's own: a
+ * preprocess that answers the junk, into a custom type that checks nothing.
  */
 function lyingSchema(
   produce: () => Junk
 ): StandardSchemaV1<unknown, { amount: number }> {
-  const lying: StandardSchemaV1<unknown, Junk> = {
-    '~standard': {
-      version: 1,
-      vendor: 'test',
-      validate: () => ({ value: produce() }),
-    },
-  }
-
-  // SAFETY: lying on purpose - the output type is the definition's
-  // compile-time claim, and the runtime value deliberately breaks it; that
-  // gap is the subject of every test using this schema.
-  return lying as StandardSchemaV1<unknown, { amount: number }>
+  return z.preprocess(
+    () => produce(),
+    z.custom<{ amount: number }>(() => true)
+  )
 }
 
 describe('handler-local factories', () => {

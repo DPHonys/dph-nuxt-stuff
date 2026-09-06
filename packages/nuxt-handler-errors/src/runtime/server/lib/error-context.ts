@@ -43,10 +43,15 @@ function payloadError(
 /** One handler-local factory: the declared payload in, a finished `H3Error` out. */
 export type ErrorFactory = (...args: any[]) => H3Error
 
+/** The handler context as the runtime builds it: one factory per declared tag. */
+export interface ErrorContext {
+  readonly errors: Record<string, ErrorFactory>
+}
+
 /** Internal composition seam. Resolve declarations before constructing context. */
-export function createErrorContext(declared: readonly DeclaredError[]): {
-  errors: Record<string, ErrorFactory>
-} {
+export function createErrorContext(
+  declared: readonly DeclaredError[]
+): ErrorContext {
   // Prototype-less, so a tag like `constructor` is an own factory and nothing
   // else; `Object.create(null)` is untyped, and the annotation types it.
   const errors: Record<string, ErrorFactory> = Object.create(null)

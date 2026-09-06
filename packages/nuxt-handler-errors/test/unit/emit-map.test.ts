@@ -167,12 +167,14 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   it('files an empty method under `default`, as Nitro’s `||` does', () => {
     // Nitro writes `mw.method || "default"`. `??` would file this under `''`
     // and the route would answer on no method at all.
-    // SAFETY: Nitro's type names the router methods, but the scanner writes
-    // `''` for a file that names none - the emitter takes what arrives.
-    const method = '' as NonNullable<NitroEventHandler['method']>
-
     const emitted = emitMap(
-      [{ route: '/api/blank', method, handler: '/app/server/api/blank.ts' }],
+      [
+        {
+          route: '/api/blank',
+          method: '',
+          handler: '/app/server/api/blank.ts',
+        },
+      ],
       { nitroOptions: NITRO }
     )
 
@@ -184,15 +186,11 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
     // Filesystem scanning guarantees lowercase; `addServerHandler` does not,
     // and modules hand it `'POST'`. The lookup side normalises with
     // `Lowercase<M>`, so an uppercased key here would never be found.
-    // SAFETY: Nitro's type says lowercase, but `addServerHandler` forwards
-    // a module's `'POST'` verbatim - the emitter takes what arrives.
-    const method = 'POST' as NonNullable<NitroEventHandler['method']>
-
     const emitted = emitMap(
       [
         {
           route: '/api/programmatic',
-          method,
+          method: 'POST',
           handler: '/app/server/api/programmatic.ts',
         },
       ],
@@ -251,13 +249,17 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   it('skips middleware and any handler that is not a path', () => {
     // Nitro's own guard: a route-less entry is middleware, and a dev handler
     // carries a function rather than a path.
+    // Nitro's own entry for middleware, flag and all: its handler types are
+    // what the emitter admits.
+    const middleware: NitroEventHandler = {
+      route: '',
+      handler: '/app/server/middleware/auth.ts',
+      middleware: true,
+    }
+
     const emitted = emitMap(
       [
-        {
-          route: '',
-          handler: '/app/server/middleware/auth.ts',
-          middleware: true,
-        },
+        middleware,
         {
           route: '/api/live',
           handler: eventHandler(() => {}),

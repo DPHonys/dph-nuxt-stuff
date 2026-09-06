@@ -3,12 +3,9 @@
 // handler PATHS, never definition content - anything resolving values at emit
 // time goes stale with no watcher that would fix it.
 
+import type { EventHandler } from 'h3'
 import { resolveNitroPath } from 'nitropack/kit'
-import type {
-  Nitro,
-  NitroDevEventHandler,
-  NitroEventHandler,
-} from 'nitropack/types'
+import type { Nitro } from 'nitropack/types'
 import { isAbsolute, relative, resolve } from 'pathe'
 import * as v from 'valibot'
 
@@ -79,6 +76,24 @@ export const KNOWN_ERRORS_SLOT: EmitMapSlot = {
     `Simplify<Serialize<KnownErrorsOfHandler<${handlerType}>>>`,
 }
 
+/**
+ * A handler entry as the emitter reads it - the slice of Nitro's
+ * `NitroEventHandler` and `NitroDevEventHandler` it touches. `method` is a
+ * plain string: the filesystem scanner writes `''` for a file naming none,
+ * and `addServerHandler` forwards a module's `'POST'` verbatim.
+ */
+export interface HandlerEntry {
+  readonly route?: string
+  readonly method?: string
+  /** A path for a scanned handler; a dev handler carries the function itself. */
+  readonly handler: string | EventHandler
+}
+
+/** A handler entry with a path to emit a type for. */
+export interface ScannedHandlerEntry extends HandlerEntry {
+  readonly handler: string
+}
+
 export interface EmitMapOptions {
   /** Nitro's resolved options - `nitro.options` from the `nitro:init` closure. */
   readonly nitroOptions: NitroPathOptions
@@ -96,7 +111,7 @@ export interface EmitMapOptions {
  * `never` naturally.
  */
 export function emitMap(
-  handlers: readonly (NitroEventHandler | NitroDevEventHandler)[],
+  handlers: readonly HandlerEntry[],
   options: EmitMapOptions
 ): string {
   const { nitroOptions } = options
@@ -136,9 +151,7 @@ export function emitMap(
 
 // Nitro's own guard: a dev handler carries a function rather than a path,
 // and has no route type to emit.
-function isScanned(
-  handler: NitroEventHandler | NitroDevEventHandler
-): handler is NitroEventHandler {
+function isScanned(handler: HandlerEntry): handler is ScannedHandlerEntry {
   return v.is(v.string(), handler.handler)
 }
 

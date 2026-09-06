@@ -7,9 +7,9 @@ import type { AsyncDataHandler } from '#app/composables/asyncData'
 import {
   useCheckedAsyncData,
   useLazyCheckedAsyncData,
+  wrapRawAsyncData,
 } from '../../src/runtime/app/composables/use-checked-async-data'
-import type { RawUseAsyncData } from '../../src/runtime/app/composables/use-checked-async-data'
-import { asyncDataCalls } from '../doubles/nuxt-app'
+import { asyncDataCalls, useAsyncData } from '../doubles/nuxt-app'
 
 // The wrapper must replace the right argument (vanilla's own split, not
 // "argument 0"), forward everything else by reference, and the substituted
@@ -129,11 +129,10 @@ describe('the delegation', () => {
   })
 
   it('keeps a compiler-injected auto-key in vanilla last position', async () => {
-    // What `optimization.keyedComposables` produces: the key appended last.
-    // SAFETY: the injected auto-key sits after the public overloads' last
-    // parameter; `RawUseAsyncData` is the variadic signature the wrapper
-    // under `useCheckedAsyncData` implements, and vanilla's runtime reads.
-    const keyless = useCheckedAsyncData as RawUseAsyncData
+    // What `optimization.keyedComposables` produces: the key appended last,
+    // after the public overloads' last parameter - so the raw wrapper, the
+    // variadic signature vanilla's runtime reads, is what takes it.
+    const keyless = wrapRawAsyncData(useAsyncData)
 
     keyless(async () => ({ data: user, error: undefined }), {}, '$auto')
 

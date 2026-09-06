@@ -1,5 +1,5 @@
 import { loadNuxt, logger } from '@nuxt/kit'
-import type { Nuxt, NuxtTemplate } from '@nuxt/schema'
+import type { Nuxt } from '@nuxt/schema'
 import type { Nitro } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -7,15 +7,11 @@ import { addChannelStripErrorHandler } from '../../src/build/channel-strip'
 import {
   addChannelToken,
   normalizeChannelToken,
+  renderChannelToken,
 } from '../../src/build/channel-token'
+import type { ErrorHandlerHost } from '../../src/build/error-handler-warning'
 import { warnCustomErrorHandler } from '../../src/build/error-handler-warning'
-
-type TemplateData = Parameters<NonNullable<NuxtTemplate['getContents']>>[0]
-
-// SAFETY: the channel-token template renders a constant and reads nothing
-// off `data`; the bare object stands in for a render context this suite
-// never builds.
-const NO_TEMPLATE_DATA = {} as TemplateData
+import { templateData } from '../template-data'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
 
@@ -92,6 +88,21 @@ describe('normalizeChannelToken', () => {
   })
 })
 
+describe('renderChannelToken', () => {
+  it('renders the token as one exported constant, or `undefined`', () => {
+    expect(renderChannelToken('tok')).toBe(
+      'export const configuredChannelToken = "tok"\n'
+    )
+    // JSON-quoted, so a token with a quote in it stays one string literal.
+    expect(renderChannelToken('say "hi"')).toBe(
+      'export const configuredChannelToken = "say \\"hi\\""\n'
+    )
+    expect(renderChannelToken(undefined)).toBe(
+      'export const configuredChannelToken = undefined\n'
+    )
+  })
+})
+
 describe('addChannelToken', () => {
   it('writes the template and aliases it on both builds under the caller’s name', async () => {
     let specifier: string | undefined
@@ -107,7 +118,8 @@ describe('addChannelToken', () => {
       )
 
       expect(template?.write).toBe(true)
-      expect(template?.getContents?.(NO_TEMPLATE_DATA)).toBe(
+      expect(template).toBeDefined()
+      expect(template?.getContents?.(templateData(nuxt, template))).toBe(
         'export const configuredChannelToken = "tok"\n'
       )
 
@@ -129,7 +141,8 @@ describe('addChannelToken', () => {
         (entry) => entry.filename === 'other-name/channel-token.mjs'
       )
 
-      expect(template?.getContents?.(NO_TEMPLATE_DATA)).toBe(
+      expect(template).toBeDefined()
+      expect(template?.getContents?.(templateData(nuxt, template))).toBe(
         'export const configuredChannelToken = undefined\n'
       )
     } finally {
@@ -199,12 +212,10 @@ describe('addChannelStripErrorHandler', () => {
 
 describe('warnCustomErrorHandler', () => {
   it('warns under the caller’s prefix only when a handler is set', async () => {
-    // SAFETY: `warnCustomErrorHandler` reads `options.nitro.errorHandler`
-    // and nothing else off the instance; the two stand-ins carry exactly
-    // that.
-    const unset = { options: { nitro: {} } } as Nuxt
-    // SAFETY: as above, with the handler set.
-    const set = { options: { nitro: { errorHandler: '~/one' } } } as Nuxt
+    const unset: ErrorHandlerHost = { options: { nitro: {} } }
+    const set: ErrorHandlerHost = {
+      options: { nitro: { errorHandler: '~/one' } },
+    }
 
     const warnings = await warningsDuring(async () => {
       warnCustomErrorHandler(unset, 'other-name')

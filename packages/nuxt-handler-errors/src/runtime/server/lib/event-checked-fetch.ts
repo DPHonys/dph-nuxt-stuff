@@ -109,5 +109,6 @@ export function createCheckedEventFetch<Body>(
   // SAFETY: `CheckedFetch` is vanilla's route-typed call plus `.try`; both
   // members forward to `event.$fetch` with only headers added, so the
   // route-typed claims are the ones Nitro already makes for `event.$fetch`.
+  // `Body` is the instance-level claim, restated per route by the overloads.
   return checked as CheckedFetch
 }

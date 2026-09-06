@@ -35,3 +35,8 @@ export const $checkedFetch: $CheckedFetch = createCheckedFetchWith(
   lazyGlobalFetch,
   bound(new Headers())
 )
+
+/** The one thing both global plugins do: put `$checkedFetch` on `globalThis`. */
+export function installCheckedFetchGlobal(): void {
+  globalThis.$checkedFetch = $checkedFetch
+}

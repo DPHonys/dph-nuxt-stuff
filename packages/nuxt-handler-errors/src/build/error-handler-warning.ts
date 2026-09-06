@@ -1,9 +1,17 @@
 import { logger } from '@nuxt/kit'
-import type { Nuxt } from '@nuxt/schema'
+import type { NitroConfig } from 'nitropack/types'
+
+/** What the warning reads off Nuxt: whether a custom Nitro error handler is set. */
+export interface ErrorHandlerHost {
+  options: { nitro: { errorHandler?: NitroConfig['errorHandler'] } }
+}
 
 // Call at setup, before Nuxt fills the empty slot with its own handler, so
 // the entries seen are exactly the consumer's.
-export function warnCustomErrorHandler(nuxt: Nuxt, name: string): void {
+export function warnCustomErrorHandler(
+  nuxt: ErrorHandlerHost,
+  name: string
+): void {
   if (nuxt.options.nitro.errorHandler === undefined) return
 
   logger.warn(

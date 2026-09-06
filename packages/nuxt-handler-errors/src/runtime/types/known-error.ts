@@ -80,7 +80,7 @@ export type InputsOfDefs<D extends Defs> = {
   [K in keyof D & (string | number)]: InputOfDef<`${K}`, D[K]>
 }[keyof D & (string | number)]
 
-interface FactoryInput {
+export interface FactoryInput {
   tag: string
   input: (...args: any[]) => any
   output: (value: any) => any

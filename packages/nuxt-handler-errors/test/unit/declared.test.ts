@@ -66,11 +66,10 @@ describe('resolveDeclared', () => {
   })
 
   it('rejects foreign values at the offending index before serving requests', () => {
-    for (const value of [{}, null, undefined]) {
-      // SAFETY: deliberately not a value of this module's making - the
-      // identity check under test is what refuses it.
-      const foreign = value as never
-
+    for (const foreign of [{}, null, undefined]) {
+      // Deliberately not a value of this module's making - the identity check
+      // under test is what refuses it.
+      // @ts-expect-error not an error value of this module's making
       expect(() => resolveDeclared([...auth, foreign])).toThrow(
         /errors\[2\] is not an error created by this copy/
       )

@@ -22,6 +22,13 @@ export function normalizeChannelToken(
     : channelToken
 }
 
+/** The module the alias resolves to: one constant, the configured token. */
+export function renderChannelToken(token: string | undefined): string {
+  return `export const configuredChannelToken = ${
+    token === undefined ? 'undefined' : JSON.stringify(token)
+  }\n`
+}
+
 // An alias rather than a published entry: the value only exists inside a
 // build. Returns the alias.
 export function addChannelToken(
@@ -36,10 +43,7 @@ export function addChannelToken(
   const template = addTemplate({
     filename: `${name}/channel-token.mjs`,
     write: true,
-    getContents: () =>
-      `export const configuredChannelToken = ${
-        token === undefined ? 'undefined' : JSON.stringify(token)
-      }\n`,
+    getContents: () => renderChannelToken(token),
   })
 
   nuxt.options.alias[specifier] = template.dst

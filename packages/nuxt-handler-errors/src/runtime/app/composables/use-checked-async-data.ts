@@ -159,16 +159,14 @@ export type RawUseAsyncData = (
   ...args: readonly VanillaAsyncDataArg[]
 ) => VanillaAsyncDataResult
 
-// The returned shape is vanilla's runtime signature: the module layer that
-// binds it owns the typed face, and applies it with one cast.
-export function wrapVanillaAsyncData(
-  vanilla: typeof useAsyncData
-): RawUseAsyncData {
-  // SAFETY: vanilla reads its arguments positionally and accepts the
-  // compiler-injected trailing auto-key that none of its public overloads
-  // declares; the variadic signature is the one its runtime implements.
-  const delegate = vanilla as RawUseAsyncData
-
+/**
+ * The wrapper over vanilla's variadic runtime signature, generic in what the
+ * delegate answers so a recording double wraps as readily as vanilla. This
+ * is the shape `wrapVanillaAsyncData` puts the typed face on.
+ */
+export function wrapRawAsyncData<Result>(
+  delegate: (...args: readonly VanillaAsyncDataArg[]) => Result
+): (...args: readonly VanillaAsyncDataArg[]) => Result {
   return (...args) => {
     const at = handlerIndex(args)
     const handler = args[at]
@@ -193,6 +191,26 @@ export function wrapVanillaAsyncData(
 }
 
 /**
+ * Vanilla `useAsyncData` (or its lazy twin) wrapped and given the checked
+ * face: the overloads are vanilla's own with the handler's try-shape swapped
+ * for its unwrapped success.
+ */
+export function wrapVanillaAsyncData(
+  vanilla: typeof useAsyncData
+): UseCheckedAsyncData {
+  // SAFETY: vanilla reads its arguments positionally and accepts the
+  // compiler-injected trailing auto-key that none of its public overloads
+  // declares; the variadic signature is the one its runtime implements.
+  const delegate = vanilla as RawUseAsyncData
+
+  // SAFETY: the overloads are vanilla's own with the handler's try-shape
+  // swapped for its unwrapped success; the wrapper forwards every argument
+  // and only substitutes the handler, so vanilla's runtime honours each of
+  // them.
+  return wrapRawAsyncData(delegate) as UseCheckedAsyncData
+}
+
+/**
  * Drop-in `useAsyncData` whose handler returns `.try` results instead of
  * throwing: the handler's declared union lands typed on the `error` ref,
  * `data` is the unwrapped success, and `matchError(error, …)` is the one
@@ -204,19 +222,11 @@ export function wrapVanillaAsyncData(
  * )
  * ```
  */
-// SAFETY: the overloads are vanilla's own with the handler's try-shape swapped
-// for its unwrapped success; the wrapper forwards every argument and only
-// substitutes the handler, so vanilla's runtime honours each of them.
-export const useCheckedAsyncData = wrapVanillaAsyncData(
-  useAsyncData
-) as UseCheckedAsyncData
+export const useCheckedAsyncData = wrapVanillaAsyncData(useAsyncData)
 
 /**
  * The lazy twin. Delegates to Nuxt's own `useLazyAsyncData` rather than
  * passing `lazy: true`, so Nuxt's dev-mode data diagnostics tag the call
  * correctly.
  */
-// SAFETY: as for `useCheckedAsyncData` - the same wrapper over the lazy twin.
-export const useLazyCheckedAsyncData = wrapVanillaAsyncData(
-  useLazyAsyncData
-) as UseCheckedAsyncData
+export const useLazyCheckedAsyncData = wrapVanillaAsyncData(useLazyAsyncData)

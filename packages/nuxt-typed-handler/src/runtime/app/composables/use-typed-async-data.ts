@@ -14,20 +14,13 @@ import type { UseTypedAsyncData } from '../../types/composables'
  * )
  * ```
  */
-// SAFETY: the wrapper is vanilla's own variadic runtime signature, every
-// argument forwarded to `useAsyncData` with only the handler rewrapped.
-// `UseTypedAsyncData` is the parent's `UseCheckedAsyncData`, the signature
-// the parent applies to this same wrapper.
-export const useTypedAsyncData = wrapVanillaAsyncData(
-  useAsyncData
-) as UseTypedAsyncData
+export const useTypedAsyncData: UseTypedAsyncData =
+  wrapVanillaAsyncData(useAsyncData)
 
 /**
  * The lazy twin. Delegates to Nuxt's own `useLazyAsyncData` rather than
  * passing `lazy: true`, so Nuxt's dev-mode data diagnostics tag the call
  * correctly.
  */
-// SAFETY: as above, over `useLazyAsyncData`.
-export const useLazyTypedAsyncData = wrapVanillaAsyncData(
-  useLazyAsyncData
-) as UseTypedAsyncData
+export const useLazyTypedAsyncData: UseTypedAsyncData =
+  wrapVanillaAsyncData(useLazyAsyncData)

@@ -1,27 +1,41 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { defineEventHandler } from 'h3'
-import type { EventHandlerRequest, H3Event } from 'h3'
+import type {
+  EventHandler,
+  EventHandlerRequest,
+  EventHandlerResponse,
+  H3Event,
+} from 'h3'
 import * as v from 'valibot'
 import { isPlainObject } from '../../shared/plain-object'
-import type {
-  DefineCheckedEventHandler,
-  DefineError,
-} from '../../types/handler'
+import type { CheckedEventHandler, CheckedHandlerFn } from '../../types/handler'
 import type {
   AnyKnownError,
+  ConflictGuard,
   Defs,
+  FactoryInput,
+  InputOfDef,
+  InputsOfDefs,
+  KnownError,
   KnownErrorGroup,
+  KnownErrorsOf,
   KnownVariant,
+  ValidDef,
+  ValidDefs,
+  ValidTag,
   VariantDef,
+  VariantOfDef,
+  VariantsOf,
 } from '../../types/known-error'
 import type { DeclaredError } from './declared'
 import { knownErrorValue, resolveDeclared } from './declared'
+import type { ErrorContext } from './error-context'
 import { createErrorContext } from './error-context'
 
 // Record keys are unique, so a group never holds two entries for one tag.
 function buildGroup(
   entries: readonly DeclaredError[]
-): KnownErrorGroup<KnownVariant> {
+): KnownErrorGroup<KnownVariant, FactoryInput> {
   const group = Object.assign(entries.map(knownErrorValue), {
     pick: (...tags: readonly string[]) =>
       buildGroup(entries.filter((entry) => tags.includes(entry.tag))),
@@ -29,8 +43,9 @@ function buildGroup(
 
   // SAFETY: `pick` narrows only the phantom variant union by tag; every
   // element of the subset is one of these same declaration-backed values, so
-  // the runtime group inhabits whichever subset type its tags select.
-  return group as KnownErrorGroup<KnownVariant>
+  // the runtime group inhabits whichever subset type its tags select. The
+  // brand has no runtime witness, so nothing else can carry it across.
+  return group as KnownErrorGroup<KnownVariant, FactoryInput>
 }
 
 /**
@@ -46,13 +61,20 @@ function buildGroup(
  * })
  * ```
  */
-// SAFETY: the overloads carry the literal definitions into the phantom brand
-// only; at runtime the single form returns the value and the record form the
-// group that this one implementation builds.
-export const defineError: DefineError = ((
+export function defineError<Tag extends string, const D extends VariantDef>(
+  tag: Tag & ValidTag<Tag>,
+  def: ValidDef<D> & D
+): KnownError<VariantOfDef<Tag, D>, InputOfDef<Tag, D>>
+export function defineError<const D extends Defs>(
+  defs: ValidDefs<D> & D
+): KnownErrorGroup<VariantsOf<D>, InputsOfDefs<D>>
+// The overloads carry the literal definitions into the phantom brand only;
+// at runtime the single form returns the value and the record form the group
+// that this one implementation builds.
+export function defineError(
   tagOrDefs: string | Defs,
   def?: VariantDef
-): AnyKnownError | KnownErrorGroup<KnownVariant> => {
+): AnyKnownError | KnownErrorGroup<KnownVariant, FactoryInput> {
   if (v.is(v.string(), tagOrDefs)) {
     return knownErrorValue(declaration(tagOrDefs, def))
   }
@@ -64,7 +86,7 @@ export const defineError: DefineError = ((
   return buildGroup(
     Object.entries(tagOrDefs).map(([tag, entry]) => declaration(tag, entry))
   )
-}) as DefineError
+}
 
 // Mirrors the `ValidTag` type: ASCII letters, digits, `_` and `$`, so a tag
 // is a factory property name.
@@ -132,19 +154,26 @@ function declaration(tag: string, def: VariantDef | undefined): DeclaredError {
  * )
  * ```
  */
-export const defineCheckedEventHandler: DefineCheckedEventHandler = (
+export function defineCheckedEventHandler<
+  const A extends ReadonlyArray<AnyKnownError>,
+  Response extends EventHandlerResponse,
+  Request extends EventHandlerRequest = EventHandlerRequest,
+>(
+  options: ConflictGuard<A> & { errors: A },
+  handler: CheckedHandlerFn<Request, Response, A>
+): CheckedEventHandler<Request, Response, KnownErrorsOf<A>>
+// The implementation signature takes the context as the runtime builds it:
+// factories keyed by tag, each accepting whatever its declaration validates.
+// Every overload's `HandlerContext<A>` is one such object with its keys and
+// arities named.
+export function defineCheckedEventHandler(
   options: { errors: readonly AnyKnownError[] },
-  handler: (event: H3Event<EventHandlerRequest>, context: never) => any
-) => {
+  handler: (event: H3Event, context: ErrorContext) => EventHandlerResponse
+): EventHandler {
   const context = createErrorContext(resolveDeclared(options.errors))
 
   // `async` so a synchronous throw surfaces as a rejection, the same as an
   // async body's. No cast on the way out: the brand is an optional property,
   // so a plain `EventHandler` already inhabits `CheckedEventHandler`.
-  // SAFETY: the overload's `HandlerContext<A>` is this same `{ errors }`
-  // object with each factory typed by its declared payload; `never` is only
-  // how the runtime signature stays assignable to every instantiation.
-  return defineEventHandler<EventHandlerRequest, any>(async (event) =>
-    handler(event, context as never)
-  )
+  return defineEventHandler(async (event) => handler(event, context))
 }

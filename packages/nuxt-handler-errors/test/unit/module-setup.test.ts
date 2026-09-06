@@ -9,13 +9,7 @@ import type { Nitro } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
 import * as v from 'valibot'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-
-type TemplateData = Parameters<NonNullable<NuxtTemplate['getContents']>>[0]
-
-// SAFETY: the channel-token template renders a constant and reads nothing
-// off `data`; the bare object stands in for a render context this suite
-// never builds.
-const NO_TEMPLATE_DATA = {} as TemplateData
+import { templateData } from '../template-data'
 
 // A registered template with both resolved paths - what a generateApp
 // filter is handed. Every template a booted Nuxt registers has them.
@@ -225,7 +219,8 @@ describe('module setup wiring', () => {
     // `write: true` is load-bearing: Nitro resolves the alias from disk, not
     // from Nuxt's virtual file system.
     expect(template?.write).toBe(true)
-    expect(template?.getContents?.(NO_TEMPLATE_DATA)).toBe(
+    expect(template).toBeDefined()
+    expect(template?.getContents?.(templateData(nuxt, template))).toBe(
       'export const configuredChannelToken = "nuxt-handler-errors"\n'
     )
 
@@ -275,7 +270,8 @@ describe('module setup wiring', () => {
         (entry) => entry.filename === 'nuxt-handler-errors/channel-token.mjs'
       )
 
-      expect(template?.getContents?.(NO_TEMPLATE_DATA)).toBe(
+      expect(template).toBeDefined()
+      expect(template?.getContents?.(templateData(optedOut, template))).toBe(
         'export const configuredChannelToken = undefined\n'
       )
     } finally {
