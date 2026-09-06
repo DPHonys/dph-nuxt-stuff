@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { createError } from 'h3'
-import * as v from 'valibot'
+import { z } from 'zod'
 import { markValidationError } from '../../shared/error-marker'
 import type {
   ValidationErrorData,
@@ -34,7 +34,11 @@ export function projectIssues(
 }
 
 /** The two key shapes a projected path carries; everything else stringifies. */
-const PATH_KEY = v.union([v.string(), v.number()])
+const PATH_KEY = z.union([z.string(), z.number()])
+
+function isPathKey(value: unknown): value is string | number {
+  return PATH_KEY.safeParse(value).success
+}
 
 // A segment is a key or an object carrying one. `instanceof Object` rather than
 // a `typeof` test is what keeps a `null` segment - which the interface forbids
@@ -49,7 +53,7 @@ function projectPath(
   return Array.from(path, (segment) => {
     const key = segment instanceof Object ? segment.key : segment
 
-    return v.is(PATH_KEY, key) ? key : String(key)
+    return isPathKey(key) ? key : String(key)
   })
 }
 

@@ -1,6 +1,5 @@
 import type { RouterMethod } from 'h3'
 import type { AvailableRouterMethod, NitroFetchRequest } from 'nitropack/types'
-import * as v from 'valibot'
 import type { ComputedRef, Ref } from 'vue'
 import { computed, toValue } from 'vue'
 import type {
@@ -13,6 +12,7 @@ import type {
 import type { KeysOf, PickFrom } from '#app/composables/asyncData'
 import type { UseFetchOptionsWithTransform } from '#app/composables/fetch'
 import { CHANNEL_HEADER } from '../../shared/channel'
+import { isString } from '../../shared/primitives'
 import type { KnownErrorBody } from '../../shared/wire'
 import type { KnownErrorsOfRoute, KnownVariant } from '../../types'
 
@@ -235,9 +235,7 @@ export function wrapVanillaFetch(
   // Vanilla's last overload is its runtime signature: the middle argument is
   // either the options object or the auto-key.
   return (request, arg1, arg2) => {
-    const [opts, autoKey] = v.is(v.string(), arg1)
-      ? [undefined, arg1]
-      : [arg1, arg2]
+    const [opts, autoKey] = isString(arg1) ? [undefined, arg1] : [arg1, arg2]
 
     return vanilla(
       request,

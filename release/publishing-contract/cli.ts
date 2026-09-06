@@ -1,7 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { join, relative, resolve, sep } from 'node:path'
 import process from 'node:process'
-import * as v from 'valibot'
+import { z } from 'zod'
 
 type Workspace =
   | { directory: string; publication: 'private' }
@@ -22,60 +22,53 @@ function validatePublishingContract(workspaces: Workspace[]): string[] {
 }
 
 /** Every manifest, publishable or not, must at least say whether it is private. */
-const admissionSchema = v.object({ private: v.optional(v.boolean()) })
+const admissionSchema = z.object({ private: z.boolean().optional() })
 
 /**
  * The publication contract for a package admitted under `packages/`. The
  * schema describes the shape; `diagnostic` phrases each failing rule.
  */
-function publishableManifestSchema(directory: string): v.GenericSchema {
+function publishableManifestSchema(directory: string): z.ZodType {
   const expectedName = `@dphonys/${directory.slice('packages/'.length)}`
-  return v.object({
-    name: v.literal(expectedName),
-    version: v.pipe(v.string(), v.check(isSemanticVersion)),
+  return z.object({
+    name: z.literal(expectedName),
+    version: z.string().refine(isSemanticVersion),
     license: nonEmptyString(),
-    engines: v.object({ node: nonEmptyString() }),
-    repository: v.object({
-      type: v.literal('git'),
-      url: v.literal('git+https://github.com/DPHonys/dph-nuxt-stuff.git'),
-      directory: v.literal(directory),
+    engines: z.object({ node: nonEmptyString() }),
+    repository: z.object({
+      type: z.literal('git'),
+      url: z.literal('git+https://github.com/DPHonys/dph-nuxt-stuff.git'),
+      directory: z.literal(directory),
     }),
-    files: v.pipe(
-      v.array(v.string()),
-      v.check(
+    files: z
+      .array(z.string())
+      .refine(
         (entries) =>
           entries.length > 0 &&
           entries.every((file) => file === 'dist' || file.startsWith('dist/'))
-      )
-    ),
-    main: v.pipe(v.string(), v.startsWith('./dist/')),
-    typesVersions: v.pipe(
-      v.record(v.string(), v.record(v.string(), v.array(v.string()))),
-      v.check((entries) => Object.keys(entries).length > 0)
-    ),
-    exports: v.object({ '.': v.looseObject({}) }),
-    publishConfig: v.object({ access: v.literal('public') }),
-    scripts: v.object({
-      prepack: v.pipe(v.string(), v.regex(/\bbuild\b/)),
+      ),
+    main: z.string().startsWith('./dist/'),
+    typesVersions: z
+      .record(z.string(), z.record(z.string(), z.array(z.string())))
+      .refine((entries) => Object.keys(entries).length > 0),
+    exports: z.object({ '.': z.looseObject({}) }),
+    publishConfig: z.object({ access: z.literal('public') }),
+    scripts: z.object({
+      prepack: z.string().regex(/\bbuild\b/),
     }),
   })
 }
 
-function nonEmptyString(): v.GenericSchema<string> {
-  return v.pipe(
-    v.string(),
-    v.check((value) => value.trim().length > 0)
-  )
+function nonEmptyString(): z.ZodType<string> {
+  return z.string().refine((value) => value.trim().length > 0)
 }
 
 /**
  * One actionable diagnostic per contract rule, keyed by where in the manifest
  * the schema issue arose. A missing key and a malformed value share a rule.
  */
-function diagnostic(directory: string, issue: v.BaseIssue<unknown>): string {
-  const [field, subfield] = (issue.path ?? []).map((segment) =>
-    String(segment.key)
-  )
+function diagnostic(directory: string, issue: z.core.$ZodIssue): string {
+  const [field, subfield] = issue.path.map((segment) => String(segment))
   switch (field) {
     case 'name':
       return `name must be @dphonys/${directory.slice('packages/'.length)}`
@@ -146,12 +139,12 @@ async function discoverWorkspaces(root: string): Promise<Workspace[]> {
 
 function readWorkspace(directory: string, manifestSource: string): Workspace {
   const manifest = JSON.parse(manifestSource)
-  const admission = v.parse(admissionSchema, manifest)
+  const admission = admissionSchema.parse(manifest)
   if (admission.private === true) return { directory, publication: 'private' }
 
-  const contract = v.safeParse(publishableManifestSchema(directory), manifest)
+  const contract = publishableManifestSchema(directory).safeParse(manifest)
   const violations = new Set(
-    contract.issues?.map((issue) => diagnostic(directory, issue))
+    contract.error?.issues.map((issue) => diagnostic(directory, issue))
   )
   return { directory, publication: 'public', violations: [...violations] }
 }

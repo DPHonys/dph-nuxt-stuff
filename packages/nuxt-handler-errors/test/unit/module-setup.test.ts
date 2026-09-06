@@ -7,8 +7,8 @@ import type {
 } from '@nuxt/schema'
 import type { Nitro } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
-import * as v from 'valibot'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { isString } from '../../src/runtime/shared/primitives'
 import { templateData } from '../template-data'
 
 // A registered template with both resolved paths - what a generateApp
@@ -169,7 +169,7 @@ describe('module setup wiring', () => {
     // same `globalThis` during SSR and masks the Nitro plugin's deletion.
     const entries = nuxt.options.plugins.filter((plugin) =>
       /\/runtime\/app\/plugins\/checked-fetch\.client(?:\.\w+)?$/.test(
-        v.is(v.string(), plugin) ? plugin : plugin.src
+        isString(plugin) ? plugin : plugin.src
       )
     )
 

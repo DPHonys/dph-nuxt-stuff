@@ -1,5 +1,5 @@
 import type { H3Error } from 'h3'
-import * as v from 'valibot'
+import { z } from 'zod'
 import type {
   ValidationErrorData,
   ValidationIssue,
@@ -58,12 +58,12 @@ type _EverySourceListed = [
 const _everySourceListed: _EverySourceListed = true
 
 /** The marker's shape, as `markValidationError` writes it. */
-const MARKER = v.object({
-  issues: v.array(
-    v.object({
-      source: v.picklist(VALIDATION_SOURCES),
-      message: v.string(),
-      path: v.array(v.union([v.string(), v.number()])),
+const MARKER = z.object({
+  issues: z.array(
+    z.object({
+      source: z.enum(VALIDATION_SOURCES),
+      message: z.string(),
+      path: z.array(z.union([z.string(), z.number()])),
     })
   ),
 })
@@ -85,7 +85,7 @@ export function readValidationMarker(
     return undefined
   }
 
-  const marker = v.safeParse(MARKER, error[VALIDATION_ERROR_KEY])
+  const marker = MARKER.safeParse(error[VALIDATION_ERROR_KEY])
 
-  return marker.success ? marker.output : undefined
+  return marker.success ? marker.data : undefined
 }

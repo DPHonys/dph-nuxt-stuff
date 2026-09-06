@@ -1,4 +1,3 @@
-import * as v from 'valibot'
 import { z } from 'zod'
 
 /** A page number, coerced from the string the wire always carries. */
@@ -12,7 +11,7 @@ export const pagination = z.object({
     .refine(Number.isSafeInteger, 'page is out of range'),
 })
 
-/** A sort direction, from a second Standard Schema library. */
-export const sorting = v.object({
-  sort: v.picklist(['asc', 'desc'], 'sort must be asc or desc'),
+/** A sort direction, composed next to `pagination` on one source. */
+export const sorting = z.object({
+  sort: z.enum(['asc', 'desc'], 'sort must be asc or desc'),
 })

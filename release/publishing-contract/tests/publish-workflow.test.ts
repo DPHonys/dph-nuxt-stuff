@@ -1,46 +1,46 @@
 import { access, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
+import { z } from 'zod'
 
 const repositoryRoot = resolve(import.meta.dirname, '../../..')
 const workflowPath = join(repositoryRoot, '.github', 'workflows', 'publish.yml')
 
-const scalarSchema = v.union([v.string(), v.number(), v.boolean()])
-const stepSchema = v.object({
-  name: v.optional(v.string()),
-  uses: v.optional(v.string()),
-  if: v.optional(v.string()),
-  run: v.optional(v.string()),
-  with: v.optional(v.record(v.string(), scalarSchema)),
-  env: v.optional(v.record(v.string(), scalarSchema)),
+const scalarSchema = z.union([z.string(), z.number(), z.boolean()])
+const stepSchema = z.object({
+  name: z.string().optional(),
+  uses: z.string().optional(),
+  if: z.string().optional(),
+  run: z.string().optional(),
+  with: z.record(z.string(), scalarSchema).optional(),
+  env: z.record(z.string(), scalarSchema).optional(),
 })
-const workflowSchema = v.object({
-  on: v.record(v.string(), v.nullable(v.looseObject({}))),
-  concurrency: v.object({
-    group: v.string(),
-    'cancel-in-progress': v.boolean(),
+const workflowSchema = z.object({
+  on: z.record(z.string(), z.looseObject({}).nullable()),
+  concurrency: z.object({
+    group: z.string(),
+    'cancel-in-progress': z.boolean(),
   }),
-  permissions: v.record(v.string(), v.string()),
-  jobs: v.record(
-    v.string(),
-    v.object({
-      environment: v.optional(v.union([v.string(), v.looseObject({})])),
-      permissions: v.optional(v.record(v.string(), v.string())),
-      'runs-on': v.optional(v.string()),
-      steps: v.array(stepSchema),
+  permissions: z.record(z.string(), z.string()),
+  jobs: z.record(
+    z.string(),
+    z.object({
+      environment: z.union([z.string(), z.looseObject({})]).optional(),
+      permissions: z.record(z.string(), z.string()).optional(),
+      'runs-on': z.string().optional(),
+      steps: z.array(stepSchema),
     })
   ),
 })
-const rootManifestSchema = v.object({
-  packageManager: v.string(),
-  scripts: v.record(v.string(), v.string()),
-  devDependencies: v.record(v.string(), v.string()),
+const rootManifestSchema = z.object({
+  packageManager: z.string(),
+  scripts: z.record(z.string(), z.string()),
+  devDependencies: z.record(z.string(), z.string()),
 })
 
-type WorkflowStep = v.InferOutput<typeof stepSchema>
-type PublishWorkflow = v.InferOutput<typeof workflowSchema>
+type WorkflowStep = z.infer<typeof stepSchema>
+type PublishWorkflow = z.infer<typeof workflowSchema>
 
 describe('trusted publication workflow', () => {
   it('is manual-only, main-only, serialized, and least-privileged', async () => {
@@ -131,12 +131,11 @@ describe('trusted publication workflow', () => {
 })
 
 async function readWorkflow(): Promise<PublishWorkflow> {
-  return v.parse(workflowSchema, parse(await readFile(workflowPath, 'utf8')))
+  return workflowSchema.parse(parse(await readFile(workflowPath, 'utf8')))
 }
 
 async function readRootManifest() {
-  return v.parse(
-    rootManifestSchema,
+  return rootManifestSchema.parse(
     JSON.parse(await readFile(join(repositoryRoot, 'package.json'), 'utf8'))
   )
 }

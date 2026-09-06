@@ -1,17 +1,17 @@
 import { recognizeValidationError } from '@dphonys/nuxt-handler-validation/server'
-import * as v from 'valibot'
+import { z } from 'zod'
 
 /** An issue as it reads back off the wire, loosely: only its presence matters. */
-const ISSUES = v.array(v.looseObject({}))
+const ISSUES = z.array(z.looseObject({}))
 
 /** The two depths a client might look at, parsed off whatever was thrown. */
-const REJECTION = v.looseObject({
-  data: v.optional(
-    v.looseObject({
-      issues: v.optional(ISSUES),
-      data: v.optional(v.looseObject({ issues: v.optional(ISSUES) })),
+const REJECTION = z.looseObject({
+  data: z
+    .looseObject({
+      issues: ISSUES.optional(),
+      data: z.looseObject({ issues: ISSUES.optional() }).optional(),
     })
-  ),
+    .optional(),
 })
 
 /**
@@ -25,8 +25,8 @@ export default defineEventHandler(async () => {
     (error) => error
   )
 
-  const parsed = v.safeParse(REJECTION, thrown)
-  const rejection = parsed.success ? parsed.output : undefined
+  const parsed = REJECTION.safeParse(thrown)
+  const rejection = parsed.success ? parsed.data : undefined
 
   return {
     rejected: thrown !== undefined,

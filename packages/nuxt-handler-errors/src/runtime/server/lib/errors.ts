@@ -6,8 +6,9 @@ import type {
   EventHandlerResponse,
   H3Event,
 } from 'h3'
-import * as v from 'valibot'
+import { z } from 'zod'
 import { isPlainObject } from '../../shared/plain-object'
+import { functionSchema, isString } from '../../shared/primitives'
 import type { CheckedEventHandler, CheckedHandlerFn } from '../../types/handler'
 import type {
   AnyKnownError,
@@ -75,7 +76,7 @@ export function defineError(
   tagOrDefs: string | Defs,
   def?: VariantDef
 ): AnyKnownError | KnownErrorGroup<KnownVariant, FactoryInput> {
-  if (v.is(v.string(), tagOrDefs)) {
+  if (isString(tagOrDefs)) {
     return knownErrorValue(declaration(tagOrDefs, def))
   }
   // The record form: a non-null, non-array object of definitions, each
@@ -93,22 +94,17 @@ const TAG = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/
 
 // A Standard Schema's host may be an object or a callable; either way the
 // only member consulted is `validate`.
-const standardHostSchema = v.union([
-  v.record(v.string(), v.unknown()),
-  v.function(),
-])
+const standardHostSchema = z.union([z.looseObject({}), functionSchema])
 
-type StandardHost = v.InferOutput<typeof standardHostSchema>
+type StandardHost = z.infer<typeof standardHostSchema>
 
-const standardSchema = v.object({ validate: v.function() })
+const standardSchema = z.object({ validate: functionSchema })
 
 function isStandardSchema(
   host: StandardHost
 ): host is StandardHost & StandardSchemaV1 {
   return (
-    !Array.isArray(host) &&
-    '~standard' in host &&
-    v.is(standardSchema, host['~standard'])
+    '~standard' in host && standardSchema.safeParse(host['~standard']).success
   )
 }
 
@@ -116,10 +112,20 @@ function isStandardSchema(
 // typo would produce: a bad tag, a non-error status, a misspelt key, or a
 // payload that is not a Standard Schema. Strict, so an unknown key is a
 // rejection.
-const definitionSchema = v.strictObject({
-  status: v.pipe(v.number(), v.integer(), v.minValue(400), v.maxValue(599)),
-  payload: v.optional(standardHostSchema),
+const definitionSchema = z.strictObject({
+  status: z.number().int().min(400).max(599),
+  payload: standardHostSchema.optional(),
 })
+
+type Definition = z.infer<typeof definitionSchema>
+
+// A guard over the caller's own object, not zod's copy: the schema instance
+// must reach the declaration untouched, prototype and identity included.
+function isDefinition(
+  def: VariantDef | undefined
+): def is VariantDef & Definition {
+  return definitionSchema.safeParse(def).success
+}
 
 function declaration(tag: string, def: VariantDef | undefined): DeclaredError {
   if (!TAG.test(tag)) {
@@ -127,7 +133,7 @@ function declaration(tag: string, def: VariantDef | undefined): DeclaredError {
       `[nuxt-handler-errors] error tag must be kebab-case, such as user-not-found: ${tag}`
     )
   }
-  if (!v.is(definitionSchema, def)) {
+  if (!isDefinition(def)) {
     throw new TypeError('[nuxt-handler-errors] invalid error definition')
   }
   if (def.payload !== undefined && !isStandardSchema(def.payload)) {

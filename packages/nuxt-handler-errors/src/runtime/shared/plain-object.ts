@@ -1,14 +1,17 @@
-import * as v from 'valibot'
+import { z } from 'zod'
 
-const recordSchema = v.record(v.string(), v.unknown())
+// `z.record` would reject class instances (an `Error`, a schema object);
+// an empty loose object accepts any non-null, non-array, non-callable object,
+// with unknown values, which is what a plain object means here.
+const recordSchema = z.looseObject({})
 
 /** A non-null, non-array object, with nothing claimed about its values. */
-export type PlainObject = v.InferOutput<typeof recordSchema>
+export type PlainObject = z.infer<typeof recordSchema>
 
 /**
- * valibot's object schemas accept an array and copy their input before any
- * piped check runs, so the array test has to sit in front of the parse.
+ * zod's object schemas reject arrays and callables on their own, so the parse
+ * alone decides.
  */
 export function isPlainObject(value: unknown): value is PlainObject {
-  return !Array.isArray(value) && v.is(recordSchema, value)
+  return recordSchema.safeParse(value).success
 }

@@ -1,7 +1,7 @@
 import { createApp, createError, eventHandler, toPlainHandler } from 'h3'
 import type { H3Error, PlainResponse } from 'h3'
-import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { createChannelStripHandler } from '../../src/runtime/server/lib/channel-strip'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared/wire'
@@ -109,13 +109,13 @@ async function run(
 }
 
 // What went on the wire, read back as the prod builtin's own shape.
-const sentBodySchema = v.looseObject({
-  data: v.optional(v.looseObject({})),
-  stack: v.optional(v.array(v.string())),
+const sentBodySchema = z.looseObject({
+  data: z.looseObject({}).optional(),
+  stack: z.array(z.string()).optional(),
 })
 
 function parseBody(response: PlainResponse) {
-  return v.parse(sentBodySchema, JSON.parse(String(response.body)))
+  return sentBodySchema.parse(JSON.parse(String(response.body)))
 }
 
 describe('the tokenless, marked request', () => {

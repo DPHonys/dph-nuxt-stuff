@@ -1,4 +1,4 @@
-import * as v from 'valibot'
+import { z } from 'zod'
 import type { KnownVariant } from '../types/known-error'
 
 /**
@@ -56,18 +56,18 @@ export interface KnownRaiseInput<E extends KnownVariant> {
 // Presence is not enough: `tag` and `status` are verified, so a
 // present-but-malformed marker reads as unknown. Loose, because the payload
 // fields ride beside the two reserved names.
-export const variantSchema = v.looseObject({
-  tag: v.string(),
-  status: v.number(),
+export const variantSchema = z.looseObject({
+  tag: z.string(),
+  status: z.number(),
 })
 
 // `data` at the depth that holds the marker.
-const markerHostSchema = v.object({ [KNOWN_ERROR_KEY]: variantSchema })
+const markerHostSchema = z.object({ [KNOWN_ERROR_KEY]: variantSchema })
 
 // The raise-site depth first: a well-formed marker there wins over a nested
 // one, which is the order the recognizer has always read them in.
-const markedErrorSchema = v.object({
-  data: v.union([markerHostSchema, v.object({ data: markerHostSchema })]),
+const markedErrorSchema = z.object({
+  data: z.union([markerHostSchema, z.object({ data: markerHostSchema })]),
 })
 
 /**
@@ -77,7 +77,7 @@ const markedErrorSchema = v.object({
 export function isMarkedError(
   error: unknown
 ): error is MarkedError<KnownVariant> {
-  return v.is(markedErrorSchema, error)
+  return markedErrorSchema.safeParse(error).success
 }
 
 // The raise-site depth, told apart from a carrier body by the schema rather
@@ -86,7 +86,7 @@ export function isMarkedError(
 function isRaisedData(
   data: MarkedError<KnownVariant>['data']
 ): data is KnownErrorMarker<KnownVariant> {
-  return v.is(markerHostSchema, data)
+  return markerHostSchema.safeParse(data).success
 }
 
 /** The variant a marked error carries - the raise-site depth first. */

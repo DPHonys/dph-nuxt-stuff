@@ -9,9 +9,9 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'pathe'
-import * as v from 'valibot'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
+import { z } from 'zod'
 import { createNaming, validateScaffoldName } from '../internal/naming'
 import {
   createProductionTemplateRegistry,
@@ -397,10 +397,13 @@ describe('nuxt module Template contract', () => {
   })
 
   it('claims no Nuxt beyond the one the catalog installs', async () => {
-    const workspace = v.parse(
-      v.object({ catalog: v.record(v.string(), v.string()) }),
-      parse(await readFile(join(workspaceRoot, 'pnpm-workspace.yaml'), 'utf8'))
-    )
+    const workspace = z
+      .object({ catalog: z.record(z.string(), z.string()) })
+      .parse(
+        parse(
+          await readFile(join(workspaceRoot, 'pnpm-workspace.yaml'), 'utf8')
+        )
+      )
     const catalogNuxt = workspace.catalog.nuxt ?? ''
     const [, floor = '', major = ''] =
       /^\^((\d+)\.\d+\.\d+)$/.exec(catalogNuxt) ?? []

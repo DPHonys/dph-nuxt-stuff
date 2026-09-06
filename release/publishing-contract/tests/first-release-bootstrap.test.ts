@@ -1,25 +1,26 @@
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 const repositoryRoot = resolve(import.meta.dirname, '../../..')
 const bootstrapPath = join(repositoryRoot, 'docs', 'first-release-bootstrap.md')
 
 describe('first-release bootstrap contract', () => {
   it('preserves private seeded Generated packages until explicit admission', async () => {
-    const templateManifest = v.parse(
-      v.object({
-        private: v.optional(v.boolean()),
-        version: v.optional(v.string()),
-      }),
-      JSON.parse(
-        await readFile(
-          join(repositoryRoot, 'templates', 'nuxt-module', 'package.json'),
-          'utf8'
+    const templateManifest = z
+      .object({
+        private: z.boolean().optional(),
+        version: z.string().optional(),
+      })
+      .parse(
+        JSON.parse(
+          await readFile(
+            join(repositoryRoot, 'templates', 'nuxt-module', 'package.json'),
+            'utf8'
+          )
         )
       )
-    )
     const guide = await readFile(bootstrapPath, 'utf8')
 
     expect(templateManifest).toMatchObject({

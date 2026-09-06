@@ -4,7 +4,6 @@
  * simulates nothing; the composables running for real is the e2e tier.
  */
 
-import * as v from 'valibot'
 import { shallowRef } from 'vue'
 import type {
   VanillaFetchArgs,
@@ -14,6 +13,7 @@ import type {
   VanillaAsyncDataArg,
   VanillaAsyncDataResult,
 } from '../../src/runtime/app/composables/use-checked-async-data'
+import { isString } from '../../src/runtime/shared/primitives'
 import type { CheckedFetch } from '../../src/runtime/types'
 
 /** One recorded call, split as vanilla's own runtime splits its three arguments. */
@@ -36,9 +36,7 @@ const emptyResult = (): Pick<VanillaFetchResult, 'data' | 'error'> => ({
 
 function record(name: RecordedCall['name']) {
   return (...[request, arg1, arg2]: VanillaFetchArgs) => {
-    const [opts, autoKey] = v.is(v.string(), arg1)
-      ? [undefined, arg1]
-      : [arg1, arg2]
+    const [opts, autoKey] = isString(arg1) ? [undefined, arg1] : [arg1, arg2]
 
     calls.push({ name, request, opts, autoKey })
 

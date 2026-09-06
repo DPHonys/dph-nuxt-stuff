@@ -1,7 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandler, H3Error } from 'h3'
 import { createError } from 'h3'
-import * as v from 'valibot'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
@@ -50,15 +49,19 @@ async function reportedBy(
 }
 
 /** The wire payload as the error carries it, narrowed in place - no copy. */
-const WIRE_DATA = v.object({
-  issues: v.array(
-    v.object({
-      source: v.string(),
-      message: v.string(),
-      path: v.array(v.union([v.string(), v.number()])),
+const WIRE_DATA = z.looseObject({
+  issues: z.array(
+    z.looseObject({
+      source: z.string(),
+      message: z.string(),
+      path: z.array(z.union([z.string(), z.number()])),
     })
   ),
 })
+
+function isWireData(value: unknown): value is z.infer<typeof WIRE_DATA> {
+  return WIRE_DATA.safeParse(value).success
+}
 
 describe('a validation failure at the error hook', () => {
   it('is recognized, and answers with the issues it raised', async () => {
@@ -91,7 +94,7 @@ describe('a validation failure at the error hook', () => {
     const reported = await reportedBy(failingHandler, '/api/test?page=nope')
     const { data } = reported
 
-    if (!v.is(WIRE_DATA, data)) throw new Error('the 400 carries no issues')
+    if (!isWireData(data)) throw new Error('the 400 carries no issues')
 
     const [first] = data.issues
 

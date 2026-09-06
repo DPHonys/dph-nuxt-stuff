@@ -6,7 +6,7 @@ import {
   setResponseStatus,
 } from 'h3'
 import type { NitroErrorHandler } from 'nitropack/types'
-import * as v from 'valibot'
+import { z } from 'zod'
 import { CHANNEL_HEADER } from '../../shared/channel'
 import { readFloor } from '../../shared/match-error'
 import type { KnownErrorKey } from '../../shared/wire'
@@ -16,19 +16,25 @@ import { KNOWN_ERROR_KEY, variantSchema } from '../../shared/wire'
 // from: `data.<marker>` for the route's own raise, `data.data.<marker>` for a
 // rethrown fetched carrier. Loose at every level - a consumer's own sibling
 // keys, and dev's `stack`, ride through untouched.
-const markerHost = v.looseObject({ [KNOWN_ERROR_KEY]: variantSchema })
+const markerHost = z.looseObject({ [KNOWN_ERROR_KEY]: variantSchema })
 
-const markedBodySchema = v.looseObject({
-  data: v.union([markerHost, v.looseObject({ data: markerHost })]),
+const markedBodySchema = z.looseObject({
+  data: z.union([markerHost, z.looseObject({ data: markerHost })]),
 })
 
-type MarkedBody = v.InferOutput<typeof markedBodySchema>
-type RaisedData = v.InferOutput<typeof markerHost>
+type MarkedBody = z.infer<typeof markedBodySchema>
+type RaisedData = z.infer<typeof markerHost>
+
+// A guard over the builtin's own body rather than zod's copy, so the keys
+// go back out in the order the builtin wrote them.
+function isMarkedBody(body: unknown): body is MarkedBody {
+  return markedBodySchema.safeParse(body).success
+}
 
 // The depth the recognizer read from, decided by the schema rather than by
 // key presence - a consumer's own sibling keys may include `data`.
 function isRaisedData(data: MarkedBody['data']): data is RaisedData {
-  return v.is(markerHost, data)
+  return markerHost.safeParse(data).success
 }
 
 // Built by spread throughout so the thrown error's own `data` object is left
@@ -67,7 +73,7 @@ export function createChannelStripHandler(
 
     // A body without the marker is the dev builtin's youch HTML page -
     // nothing to strip.
-    if (!v.is(markedBodySchema, res.body)) return
+    if (!isMarkedBody(res.body)) return
 
     const body = { ...res.body, data: withoutMarker(res.body.data) }
 

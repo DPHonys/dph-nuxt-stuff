@@ -12,29 +12,30 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import * as v from 'valibot'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 const repositoryRoot = resolve(import.meta.dirname, '../../..')
-const rootManifest = v.parse(
-  v.object({ packageManager: v.string() }),
-  JSON.parse(await readFile(join(repositoryRoot, 'package.json'), 'utf8'))
-)
+const rootManifest = z
+  .object({ packageManager: z.string() })
+  .parse(
+    JSON.parse(await readFile(join(repositoryRoot, 'package.json'), 'utf8'))
+  )
 const pinnedPnpmVersion = rootManifest.packageManager.replace(/^pnpm@/, '')
 const pnpmExecutable = process.env.npm_execpath ?? 'pnpm'
 const temporaryRoots: string[] = []
 
-const packageManifestSchema = v.object({
-  name: v.string(),
-  version: v.string(),
-  dependencies: v.optional(v.record(v.string(), v.string())),
+const packageManifestSchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  dependencies: z.record(z.string(), z.string()).optional(),
 })
-type PackageManifest = v.InferOutput<typeof packageManifestSchema>
+type PackageManifest = z.infer<typeof packageManifestSchema>
 
-const packedFileSchema = v.object({ filename: v.string() })
-const packOutputSchema = v.union([
+const packedFileSchema = z.object({ filename: z.string() })
+const packOutputSchema = z.union([
   packedFileSchema,
-  v.tupleWithRest([packedFileSchema], packedFileSchema),
+  z.tuple([packedFileSchema], packedFileSchema),
 ])
 
 interface CommandResult {
@@ -431,7 +432,7 @@ async function packManifest(
     '--pack-destination',
     destination,
   ])
-  const result = v.parse(packOutputSchema, JSON.parse(packed.stdout))
+  const result = packOutputSchema.parse(JSON.parse(packed.stdout))
   const filename = Array.isArray(result) ? result[0].filename : result.filename
   const tarball = resolve(packageDirectory(root, packageName), filename)
   const extracted = await run(
@@ -439,12 +440,11 @@ async function packManifest(
     ['-xOf', tarball, 'package/package.json'],
     root
   )
-  return v.parse(packageManifestSchema, JSON.parse(extracted.stdout))
+  return packageManifestSchema.parse(JSON.parse(extracted.stdout))
 }
 
 async function packageVersion(root: string, name: string): Promise<string> {
-  const manifest = v.parse(
-    packageManifestSchema,
+  const manifest = packageManifestSchema.parse(
     JSON.parse(await readFile(packagePath(root, name, 'package.json'), 'utf8'))
   )
   return manifest.version

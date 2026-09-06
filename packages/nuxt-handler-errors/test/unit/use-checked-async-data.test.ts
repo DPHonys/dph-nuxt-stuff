@@ -1,5 +1,4 @@
 import { createError } from 'h3'
-import * as v from 'valibot'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 import type { NuxtApp } from '#app'
@@ -9,6 +8,7 @@ import {
   useLazyCheckedAsyncData,
   wrapRawAsyncData,
 } from '../../src/runtime/app/composables/use-checked-async-data'
+import { functionSchema } from '../../src/runtime/shared/primitives'
 import { asyncDataCalls, useAsyncData } from '../doubles/nuxt-app'
 
 // The wrapper must replace the right argument (vanilla's own split, not
@@ -32,14 +32,12 @@ const nuxtApp = {} as NuxtApp
 
 const signal = { signal: new AbortController().signal }
 
-const functionSchema = v.function()
-
 // The substituted handler resolves what the caller's handler put under
 // `data` - `user`, in every success case this file builds.
 function isSubstituted(
   arg: (typeof asyncDataCalls)[number]['args'][number]
 ): arg is AsyncDataHandler<User> {
-  return v.is(functionSchema, arg)
+  return functionSchema.safeParse(arg).success
 }
 
 /** The handler the wrapper substituted, from the last recorded call. */
@@ -50,7 +48,9 @@ function substituted(): AsyncDataHandler<User> {
 
   // The *last* function argument: a getter key is a function too, and it can
   // only ever sit before the handler.
-  const handler = last.args.findLast((arg) => v.is(functionSchema, arg))
+  const handler = last.args.findLast(
+    (arg) => functionSchema.safeParse(arg).success
+  )
 
   if (handler === undefined || !isSubstituted(handler)) {
     throw new Error('no handler was forwarded')

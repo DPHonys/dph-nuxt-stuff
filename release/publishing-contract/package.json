@@ -6,7 +6,7 @@
     "test": "vitest run tests"
   },
   "dependencies": {
-    "valibot": "catalog:"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "vitest": "catalog:",

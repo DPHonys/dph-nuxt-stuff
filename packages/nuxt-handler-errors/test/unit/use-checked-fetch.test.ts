@@ -1,6 +1,6 @@
-import * as v from 'valibot'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ref, toValue } from 'vue'
+import { z } from 'zod'
 import {
   useCheckedFetch,
   useLazyCheckedFetch,
@@ -20,7 +20,7 @@ const transform = <T>(value: T): T => value
 
 // What the wrapper hands vanilla is read back as the flat record it claims
 // to be - a `Headers` instance or a tuple array would fail this parse.
-const flatHeaders = v.record(v.string(), v.string())
+const flatHeaders = z.record(z.string(), z.string())
 
 /** The headers the wrapper handed vanilla, resolved and flattened as sent. */
 function sentHeaders(): Record<string, string> {
@@ -28,7 +28,7 @@ function sentHeaders(): Record<string, string> {
 
   if (last === undefined) throw new Error('nothing reached the vanilla double')
 
-  return v.parse(flatHeaders, toValue(last.opts?.headers))
+  return flatHeaders.parse(toValue(last.opts?.headers))
 }
 
 beforeEach(() => {
@@ -123,7 +123,7 @@ describe('the header merge', () => {
     const sent = toValue(calls.at(-1)?.opts?.headers)
 
     expect(sent).not.toBeInstanceOf(Headers)
-    expect(v.parse(flatHeaders, sent)).toEqual({
+    expect(flatHeaders.parse(sent)).toEqual({
       authorization: 'Bearer t',
       accept: 'application/json',
     })

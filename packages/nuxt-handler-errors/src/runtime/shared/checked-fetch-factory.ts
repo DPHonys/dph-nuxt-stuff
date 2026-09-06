@@ -1,11 +1,11 @@
 import { createError } from 'h3'
 import type { NitroFetchRequest } from 'nitropack/types'
 import type { NuxtError } from 'nuxt/app'
-import * as v from 'valibot'
 import type { $CheckedFetch, TryResult } from '../types/fetch'
 import { CHANNEL_HEADER } from './channel'
 import type { PlainObject } from './plain-object'
 import { isPlainObject } from './plain-object'
+import { isString } from './primitives'
 
 export type RawTryResult = TryResult<unknown, NuxtError>
 
@@ -37,7 +37,7 @@ export interface CheckedFetchFactoryOptions {
 // fields off. An array is an object to h3 but carries no field it reads, so
 // it is stringified like any other primitive.
 function isErrorInput(cause: unknown): cause is string | PlainObject {
-  return v.is(v.string(), cause) || isPlainObject(cause)
+  return isString(cause) || isPlainObject(cause)
 }
 
 // h3's `createError` - the same normalisation `useFetch`'s error ref goes

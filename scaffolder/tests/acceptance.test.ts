@@ -10,8 +10,8 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'pathe'
-import * as v from 'valibot'
 import { afterEach, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import {
   createProductionTemplateRegistry,
   nuxtCompatibilityRange,
@@ -123,8 +123,7 @@ describe('disposable Acceptance fixture', () => {
       cwd: repositoryRoot,
     })
 
-    const pnpmWorkspace = v.parse(
-      v.array(v.object({ name: v.string() })),
+    const pnpmWorkspace = z.array(z.object({ name: z.string() })).parse(
       JSON.parse(
         await run('pnpm', ['list', '--recursive', '--depth', '-1', '--json'], {
           cwd: repositoryRoot,
@@ -138,16 +137,17 @@ describe('disposable Acceptance fixture', () => {
       ])
     )
 
-    const turboWorkspace = v.parse(
-      v.object({
-        packages: v.object({ items: v.array(v.object({ name: v.string() })) }),
-      }),
-      JSON.parse(
-        await run('pnpm', ['exec', 'turbo', 'ls', '--output=json'], {
-          cwd: repositoryRoot,
-        })
+    const turboWorkspace = z
+      .object({
+        packages: z.object({ items: z.array(z.object({ name: z.string() })) }),
+      })
+      .parse(
+        JSON.parse(
+          await run('pnpm', ['exec', 'turbo', 'ls', '--output=json'], {
+            cwd: repositoryRoot,
+          })
+        )
       )
-    )
     expect(turboWorkspace.packages.items.map(({ name }) => name)).toEqual(
       expect.arrayContaining([
         '@dphonys/api-2-client',
@@ -155,32 +155,33 @@ describe('disposable Acceptance fixture', () => {
       ])
     )
 
-    const nuxtPackages = v.parse(
-      v.array(
-        v.object({
-          devDependencies: v.optional(
-            v.object({
-              nuxt: v.optional(v.object({ version: v.string() })),
+    const nuxtPackages = z
+      .array(
+        z.object({
+          devDependencies: z.optional(
+            z.object({
+              nuxt: z.optional(z.object({ version: z.string() })),
             })
           ),
         })
-      ),
-      JSON.parse(
-        await run(
-          'pnpm',
-          [
-            '--filter',
-            '@dphonys/api-2-client',
-            'list',
-            'nuxt',
-            '--depth',
-            '0',
-            '--json',
-          ],
-          { cwd: repositoryRoot }
+      )
+      .parse(
+        JSON.parse(
+          await run(
+            'pnpm',
+            [
+              '--filter',
+              '@dphonys/api-2-client',
+              'list',
+              'nuxt',
+              '--depth',
+              '0',
+              '--json',
+            ],
+            { cwd: repositoryRoot }
+          )
         )
       )
-    )
     // The fixture installs with no lockfile, so nuxt resolves fresh and a
     // pinned patch literal here goes stale on every nuxt release. The
     // scaffold's contract is `nuxtCompatibilityRange`; assert its bounds.

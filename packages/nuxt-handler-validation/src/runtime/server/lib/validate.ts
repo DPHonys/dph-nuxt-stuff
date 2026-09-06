@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
-import * as v from 'valibot'
+import { z } from 'zod'
 import type {
   SourceSchemas,
   SourceValue,
@@ -34,9 +34,13 @@ export interface SourcePlan<S extends ValidationSchemas = ValidationSchemas> {
 
 // Not a validity check on a schema library's object: only the difference
 // between a schema and the `null`, string or options object the types refused.
-const STANDARD_SCHEMA = v.object({
-  '~standard': v.object({ validate: v.function() }),
+const STANDARD_SCHEMA = z.looseObject({
+  '~standard': z.looseObject({ validate: z.function() }),
 })
+
+function isStandardSchema(value: unknown): value is StandardSchemaV1 {
+  return STANDARD_SCHEMA.safeParse(value).success
+}
 
 /**
  * Resolve a declaration, once, when the route file is evaluated. Walking
@@ -61,8 +65,7 @@ export function sourcePlan<S extends ValidationSchemas>(
     // Typed as schemas already, checked anyway: the callers this catches are
     // exactly the ones the types never saw.
     for (const [position, element] of elements.entries()) {
-      if (!v.is(STANDARD_SCHEMA, element))
-        raiseUnschemaedSource(source, position)
+      if (!isStandardSchema(element)) raiseUnschemaedSource(source, position)
     }
 
     plan.push({ source, read, schemas: elements })

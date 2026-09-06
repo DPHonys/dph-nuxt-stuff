@@ -6,7 +6,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { AppOptions, EventHandler, H3Error } from 'h3'
 import { createApp, createRouter, toWebHandler } from 'h3'
-import * as v from 'valibot'
+import { z } from 'zod'
 
 /**
  * Mount one handler and send it a request.
@@ -109,25 +109,25 @@ export function wire(json: string): any {
  * issue or the envelope carries is kept, so a suite asserting that nothing
  * extra crossed the wire still sees the extra.
  */
-const FAILURE_BODY = v.looseObject({
-  statusCode: v.number(),
-  statusMessage: v.string(),
-  data: v.looseObject({
-    issues: v.array(
-      v.looseObject({
-        source: v.string(),
-        message: v.string(),
-        path: v.array(v.union([v.string(), v.number()])),
+const FAILURE_BODY = z.looseObject({
+  statusCode: z.number(),
+  statusMessage: z.string(),
+  data: z.looseObject({
+    issues: z.array(
+      z.looseObject({
+        source: z.string(),
+        message: z.string(),
+        path: z.array(z.union([z.string(), z.number()])),
       })
     ),
   }),
 })
 
 /** What a failure answer said, parsed off the response. */
-export type FailureBody = v.InferOutput<typeof FAILURE_BODY>
+export type FailureBody = z.infer<typeof FAILURE_BODY>
 
 export async function failureBodyOf(response: Response): Promise<FailureBody> {
-  return v.parse(FAILURE_BODY, await response.json())
+  return FAILURE_BODY.parse(await response.json())
 }
 
 /** Which sources a failure answer names, deduplicated. */

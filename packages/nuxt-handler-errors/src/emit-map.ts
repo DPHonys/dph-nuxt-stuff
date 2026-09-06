@@ -7,7 +7,7 @@ import type { EventHandler } from 'h3'
 import { resolveNitroPath } from 'nitropack/kit'
 import type { Nitro } from 'nitropack/types'
 import { isAbsolute, relative, resolve } from 'pathe'
-import * as v from 'valibot'
+import { isString } from './runtime/shared/primitives'
 
 /**
  * The specifier the map augments - the module's own name, not Nitro's.
@@ -152,7 +152,7 @@ export function emitMap(
 // Nitro's own guard: a dev handler carries a function rather than a path,
 // and has no route type to emit.
 function isScanned(handler: HandlerEntry): handler is ScannedHandlerEntry {
-  return v.is(v.string(), handler.handler)
+  return isString(handler.handler)
 }
 
 /**
