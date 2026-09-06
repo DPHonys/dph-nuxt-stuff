@@ -68,7 +68,7 @@ export function resolveDeclared(
   )
 }
 
-/** Mirrors the `FactoryName` type: `user-not-found` → `user-not-found`. */
+/** Mirrors the `FactoryName` type: `user-not-found` → `userNotFound`. */
 export function factoryName(tag: string): string {
   return tag.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())
 }
