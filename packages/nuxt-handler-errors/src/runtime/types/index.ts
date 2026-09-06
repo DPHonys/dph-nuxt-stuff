@@ -3,13 +3,6 @@ import type { MatchedRoutes } from 'nitropack/types'
 import type { $CheckedFetch, CheckedFetch } from './fetch'
 
 export type {
-  ErrorDefinitions,
-  ErrorFactories,
-  ErrorsOfDefinitions,
-  ErrorDefinitionsGuard,
-} from './error-definitions'
-
-export type {
   $CheckedFetch,
   CheckedFetch,
   KnownErrorFor,
@@ -17,6 +10,8 @@ export type {
 } from './fetch'
 
 export type {
+  AnyKnownError,
+  ErrorFactories,
   KnownError,
   KnownErrorGroup,
   KnownErrorsOf,
@@ -24,7 +19,11 @@ export type {
   VariantsOf,
 } from './known-error'
 
-export type { CheckedEventHandler, Fail, KnownErrorsOfHandler } from './handler'
+export type {
+  CheckedEventHandler,
+  HandlerContext,
+  KnownErrorsOfHandler,
+} from './handler'
 
 export type { Fallback, KnownErrorCarrier } from './matcher'
 

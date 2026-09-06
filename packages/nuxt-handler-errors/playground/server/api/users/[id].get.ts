@@ -1,20 +1,9 @@
 import { defineCheckedEventHandler } from '@dphonys/nuxt-handler-errors/server'
-import { z } from 'zod'
+import { userErrors } from '../../errors/users'
 
 export default defineCheckedEventHandler(
   {
-    errors: {
-      'user-not-found': { status: 404, data: z.object({ userId: z.string() }) },
-      'user-suspended': { status: 403, data: z.object({ until: z.string() }) },
-      forbidden: {
-        status: 403,
-        data: z.object({ requiredRole: z.enum(['admin', 'owner']) }),
-      },
-      'rate-limited': {
-        status: 429,
-        data: z.object({ retryAfter: z.number() }),
-      },
-    },
+    errors: [...userErrors],
   },
   (event, { errors }) => {
     const id = event.context.params?.id ?? ''

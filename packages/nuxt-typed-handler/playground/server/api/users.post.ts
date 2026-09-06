@@ -1,13 +1,11 @@
-import { z } from 'zod'
+import { userErrors } from '../errors/users'
 import { createUser } from '../validation/schemas'
 
 /** Both halves declared: a rejected body and a declared failure, one route. */
 export default defineTypedEventHandler(
   {
     validate: { body: createUser },
-    errors: {
-      'user-exists': { status: 409, data: z.object({ email: z.string() }) },
-    },
+    errors: userErrors.pick('user-exists'),
   },
   (_event, { body, errors }) => {
     if (body.email === 'taken@example.com') {

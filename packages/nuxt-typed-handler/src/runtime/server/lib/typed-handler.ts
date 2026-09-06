@@ -1,10 +1,9 @@
 import {
   createErrorContext,
-  createFail,
   finalizeError,
   resolveDeclared,
 } from '@dphonys/nuxt-handler-errors/internals/server'
-import type { ErrorDefinitions } from '@dphonys/nuxt-handler-errors/types'
+import type { AnyKnownError } from '@dphonys/nuxt-handler-errors/types'
 import {
   sourcePlan,
   validatedContext,
@@ -13,10 +12,7 @@ import type { ValidatedContextOptions } from '@dphonys/nuxt-handler-validation/i
 import type { ValidationSchemas } from '@dphonys/nuxt-handler-validation/types'
 import { defineEventHandler } from 'h3'
 import type { H3Event } from 'h3'
-import type {
-  AnyKnownError,
-  DefineTypedEventHandler,
-} from '../../types/handler'
+import type { DefineTypedEventHandler } from '../../types/handler'
 import { onInvalid } from './on-invalid'
 import { assertNoReservedTag } from './reserved-tag'
 
@@ -31,7 +27,7 @@ const VALIDATION_OPTIONS: ValidatedContextOptions = { onInvalid }
  * export default defineTypedEventHandler(
  *   {
  *     validate: { body: createUser },
- *     errors: { 'user-exists': { status: 409 } }
+ *     errors: [defineError('user-exists', { status: 409 })]
  *   },
  *   async (event, { body, errors }) => {
  *     if (await exists(body.email)) throw errors['user-exists']()
@@ -44,40 +40,26 @@ const VALIDATION_OPTIONS: ValidatedContextOptions = { onInvalid }
  * than the validation parent's own `400`; everything else about each half is
  * the parent's, unchanged. Reading the body again with `readBody` yields h3's
  * memoized unvalidated parse.
- * Error `data` schemas accept their input type and expose their validated
- * output under the variant's nested `data` property. Legacy error arrays
- * with a scoped `fail` remain supported but are deprecated.
+ * Error payload schemas accept their input type and expose their validated
+ * output as flat fields on the variant.
  */
 export const defineTypedEventHandler: DefineTypedEventHandler = (
   options: {
     validate?: ValidationSchemas
-    errors?: ErrorDefinitions | readonly AnyKnownError[]
+    errors?: readonly AnyKnownError[]
   },
   handler: (event: H3Event, context: never) => any
 ) => {
   // In this order, so each declaration fault reports with its owner's message.
-  const definitions =
-    options.errors !== undefined && !Array.isArray(options.errors)
-      ? (options.errors as ErrorDefinitions)
-      : undefined
+  const declared = resolveDeclared(options.errors ?? [])
+  assertNoReservedTag(declared)
   const errorContext =
-    definitions === undefined ? undefined : createErrorContext(definitions)
-  const declared =
-    options.errors !== undefined && definitions === undefined
-      ? resolveDeclared(options.errors as readonly AnyKnownError[])
-      : undefined
-  assertNoReservedTag(definitions ?? declared)
+    declared.length === 0 ? undefined : createErrorContext(declared)
   const plan = options.validate ? sourcePlan(options.validate) : undefined
-  const fail = declared === undefined ? undefined : createFail(declared)
 
   // The compile guard's answer for a JavaScript caller - `validate: {}` plans
   // nothing, so it counts for nothing here either.
-  if (
-    (plan === undefined || plan.length === 0) &&
-    fail === undefined &&
-    (errorContext === undefined ||
-      Object.keys(errorContext.errors).length === 0)
-  ) {
+  if ((plan === undefined || plan.length === 0) && errorContext === undefined) {
     throw new Error(
       '[nuxt-typed-handler] defineTypedEventHandler needs validate, errors, or both.'
     )
@@ -87,9 +69,7 @@ export const defineTypedEventHandler: DefineTypedEventHandler = (
   const contextFor = (validated: Record<string, unknown>): never =>
     (errorContext !== undefined
       ? { ...validated, ...errorContext }
-      : fail === undefined
-        ? validated
-        : { ...validated, fail }) as never
+      : validated) as never
 
   if (errorContext !== undefined) {
     return defineEventHandler(async (event) => {
@@ -105,8 +85,7 @@ export const defineTypedEventHandler: DefineTypedEventHandler = (
     }) as never
   }
 
-  // No validation call at all on a route that declares none: no body read,
-  // no await.
+  // Validation-only routes keep the parent's context without a factories slot.
   return defineEventHandler((event) =>
     plan === undefined
       ? handler(event, contextFor({}))

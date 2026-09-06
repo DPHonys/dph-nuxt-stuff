@@ -57,8 +57,10 @@ export function bothDeclared() {
       validate: { body: createUser, query: pagination },
       errors: userErrors.pick('user-exists'),
     },
-    (_event, { body, fail }) =>
-      body.name === '' ? fail('user-exists', { email: '' }) : { ok: true }
+    (_event, { body, errors }) => {
+      if (body.name === '') throw errors['user-exists']({ email: '' })
+      return { ok: true }
+    }
   )
 }
 
@@ -74,7 +76,9 @@ export function errorsOnly() {
 
   return defineTypedEventHandler(
     { errors: userErrors.pick('user-not-found') },
-    (_event, { fail }) => fail('user-not-found')
+    (_event, { errors }) => {
+      throw errors['user-not-found']()
+    }
   )
 }
 
@@ -84,7 +88,9 @@ export function parentChecked() {
 
   return defineCheckedEventHandler(
     { errors: userErrors.pick('gone') },
-    (_event, { fail }) => fail('gone')
+    (_event, { errors }) => {
+      throw errors.gone()
+    }
   )
 }
 

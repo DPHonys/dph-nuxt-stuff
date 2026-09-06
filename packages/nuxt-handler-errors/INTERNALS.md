@@ -23,7 +23,7 @@ A module layer composing these entries must:
 
 - Depend on this package as a regular `dependency`, not a peer, pinned exactly.
   `createErrorContext` and `finalizeError` must share the same module instance:
-  pending factory validation lives in a private WeakMap. The deprecated
+  pending factory validation lives in a private WeakMap.
   `resolveDeclared` also uses a per-instance Symbol for its foreign-copy guard.
   pnpm's dedupe keeps these aligned when the pin matches the parent's `/server`.
 - Push this package onto `nuxt.options.build.transpile`. Nuxt transpiles only
@@ -69,30 +69,31 @@ the _caller's_ alias; each module layer owns a one-line handler over
 
 `src/runtime/internals/server/index.ts`, copied by mkdist. Nitro side.
 
-| Export                                     | One line                                                                                                                                                                     |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createErrorContext(definitions)`          | Resolves endpoint-local definitions once and returns frozen `{ errors }` with synchronous factories; validates schema input and preserves output under `data`.               |
-| `finalizeError(error)`                     | Async catch seam that always throws: finalizes pending factory validation, producing a known error or an unmarked 500 for invalid data; unrelated errors retain identity.    |
-| `resolveDeclared(errors)`                  | Deprecated array API: foreign-copy guard plus first-occurrence-wins dedupe at declaration; throws the verbatim `is not an error created by this copy of the module` message. |
-| `createFail(declared)`                     | Deprecated array API: `fail` scoped to `declared`; declared tags raise marked `H3Error`s, undeclared ones throw plain `Error`s.                                              |
-| `createKnownError(tag, status, fields)`    | The unthrown known-error `H3Error`: `statusCode`, `message === tag`, `data` carrying the marker, no `statusMessage`.                                                         |
-| `raiseKnown(tag, status, fields)`          | `throw createKnownError(…)`.                                                                                                                                                 |
-| `createCheckedEventFetch(getBase, token?)` | The event-scoped `$checkedFetch` the server auto-import is built on; `getBase` reads the event's `$fetch` lazily.                                                            |
-| `EventFetchUnavailableError`               | Thrown when `getBase` yields no `$fetch`.                                                                                                                                    |
-| `createChannelStripHandler(getToken)`      | The Nitro error handler that strips the marker off responses lacking the channel header; `getToken(event)` reads the caller's token.                                         |
-| `DeclaredError`                            | `{ tag, status }`, what `resolveDeclared` returns and `createFail` consumes.                                                                                                 |
-| `RawEventFetch`                            | The loose event-fetch shape `createCheckedEventFetch` accepts.                                                                                                               |
+| Export                                                   | One line                                                                                                                                                                      |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createErrorContext(declared: readonly DeclaredError[])` | Returns frozen `{ errors }` with synchronous factories for resolved declarations; schema input is validated and output becomes flat variant fields.                           |
+| `finalizeError(error)`                                   | Async catch seam that always throws: finalizes pending factory validation, producing a known error or an unmarked 500 for invalid payloads; unrelated errors retain identity. |
+| `resolveDeclared(errors)`                                | Resolves `defineError` declaration arrays, guards against foreign module copies, deduplicates identical declarations and rejects conflicting tags.                            |
+| `createKnownError(tag, status, fields)`                  | The unthrown known-error `H3Error`: `statusCode`, `message === tag`, `data` carrying the marker, no `statusMessage`.                                                          |
+| `createCheckedEventFetch(getBase, token?)`               | The event-scoped `$checkedFetch` the server auto-import is built on; `getBase` reads the event's `$fetch` lazily.                                                             |
+| `EventFetchUnavailableError`                             | Thrown when `getBase` yields no `$fetch`.                                                                                                                                     |
+| `createChannelStripHandler(getToken)`                    | The Nitro error handler that strips the marker off responses lacking the channel header; `getToken(event)` reads the caller's token.                                          |
+| `DeclaredError`                                          | `{ tag, status, hasPayload, schema }`, what `resolveDeclared` returns and `createErrorContext` consumes; `schema` is a Standard Schema or `undefined`.                        |
+| `RawEventFetch`                                          | The loose event-fetch shape `createCheckedEventFetch` accepts.                                                                                                                |
 
-Call `createErrorContext` at handler declaration, not per request. Merge its
+Call `createErrorContext(resolveDeclared(options.errors))` at handler declaration,
+not per request. Merge its
 `errors` into the umbrella's flat validated context. Wrap handler execution
 with a catch that delegates to `finalizeError`, including synchronous throws
 and rejected promises. Factories themselves are never awaited: async Standard
 Schema validation is tracked privately until that boundary, and the boundary
 must finalize before Nitro observes or serializes the error. Schema exceptions
-remain unexpected failures; rejected data becomes an unmarked 500 rather than
-the declared failure. Successful output is nested in the variant's `data`.
-The legacy array path continues through `resolveDeclared` / `createFail` with
-its original flat fields; it is not converted to the new wire shape.
+remain unexpected failures; rejected payloads become an unmarked 500 rather than
+the declared failure. Successful schema output becomes flat variant fields
+beside `tag` and `status`. `payload<T>()` is inert type metadata and does not
+execute validation. `ErrorFactories<A>` is the public type projection from a
+declaration array to its local factories: schema factories accept `InferInput`,
+while the route's known-error union carries flat `InferOutput` fields.
 
 ### `@dphonys/nuxt-handler-errors/internals/shared`
 

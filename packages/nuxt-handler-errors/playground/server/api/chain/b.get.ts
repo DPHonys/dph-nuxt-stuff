@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
         'c-gone': (e) => {
           throw createError({
             statusCode: 410,
-            message: `upstream gone: ${e.data.resource}`,
+            message: `upstream gone: ${e.resource}`,
           })
         },
       },

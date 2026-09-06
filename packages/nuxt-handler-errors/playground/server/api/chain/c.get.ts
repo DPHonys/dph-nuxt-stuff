@@ -1,11 +1,14 @@
 // `defineCheckedEventHandler` arrives by auto-import, like `defineEventHandler`.
 import { z } from 'zod'
 
+const gone = defineError('c-gone', {
+  status: 404,
+  payload: z.object({ resource: z.string() }),
+})
+
 export default defineCheckedEventHandler(
   {
-    errors: {
-      'c-gone': { status: 404, data: z.object({ resource: z.string() }) },
-    },
+    errors: [gone],
   },
   (event, { errors }) => {
     const mode = String(getQuery(event).mode ?? 'ok')

@@ -83,19 +83,19 @@ export type AssertSchemaPayload = Expect<
 
 export const wholeGroups = defineCheckedEventHandler(
   { errors: routeErrors },
-  (event, { fail }) => {
-    if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
-    if (event.path === 'b') return fail('forbidden', { requiredRole: 'admin' })
-    if (event.path === 'c') return fail('maintenance')
-    if (event.path === 'd') return fail('rate-limited', { retryAfter: 30 })
+  (event, { errors }) => {
+    if (event.path === 'a') throw errors['user-not-found']({ userId: 'u1' })
+    if (event.path === 'b') throw errors.forbidden({ requiredRole: 'admin' })
+    if (event.path === 'c') throw errors.maintenance()
+    if (event.path === 'd') throw errors['rate-limited']({ retryAfter: 30 })
     // @ts-expect-error - undeclared tag
-    if (event.path === 'e') return fail('nope')
+    if (event.path === 'e') throw errors.nope()
     // @ts-expect-error - wrong payload field type
-    if (event.path === 'f') return fail('user-suspended', { until: 42 })
+    if (event.path === 'f') throw errors['user-suspended']({ until: 42 })
     // @ts-expect-error - a payload-less variant takes no second argument
-    if (event.path === 'g') return fail('maintenance', {})
+    if (event.path === 'g') throw errors.maintenance({})
     // @ts-expect-error - missing payload
-    if (event.path === 'h') return fail('order-cancelled')
+    if (event.path === 'h') throw errors['order-cancelled']()
     return { ok: true }
   }
 )
@@ -106,10 +106,10 @@ export const wholeGroups = defineCheckedEventHandler(
 
 export const pickedSubset = defineCheckedEventHandler(
   { errors: [...userErrors.pick('user-not-found'), forbidden] },
-  (event, { fail }) => {
-    if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
+  (event, { errors }) => {
+    if (event.path === 'a') throw errors['user-not-found']({ userId: 'u1' })
     // @ts-expect-error - `user-suspended` was not picked
-    if (event.path === 'b') return fail('user-suspended', { until: 'x' })
+    if (event.path === 'b') throw errors['user-suspended']({ until: 'x' })
     return { ok: true }
   }
 )
@@ -161,7 +161,7 @@ export type AssertHandlerCarriesUnion = Expect<
   >
 >
 
-// `fail` returns `never`, so the success type infers clean off the body.
+// Throwing factory results leaves the inferred success type unpolluted.
 export type AssertSuccessUnpolluted = Expect<
   Equal<Awaited<ReturnType<typeof wholeGroups>>, { ok: boolean }>
 >
@@ -189,8 +189,8 @@ const userErrorsAgain = defineError({
 
 export const identicalRedeclarationPasses = defineCheckedEventHandler(
   { errors: [...userErrors, ...userErrorsAgain] },
-  (event, { fail }) => {
-    if (event.path === 'a') return fail('user-not-found', { userId: 'u1' })
+  (event, { errors }) => {
+    if (event.path === 'a') throw errors['user-not-found']({ userId: 'u1' })
     return { ok: true }
   }
 )
@@ -202,7 +202,7 @@ export type AssertIdenticalCollapses = Expect<
   >
 >
 
-// The same tag with a different shape breaks `fail`'s payload lookup and the
+// The same tag with a different shape breaks the factory payload lookup and the
 // matcher's arms, so the guard names the tag in the diagnostic.
 const conflictingUserErrors = defineError({ 'user-not-found': { status: 410 } })
 
@@ -238,10 +238,34 @@ export function payloadMustSurviveSerialization(): void {
 /**
  * The two doors into the payload position, held to one rule: whatever
  * `payload<T>()` rejects, a schema with the same inferred output is rejected
- * for too. `Date` is the accepted half on purpose - `Serialize` maps it to
- * `string`, so it survives the wire.
+ * for too. Nested `Date` fields are accepted because `Serialize` maps them
+ * to strings without replacing the variant's tag and status.
  */
 export function schemaOutputMustSurviveSerializationToo(): void {
+  // @ts-expect-error a root Date serializes away the variant tag and status
+  defineError('dated', { status: 400, payload: z.date() })
+  // @ts-expect-error root toJSON replaces the whole variant on the wire
+  defineError('custom', {
+    status: 400,
+    payload: z
+      .string()
+      .transform(() => ({ toJSON: () => ({ value: 'lost floor' }) })),
+  })
+  // @ts-expect-error groups reject root toJSON too
+  defineError({ dated: { status: 400, payload: z.date() } })
+  // @ts-expect-error a valid branch cannot hide a root toJSON branch
+  defineError('union', {
+    status: 400,
+    payload: z.union([z.object({ value: z.string() }), z.date()]),
+  })
+  // @ts-expect-error phantom root Dates are rejected too
+  defineError('dated', { status: 400, payload: payload<Date>() })
+  // @ts-expect-error phantom root toJSON is rejected too
+  defineError('custom', {
+    status: 400,
+    // @ts-expect-error the phantom helper also rejects the callable field
+    payload: payload<{ toJSON: () => string }>(),
+  })
   defineError(
     'paid',
     // @ts-expect-error - the schema's inferred output has a `bigint` field

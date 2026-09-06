@@ -5,21 +5,16 @@ import type {
   H3Event,
 } from 'h3'
 import type {
-  ErrorDefinitions,
-  ErrorDefinitionsGuard,
-  ErrorFactories,
-  ErrorsOfDefinitions,
-} from './error-definitions'
-import type {
   AnyKnownError,
   ConflictGuard,
   Defs,
+  ErrorFactories,
+  InputOfDef,
+  InputsOfDefs,
   KnownError,
   KnownErrorGroup,
   KnownErrorsOf,
-  KnownVariant,
   Payload,
-  PayloadArgs,
   SerializableDef,
   SerializableDefs,
   SerializablePayload,
@@ -52,46 +47,35 @@ export type KnownErrorsOfHandler<T> =
       ? Exclude<E, undefined>
       : never
 
-/**
- * Raise one of the route's declared failures. Throws; returns `never`, so
- * `return fail(…)` contributes nothing to the inferred success type.
- * @deprecated Use handler-local error factories and throw their result.
- */
-export type Fail<E extends KnownVariant> = <T extends E['tag']>(
-  tag: T,
-  ...payload: PayloadArgs<E, T>
-) => never
-
 /** The second argument a checked handler body receives. */
-export interface HandlerContext<E extends KnownVariant> {
-  /** @deprecated Use handler-local error factories. */
-  fail: Fail<E>
+export interface HandlerContext<A extends readonly AnyKnownError[]> {
+  readonly errors: ErrorFactories<A>
 }
 
 /** A checked handler body. The success type infers from it with no annotation. */
 export type CheckedHandlerFn<
   Request extends EventHandlerRequest,
   Response,
-  E extends KnownVariant,
-> = (event: H3Event<Request>, ctx: HandlerContext<E>) => Response
+  A extends readonly AnyKnownError[],
+> = (event: H3Event<Request>, ctx: HandlerContext<A>) => Response
 
-/** @deprecated Use a Standard Schema in a handler-local `data` slot. */
+/** Declare a type-only payload. */
 export interface DefinePayload {
   <T extends SerializablePayload<T>>(): Payload<T>
 }
 
-/** @deprecated Use a handler-local errors definition record. */
+/** Declare single errors or spreadable groups. */
 export interface DefineError {
   /** One definition → one error value. */
   <Tag extends string, const D extends VariantDef>(
     tag: Tag,
     def: SerializableDef<D> & D
-  ): KnownError<VariantOfDef<Tag, D>>
+  ): KnownError<VariantOfDef<Tag, D>, InputOfDef<Tag, D>>
 
   /** Several definitions → a spreadable group. */
   <const D extends Defs>(
     defs: SerializableDefs<D> & D
-  ): KnownErrorGroup<VariantsOf<D>>
+  ): KnownErrorGroup<VariantsOf<D>, InputsOfDefs<D>>
 }
 
 // `Response` has no default type parameter on purpose: an explicit type
@@ -99,30 +83,11 @@ export interface DefineError {
 // success type to `any`.
 export interface DefineCheckedEventHandler {
   <
-    const D extends ErrorDefinitions | readonly AnyKnownError[],
-    Response extends EventHandlerResponse,
-    Request extends EventHandlerRequest = EventHandlerRequest,
-  >(
-    options: {
-      errors: D & ErrorDefinitionsGuard<Extract<D, ErrorDefinitions>>
-    } & (D extends ErrorDefinitions ? unknown : never),
-    handler: (
-      event: H3Event<Request>,
-      ctx: { readonly errors: ErrorFactories<Extract<D, ErrorDefinitions>> }
-    ) => Response
-  ): CheckedEventHandler<
-    Request,
-    Response,
-    ErrorsOfDefinitions<Extract<D, ErrorDefinitions>>
-  >
-
-  /** @deprecated Use a handler-local definition record and `throw errors.tag()`. */
-  <
     const A extends ReadonlyArray<AnyKnownError>,
     Response extends EventHandlerResponse,
     Request extends EventHandlerRequest = EventHandlerRequest,
   >(
     options: ConflictGuard<A> & { errors: A },
-    handler: CheckedHandlerFn<Request, Response, KnownErrorsOf<A>>
+    handler: CheckedHandlerFn<Request, Response, A>
   ): CheckedEventHandler<Request, Response, KnownErrorsOf<A>>
 }

@@ -6,67 +6,68 @@ import { z } from 'zod'
 import {
   createErrorContext,
   finalizeError,
+  resolveDeclared,
 } from '../../src/runtime/internals/server'
-import { defineCheckedEventHandler } from '../../src/runtime/server'
+import {
+  defineCheckedEventHandler,
+  defineError,
+  payload,
+} from '../../src/runtime/server'
 
 const event = {} as H3Event
 const schema = (
-  validate: StandardSchemaV1<unknown, number>['~standard']['validate']
-): StandardSchemaV1<unknown, number> => ({
+  validate: StandardSchemaV1<
+    unknown,
+    { amount: number }
+  >['~standard']['validate']
+): StandardSchemaV1<unknown, { amount: number }> => ({
   '~standard': { version: 1, vendor: 'test', validate },
 })
 
-describe('handler-local errors', () => {
-  it('returns synchronous throwable H3Errors with sync transformed nested data', async () => {
-    const definitions = {
-      conflict: { status: 409, data: z.string().transform(Number) },
+describe('handler-local factories', () => {
+  it.each([false, true])(
+    'transforms flat output through group pick (async=%s)',
+    async (asyncValidation) => {
+      const group = defineError({
+        conflict: {
+          status: 409,
+          payload: schema((value) => {
+            const result = { value: { amount: Number(value) } }
+            return asyncValidation ? Promise.resolve(result) : result
+          }),
+        },
+        omitted: { status: 404 },
+      })
+      const declarations = [...group.pick('conflict')]
+      const { errors } = createErrorContext(resolveDeclared(declarations))
+      const error = errors.conflict!('42')
+      expect(error).toBeInstanceOf(H3Error)
+      expect(error.data).toEqual(
+        asyncValidation
+          ? undefined
+          : { __knownError__: { tag: 'conflict', status: 409, amount: 42 } }
+      )
+      const handler = defineCheckedEventHandler(
+        { errors: declarations },
+        (_event, context) => {
+          throw context.errors.conflict('42')
+        }
+      )
+      await expect(handler(event)).rejects.toMatchObject({
+        data: { __knownError__: { tag: 'conflict', status: 409, amount: 42 } },
+      })
     }
-    const { errors } = createErrorContext(definitions)
-    expect(errors.conflict.tag).toBe('conflict')
-    expect(errors.conflict.status).toBe(409)
-    const error = errors.conflict('42')
-    expect(error).toBeInstanceOf(H3Error)
-    expect(error.data).toEqual({
-      __knownError__: { tag: 'conflict', status: 409, data: 42 },
-    })
-    const handler = defineCheckedEventHandler(
-      { errors: definitions },
-      (_event, context) => {
-        throw context.errors.conflict('42')
-      }
-    )
-    await expect(handler(event)).rejects.toMatchObject({
-      statusCode: 409,
-      data: error.data,
-    })
-  })
+  )
 
-  it('finalizes async transforms before marking thrown errors', async () => {
-    const definitions = {
-      conflict: {
-        status: 409,
-        data: schema(async (value) => ({ value: Number(value) })),
-      },
-    }
-    const { errors } = createErrorContext(definitions)
-    const error = errors.conflict('42')
-    expect(error).toBeInstanceOf(H3Error)
-    expect(error.data).toBeUndefined()
+  it('enforces no-payload and schema arity, including empty schema input', async () => {
+    const declarations = [
+      ...defineError({
+        notFound: { status: 404 },
+        empty: { status: 400, payload: z.object({}) },
+      }),
+    ]
     const handler = defineCheckedEventHandler(
-      { errors: definitions },
-      async (_event, context) => {
-        await Promise.resolve()
-        throw context.errors.conflict('42')
-      }
-    )
-    await expect(handler(event)).rejects.toMatchObject({
-      data: { __knownError__: { tag: 'conflict', status: 409, data: 42 } },
-    })
-  })
-
-  it('supports no-data errors and successful handlers without fail', async () => {
-    const handler = defineCheckedEventHandler(
-      { errors: { notFound: { status: 404 } } },
+      { errors: declarations },
       (_event, context) => {
         expect('fail' in context).toBe(false)
         expect(context.errors.notFound().data).toEqual({
@@ -75,6 +76,10 @@ describe('handler-local errors', () => {
         expect(() =>
           (context.errors.notFound as (...args: unknown[]) => H3Error)({})
         ).toThrow('invalid arguments')
+        expect(() =>
+          (context.errors.empty as (...args: unknown[]) => H3Error)()
+        ).toThrow('invalid arguments')
+        expect(context.errors.empty({})).toBeInstanceOf(H3Error)
         return { ok: true }
       }
     )
@@ -82,188 +87,195 @@ describe('handler-local errors', () => {
   })
 
   it.each([false, true])(
-    'invalid data is an unmarked 500 (async=%s)',
+    'invalid schema input is an unmarked 500 (async=%s)',
     async (asyncValidation) => {
       const result = { issues: [{ message: 'bad input' }] }
-      const { errors } = createErrorContext({
-        bad: {
-          status: 409,
-          data: schema(() =>
-            asyncValidation ? Promise.resolve(result) : result
-          ),
-        },
+      const bad = defineError('bad', {
+        status: 409,
+        payload: schema(() =>
+          asyncValidation ? Promise.resolve(result) : result
+        ),
       })
-      await expect(finalizeError(errors.bad('secret'))).rejects.toMatchObject({
+      const { errors } = createErrorContext(resolveDeclared([bad]))
+      await expect(finalizeError(errors.bad!('secret'))).rejects.toMatchObject({
         statusCode: 500,
         data: undefined,
       })
     }
   )
 
-  it('propagates schema exceptions and handles abandoned async factories', async () => {
+  it('propagates validation exceptions and handles abandoned async factories', async () => {
     const exception = new Error('schema bug')
-    const sync = createErrorContext({
-      bad: {
-        status: 409,
-        data: schema(() => {
-          throw exception
-        }),
-      },
+    const sync = defineError('bad', {
+      status: 409,
+      payload: schema(() => {
+        throw exception
+      }),
     })
-    expect(() => sync.errors.bad(null)).toThrow(exception)
-    const asyncContext = createErrorContext({
-      bad: {
-        status: 409,
-        data: schema(async () => {
-          throw exception
-        }),
-      },
+    expect(() =>
+      createErrorContext(resolveDeclared([sync])).errors.bad!(null)
+    ).toThrow(exception)
+    const asyncError = defineError('bad', {
+      status: 409,
+      payload: schema(async () => {
+        throw exception
+      }),
     })
-    asyncContext.errors.bad(null)
+    const { errors } = createErrorContext(resolveDeclared([asyncError]))
+    errors.bad!(null)
     await new Promise((resolve) => setTimeout(resolve, 0))
-    await expect(finalizeError(asyncContext.errors.bad(null))).rejects.toBe(
-      exception
-    )
+    await expect(finalizeError(errors.bad!(null))).rejects.toBe(exception)
   })
 
   it.each([false, true])(
-    'rejects invalid outgoing JSON (async=%s)',
+    'rejects non-object, reserved and invalid JSON output (async=%s)',
     async (asyncValidation) => {
       const cycle: { self?: unknown } = {}
       cycle.self = cycle
       for (const value of [
         undefined,
+        null,
+        42,
+        'text',
+        [],
+        { tag: 'spoofed' },
+        { status: 200 },
         { amount: 1n },
         { nested: [Symbol('bad')] },
         { callback: () => 1 },
         cycle,
+        new Date('2026-01-01T00:00:00.000Z'),
+        { toJSON: () => ({ amount: 42 }) },
+        Object.create({ toJSON: () => ({ amount: 42 }) }),
+        { toJSON: () => 42 },
+        { toJSON: () => ({ tag: 'spoofed' }) },
         {
           toJSON() {
             throw new Error('secret')
           },
         },
       ]) {
-        const { errors } = createErrorContext({
-          bad: {
-            status: 409,
-            data: schema(() => {
-              // Simulate JS callers or a schema lying about its output type.
-              const result = { value: value as number }
-              return asyncValidation ? Promise.resolve(result) : result
-            }),
-          },
+        const bad = defineError('bad', {
+          status: 409,
+          payload: schema(() => {
+            const result = { value: value as { amount: number } }
+            return asyncValidation ? Promise.resolve(result) : result
+          }),
         })
-        await expect(finalizeError(errors.bad(null))).rejects.toMatchObject({
+        const { errors } = createErrorContext(resolveDeclared([bad]))
+        await expect(finalizeError(errors.bad!(null))).rejects.toMatchObject({
           statusCode: 500,
-          message: 'Invalid declared error data',
+          message: 'Invalid declared error payload',
           data: undefined,
         })
       }
     }
   )
 
-  it('accepts numeric-looking runtime string keys and snapshots JSON output', () => {
-    const { errors } = createErrorContext({
-      '123': {
+  it.each(['no-data', 'phantom', 'sync', 'async'] as const)(
+    'preserves the original factory call stack after async finalization (%s)',
+    async (kind) => {
+      const declaration = defineError('conflict', {
         status: 409,
-        data: z.object({ date: z.date(), amount: z.number().optional() }),
-      },
-    })
-    const date = new Date('2026-01-01T00:00:00.000Z')
-    const error = errors['123']({ date })
-    date.setFullYear(2000)
-    expect(error.data).toEqual({
-      __knownError__: {
-        tag: '123',
-        status: 409,
-        data: { date: '2026-01-01T00:00:00.000Z' },
-      },
-    })
-  })
-
-  it.each([
-    null,
-    [],
-    { bad: null },
-    { bad: { status: 200 } },
-    { bad: { status: 404.5 } },
-    { bad: { status: 404, payload: {} } },
-    { bad: { status: 404, data: undefined } },
-    { [Symbol('tag')]: { status: 404 } },
-    {
-      bad: {
-        status: 404,
-        data: { '~standard': { version: 2, vendor: 'test', validate() {} } },
-      },
-    },
-    {
-      bad: {
-        status: 404,
-        data: { '~standard': { version: 1, vendor: 'test' } },
-      },
-    },
-  ])('rejects malformed declarations: %j', (errors) => {
-    expect(() => createErrorContext(errors as never)).toThrow(TypeError)
-  })
-
-  it('does not invoke declaration getters or accept inherited declarations', () => {
-    expect(() =>
-      createErrorContext({
-        get bad() {
-          throw new Error('getter invoked')
+        ...(kind === 'no-data'
+          ? {}
+          : {
+              payload:
+                kind === 'phantom'
+                  ? payload<{ amount: number }>()
+                  : schema(() => {
+                      const result = { value: { amount: 42 } }
+                      return kind === 'async' ? Promise.resolve(result) : result
+                    }),
+            }),
+      })
+      const { errors } = createErrorContext(resolveDeclared([declaration]))
+      function originalFactoryCall() {
+        return kind === 'no-data'
+          ? errors.conflict!()
+          : errors.conflict!({ amount: 42 })
+      }
+      const error = originalFactoryCall()
+      const originalStack = error.stack
+      expect(originalStack).toContain('originalFactoryCall')
+      Object.assign(error, {
+        stack: 'mutated stack',
+        message: 'spoofed',
+        statusCode: 503,
+        statusMessage: 'unsafe',
+        fatal: true,
+        unhandled: true,
+        data: { __knownError__: { tag: 'spoofed' } },
+      })
+      await Promise.resolve()
+      await expect(finalizeError(error)).rejects.toMatchObject({
+        stack: originalStack,
+        message: 'conflict',
+        statusCode: 409,
+        statusMessage: undefined,
+        fatal: false,
+        unhandled: false,
+        data: {
+          __knownError__: {
+            tag: 'conflict',
+            status: 409,
+            ...(kind === 'no-data' ? {} : { amount: 42 }),
+          },
         },
-      } as never)
-    ).toThrow('invalid error definition')
-    expect(() =>
-      createErrorContext(Object.create({ inherited: { status: 404 } }))
-    ).toThrow('definition record')
+      })
+    }
+  )
+
+  it('supports numeric keys and snapshots validated output', async () => {
+    const group = defineError({
+      123: { status: 409, payload: z.object({ date: z.date() }) },
+    })
+    const { errors } = createErrorContext(
+      resolveDeclared([...group.pick('123')])
+    )
+    const date = new Date('2026-01-01T00:00:00.000Z')
+    const error = errors['123']!({ date })
+    date.setFullYear(2000)
+    error.statusCode = 503
+    error.data = { __knownError__: { tag: 'spoofed' } }
+    await expect(finalizeError(error)).rejects.toMatchObject({
+      statusCode: 409,
+      data: {
+        __knownError__: {
+          tag: '123',
+          status: 409,
+          date: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    })
   })
 
-  it('uses frozen prototype-safe maps and snapshots status and validator', async () => {
-    const protoTag = '__proto__'
-    const definitions = {
+  it('uses frozen prototype-safe maps and snapshots the validator', async () => {
+    const data = schema((value) => ({ value: { amount: Number(value) } }))
+    const group = defineError({
       ['__proto__']: { status: 404 },
       constructor: { status: 409 },
-    }
-    const context = createErrorContext(definitions)
-    definitions[protoTag].status = 500
-    expect(Object.getPrototypeOf(context.errors)).toBeNull()
-    expect(Object.isFrozen(context.errors)).toBe(true)
-    expect(Object.isFrozen(context.errors[protoTag])).toBe(true)
-    const error = context.errors[protoTag]()
-    error.statusCode = 503
-    error.data = { __knownError__: { tag: 'spoofed', status: 503 } }
-    await expect(finalizeError(error)).rejects.toMatchObject({
+      conflict: { status: 409, payload: data },
+    })
+    const { errors } = createErrorContext(resolveDeclared([...group]))
+    expect(Object.getPrototypeOf(errors)).toBeNull()
+    expect(Object.isFrozen(errors)).toBe(true)
+    const protoTag = '__proto__'
+    expect(Object.isFrozen(errors[protoTag])).toBe(true)
+    expect(errors[protoTag]!().statusCode).toBe(404)
+    const noPayload = errors[protoTag]!()
+    noPayload.statusCode = 503
+    noPayload.data = { __knownError__: { tag: 'spoofed' } }
+    await expect(finalizeError(noPayload)).rejects.toMatchObject({
       statusCode: 404,
       data: { __knownError__: { tag: '__proto__', status: 404 } },
     })
-    expect(context.errors.constructor().statusCode).toBe(409)
-    expect(Object.getPrototypeOf({})).toBe(Object.prototype)
-    const data = schema((value) => ({ value: Number(value) }))
-    const { errors } = createErrorContext({ conflict: { status: 409, data } })
-    Object.assign(data['~standard'], { validate: () => ({ value: 999 }) })
-    await expect(finalizeError(errors.conflict('42'))).rejects.toMatchObject({
-      data: { __knownError__: { data: 42 } },
+    expect(errors.constructor!().statusCode).toBe(409)
+    Object.assign(data['~standard'], {
+      validate: () => ({ value: { amount: 999 } }),
     })
-  })
-
-  it('keeps reserved names inside nested data, not on the variant', async () => {
-    const { errors } = createErrorContext({
-      conflict: {
-        status: 409,
-        data: z.object({ tag: z.string(), status: z.number() }),
-      },
-    })
-    await expect(
-      finalizeError(errors.conflict({ tag: 'spoofed', status: 200 }))
-    ).rejects.toMatchObject({
-      data: {
-        __knownError__: {
-          tag: 'conflict',
-          status: 409,
-          data: { tag: 'spoofed', status: 200 },
-        },
-      },
+    await expect(finalizeError(errors.conflict!('42'))).rejects.toMatchObject({
+      data: { __knownError__: { amount: 42 } },
     })
   })
 
@@ -273,7 +285,7 @@ describe('handler-local errors', () => {
     null,
     'plain',
   ])('preserves unrelated thrown values: %s', async (error) => {
-    const handler = defineCheckedEventHandler({ errors: {} }, () => {
+    const handler = defineCheckedEventHandler({ errors: [] }, () => {
       throw error
     })
     await expect(handler(event)).rejects.toBe(error)

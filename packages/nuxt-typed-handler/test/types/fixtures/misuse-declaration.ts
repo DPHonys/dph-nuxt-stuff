@@ -20,21 +20,25 @@ const reserved = defineError('validation-failed', { status: 400 })
 
 export const reservedTag = defineTypedEventHandler(
   { errors: [...userErrors, reserved] },
-  (_event, { fail }) => fail('forbidden')
+  (_event, { errors }) => {
+    throw errors.forbidden()
+  }
 )
 
 // --- Bare `{}` declares nothing -------------------------------------------
 
 export const bare = defineTypedEventHandler({}, () => null)
 
-// --- `fail` can never raise the built-in variant --------------------------
+// --- Factories can never raise the built-in variant -----------------------
 
 export const failReserved = defineTypedEventHandler(
   {
     validate: { query: z.object({ page: z.coerce.number() }) },
     errors: [...userErrors],
   },
-  (_event, { fail }) => fail('validation-failed')
+  (_event, { errors }) => {
+    throw errors['validation-failed']()
+  }
 )
 
 // --- The parents' guards still fire at the key they own -------------------

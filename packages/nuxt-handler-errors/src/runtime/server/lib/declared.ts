@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Error } from 'h3'
 import { createError } from 'h3'
 import { knownErrorMarker } from '../../shared/wire'
@@ -8,6 +9,8 @@ import type { AnyKnownError, KnownVariant } from '../../types/known-error'
 export interface DeclaredError {
   readonly tag: string
   readonly status: number
+  readonly hasPayload: boolean
+  readonly schema: StandardSchemaV1 | undefined
 }
 
 // Per module instance on purpose - a value from a second physical copy of
@@ -15,7 +18,7 @@ export interface DeclaredError {
 const INTERNALS: unique symbol = Symbol('nuxt-handler-errors:internals')
 
 export function internalsOf(error: AnyKnownError): DeclaredError | undefined {
-  return (error as { [INTERNALS]?: DeclaredError })[INTERNALS]
+  return (error as { [INTERNALS]?: DeclaredError } | null)?.[INTERNALS]
 }
 
 // Cast because the `[VARIANT]` brand is phantom and exists only in the type.
@@ -35,8 +38,7 @@ function raiseForeignError(index: number): never {
   )
 }
 
-// One error per distinct tag, first occurrence winning - JavaScript callers
-// see none of the type-level guards.
+// Identical declarations dedupe; different validators must never silently win.
 export function byDistinctTag(
   entries: readonly DeclaredError[]
 ): DeclaredError[] {
@@ -44,13 +46,24 @@ export function byDistinctTag(
   const distinct = new Map<string, DeclaredError>()
 
   for (const entry of entries) {
+    const previous = distinct.get(entry.tag)
+    if (
+      previous &&
+      (previous.status !== entry.status ||
+        previous.schema !== entry.schema ||
+        previous.hasPayload !== entry.hasPayload)
+    ) {
+      throw new TypeError(
+        `[nuxt-handler-errors] conflicting declarations for ${entry.tag}`
+      )
+    }
     if (!distinct.has(entry.tag)) distinct.set(entry.tag, entry)
   }
 
   return [...distinct.values()]
 }
 
-// At declaration, not lazily inside `fail` - so a foreign error fires before
+// At declaration, not lazily inside a factory - so a foreign error fires before
 // the route serves a request.
 export function resolveDeclared(
   errors: readonly AnyKnownError[]
@@ -76,28 +89,4 @@ export function createKnownError(
   }
 
   return createError(input)
-}
-
-export function raiseKnown(
-  tag: string,
-  status: number,
-  fields: Record<string, unknown>
-): never {
-  throw createKnownError(tag, status, fields)
-}
-
-export function createFail(
-  declared: readonly DeclaredError[]
-): (tag: string, fields?: Record<string, unknown>) => never {
-  return (tag, fields) => {
-    const internals = declared.find((entry) => entry.tag === tag)
-
-    // A plain `Error` on purpose: a programming mistake must not arrive at a
-    // client wearing the marker that means "the server declared this".
-    if (internals === undefined) {
-      throw new Error(`[nuxt-handler-errors] undeclared error tag: ${tag}`)
-    }
-
-    return raiseKnown(internals.tag, internals.status, fields ?? {})
-  }
 }

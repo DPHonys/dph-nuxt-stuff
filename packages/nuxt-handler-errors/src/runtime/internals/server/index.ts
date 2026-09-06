@@ -1,9 +1,4 @@
-export {
-  createFail,
-  createKnownError,
-  raiseKnown,
-  resolveDeclared,
-} from '../../server/lib/declared'
+export { createKnownError, resolveDeclared } from '../../server/lib/declared'
 export type { DeclaredError } from '../../server/lib/declared'
 export {
   createErrorContext,

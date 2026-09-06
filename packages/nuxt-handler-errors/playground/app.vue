@@ -9,14 +9,12 @@ const { error: fetchError } = await useCheckedFetch('/api/users/suspended')
 matchError(
   fetchError,
   {
-    'user-not-found': (e) =>
-      (fetched.value = `user-not-found: ${e.data.userId}`),
+    'user-not-found': (e) => (fetched.value = `user-not-found: ${e.userId}`),
     'user-suspended': (e) =>
-      (fetched.value = `user-suspended until ${e.data.until}`),
-    forbidden: (e) =>
-      (fetched.value = `forbidden, needs ${e.data.requiredRole}`),
+      (fetched.value = `user-suspended until ${e.until}`),
+    forbidden: (e) => (fetched.value = `forbidden, needs ${e.requiredRole}`),
     'rate-limited': (e) =>
-      (fetched.value = `rate-limited for ${e.data.retryAfter}s`),
+      (fetched.value = `rate-limited for ${e.retryAfter}s`),
   },
   (err, unrecognized) =>
     (fetched.value = unrecognized
@@ -38,12 +36,10 @@ const { error: repoError } = await useCheckedAsyncData('user', () =>
 matchError(
   repoError,
   {
-    'user-not-found': (e) => (repo.value = `user-not-found: ${e.data.userId}`),
-    'user-suspended': (e) =>
-      (repo.value = `user-suspended until ${e.data.until}`),
-    forbidden: (e) => (repo.value = `forbidden, needs ${e.data.requiredRole}`),
-    'rate-limited': (e) =>
-      (repo.value = `rate-limited for ${e.data.retryAfter}s`),
+    'user-not-found': (e) => (repo.value = `user-not-found: ${e.userId}`),
+    'user-suspended': (e) => (repo.value = `user-suspended until ${e.until}`),
+    forbidden: (e) => (repo.value = `forbidden, needs ${e.requiredRole}`),
+    'rate-limited': (e) => (repo.value = `rate-limited for ${e.retryAfter}s`),
   },
   (err) => (repo.value = `unknown: ${err.status ?? 0}`)
 )
@@ -60,7 +56,7 @@ async function describeChain(): Promise<string> {
 
     matchError(
       error,
-      { 'c-gone': (e) => (described = `c-gone: ${e.data.resource}`) },
+      { 'c-gone': (e) => (described = `c-gone: ${e.resource}`) },
       (err, unrecognized) =>
         (described = unrecognized
           ? `unrecognized: ${unrecognized.tag}`

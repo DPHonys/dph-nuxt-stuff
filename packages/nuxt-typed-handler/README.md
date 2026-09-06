@@ -54,12 +54,17 @@ const createUser = z.object({
   email: z.email(),
 })
 
+const userErrors = defineError({
+  'user-exists': {
+    status: 409,
+    payload: z.object({ email: z.string().trim().toLowerCase() }),
+  },
+})
+
 export default defineTypedEventHandler(
   {
     validate: { body: createUser },
-    errors: {
-      'user-exists': { status: 409, data: z.object({ email: z.string() }) },
-    },
+    errors: [...userErrors],
   },
   async (event, { body, errors }) => {
     if (await taken(body.email))
@@ -83,7 +88,7 @@ const { error } = await useTypedFetch('/api/users', {
 matchError(
   error,
   {
-    'user-exists': (e) => snack(`${e.data.email} is taken`),
+    'user-exists': (e) => snack(`${e.email} is taken`),
     'validation-failed': (e) => showIssues(e.issues),
   },
   (err) => showError(err)
@@ -98,7 +103,7 @@ matchError(
 - **Your return type flows to Nitro's typed routes unchanged.** The wrapper
   returns a `TypedEventHandler` - still assignable to h3's `EventHandler` - so
   the response type infers exactly as it would with `defineEventHandler`.
-- **Auto-imported where you use it.** `defineTypedEventHandler`,
+- **Auto-imported where you use it.** `defineTypedEventHandler`, `defineError`, `payload`,
   `recognizeKnownError` and `recognizeValidationError` are ambient
   inside `server/`, like `defineEventHandler`; `useTypedFetch` and its siblings
   are ambient in app code, like `useFetch`; `$typedFetch` is a global, like
@@ -115,12 +120,15 @@ matchError(
 // server/api/users/[id].get.ts
 import { z } from 'zod'
 
+const unauthorized = defineError('unauthorized', { status: 401 })
+const userErrors = defineError({
+  'user-not-found': { status: 404, payload: z.object({ userId: z.string() }) },
+  'user-suspended': { status: 403, payload: payload<{ until: string }>() },
+})
+
 export default defineTypedEventHandler(
   {
-    errors: {
-      unauthorized: { status: 401 },
-      'user-not-found': { status: 404, data: z.object({ userId: z.string() }) },
-    },
+    errors: [...userErrors.pick('user-not-found'), unauthorized],
   },
   async (event, { errors }) => {
     if (!(await authenticated(event))) throw errors.unauthorized()
@@ -134,17 +142,22 @@ export default defineTypedEventHandler(
 )
 ```
 
-- **Contracts are endpoint-local.** Each key declares a tag, its HTTP error
-  `status` (400-599), and optionally a Standard Schema in `data`. Reuse schema
-  values where useful; no registry or separate error declaration is required.
+- **Declarations are reusable; selection is endpoint-local.** `defineError`
+  creates singles or groups with tags, HTTP error `status` (400-599), and
+  optional `payload`. Export them from `server/errors/` when useful. Spread
+  groups, combine them with singles, or select a subset with `.pick()`.
 - **Factories are synchronous.** Write `throw errors['user-not-found']({ userId })`.
-  The argument is the schema's input; a definition without `data` has a
+  The argument is the schema's input; a definition without `payload` has a
   zero-argument factory. Undeclared factory keys are compile errors.
-- **Data schemas execute**, synchronously or asynchronously. Validation is
+- **Payload schemas execute**, synchronously or asynchronously. Validation is
   finalized at the handler boundary, so never `await` a factory. Schema output
-  (including transforms) reaches the client nested in `e.data` and must be
-  JSON-serializable. Invalid factory data is a programmer error answering an
+  (including transforms) reaches the client as flat fields such as `e.userId`
+  and must be a JSON-serializable object without `tag` or `status` keys.
+  Invalid factory payloads are programmer errors answering an
   unmarked **500**, not a declared failure or `validation-failed`.
+- **`payload<T>()` is first-class and type-only.** Use it for trusted domain
+  values, such as a suspension's `until` date string above; it performs no
+  runtime validation. Use a schema when values need validation or transformation.
 - Success return values and their inferred types are unchanged; errors do not
   add a success envelope. Clients still match exhaustively by tag.
 - **`'validation-failed'` is reserved on every route**, whether or not it
@@ -153,20 +166,20 @@ export default defineTypedEventHandler(
 
 Rationale, and the full model: [Declaring what a route can fail with][errors-declaring].
 
-### Migrating the deprecated API
+### Breaking migration
 
-`defineError`, `payload<T>()`, array declarations, `.pick()` and `{ fail }`
-remain supported but are deprecated. Replace the array with an endpoint-local
-record, `payload` with a runtime Standard Schema in `data`, and
+The string-based `fail` helper is removed, with no compatibility or deprecation
+layer. Receive `{ errors }` and replace
 `return fail('user-not-found', { userId })` with
-`throw errors['user-not-found']({ userId })`. Legacy `payload` schemas were
-type-only; new `data` schemas execute at runtime.
+`throw errors['user-not-found']({ userId })`. Keep `defineError` singles and
+groups, `payload<T>()`, declaration arrays, spread and `.pick()`. Inline handler
+error records are not supported.
 
-Preserve tags and statuses, and change matcher reads from `e.userId` to
-`e.data.userId`. Legacy declarations retain flat payloads. The built-in
-`validation-failed` still exposes `e.issues`, not `e.data.issues`. Successes,
-request validation and the fetch/matching APIs do not change. Remove obsolete
-declaration files after migrating their usages.
+Schema-backed `payload` declarations now execute at runtime instead of supplying
+types alone: factories accept schema input and clients see transformed output.
+Preserve tags, statuses and flat matcher reads such as `e.userId`. The built-in
+`validation-failed` still exposes `e.issues`. Successes, request validation and
+the fetch/matching APIs do not change.
 
 ## Validating the request
 
@@ -214,7 +227,7 @@ The wrapper's second parameter is one flat object, built fresh per request:
 ```
 
 - **Only what was declared is there.** Each validated source appears iff
-  `validate` declared it; `errors` appears when an error record is declared.
+  `validate` declared it; `errors` appears when an error array is declared.
   Reading an undeclared key is a compile error naming the key.
 - **It is the only door to validated values.** Calling `readBody(event)` in the
   handler hands back h3's memoized _unvalidated_ parse - not what your schema
@@ -275,7 +288,7 @@ await $typedFetch('/api/search', { query: { page: '2' } })
 matchError(
   error,
   {
-    'user-not-found': (e) => notFound(e.data.userId),
+    'user-not-found': (e) => notFound(e.userId),
     'validation-failed': (e) => showIssues(e.issues),
   },
   (err, unrecognized) => {
@@ -288,7 +301,7 @@ matchError(
 One call absorbs the `if (error)` and the is-it-known check. **The arms are
 exhaustive over what the route declared**, each arm receives the whole variant,
 and the fallback is positional and required. Local factory variants carry
-`{ tag, status, data }` (no `data` for schema-less definitions); the built-in
+`{ tag, status, ...payload }` (just `tag` and `status` without a payload); the built-in
 validation variant keeps its top-level `issues`. `matchError` is imported from
 `@dphonys/nuxt-typed-handler/shared` - it is used on the server too.
 
@@ -490,14 +503,14 @@ parent.
 Already on `@dphonys/nuxt-handler-errors` or
 `@dphonys/nuxt-handler-validation`? Almost everything is a rename.
 
-| Before                                                                                                                                                                    | After                                                                                                                                                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `modules: ['@dphonys/nuxt-handler-errors', '@dphonys/nuxt-handler-validation']`                                                                                           | `modules: ['@dphonys/nuxt-typed-handler']`                                                                                                             |
-| `handlerErrors: { channelToken }` / `handlerValidation: …`                                                                                                                | `typedHandler: { channelToken }`                                                                                                                       |
-| `defineCheckedEventHandler({ errors }, …)` / `defineValidatedEventHandler({ validate }, …)`                                                                               | `defineTypedEventHandler({ errors \| validate }, …)`                                                                                                   |
-| `useCheckedFetch`, `useLazyCheckedFetch`, `useRequestCheckedFetch`, `useCheckedAsyncData`, `useLazyCheckedAsyncData`, `$checkedFetch`(`.try`), `event.$checkedFetch`      | `useTypedFetch`, `useLazyTypedFetch`, `useRequestTypedFetch`, `useTypedAsyncData`, `useLazyTypedAsyncData`, `$typedFetch`(`.try`), `event.$typedFetch` |
-| imports from `@dphonys/nuxt-handler-errors/{shared,types}` and `@dphonys/nuxt-handler-validation/types`                                                                   | the same names from `@dphonys/nuxt-typed-handler/{shared,types}`                                                                                       |
-| **Unchanged:** `matchError`, `recognizeKnownError`, `recognizeValidationError`, `KnownErrorsOfRoute`, `ValidationErrorData`, `ValidationSchemas`, every other parent name | same name, new specifier only; `defineError` and `payload` remain deprecated compatibility exports                                                     |
+| Before                                                                                                                                                                                              | After                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `modules: ['@dphonys/nuxt-handler-errors', '@dphonys/nuxt-handler-validation']`                                                                                                                     | `modules: ['@dphonys/nuxt-typed-handler']`                                                                                                             |
+| `handlerErrors: { channelToken }` / `handlerValidation: …`                                                                                                                                          | `typedHandler: { channelToken }`                                                                                                                       |
+| `defineCheckedEventHandler({ errors }, …)` / `defineValidatedEventHandler({ validate }, …)`                                                                                                         | `defineTypedEventHandler({ errors \| validate }, …)`                                                                                                   |
+| `useCheckedFetch`, `useLazyCheckedFetch`, `useRequestCheckedFetch`, `useCheckedAsyncData`, `useLazyCheckedAsyncData`, `$checkedFetch`(`.try`), `event.$checkedFetch`                                | `useTypedFetch`, `useLazyTypedFetch`, `useRequestTypedFetch`, `useTypedAsyncData`, `useLazyTypedAsyncData`, `$typedFetch`(`.try`), `event.$typedFetch` |
+| imports from `@dphonys/nuxt-handler-errors/{shared,types}` and `@dphonys/nuxt-handler-validation/types`                                                                                             | the same names from `@dphonys/nuxt-typed-handler/{shared,types}`                                                                                       |
+| **Unchanged:** `defineError`, `payload`, `matchError`, `recognizeKnownError`, `recognizeValidationError`, `KnownErrorsOfRoute`, `ValidationErrorData`, `ValidationSchemas`, every other parent name | same name, new specifier only                                                                                                                          |
 
 Substitute **exact identifiers**, never the bare words `Checked` or
 `Validated`, which would also hit kept names such as `CheckedEventHandler`
@@ -524,11 +537,13 @@ Under the umbrella there is one wrapper and one context.
 
 ```ts
 // Before - two wrappers, two second parameters, one call forwarded by hand.
+const userErrors = defineError({
+  'user-exists': { status: 409, payload: z.object({ email: z.string() }) },
+})
+
 export default defineCheckedEventHandler(
   {
-    errors: {
-      'user-exists': { status: 409, data: z.object({ email: z.string() }) },
-    },
+    errors: [...userErrors],
   },
   (event, { errors }) =>
     defineValidatedEventHandler(
@@ -547,9 +562,7 @@ export default defineCheckedEventHandler(
 export default defineTypedEventHandler(
   {
     validate: { body: createUser },
-    errors: {
-      'user-exists': { status: 409, data: z.object({ email: z.string() }) },
-    },
+    errors: [...userErrors],
   },
   (event, { body, errors }) => {
     if (taken(body.email)) throw errors['user-exists']({ email: body.email })
@@ -609,25 +622,25 @@ fetch handles are globals. Types come from
 `@dphonys/nuxt-typed-handler/types`, which is type-only and safe to import
 from components.
 
-| Export                                                          | Role                                                                                                                          |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `defineTypedEventHandler({ validate, errors }, fn)`             | The two-argument wrapper; at least one of the two keys. Prefer an endpoint-local error record. Returns a `TypedEventHandler`. |
-| `useTypedFetch` / `useLazyTypedFetch`                           | `useFetch` with the route's Request input on the options and its error union on the `error` ref.                              |
-| `useTypedAsyncData` / `useLazyTypedAsyncData`                   | `useAsyncData` over a handler returning `.try` results.                                                                       |
-| `useRequestTypedFetch()`                                        | The request-bound instance for SSR-safe imperative calls; the global on the client.                                           |
-| `$typedFetch` (`.try`, `.raw`, `.native`, `.create`)            | The global typed fetch; `.try` returns `{ data, error }` instead of throwing.                                                 |
-| `event.$typedFetch`                                             | The event-bound instance, forwarding the request's identity.                                                                  |
-| `TypedRequestOptions<R, M>`                                     | The options every family member takes for a route and method.                                                                 |
-| `TypedFetch`, `TypedFetchTry`, `$TypedFetch`, `TypedEventFetch` | The fetch signatures behind those bindings.                                                                                   |
-| `TypedEventHandler`                                             | What the wrapper returns: an h3 `EventHandler` carrying both parents' brands.                                                 |
-| `TypedContext<S, A>`                                            | Validated sources plus local `errors` factories, or deprecated array-scoped `fail`.                                           |
-| `TypedErrors<S, A>`                                             | Declared variants plus `ValidationFailed` iff the route validates; accepts records and legacy arrays.                         |
-| `TypedHandlerFn<S, A, …>`, `DefineTypedEventHandler`            | The handler function shape and the wrapper's call signatures.                                                                 |
-| `AtLeastOne<S, A>`, `ReservedTagGuard<A>`                       | Compile-time guards for empty declarations and the reserved validation tag.                                                   |
-| `ValidationFailed`                                              | `{ tag: 'validation-failed'; status: 400; issues: ValidationIssue[] }`.                                                       |
-| `RequestInputOfRoute<R, M>`                                     | A route's declared Request input from its path alone; `never` means "declares no sources".                                    |
-| `KnownApiRequestInputs`                                         | The generated map of every route's Request input - you never write to it.                                                     |
-| `ModuleOptions`                                                 | From `@dphonys/nuxt-typed-handler`: `{ channelToken: string \| false }`.                                                      |
+| Export                                                          | Role                                                                                                                              |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `defineTypedEventHandler({ validate, errors }, fn)`             | The two-argument wrapper; at least one of the two keys. `errors` selects an array of declarations. Returns a `TypedEventHandler`. |
+| `useTypedFetch` / `useLazyTypedFetch`                           | `useFetch` with the route's Request input on the options and its error union on the `error` ref.                                  |
+| `useTypedAsyncData` / `useLazyTypedAsyncData`                   | `useAsyncData` over a handler returning `.try` results.                                                                           |
+| `useRequestTypedFetch()`                                        | The request-bound instance for SSR-safe imperative calls; the global on the client.                                               |
+| `$typedFetch` (`.try`, `.raw`, `.native`, `.create`)            | The global typed fetch; `.try` returns `{ data, error }` instead of throwing.                                                     |
+| `event.$typedFetch`                                             | The event-bound instance, forwarding the request's identity.                                                                      |
+| `TypedRequestOptions<R, M>`                                     | The options every family member takes for a route and method.                                                                     |
+| `TypedFetch`, `TypedFetchTry`, `$TypedFetch`, `TypedEventFetch` | The fetch signatures behind those bindings.                                                                                       |
+| `TypedEventHandler`                                             | What the wrapper returns: an h3 `EventHandler` carrying both parents' brands.                                                     |
+| `TypedContext<S, A>`                                            | Validated sources plus local `errors` factories for declaration array `A`.                                                        |
+| `TypedErrors<S, A>`                                             | Declared variants plus `ValidationFailed` iff the route validates.                                                                |
+| `TypedHandlerFn<S, A, …>`, `DefineTypedEventHandler`            | The handler function shape and the wrapper's call signatures.                                                                     |
+| `AtLeastOne<S, A>`, `ReservedTagGuard<A>`                       | Compile-time guards for empty declarations and the reserved validation tag.                                                       |
+| `ValidationFailed`                                              | `{ tag: 'validation-failed'; status: 400; issues: ValidationIssue[] }`.                                                           |
+| `RequestInputOfRoute<R, M>`                                     | A route's declared Request input from its path alone; `never` means "declares no sources".                                        |
+| `KnownApiRequestInputs`                                         | The generated map of every route's Request input - you never write to it.                                                         |
+| `ModuleOptions`                                                 | From `@dphonys/nuxt-typed-handler`: `{ channelToken: string \| false }`.                                                          |
 
 ### Re-exported from the parents
 
@@ -635,13 +648,12 @@ Same names, new specifier. Roles are documented in the parent that owns them
 ([errors][errors], [validation][validation]).
 
 **`@dphonys/nuxt-typed-handler/server`** (all auto-imported inside `server/`):
-`recognizeKnownError`, `recognizeValidationError`; deprecated compatibility
-helpers `defineError` and `payload`.
+`defineError`, `payload`, `recognizeKnownError`, `recognizeValidationError`.
 
 **`@dphonys/nuxt-typed-handler/shared`**: `matchError`, `KNOWN_ERROR_KEY`.
 
 **`@dphonys/nuxt-typed-handler/types`**, from `nuxt-handler-errors`:
-`$CheckedFetch`, `CheckedEventHandler`, `CheckedFetch`, `Fail`, `Fallback`,
+`$CheckedFetch`, `CheckedEventHandler`, `CheckedFetch`, `ErrorFactories`, `Fallback`,
 `KnownApiErrors`, `KnownError`, `KnownErrorBody`, `KnownErrorCarrier`,
 `KnownErrorFor`, `KnownErrorGroup`, `KnownErrorKey`, `KnownErrorsOf`,
 `KnownErrorsOfHandler`, `KnownErrorsOfRoute`, `KnownVariant`, `TryResult`,

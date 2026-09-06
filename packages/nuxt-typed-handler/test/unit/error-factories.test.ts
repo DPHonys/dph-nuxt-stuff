@@ -2,23 +2,22 @@ import { createError } from 'h3'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import {
+  defineError,
   defineTypedEventHandler,
   recognizeKnownError,
   recognizeValidationError,
 } from '../../src/runtime/server'
 import { postJson, request } from '../h3-app'
 
-describe('handler-local record errors', () => {
+describe('handler-local error factories', () => {
   it('provides only local factories, without reading an undeclared body', async () => {
     const contexts: object[] = []
     const handler = defineTypedEventHandler(
-      { errors: { missing: { status: 404 } } },
+      { errors: [defineError('missing', { status: 404 })] },
       (_event, ctx) => {
         contexts.push(ctx)
         expect(Object.keys(ctx)).toEqual(['errors'])
         expect(Object.isFrozen(ctx.errors)).toBe(true)
-        expect(ctx.errors.missing.tag).toBe('missing')
-        expect(ctx.errors.missing.status).toBe(404)
         throw ctx.errors.missing()
       }
     )
@@ -38,13 +37,13 @@ describe('handler-local record errors', () => {
   })
 
   it.each([false, true])(
-    'finalizes transformed nested data (async schema: %s)',
+    'finalizes transformed flat payload fields (async schema: %s)',
     async (asyncSchema) => {
       const schema = asyncSchema
         ? z.string().transform(async (value) => ({ count: Number(value) }))
         : z.string().transform((value) => ({ count: Number(value) }))
       const handler = defineTypedEventHandler(
-        { errors: { conflict: { status: 409, data: schema } } },
+        { errors: [defineError('conflict', { status: 409, payload: schema })] },
         (_event, { errors }) => {
           throw errors.conflict('3')
         }
@@ -57,7 +56,7 @@ describe('handler-local record errors', () => {
       expect(recognizeKnownError(seen[0])).toEqual({
         tag: 'conflict',
         status: 409,
-        data: { count: 3 },
+        count: 3,
       })
     }
   )
@@ -66,10 +65,16 @@ describe('handler-local record errors', () => {
     'rejects invalid error data without a known marker (async schema: %s)',
     async (asyncSchema) => {
       const schema = asyncSchema
-        ? z.string().refine(async () => false)
-        : z.string().min(10)
+        ? z
+            .string()
+            .refine(async () => false)
+            .transform((value) => ({ value }))
+        : z
+            .string()
+            .min(10)
+            .transform((value) => ({ value }))
       const handler = defineTypedEventHandler(
-        { errors: { bad: { status: 400, data: schema } } },
+        { errors: [defineError('bad', { status: 400, payload: schema })] },
         async (_event, { errors }) => {
           await Promise.resolve()
           throw errors.bad('short')
@@ -93,12 +98,14 @@ describe('handler-local record errors', () => {
           routerParams: z.object({ id: z.string() }),
           headers: z.object({ token: z.string() }),
         },
-        errors: {
-          conflict: {
-            status: 409,
-            data: z.number().transform(async (value) => ({ page: value })),
-          },
-        },
+        errors: [
+          ...defineError({
+            conflict: {
+              status: 409,
+              payload: z.number().transform(async (value) => ({ page: value })),
+            },
+          }),
+        ],
       },
       async (_event, ctx) => {
         if (ctx.query.page > 1) throw ctx.errors.conflict(ctx.query.page)
@@ -132,11 +139,11 @@ describe('handler-local record errors', () => {
     expect(recognizeKnownError(seen[0])).toEqual({
       tag: 'conflict',
       status: 409,
-      data: { page: 2 },
+      page: 2,
     })
   })
 
-  it('preserves composed source merging alongside record factories', async () => {
+  it('preserves composed source merging alongside factories', async () => {
     const handler = defineTypedEventHandler(
       {
         validate: {
@@ -145,7 +152,7 @@ describe('handler-local record errors', () => {
             z.object({ search: z.string() }),
           ],
         },
-        errors: { missing: { status: 404 } },
+        errors: [defineError('missing', { status: 404 })],
       },
       (_event, { query, errors }) => {
         if (query.search === '') throw errors.missing()
@@ -159,7 +166,10 @@ describe('handler-local record errors', () => {
   it('retains both validation markers and never runs the handler on invalid input', async () => {
     const body = vi.fn(() => null)
     const handler = defineTypedEventHandler(
-      { validate: { body: z.string() }, errors: { missing: { status: 404 } } },
+      {
+        validate: { body: z.string() },
+        errors: [defineError('missing', { status: 404 })],
+      },
       body
     )
     const seen: unknown[] = []
@@ -187,7 +197,7 @@ describe('handler-local record errors', () => {
         throw error
       }
       const handler = defineTypedEventHandler(
-        { errors: { missing: { status: 404 } } },
+        { errors: [defineError('missing', { status: 404 })] },
         asyncHandler ? async () => throwError() : throwError
       )
       const seen: unknown[] = []
@@ -202,14 +212,14 @@ describe('handler-local record errors', () => {
     const error = createError({ statusCode: 500, message: 'validator bug' })
     const schema = {
       '~standard': {
-        ...z.string()['~standard'],
-        validate: async (): Promise<{ value: string }> => {
+        ...z.string().transform((value) => ({ value }))['~standard'],
+        validate: async (): Promise<{ value: { value: string } }> => {
           throw error
         },
       },
     }
     const handler = defineTypedEventHandler(
-      { errors: { bad: { status: 400, data: schema } } },
+      { errors: [defineError('bad', { status: 400, payload: schema })] },
       (_event, { errors }) => {
         throw errors.bad('input')
       }
@@ -228,7 +238,7 @@ describe('handler-local record errors', () => {
         defineTypedEventHandler(
           {
             validate,
-            errors: { 'validation-failed': { status: 400 } },
+            errors: [defineError('validation-failed', { status: 400 })],
           } as never,
           () => null
         )
@@ -236,28 +246,28 @@ describe('handler-local record errors', () => {
     }
   })
 
-  it('delegates invalid records to the parent before checking the reserved tag', () => {
+  it('rejects inline records rather than retaining compatibility', () => {
     expect(() =>
       defineTypedEventHandler(
-        { errors: { 'validation-failed': { status: 200 } } } as never,
+        { errors: { missing: { status: 404 } } } as never,
         () => null
       )
-    ).toThrow('[nuxt-handler-errors] invalid error definition')
+    ).toThrow(TypeError)
   })
 
-  it('requires a nonempty declaration, but allows empty records alongside validation', async () => {
+  it('requires a nonempty declaration, but allows empty arrays alongside validation', async () => {
     expect(() =>
-      defineTypedEventHandler({ errors: {} } as never, () => null)
+      defineTypedEventHandler({ errors: [] } as never, () => null)
     ).toThrow('needs validate, errors, or both')
     expect(() =>
-      defineTypedEventHandler({ validate: {}, errors: {} } as never, () => null)
+      defineTypedEventHandler({ validate: {}, errors: [] } as never, () => null)
     ).toThrow('needs validate, errors, or both')
     const handler = defineTypedEventHandler(
-      { validate: { query: z.object({}) }, errors: {} },
+      { validate: { query: z.object({}) }, errors: [] },
       (_event, ctx) => Object.keys(ctx).sort()
     )
     await expect((await request(handler, '/api/test')).json()).resolves.toEqual(
-      ['errors', 'query']
+      ['query']
     )
   })
 })

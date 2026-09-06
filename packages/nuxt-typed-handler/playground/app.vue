@@ -18,7 +18,7 @@ const { error: createError } = await useTypedFetch('/api/users', {
 matchError(
   createError,
   {
-    'user-exists': (e) => (created.value = `user-exists: ${e.data.email}`),
+    'user-exists': (e) => (created.value = `user-exists: ${e.email}`),
     'validation-failed': (e) =>
       (created.value = `rejected: ${e.issues.map((i) => i.message).join(', ')}`),
   },
