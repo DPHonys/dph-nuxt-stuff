@@ -17,12 +17,16 @@ const bound: FetchWrapperOptions = {
  * its declared error union typed on the `error` ref: `data` is what it always
  * was, and `matchError(error, …)` is the one read path.
  */
+// SAFETY: the wrapper is vanilla's own runtime signature - `(request, opts |
+// autoKey, autoKey)` forwarded to `useFetch` with only `headers` merged.
+// `UseTypedFetch` re-types that call from the route map; it adds no member.
 export const useTypedFetch = wrapVanillaFetch(useFetch, bound) as UseTypedFetch
 
 /**
  * The lazy twin. Delegates to Nuxt's own `useLazyFetch` rather than passing
  * `lazy: true`, so Nuxt's dev-mode data diagnostics tag the call correctly.
  */
+// SAFETY: as above, over `useLazyFetch`.
 export const useLazyTypedFetch = wrapVanillaFetch(
   useLazyFetch,
   bound

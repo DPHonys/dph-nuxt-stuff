@@ -1,33 +1,56 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
-import type { ValidationSchemas, ValidationSource } from '../../types'
+import * as v from 'valibot'
+import type {
+  SourceSchemas,
+  SourceValue,
+  ValidatedContext,
+  ValidationSchemas,
+  ValidationSource,
+} from '../../types'
 import type { OnInvalid } from './issues'
 import { projectIssues, raiseValidationError } from './issues'
-import type { SourceReader } from './sources'
+import type { RawSource, SourceReader } from './sources'
 import { SOURCE_WALK } from './sources'
+
+// Module-private and never assigned: the slot a step carries at the type level
+// only, so a plan remembers which declaration it was resolved from.
+declare const declaredSchemas: unique symbol
 
 /**
  * One resolved source slot: its reader and its schema list. The schemas are
  * always a list - a bare slot is its own one-element list, settled here so
- * nothing downstream asks which shape the author wrote.
+ * nothing downstream asks which shape the author wrote. The list is erased to
+ * `StandardSchemaV1[]`; the declaration it came from rides along as `S`, which
+ * is what lets `validatedContext` type what it hands back.
  */
-export interface SourcePlan {
+export interface SourcePlan<S extends ValidationSchemas = ValidationSchemas> {
   readonly source: ValidationSource
   readonly read: SourceReader
   readonly schemas: readonly StandardSchemaV1[]
+  readonly [declaredSchemas]?: S
 }
+
+// Not a validity check on a schema library's object: only the difference
+// between a schema and the `null`, string or options object the types refused.
+const STANDARD_SCHEMA = v.object({
+  '~standard': v.object({ validate: v.function() }),
+})
 
 /**
  * Resolve a declaration, once, when the route file is evaluated. Walking
  * `SOURCE_WALK` rather than the declaration's own keys is what makes the
  * fail-fast order the package's promise instead of the author's key order.
  */
-export function sourcePlan(schemas: ValidationSchemas): readonly SourcePlan[] {
-  const plan: SourcePlan[] = []
+export function sourcePlan<S extends ValidationSchemas>(
+  schemas: S
+): readonly SourcePlan<S>[] {
+  const declaration: ValidationSchemas = schemas
+  const plan: SourcePlan<S>[] = []
 
   for (const [source, read] of SOURCE_WALK) {
-    const slot = schemas[source]
+    const slot = declaration[source]
 
     if (slot === undefined) continue
 
@@ -38,29 +61,14 @@ export function sourcePlan(schemas: ValidationSchemas): readonly SourcePlan[] {
     // Typed as schemas already, checked anyway: the callers this catches are
     // exactly the ones the types never saw.
     for (const [position, element] of elements.entries()) {
-      if (!isStandardSchema(element)) raiseUnschemaedSource(source, position)
+      if (!v.is(STANDARD_SCHEMA, element))
+        raiseUnschemaedSource(source, position)
     }
 
     plan.push({ source, read, schemas: elements })
   }
 
   return plan
-}
-
-// Not a validity check on a schema library's object: only the difference
-// between a schema and the `null`, string or options object the types refused.
-function isStandardSchema(value: unknown): value is StandardSchemaV1 {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('~standard' in value)) return false
-
-  const standard: unknown = value['~standard']
-
-  return (
-    typeof standard === 'object' &&
-    standard !== null &&
-    'validate' in standard &&
-    typeof standard.validate === 'function'
-  )
 }
 
 // A plain `Error` rather than the `500`s below: this fires at route evaluation,
@@ -81,21 +89,30 @@ export interface ValidatedContextOptions {
   readonly onInvalid?: OnInvalid
 }
 
+// The slot a plan's step was resolved from, as far as the type can tell: any
+// of the declaration's slots. Which one is the step's own `source` to say.
+type DeclaredSlot<S extends ValidationSchemas> = Extract<
+  S[ValidationSource],
+  SourceSchemas
+>
+
 /**
  * Run one request through the plan, in the plan's order. Every client-input
  * rejection - a rejecting schema and an unparseable body alike - goes through
  * `onInvalid`; the developer-mistake `500`s never do.
  */
-export async function validatedContext(
+export async function validatedContext<S extends ValidationSchemas>(
   event: H3Event,
-  plan: readonly SourcePlan[],
+  plan: readonly SourcePlan<S>[],
   options: ValidatedContextOptions = {}
-): Promise<Record<string, unknown>> {
+): Promise<ValidatedContext<S>> {
   const onInvalid = options.onInvalid ?? raiseValidationError
-  const validated: Record<string, unknown> = {}
+  const validated: {
+    [K in ValidationSource]?: SourceValue<DeclaredSlot<S>>
+  } = {}
 
   for (const { source, read, schemas } of plan) {
-    validated[source] = await validatedValueFor(
+    validated[source] = await validatedValueFor<DeclaredSlot<S>>(
       source,
       schemas,
       await read(event, onInvalid),
@@ -103,21 +120,30 @@ export async function validatedContext(
     )
   }
 
-  return validated
+  // SAFETY: `plan` came from `sourcePlan` over this `S`, so its steps are
+  // exactly the declared sources, each paired with its own slot's schemas; the
+  // loop above filled one key per step with that slot's delivered value. That
+  // is what `ValidatedContext<S>` reads off `S` key by key - TS only sees the
+  // union of every slot's value under every key.
+  return validated as ValidatedContext<S>
 }
 
 // Sequential rather than `Promise.all`, so async schemas run in the order the
 // author can predict from the tuple they wrote. An early element's failure does
 // not stop the later ones: fail-fast is a rule across sources, so within one
 // source every issue arrives together in the one `400`.
-async function validatedValueFor(
+//
+// `Slot` cannot be inferred: the plan flattened it away. The caller names the
+// slot the schemas were resolved from, and the delivery below states why the
+// value is that slot's.
+async function validatedValueFor<Slot extends SourceSchemas>(
   source: ValidationSource,
   schemas: readonly StandardSchemaV1[],
-  raw: unknown,
+  raw: RawSource,
   onInvalid: OnInvalid
-): Promise<unknown> {
+): Promise<SourceValue<Slot>> {
   const issues: StandardSchemaV1.Issue[] = []
-  const outputs: unknown[] = []
+  const outputs: StandardSchemaV1.SuccessResult<unknown>[] = []
   let unreportedAt: number | undefined
 
   for (const [position, schema] of schemas.entries()) {
@@ -126,7 +152,7 @@ async function validatedValueFor(
     // Discriminated on `issues`, never on `'value' in result`: a successful
     // result whose output is `undefined` may carry no `value` key at all.
     if (result.issues === undefined) {
-      outputs.push(result.value)
+      outputs.push(result)
       continue
     }
 
@@ -142,30 +168,40 @@ async function validatedValueFor(
 
   // Every element contributed, so an output's position here is its element's
   // position in the tuple - which is what lets the merge name the offender.
-  return mergeOutputs(source, outputs)
+  return mergeOutputs<Slot>(source, outputs)
 }
 
 // Later-wins spread, in tuple order: no overlap detection, because paying for
 // one on every request to re-check what the declaration guard already refused
 // would be the wrong trade. A lone element has nothing to merge into, so its
 // output passes through untouched, a primitive included.
-function mergeOutputs(
+function mergeOutputs<Slot extends SourceSchemas>(
   source: ValidationSource,
-  outputs: readonly unknown[]
-): unknown {
-  if (outputs.length === 0) raiseUnvalidatedSource(source)
-  if (outputs.length === 1) return outputs[0]
+  outputs: readonly StandardSchemaV1.SuccessResult<unknown>[]
+): SourceValue<Slot> {
+  const [lone] = outputs
 
-  const merged: Record<string, unknown> = {}
+  if (lone === undefined) raiseUnvalidatedSource(source)
 
-  for (const [position, value] of outputs.entries()) {
-    if (!isPlainObject(value)) raiseUnmergeableOutput(source, position, value)
+  if (outputs.length === 1) {
+    // SAFETY: `outputs` holds one success per element of `Slot`, in tuple
+    // order, and a Standard Schema's success carries its own `InferOutput`. A
+    // lone element's output is `SourceValue<Slot>` as it stands.
+    return lone.value as SourceValue<Slot>
+  }
+
+  const merged = {}
+
+  for (const [position, output] of outputs.entries()) {
+    if (!isPlainObject(output.value)) {
+      raiseUnmergeableOutput(source, position, output)
+    }
 
     // Defined rather than assigned, so a `__proto__` key lands as an own
     // property instead of calling the setter that would swap the merged
     // object's prototype. h3's readers drop that key before this point; the
     // guarantee is held here rather than borrowed from them.
-    for (const [key, entry] of Object.entries(value)) {
+    for (const [key, entry] of Object.entries(output.value)) {
       Object.defineProperty(merged, key, {
         value: entry,
         writable: true,
@@ -175,14 +211,17 @@ function mergeOutputs(
     }
   }
 
-  return merged
+  // SAFETY: as above, for the tuple: every output was a plain object (refused
+  // otherwise), and their later-wins merge in tuple order is what
+  // `MergedOutput` spells for `Slot`.
+  return merged as SourceValue<Slot>
 }
 
 // Anything with a prototype of its own (an array, a `Date`, a class instance)
 // carries meaning outside its enumerable keys, which a spread would drop. A
 // null prototype passes, because h3's form-urlencoded body has one.
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null) return false
+function isPlainObject(value: unknown): value is object {
+  if (value === null || value === undefined) return false
 
   const prototype: unknown = Object.getPrototypeOf(value)
 
@@ -202,10 +241,10 @@ function raiseSourceFault(message: string): never {
 function raiseUnmergeableOutput(
   source: ValidationSource,
   position: number,
-  value: unknown
+  output: StandardSchemaV1.SuccessResult<unknown>
 ): never {
   raiseSourceFault(
-    `cannot merge the validated ${source}: the schema at index ${position} produced ${describeValue(value)}. ` +
+    `cannot merge the validated ${source}: the schema at index ${position} produced ${describeOutput(output)}. ` +
       `Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.`
   )
 }
@@ -229,14 +268,17 @@ function raiseUnvalidatedSource(source: ValidationSource): never {
   )
 }
 
-// `typeof` answers "object" for every shape this rejects, so the ones an author
-// is likely to have produced are named instead.
-function describeValue(value: unknown): string {
+// The shapes an author is likely to have produced, named; a class instance by
+// its class, since "an object" is what they believed they returned.
+function describeOutput({
+  value,
+}: StandardSchemaV1.SuccessResult<unknown>): string {
   if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
   if (Array.isArray(value)) return 'an array'
-  if (typeof value === 'object') {
-    return `an instance of ${value.constructor?.name ?? 'an anonymous class'}`
+  if (value instanceof Object) {
+    return `an instance of ${value.constructor.name || 'an anonymous class'}`
   }
 
-  return `a value of type ${typeof value}`
+  return `the primitive ${String(value)}`
 }

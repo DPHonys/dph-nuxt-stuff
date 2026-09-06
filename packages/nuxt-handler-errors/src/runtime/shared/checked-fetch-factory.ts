@@ -1,7 +1,11 @@
 import { createError } from 'h3'
+import type { NitroFetchRequest } from 'nitropack/types'
 import type { NuxtError } from 'nuxt/app'
+import * as v from 'valibot'
 import type { $CheckedFetch, TryResult } from '../types/fetch'
 import { CHANNEL_HEADER } from './channel'
+import type { PlainObject } from './plain-object'
+import { isPlainObject } from './plain-object'
 
 export type RawTryResult = TryResult<unknown, NuxtError>
 
@@ -12,11 +16,13 @@ export interface RawOptions {
 
 // Vanilla's namespace reduced to the shapes this file touches - the real
 // `$Fetch` would make every forwarding call site fight route-literal
-// inference. The cast ending `createCheckedFetch` makes the claim once.
-export interface RawFetch {
-  (request: unknown, opts?: RawOptions): Promise<unknown>
-  raw: (request: unknown, opts?: RawOptions) => Promise<unknown>
-  create: (defaults: RawOptions) => RawFetch
+// inference. `Body` is the instance-level claim ofetch itself makes as
+// `$Fetch<DefaultT>`; `Raw` is what `.raw` resolves, a `Response` on the
+// real thing. The cast ending `build` makes the route-typed claim once.
+export interface RawFetch<Body, Raw = Response> {
+  (request: NitroFetchRequest, opts?: RawOptions): Promise<Body>
+  raw: (request: NitroFetchRequest, opts?: RawOptions) => Promise<Raw>
+  create: (defaults: RawOptions) => RawFetch<Body, Raw>
   native: typeof globalThis.fetch
 }
 
@@ -27,18 +33,21 @@ export interface CheckedFetchFactoryOptions {
   readonly instanceHeaders?: Headers
 }
 
+// What h3's `createError` reads: a message, or an object it copies the error
+// fields off. An array is an object to h3 but carries no field it reads, so
+// it is stringified like any other primitive.
+function isErrorInput(cause: unknown): cause is string | PlainObject {
+  return v.is(v.string(), cause) || isPlainObject(cause)
+}
+
 // h3's `createError` - the same normalisation `useFetch`'s error ref goes
 // through, so one matcher serves both surfaces at one depth.
 export function toNuxtError(cause: unknown): NuxtError {
   // `createError(null)` reads `input.message` and throws, and `.try` must be
   // total - a thrown `null` is a failure like any other.
-  const input =
-    typeof cause === 'string' ||
-    (typeof cause === 'object' && cause !== null && !Array.isArray(cause))
-      ? cause
-      : { message: String(cause) }
-
-  const error = createError(input as Parameters<typeof createError>[0])
+  const error = createError(
+    isErrorInput(cause) ? cause : { message: String(cause) }
+  )
 
   // A bare `H3Error` sets only `statusCode`; the `NuxtError` face this hands
   // out has to be runtime-true on the server as well.
@@ -56,14 +65,14 @@ export function toNuxtError(cause: unknown): NuxtError {
     })
   }
 
-  return error as NuxtError
+  return error
 }
 
 // Catches everything a fetch can throw - HTTP, network, abort, parse - and
 // normalises it; there is no rethrow channel.
-export async function toTryResult(
-  call: () => Promise<unknown>
-): Promise<RawTryResult> {
+export async function toTryResult<T>(
+  call: () => Promise<T>
+): Promise<TryResult<T, NuxtError>> {
   try {
     return { data: await call(), error: undefined }
   } catch (cause) {
@@ -108,19 +117,22 @@ function nextInstanceHeaders(current: Headers, defaults: RawOptions): Headers {
 
 // Every member forwards; only the headers and `.try`'s try/catch are added.
 // `options` goes down whole, not spread, so a getter-backed `token` stays live.
-function build(
-  base: RawFetch,
+function build<Body, Raw>(
+  base: RawFetch<Body, Raw>,
   options: CheckedFetchFactoryOptions,
   instanceHeaders: Headers
 ): $CheckedFetch {
-  const call = (request: unknown, opts?: RawOptions): Promise<unknown> =>
+  const call = (request: NitroFetchRequest, opts?: RawOptions): Promise<Body> =>
     base(request, withCheckedHeaders(opts, instanceHeaders, options.token))
 
-  return Object.assign(call, {
-    try: (request: unknown, opts?: RawOptions): Promise<RawTryResult> =>
+  const checked = Object.assign(call, {
+    try: (
+      request: NitroFetchRequest,
+      opts?: RawOptions
+    ): Promise<TryResult<Body, NuxtError>> =>
       toTryResult(() => call(request, opts)),
 
-    raw: (request: unknown, opts?: RawOptions): Promise<unknown> =>
+    raw: (request: NitroFetchRequest, opts?: RawOptions): Promise<Raw> =>
       base.raw(
         request,
         withCheckedHeaders(opts, instanceHeaders, options.token)
@@ -135,11 +147,19 @@ function build(
         options,
         nextInstanceHeaders(instanceHeaders, defaults)
       ),
-  }) as $CheckedFetch
+  })
+
+  // SAFETY: `$CheckedFetch` is vanilla's own route-typed namespace plus
+  // `.try`. Every member above forwards to the same-named member of `base`
+  // with only headers added, and `.try` wraps the call in `toTryResult`, so
+  // the route-typed claims are exactly the ones the underlying `$fetch`
+  // already makes; `Body` and `Raw` are that instance's own claims, restated
+  // per route by the overloads.
+  return checked as $CheckedFetch
 }
 
-export function createCheckedFetch(
-  base: RawFetch,
+export function createCheckedFetch<Body, Raw>(
+  base: RawFetch<Body, Raw>,
   options: CheckedFetchFactoryOptions
 ): $CheckedFetch {
   return build(base, options, options.instanceHeaders ?? new Headers())
@@ -149,17 +169,23 @@ export function createCheckedFetch(
 // installing plugins are a single assignment each rather than an ordering
 // problem. `create` resolves it once, when called: the returned instance is
 // bound to that moment's `$fetch`.
-const vanilla = (): RawFetch => globalThis.$fetch as RawFetch
+// `$Fetch<unknown>` is what Nitro declares for the global - the body is
+// route-typed per call and nothing at the instance level.
+type GlobalFetch = RawFetch<unknown>
+
+// SAFETY: `globalThis.$fetch` is ofetch's instance, which carries `native`
+// at runtime while Nitro's `$Fetch` declaration omits it; `GlobalFetch` is
+// that same object with the route-typed response generics erased.
+const vanilla = (): GlobalFetch => globalThis.$fetch as GlobalFetch
 
 /** Lets a module layer build its global before `$fetch` is installed. */
-export const lazyGlobalFetch: RawFetch = Object.assign(
-  (request: unknown, opts?: RawOptions): Promise<unknown> =>
-    vanilla()(request, opts),
+export const lazyGlobalFetch: GlobalFetch = Object.assign(
+  (request: NitroFetchRequest, opts?: RawOptions) => vanilla()(request, opts),
   {
-    raw: (request: unknown, opts?: RawOptions): Promise<unknown> =>
+    raw: (request: NitroFetchRequest, opts?: RawOptions): Promise<Response> =>
       vanilla().raw(request, opts),
 
-    create: (defaults: RawOptions): RawFetch => vanilla().create(defaults),
+    create: (defaults: RawOptions): GlobalFetch => vanilla().create(defaults),
 
     native: (...args: Parameters<typeof globalThis.fetch>): Promise<Response> =>
       vanilla().native(...args),

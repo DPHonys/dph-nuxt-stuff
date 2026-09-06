@@ -1,6 +1,8 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { defineEventHandler } from 'h3'
 import type { EventHandlerRequest, H3Event } from 'h3'
+import * as v from 'valibot'
+import { isPlainObject } from '../../shared/plain-object'
 import type {
   DefineCheckedEventHandler,
   DefineError,
@@ -20,10 +22,15 @@ import { createErrorContext } from './error-context'
 function buildGroup(
   entries: readonly DeclaredError[]
 ): KnownErrorGroup<KnownVariant> {
-  return Object.assign(entries.map(knownErrorValue), {
+  const group = Object.assign(entries.map(knownErrorValue), {
     pick: (...tags: readonly string[]) =>
       buildGroup(entries.filter((entry) => tags.includes(entry.tag))),
-  }) as KnownErrorGroup<KnownVariant>
+  })
+
+  // SAFETY: `pick` narrows only the phantom variant union by tag; every
+  // element of the subset is one of these same declaration-backed values, so
+  // the runtime group inhabits whichever subset type its tags select.
+  return group as KnownErrorGroup<KnownVariant>
 }
 
 /**
@@ -39,14 +46,19 @@ function buildGroup(
  * })
  * ```
  */
+// SAFETY: the overloads carry the literal definitions into the phantom brand
+// only; at runtime the single form returns the value and the record form the
+// group that this one implementation builds.
 export const defineError: DefineError = ((
   tagOrDefs: string | Defs,
   def?: VariantDef
-): unknown => {
-  if (typeof tagOrDefs === 'string') {
-    return knownErrorValue(declaration(tagOrDefs, def as VariantDef))
+): AnyKnownError | KnownErrorGroup<KnownVariant> => {
+  if (v.is(v.string(), tagOrDefs)) {
+    return knownErrorValue(declaration(tagOrDefs, def))
   }
-  if (!tagOrDefs || typeof tagOrDefs !== 'object' || Array.isArray(tagOrDefs)) {
+  // The record form: a non-null, non-array object of definitions, each
+  // validated on its own by `declaration`.
+  if (!isPlainObject(tagOrDefs)) {
     throw new TypeError('[nuxt-handler-errors] invalid error definitions')
   }
   return buildGroup(
@@ -58,35 +70,50 @@ export const defineError: DefineError = ((
 // is a factory property name.
 const IDENTIFIER = /^[a-z_$][\w$]*$/i
 
+// A Standard Schema's host may be an object or a callable; either way the
+// only member consulted is `validate`.
+const standardHostSchema = v.union([
+  v.record(v.string(), v.unknown()),
+  v.function(),
+])
+
+type StandardHost = v.InferOutput<typeof standardHostSchema>
+
+const standardSchema = v.object({ validate: v.function() })
+
+function isStandardSchema(
+  host: StandardHost
+): host is StandardHost & StandardSchemaV1 {
+  return (
+    !Array.isArray(host) &&
+    '~standard' in host &&
+    v.is(standardSchema, host['~standard'])
+  )
+}
+
 // The compile-time guards' answer for a JavaScript caller, kept to what a
-// typo would produce: a bad tag, a non-error status, a misspelt key, or a
-// payload that is not a Standard Schema.
-function declaration(tag: string, def: VariantDef): DeclaredError {
+// typo would produce: a non-error status, a misspelt key, or a payload that
+// is not a Standard Schema. Strict, so an unknown key is a rejection.
+const definitionSchema = v.strictObject({
+  status: v.pipe(v.number(), v.integer(), v.minValue(400), v.maxValue(599)),
+  payload: v.optional(standardHostSchema),
+})
+
+function declaration(tag: string, def: VariantDef | undefined): DeclaredError {
   if (!IDENTIFIER.test(tag)) {
     throw new TypeError(
       `[nuxt-handler-errors] error tag must be a valid identifier: ${tag}`
     )
   }
-  if (
-    !def ||
-    typeof def !== 'object' ||
-    !Number.isInteger(def.status) ||
-    def.status < 400 ||
-    def.status > 599 ||
-    Object.keys(def).some((key) => key !== 'status' && key !== 'payload')
-  ) {
+  if (!v.is(definitionSchema, def)) {
     throw new TypeError('[nuxt-handler-errors] invalid error definition')
   }
-  const schema = def.payload as StandardSchemaV1 | undefined
-  if (
-    schema !== undefined &&
-    typeof schema?.['~standard']?.validate !== 'function'
-  ) {
+  if (def.payload !== undefined && !isStandardSchema(def.payload)) {
     throw new TypeError(
       `[nuxt-handler-errors] invalid Standard Schema for ${tag}`
     )
   }
-  return { tag, status: def.status, schema }
+  return { tag, status: def.status, schema: def.payload }
 }
 
 /**
@@ -114,6 +141,9 @@ export const defineCheckedEventHandler: DefineCheckedEventHandler = (
   // `async` so a synchronous throw surfaces as a rejection, the same as an
   // async body's. No cast on the way out: the brand is an optional property,
   // so a plain `EventHandler` already inhabits `CheckedEventHandler`.
+  // SAFETY: the overload's `HandlerContext<A>` is this same `{ errors }`
+  // object with each factory typed by its declared payload; `never` is only
+  // how the runtime signature stays assignable to every instantiation.
   return defineEventHandler<EventHandlerRequest, any>(async (event) =>
     handler(event, context as never)
   )

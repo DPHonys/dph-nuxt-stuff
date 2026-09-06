@@ -1,8 +1,9 @@
-import type { Nuxt, NuxtHooks } from '@nuxt/schema'
+import type { NuxtHooks } from '@nuxt/schema'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import type { TypesPathsHost } from '../../src/build/parent-types-paths'
 import { addParentTypesPaths } from '../../src/build/parent-types-paths'
 
 // Which *location* the parents' declarations are resolved from. The e2e suite
@@ -21,43 +22,61 @@ interface TsConfig {
   compilerOptions?: { paths?: Record<string, string[]> }
 }
 
+/** One registration the host saw, discriminated on the hook's name. */
+type HookRegistration =
+  | ['prepare:types', NuxtHooks['prepare:types']]
+  | ['nitro:config', NuxtHooks['nitro:config']]
+
+/** The three carriers `prepare:types` hands over, in its own order. */
+interface TsConfigs {
+  tsConfig: TsConfig
+  nodeTsConfig: TsConfig
+  sharedTsConfig: TsConfig
+}
+
 /**
- * Just enough Nuxt to collect the two hooks and fire them. A real `loadNuxt`
+ * Just enough Nuxt to collect the two hooks and fire one. A real `loadNuxt`
  * boot would hand back the entries already relativised by Nuxt, which is the
  * e2e suite's subject, not this one's.
  */
-function fakeNuxt(): {
-  nuxt: Nuxt
-  prepareTypes: (configs: TsConfig[]) => Promise<void>
-} {
-  const hooks = new Map<string, ((...args: never[]) => unknown)[]>()
+interface FakeNuxt {
+  nuxt: TypesPathsHost
+  /** Fires every `prepare:types` registration over the carriers. */
+  prepareTypes: (configs: TsConfigs) => Promise<void>
+}
 
-  const nuxt = {
-    hook: (name: string, callback: (...args: never[]) => unknown) => {
-      hooks.set(name, [...(hooks.get(name) ?? []), callback])
+function fakeNuxt(): FakeNuxt {
+  const prepareTypes: NuxtHooks['prepare:types'][] = []
+
+  const nuxt: TypesPathsHost = {
+    hook: (...registration: HookRegistration) => {
+      if (registration[0] === 'prepare:types')
+        prepareTypes.push(registration[1])
     },
-  } as unknown as Nuxt
+  }
 
   return {
     nuxt,
-    prepareTypes: async ([tsConfig, nodeTsConfig, sharedTsConfig]) => {
-      for (const callback of hooks.get('prepare:types') ?? []) {
-        await (callback as unknown as NuxtHooks['prepare:types'])({
-          tsConfig,
-          nodeTsConfig,
-          sharedTsConfig,
-        } as Parameters<NuxtHooks['prepare:types']>[0])
+    prepareTypes: async (configs) => {
+      for (const callback of prepareTypes) {
+        await callback({
+          ...configs,
+          references: [],
+          declarations: [],
+          nodeReferences: [],
+          sharedReferences: [],
+        })
       }
     },
   }
 }
 
-function tsConfigs(): TsConfig[] {
-  return [
-    { compilerOptions: { paths: { '#imports': ['./imports'] } } },
-    {},
-    { compilerOptions: {} },
-  ]
+function tsConfigs(): TsConfigs {
+  return {
+    tsConfig: { compilerOptions: { paths: { '#imports': ['./imports'] } } },
+    nodeTsConfig: {},
+    sharedTsConfig: { compilerOptions: {} },
+  }
 }
 
 describe('the parent `/types` paths entry', () => {
@@ -68,7 +87,7 @@ describe('the parent `/types` paths entry', () => {
     addParentTypesPaths(nuxt, import.meta.url)
     await prepareTypes(configs)
 
-    for (const config of configs) {
+    for (const config of Object.values(configs)) {
       for (const specifier of PARENT_SPECIFIERS) {
         const [target] = config.compilerOptions?.paths?.[specifier] ?? []
 
@@ -80,7 +99,7 @@ describe('the parent `/types` paths entry', () => {
     }
 
     // Added beside whatever Nuxt and Nitro wrote, never replacing the map.
-    expect(configs[0]?.compilerOptions?.paths?.['#imports']).toEqual([
+    expect(configs.tsConfig.compilerOptions?.paths?.['#imports']).toEqual([
       './imports',
     ])
   })

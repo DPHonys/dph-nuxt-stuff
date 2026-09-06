@@ -87,6 +87,7 @@
     "@nuxt/test-utils": "catalog:",
     "@types/node": "catalog:",
     "nuxt": "catalog:",
+    "ofetch": "catalog:",
     "publint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",

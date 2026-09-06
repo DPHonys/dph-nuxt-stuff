@@ -137,7 +137,7 @@ export async function defaultHandler(): Promise<void> {
   await $typedFetch('/api/items/42', { method: 'put', body: { qty: 1, x: 1 } })
 
   // A template-literal route resolves through `MatchedRoutes` just the same.
-  const id = '42' as string
+  const id: string = '42'
   await $typedFetch(`/api/items/${id}`, { method: 'post', body: { qty: 1 } })
 }
 

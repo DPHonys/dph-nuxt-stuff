@@ -46,7 +46,7 @@ afterAll(() => {
  * apart. Every payload and schema field is named uniquely, so a hover can say
  * which slot it came from.
  */
-const APP_FILES: Record<string, string> = {
+const APP_FILES = {
   'server/errors/users.ts': [
     `import { defineError } from '@dphonys/nuxt-typed-handler/server'`,
     `import { z } from 'zod'`,

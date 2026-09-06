@@ -11,8 +11,12 @@ import {
   defineCheckedEventHandler,
   defineError,
 } from '../../src/runtime/server'
+import type { ErrorFactory } from '../../src/runtime/server/lib/error-context'
 
+// SAFETY: the handlers under test never read the event - only the second
+// argument, the factories, is exercised; a bare object stands in.
 const event = {} as H3Event
+
 const schema = (
   validate: StandardSchemaV1<
     unknown,
@@ -21,6 +25,47 @@ const schema = (
 ): StandardSchemaV1<unknown, { amount: number }> => ({
   '~standard': { version: 1, vendor: 'test', validate },
 })
+
+interface Cycle {
+  self?: Cycle
+}
+
+/** What a lying schema may hand out at runtime: none of it a clean `{ amount }`. */
+type Junk =
+  | undefined
+  | null
+  | number
+  | string
+  | never[]
+  | Cycle
+  | Date
+  | { tag: string }
+  | { status: number }
+  | { amount: bigint }
+  | { amount: number; date: Date; callback: () => number; nested: object }
+  | { toJSON: () => number | { tag: string } }
+
+/**
+ * A schema whose declared output is clean, so the definition compiles, and
+ * whose runtime value is whatever `produce` says - the factory's own
+ * validation of the output is what is under test.
+ */
+function lyingSchema(
+  produce: () => Junk
+): StandardSchemaV1<unknown, { amount: number }> {
+  const lying: StandardSchemaV1<unknown, Junk> = {
+    '~standard': {
+      version: 1,
+      vendor: 'test',
+      validate: () => ({ value: produce() }),
+    },
+  }
+
+  // SAFETY: lying on purpose - the output type is the definition's
+  // compile-time claim, and the runtime value deliberately breaks it; that
+  // gap is the subject of every test using this schema.
+  return lying as StandardSchemaV1<unknown, { amount: number }>
+}
 
 describe('handler-local factories', () => {
   it('transforms flat output through group pick', async () => {
@@ -62,12 +107,12 @@ describe('handler-local factories', () => {
         expect(context.errors.notFound().data).toEqual({
           __knownError__: { tag: 'notFound', status: 404 },
         })
-        expect(() =>
-          (context.errors.notFound as (...args: unknown[]) => H3Error)({})
-        ).toThrow('invalid arguments')
-        expect(() =>
-          (context.errors.empty as (...args: unknown[]) => H3Error)()
-        ).toThrow('invalid arguments')
+        // Widened to the factories' runtime face, where any argument list is
+        // callable - the arity check under test is what refuses them.
+        const looseNotFound: ErrorFactory = context.errors.notFound
+        const looseEmpty: ErrorFactory = context.errors.empty
+        expect(() => looseNotFound({})).toThrow('invalid arguments')
+        expect(() => looseEmpty()).toThrow('invalid arguments')
         expect(context.errors.empty({})).toBeInstanceOf(H3Error)
         return { ok: true }
       }
@@ -114,7 +159,7 @@ describe('handler-local factories', () => {
   })
 
   it('rejects non-object, reserved and unserializable output', () => {
-    const cycle: { self?: unknown } = {}
+    const cycle: Cycle = {}
     cycle.self = cycle
     for (const value of [
       undefined,
@@ -137,7 +182,7 @@ describe('handler-local factories', () => {
     ]) {
       const bad = defineError('bad', {
         status: 409,
-        payload: schema(() => ({ value: value as { amount: number } })),
+        payload: lyingSchema(() => value),
       })
       const { errors } = createErrorContext(resolveDeclared([bad]))
       expect(errors.bad!(null)).toMatchObject({
@@ -154,13 +199,11 @@ describe('handler-local factories', () => {
     const date = new Date('2026-01-01T00:00:00.000Z')
     const dated = defineError('dated', {
       status: 409,
-      payload: schema(() => ({
-        value: {
-          amount: 1,
-          date,
-          callback: () => 1,
-          nested: { toJSON: () => ({ amount: 42 }) },
-        } as unknown as { amount: number },
+      payload: lyingSchema(() => ({
+        amount: 1,
+        date,
+        callback: () => 1,
+        nested: { toJSON: () => ({ amount: 42 }) },
       })),
     })
     const { errors } = createErrorContext(resolveDeclared([dated]))

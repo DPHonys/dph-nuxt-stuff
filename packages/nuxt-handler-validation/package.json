@@ -82,7 +82,8 @@
   "dependencies": {
     "@nuxt/kit": "catalog:",
     "@standard-schema/spec": "catalog:",
-    "h3": "catalog:"
+    "h3": "catalog:",
+    "valibot": "catalog:"
   },
   "devDependencies": {
     "@nuxt/devtools": "catalog:",
@@ -93,7 +94,6 @@
     "nuxt": "catalog:",
     "publint": "catalog:",
     "typescript": "catalog:",
-    "valibot": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "catalog:",
     "zod": "catalog:"

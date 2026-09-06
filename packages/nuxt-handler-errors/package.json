@@ -106,6 +106,7 @@
     "h3": "catalog:",
     "nitropack": "catalog:",
     "pathe": "catalog:",
+    "valibot": "catalog:",
     "vue": "catalog:"
   },
   "devDependencies": {

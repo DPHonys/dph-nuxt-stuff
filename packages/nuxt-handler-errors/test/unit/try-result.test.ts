@@ -35,7 +35,7 @@ describe('toNuxtError', () => {
       const error = toNuxtError(cause)
 
       expect(error).toBeInstanceOf(Error)
-      expect(typeof error.status).toBe('number')
+      expect(error.status).toBeTypeOf('number')
       expect(error.status).toBe(error.statusCode)
     }
   )
@@ -52,8 +52,8 @@ describe('toNuxtError', () => {
   it('keeps the wire depth intact, so one matcher serves both runtimes', () => {
     const error = toNuxtError(knownFailure({ tag: 't', status: 404 }))
 
-    expect((error.data as { data: Record<string, unknown> }).data).toEqual({
-      __knownError__: { tag: 't', status: 404 },
+    expect(error.data).toMatchObject({
+      data: { __knownError__: { tag: 't', status: 404 } },
     })
   })
 
@@ -88,12 +88,8 @@ describe('toTryResult', () => {
 
     expect(result.data).toBeUndefined()
     expect(result.error?.status).toBe(404)
-    const body = result.error?.data as
-      | { data: Record<string, unknown> }
-      | undefined
-
-    expect(body?.data).toEqual({
-      __knownError__: { tag: 'userNotFound', status: 404 },
+    expect(result.error?.data).toMatchObject({
+      data: { __knownError__: { tag: 'userNotFound', status: 404 } },
     })
   })
 
@@ -111,7 +107,7 @@ describe('toTryResult', () => {
       toTryResult(() => Promise.reject(new Error('boom')))
     )
 
-    expect(result.threw).toBe(false)
-    expect((result.value as { error: Error }).error.message).toBe('boom')
+    if (result.threw) throw new Error('rethrown')
+    expect(result.value.error?.message).toBe('boom')
   })
 })

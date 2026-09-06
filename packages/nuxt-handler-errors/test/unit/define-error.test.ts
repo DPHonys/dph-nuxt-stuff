@@ -6,7 +6,10 @@ import {
   defineCheckedEventHandler,
   defineError,
 } from '../../src/runtime/server'
+import type { ErrorFactory } from '../../src/runtime/server/lib/error-context'
 
+// SAFETY: the handlers under test never read the event - only the second
+// argument, the factories, is exercised; a bare object stands in.
 const event = {} as H3Event
 
 describe('defined errors at runtime', () => {
@@ -43,14 +46,14 @@ describe('defined errors at runtime', () => {
   })
 
   it('accepts callable Standard Schema implementations', async () => {
+    const standard: StandardSchemaV1<unknown, { amount: number }>['~standard'] =
+      {
+        version: 1,
+        vendor: 'test',
+        validate: (input) => ({ value: { amount: Number(input) } }),
+      }
     const callable: StandardSchemaV1<unknown, { amount: number }> =
-      Object.assign(() => {}, {
-        '~standard': {
-          version: 1 as const,
-          vendor: 'test',
-          validate: (input: unknown) => ({ value: { amount: Number(input) } }),
-        },
-      })
+      Object.assign(() => {}, { '~standard': standard })
     const conflict = defineError('conflict', { status: 409, payload: callable })
     const handler = defineCheckedEventHandler(
       { errors: [conflict] },
@@ -88,14 +91,18 @@ describe('defined errors at runtime', () => {
   })
 
   it('rejects foreign declarations and inline records at declaration time', () => {
+    // SAFETY: a JavaScript caller's mistake, deliberately outside the type -
+    // the declaration guard under test rejects it before reading it as an
+    // error value.
+    const foreign = {} as never
+    // SAFETY: as above - a definition record where an errors array belongs.
+    const inline = { bad: { status: 404 } } as never
+
     expect(() =>
-      defineCheckedEventHandler({ errors: [...auth, {} as never] }, () => null)
+      defineCheckedEventHandler({ errors: [...auth, foreign] }, () => null)
     ).toThrow(/errors\[2\]/)
     expect(() =>
-      defineCheckedEventHandler(
-        { errors: { bad: { status: 404 } } as never },
-        () => null
-      )
+      defineCheckedEventHandler({ errors: inline }, () => null)
     ).toThrow(TypeError)
   })
 
@@ -119,20 +126,32 @@ describe('defined errors at runtime', () => {
       },
     },
   ])('rejects malformed definitions: %j', (definitions) => {
-    expect(() => defineError(definitions as never)).toThrow(TypeError)
+    // SAFETY: each row is a JavaScript caller's malformed record, deliberately
+    // outside the type; the guard under test rejects it before reading it as
+    // definitions.
+    const malformed = definitions as never
+
+    expect(() => defineError(malformed)).toThrow(TypeError)
   })
 
   it('rejects tags that are not identifiers, on both forms', () => {
-    expect(() =>
-      defineError('user-not-found' as never, { status: 404 })
-    ).toThrow(
+    // SAFETY: tags the `ValidTag` guard refuses at compile time, handed in
+    // as a JavaScript caller would; the runtime guard under test refuses them
+    // the same way.
+    const kebab = 'user-not-found' as never
+    // SAFETY: as above, the record form.
+    const kebabRecord = { 'user-not-found': { status: 404 } } as never
+    // SAFETY: as above - ASCII only: a Unicode identifier is legal to
+    // JavaScript but not a tag.
+    const delta = 'Δ' as never
+
+    expect(() => defineError(kebab, { status: 404 })).toThrow(
       '[nuxt-handler-errors] error tag must be a valid identifier: user-not-found'
     )
-    expect(() =>
-      defineError({ 'user-not-found': { status: 404 } } as never)
-    ).toThrow('error tag must be a valid identifier: user-not-found')
-    // ASCII only: a Unicode identifier is legal to JavaScript but not a tag.
-    expect(() => defineError('Δ' as never, { status: 404 })).toThrow(
+    expect(() => defineError(kebabRecord)).toThrow(
+      'error tag must be a valid identifier: user-not-found'
+    )
+    expect(() => defineError(delta, { status: 404 })).toThrow(
       'error tag must be a valid identifier: Δ'
     )
     expect(() => defineError('$ok_1', { status: 404 })).not.toThrow()
@@ -152,7 +171,11 @@ describe('defined errors at runtime', () => {
     const withArgument = defineCheckedEventHandler(
       { errors: [empty] },
       (_event, { errors }) => {
-        throw (errors.empty as (...args: unknown[]) => never)({})
+        // Widened to the factory's runtime face, where any argument list is
+        // callable - the arity check under test is what refuses it.
+        const loose: ErrorFactory = errors.empty
+
+        throw loose({})
       }
     )
     await expect(withArgument(event)).rejects.toThrow(
@@ -164,7 +187,11 @@ describe('defined errors at runtime', () => {
     const rejected = defineCheckedEventHandler(
       { errors: [...auth] },
       (_event, { errors }) => {
-        throw errors.forbidden({ requiredRole: 42 } as never)
+        // SAFETY: a payload the schema refuses, deliberately outside its input
+        // type; the factory validates it at runtime, which is the claim.
+        const rejectedRole = { requiredRole: 42 } as never
+
+        throw errors.forbidden(rejectedRole)
       }
     )
     await expect(rejected(event)).rejects.toMatchObject({

@@ -20,10 +20,11 @@ type ComputedOptions<T extends Record<string, any>> = {
     : ComputedOptions<T[K]> | MaybeRefOrGetter<T[K]>
 }
 
-type Reactive<T> =
-  T extends Record<string, any>
-    ? ComputedOptions<T> | MaybeRefOrGetter<T>
-    : MaybeRefOrGetter<T>
+// `object` is what vanilla's `Record<string, any>` bound admits - every
+// non-primitive - spelled without the open dictionary.
+type Reactive<T> = T extends object
+  ? ComputedOptions<T> | MaybeRefOrGetter<T>
+  : MaybeRefOrGetter<T>
 
 // Each typed source re-added the way vanilla types its own. A plain literal
 // is still excess-key checked; through `ref()` or a getter it is not - a

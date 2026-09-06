@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest'
 import { useRequestCheckedFetch } from '../../src/runtime/app/composables/use-request-checked-fetch'
+import { createCheckedEventFetch } from '../../src/runtime/server/lib/event-checked-fetch'
 import { $checkedFetch } from '../../src/runtime/shared/checked-fetch'
-import type { CheckedFetch } from '../../src/runtime/types'
 import { setRequestEvent } from '../doubles/nuxt-app'
 
 // Under vitest `import.meta.client` is falsy, so what runs here is the server
@@ -12,7 +12,8 @@ afterEach(() => {
 })
 
 it('hands back the event’s own instance while rendering', () => {
-  const bound = (() => Promise.resolve('ok')) as unknown as CheckedFetch
+  // A real event-bound instance over a stub fetch: identity is the claim.
+  const bound = createCheckedEventFetch(() => async () => 'ok')
 
   setRequestEvent({ $checkedFetch: bound })
 

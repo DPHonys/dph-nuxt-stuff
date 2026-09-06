@@ -247,9 +247,9 @@ means one thing: **known to the server, not to this call site**.
   catches that; the matcher routes it to the fallback rather than into an arm
   typed as something it is not.
 - **A degraded call site.** Vanilla `useFetch`, a throwing `useAsyncData`
-  handler, a bare `catch`: there are no typed arms at all, so every marked
-  variant lands here. These call sites keep working - they are typed exactly as
-  vanilla types them.
+  handler, a `catch` narrowed with Nuxt's `isNuxtError`: there are no typed
+  arms at all, so every marked variant lands here. These call sites keep
+  working - they are typed exactly as vanilla types them.
 
 A route that declares nothing is typed exactly as vanilla, everywhere.
 
@@ -311,8 +311,10 @@ export default defineNitroPlugin((nitroApp) => {
 })
 ```
 
-The same predicate works in Sentry's `beforeSend` over
-`hint.originalException`. The `unhandled === false` half is load-bearing: a
+The same read works in Sentry's `beforeSend` over `hint.originalException`
+once it is narrowed with `instanceof Error` - every hook hands over an
+`Error`, and that is what `recognizeKnownError` takes. The
+`unhandled === false` half is load-bearing: a
 declared failure that **escaped** an inner handler reaches the hook carrying a
 marker too, and that one is a caller bug that must keep reporting.
 

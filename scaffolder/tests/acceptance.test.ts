@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import {
   cp,
   lstat,
@@ -9,8 +9,8 @@ import {
   rm,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { promisify } from 'node:util'
 import { join, relative, resolve } from 'pathe'
+import * as v from 'valibot'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   createProductionTemplateRegistry,
@@ -22,7 +22,6 @@ import {
 } from '../internal/production'
 import { createScaffolder } from '../internal/scaffolder'
 
-const executeFile = promisify(execFile)
 const workspaceRoot = resolve(import.meta.dirname, '../..')
 const temporaryRoots: string[] = []
 const generatedFiles = [
@@ -124,11 +123,14 @@ describe('disposable Acceptance fixture', () => {
       cwd: repositoryRoot,
     })
 
-    const pnpmWorkspace = JSON.parse(
-      await run('pnpm', ['list', '--recursive', '--depth', '-1', '--json'], {
-        cwd: repositoryRoot,
-      })
-    ) as Array<{ name: string }>
+    const pnpmWorkspace = v.parse(
+      v.array(v.object({ name: v.string() })),
+      JSON.parse(
+        await run('pnpm', ['list', '--recursive', '--depth', '-1', '--json'], {
+          cwd: repositoryRoot,
+        })
+      )
+    )
     expect(pnpmWorkspace.map(({ name }) => name)).toEqual(
       expect.arrayContaining([
         '@dphonys/api-2-client',
@@ -136,11 +138,16 @@ describe('disposable Acceptance fixture', () => {
       ])
     )
 
-    const turboWorkspace = JSON.parse(
-      await run('pnpm', ['exec', 'turbo', 'ls', '--output=json'], {
-        cwd: repositoryRoot,
-      })
-    ) as { packages: { items: Array<{ name: string }> } }
+    const turboWorkspace = v.parse(
+      v.object({
+        packages: v.object({ items: v.array(v.object({ name: v.string() })) }),
+      }),
+      JSON.parse(
+        await run('pnpm', ['exec', 'turbo', 'ls', '--output=json'], {
+          cwd: repositoryRoot,
+        })
+      )
+    )
     expect(turboWorkspace.packages.items.map(({ name }) => name)).toEqual(
       expect.arrayContaining([
         '@dphonys/api-2-client',
@@ -148,21 +155,32 @@ describe('disposable Acceptance fixture', () => {
       ])
     )
 
-    const nuxtPackages = JSON.parse(
-      await run(
-        'pnpm',
-        [
-          '--filter',
-          '@dphonys/api-2-client',
-          'list',
-          'nuxt',
-          '--depth',
-          '0',
-          '--json',
-        ],
-        { cwd: repositoryRoot }
+    const nuxtPackages = v.parse(
+      v.array(
+        v.object({
+          devDependencies: v.optional(
+            v.object({
+              nuxt: v.optional(v.object({ version: v.string() })),
+            })
+          ),
+        })
+      ),
+      JSON.parse(
+        await run(
+          'pnpm',
+          [
+            '--filter',
+            '@dphonys/api-2-client',
+            'list',
+            'nuxt',
+            '--depth',
+            '0',
+            '--json',
+          ],
+          { cwd: repositoryRoot }
+        )
       )
-    ) as Array<{ devDependencies?: { nuxt?: { version: string } } }>
+    )
     // The fixture installs with no lockfile, so nuxt resolves fresh and a
     // pinned patch literal here goes stale on every nuxt release. The
     // scaffold's contract is `nuxtCompatibilityRange`; assert its bounds.
@@ -381,23 +399,39 @@ async function run(
   arguments_: string[],
   options: { cwd: string }
 ): Promise<string> {
-  try {
-    const { stdout } = await executeFile(command, arguments_, {
+  const result = await new Promise<{
+    exitCode: number | null
+    stdout: string
+    stderr: string
+  }>((settle, reject) => {
+    const child = spawn(command, arguments_, {
       cwd: options.cwd,
       env: { ...process.env, CI: '1' },
-      maxBuffer: 20 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
-    return stdout
-  } catch (caught) {
-    if (caught instanceof Error) {
-      const error = caught as Error & { stderr?: string; stdout?: string }
-      throw new Error(
-        [error.message, error.stdout, error.stderr].filter(Boolean).join('\n'),
-        { cause: caught }
-      )
-    }
-    throw caught
+    let stdout = ''
+    let stderr = ''
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr += chunk
+    })
+    child.once('error', reject)
+    child.once('close', (exitCode) => settle({ exitCode, stdout, stderr }))
+  })
+  if (result.exitCode !== 0) {
+    throw new Error(
+      [
+        `${command} ${arguments_.join(' ')} exited with ${result.exitCode ?? 'a signal'}`,
+        result.stdout,
+        result.stderr,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    )
   }
+  return result.stdout
 }
 
 async function listFiles(root: string, current = ''): Promise<string[]> {
@@ -434,8 +468,17 @@ function compareVersions(left: string, right: string): number {
   return 0
 }
 
-async function readJson(file: string): Promise<Record<string, unknown>> {
-  return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>
+/** The values `JSON.parse` can produce. */
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+async function readJson(file: string): Promise<JsonValue> {
+  return JSON.parse(await readFile(file, 'utf8'))
 }
 
 async function pathExists(path: string): Promise<boolean> {

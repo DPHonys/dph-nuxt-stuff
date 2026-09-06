@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 // The parents' `/types` specifiers, resolved from an app that installed the
 // umbrella alone. `typescript.hoist` resolves from the app's `modulesDir`
@@ -35,12 +36,15 @@ const PARENT_SPECIFIERS = [
   '@dphonys/nuxt-handler-validation/types',
 ]
 
-interface TsConfig {
-  compilerOptions: { paths: Record<string, string[]> }
-}
+/** The slice of a generated tsconfig the entries are read off. */
+const TsConfig = z.object({
+  compilerOptions: z.object({
+    paths: z.record(z.string(), z.array(z.string())),
+  }),
+})
 
-function readTsConfig(name: string): TsConfig {
-  return JSON.parse(readFileSync(join(BUILD_DIR, name), 'utf8')) as TsConfig
+function readTsConfig(name: string): z.infer<typeof TsConfig> {
+  return TsConfig.parse(JSON.parse(readFileSync(join(BUILD_DIR, name), 'utf8')))
 }
 
 /**

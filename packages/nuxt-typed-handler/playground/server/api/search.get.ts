@@ -6,5 +6,9 @@ import { pagination, sorting } from '../validation/schemas'
  */
 export default defineTypedEventHandler(
   { validate: { query: [pagination, sorting] } },
-  (_event, { query }) => ({ page: query.page, hits: [] as string[] })
+  (_event, { query }) => {
+    const hits: string[] = []
+
+    return { page: query.page, hits }
+  }
 )

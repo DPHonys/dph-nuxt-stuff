@@ -15,6 +15,7 @@
     "scule": "catalog:"
   },
   "devDependencies": {
+    "valibot": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"
   }

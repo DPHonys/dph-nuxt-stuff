@@ -1,33 +1,45 @@
+import { createError } from 'h3'
+import type { NuxtError } from 'nuxt/app'
 import { describe, expect, it, vi } from 'vitest'
 import { ref, shallowRef } from 'vue'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared'
 import {
-  matchError as matcher,
+  dispatchOnFloor as matchError,
   readFloor,
 } from '../../src/runtime/shared/match-error'
+import { isMarkedError } from '../../src/runtime/shared/wire'
+import type { KnownVariant } from '../../src/runtime/types'
 
 // The matcher's runtime behaviour - the half no type assertion can reach. The
-// arms are stubs over hand-built wire shapes, so the one runtime function is
-// called through a loose signature; the overloads themselves are asserted in
+// arms are stubs over hand-built wire shapes, so the runtime signature under
+// the overloads is what is called; the overloads themselves are asserted in
 // `test/types/matcher.test.ts`.
-const matchError = matcher as (
-  error: unknown,
-  arms: Record<string, (variant: any) => void>,
-  fallback: (error: any, unrecognized?: any) => void
-) => void
+
+/** A well-formed variant with whatever payload fields ride beside the floor. */
+interface RichVariant extends KnownVariant {
+  [field: string]: string | number
+}
+
+/** A hand-built marker - well-formed or not, that is what each case decides. */
+type Marker =
+  | RichVariant
+  | string
+  | null
+  | { tag?: unknown; status?: unknown }
+  | (() => void)
 
 /** The raise-site shape: the server's own thrown `H3Error`. */
-function raised(variant: unknown): unknown {
-  return {
+function raised(variant: Marker): NuxtError {
+  return createError({
     message: 'forbidden',
     statusCode: 403,
     data: { [KNOWN_ERROR_KEY]: variant },
-  }
+  })
 }
 
 /** The fetched shape: Nitro's serialized body under ofetch's `data` getter. */
-function fetched(variant: unknown): unknown {
-  return {
+function fetched(variant: Marker): NuxtError {
+  return createError({
     message: 'forbidden',
     statusCode: 403,
     data: {
@@ -38,7 +50,7 @@ function fetched(variant: unknown): unknown {
       message: 'forbidden',
       data: { [KNOWN_ERROR_KEY]: variant },
     },
-  }
+  })
 }
 
 const forbidden = { tag: 'forbidden', status: 403, requiredRole: 'admin' }
@@ -52,11 +64,17 @@ describe('readFloor', () => {
     expect(readFloor(fetched(forbidden))).toEqual(forbidden)
   })
 
+  it('hands the wire object back itself, not a copy', () => {
+    const body = { data: { [KNOWN_ERROR_KEY]: forbidden } }
+
+    expect(readFloor(createError({ data: body }))).toBe(
+      body.data[KNOWN_ERROR_KEY]
+    )
+  })
+
   it.each([
-    ['no marker at all', { data: { message: 'nope' } }],
-    ['no data', { message: 'nope' }],
-    ['a nullish error', undefined],
-    ['a primitive error', 'boom'],
+    ['no marker at all', createError({ data: { message: 'nope' } })],
+    ['no data', createError({ message: 'nope' })],
     ['a null marker', raised(null)],
     ['a string marker', raised('forbidden')],
     [
@@ -69,6 +87,26 @@ describe('readFloor', () => {
     ['a malformed marker at the fetched depth', fetched({ tag: 'forbidden' })],
   ])('reads %s as unknown', (_case, error) => {
     expect(readFloor(error)).toBeUndefined()
+  })
+})
+
+describe('isMarkedError - the boundary under readFloor', () => {
+  it.each([
+    ['a nullish value', undefined],
+    ['null', null],
+    ['a primitive', 'boom'],
+    ['an array', [{ [KNOWN_ERROR_KEY]: forbidden }]],
+    ['a null data', { data: null }],
+    ['a marker that is an array', { data: { [KNOWN_ERROR_KEY]: [forbidden] } }],
+  ])('rejects %s', (_case, value) => {
+    expect(isMarkedError(value)).toBe(false)
+  })
+
+  it('accepts a plain object shaped like the wire, at either depth', () => {
+    expect(isMarkedError({ data: { [KNOWN_ERROR_KEY]: forbidden } })).toBe(true)
+    expect(
+      isMarkedError({ data: { data: { [KNOWN_ERROR_KEY]: forbidden } } })
+    ).toBe(true)
   })
 })
 
@@ -118,7 +156,7 @@ describe('matchError', () => {
 
   it('calls the fallback with no second argument when there is no marker', () => {
     const fallback = vi.fn()
-    const error = { message: 'network', statusCode: 500 }
+    const error = createError({ message: 'network', statusCode: 500 })
 
     matchError(error, {}, fallback)
 
@@ -150,7 +188,7 @@ describe('matchError', () => {
 
   it('reads a ref, once, at call time', () => {
     const arm = vi.fn()
-    const error = shallowRef<unknown>(undefined)
+    const error = shallowRef<NuxtError | undefined>(undefined)
 
     matchError(error, { forbidden: arm }, vi.fn())
     expect(arm).not.toHaveBeenCalled()

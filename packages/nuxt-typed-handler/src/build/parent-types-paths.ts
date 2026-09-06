@@ -1,5 +1,5 @@
 import { resolveTypePaths } from '@nuxt/kit'
-import type { Nuxt } from '@nuxt/schema'
+import type { NuxtHooks } from '@nuxt/schema'
 import type { NitroConfig } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
 
@@ -14,6 +14,15 @@ interface PathsCarrier {
   compilerOptions?: { paths?: Record<string, string[]> }
 }
 
+/** What the writer needs from Nuxt: the two hooks it registers on. */
+export interface TypesPathsHost {
+  hook: ((
+    name: 'prepare:types',
+    callback: NuxtHooks['prepare:types']
+  ) => void) &
+    ((name: 'nitro:config', callback: NuxtHooks['nitro:config']) => void)
+}
+
 /**
  * Map both parent `/types` specifiers, on every generated tsconfig, to the
  * declaration each resolves to from this module's own location (`from` is
@@ -21,7 +30,7 @@ interface PathsCarrier {
  * `typescript.hoist` cannot do this: it resolves from the app's `modulesDir`
  * alone and silently drops what it cannot find there.
  */
-export function addParentTypesPaths(nuxt: Nuxt, from: string): void {
+export function addParentTypesPaths(nuxt: TypesPathsHost, from: string): void {
   // A directory, not the URL: handed a `file://` URL, `resolveTypePaths`
   // silently searches from the process's working directory instead.
   const searchPath = fileURLToPath(new URL('.', from))

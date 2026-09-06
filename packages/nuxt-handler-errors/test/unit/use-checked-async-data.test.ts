@@ -1,10 +1,14 @@
+import { createError } from 'h3'
+import * as v from 'valibot'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ref } from 'vue'
-import type { NuxtError } from '#app'
+import type { NuxtApp } from '#app'
+import type { AsyncDataHandler } from '#app/composables/asyncData'
 import {
   useCheckedAsyncData,
   useLazyCheckedAsyncData,
 } from '../../src/runtime/app/composables/use-checked-async-data'
+import type { RawUseAsyncData } from '../../src/runtime/app/composables/use-checked-async-data'
 import { asyncDataCalls } from '../doubles/nuxt-app'
 
 // The wrapper must replace the right argument (vanilla's own split, not
@@ -19,22 +23,44 @@ interface User {
 const user: User = { id: '42' }
 
 /** A carrier, identified by reference. Only `.error`'s truthiness is read. */
-const carrier = { statusCode: 404, data: { marker: true } } as NuxtError
+const carrier = createError({ statusCode: 404, data: { marker: true } })
+
+// SAFETY: the substituted handler forwards its arguments to the caller's
+// handler untouched and reads nothing off them; a bare object stands in for
+// the app, and identity is all this suite asserts about it.
+const nuxtApp = {} as NuxtApp
+
+const signal = { signal: new AbortController().signal }
+
+const functionSchema = v.function()
+
+// The substituted handler resolves what the caller's handler put under
+// `data` - `user`, in every success case this file builds.
+function isSubstituted(
+  arg: (typeof asyncDataCalls)[number]['args'][number]
+): arg is AsyncDataHandler<User> {
+  return v.is(functionSchema, arg)
+}
 
 /** The handler the wrapper substituted, from the last recorded call. */
-function substituted(): (...args: unknown[]) => Promise<unknown> {
+function substituted(): AsyncDataHandler<User> {
   const last = asyncDataCalls.at(-1)
 
   if (last === undefined) throw new Error('nothing reached the vanilla double')
 
   // The *last* function argument: a getter key is a function too, and it can
   // only ever sit before the handler.
-  const handler = last.args.findLast((arg) => typeof arg === 'function')
+  const handler = last.args.findLast((arg) => v.is(functionSchema, arg))
 
-  if (handler === undefined) throw new Error('no handler was forwarded')
+  if (handler === undefined || !isSubstituted(handler)) {
+    throw new Error('no handler was forwarded')
+  }
 
-  return handler as (...args: unknown[]) => Promise<unknown>
+  return handler
 }
+
+/** Run the substituted handler as vanilla would. */
+const run = () => substituted()(nuxtApp, signal)
 
 beforeEach(() => {
   asyncDataCalls.length = 0
@@ -50,7 +76,7 @@ describe('unwrap-or-rethrow', () => {
       error: undefined,
     }))
 
-    await expect(substituted()()).resolves.toBe(user)
+    await expect(run()).resolves.toBe(user)
   })
 
   it('rethrows the carrier itself, not a copy', async () => {
@@ -59,21 +85,20 @@ describe('unwrap-or-rethrow', () => {
       error: carrier,
     }))
 
-    await expect(substituted()()).rejects.toBe(carrier)
+    await expect(run()).rejects.toBe(carrier)
   })
 
   it('forwards vanilla the handler arguments it calls with', async () => {
-    const seen: unknown[] = []
+    const seen: Parameters<AsyncDataHandler<User>>[] = []
 
-    useCheckedAsyncData('user', async (...args: unknown[]) => {
-      seen.push(...args)
+    useCheckedAsyncData('user', async (...args) => {
+      seen.push(args)
       return { data: user, error: undefined }
     })
 
-    const signal = { signal: new AbortController().signal }
-    await substituted()('nuxt-app', signal)
+    await run()
 
-    expect(seen).toEqual(['nuxt-app', signal])
+    expect(seen).toEqual([[nuxtApp, signal]])
   })
 })
 
@@ -99,20 +124,23 @@ describe('the delegation', () => {
 
     const last = asyncDataCalls.at(-1)
 
-    expect(typeof last?.args[0]).toBe('function')
-    await expect(substituted()()).resolves.toBe(user)
+    expect(last?.args[0]).toBeTypeOf('function')
+    await expect(run()).resolves.toBe(user)
   })
 
   it('keeps a compiler-injected auto-key in vanilla last position', async () => {
     // What `optimization.keyedComposables` produces: the key appended last.
-    const keyless = useCheckedAsyncData as (...args: unknown[]) => unknown
+    // SAFETY: the injected auto-key sits after the public overloads' last
+    // parameter; `RawUseAsyncData` is the variadic signature the wrapper
+    // under `useCheckedAsyncData` implements, and vanilla's runtime reads.
+    const keyless = useCheckedAsyncData as RawUseAsyncData
 
     keyless(async () => ({ data: user, error: undefined }), {}, '$auto')
 
     const last = asyncDataCalls.at(-1)
 
     expect(last?.args[2]).toBe('$auto')
-    await expect(substituted()()).resolves.toBe(user)
+    await expect(run()).resolves.toBe(user)
   })
 
   it('reads a ref key as a key, not as the handler', async () => {
@@ -126,7 +154,7 @@ describe('the delegation', () => {
     const last = asyncDataCalls.at(-1)
 
     expect(last?.args[0]).toBe(refKey)
-    await expect(substituted()()).resolves.toBe(user)
+    await expect(run()).resolves.toBe(user)
   })
 
   it('reads a getter key as a key, not as the handler', async () => {
@@ -138,7 +166,7 @@ describe('the delegation', () => {
     const last = asyncDataCalls.at(-1)
 
     expect(last?.args[0]).toBe(getterKey)
-    await expect(substituted()()).resolves.toBe(user)
+    await expect(run()).resolves.toBe(user)
   })
 
   it('sends the lazy twin to vanilla own lazy composable', () => {

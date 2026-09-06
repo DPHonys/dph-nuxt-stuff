@@ -1,3 +1,4 @@
+import type { H3Error } from 'h3'
 import { createError, defineEventHandler } from 'h3'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -7,25 +8,28 @@ import {
   validatedContext,
 } from '../../src/runtime/internals/server'
 import { readValidationMarker } from '../../src/runtime/internals/shared'
-import type { ValidationSchemas } from '../../src/runtime/types'
-import { postJson, request, schemaReturning } from '../h3-app'
+import type { ValidationIssue } from '../../src/runtime/types'
+import {
+  postJson,
+  request,
+  requestReporting,
+  schemaReturning,
+  wire,
+} from '../h3-app'
 
 // The seam the umbrella calls: `sourcePlan` once, `validatedContext` per
 // request, driven through a real h3 app so the body read is h3's own.
 
+/** What a hook was called with: the source, and the issues it was handed. */
+type HookCall = [string, readonly ValidationIssue[]]
+
 describe('validatedContext with no options', () => {
   it('throws the marked 400 the package answers with on its own', async () => {
     const plan = sourcePlan({ query: z.object({ page: z.coerce.number() }) })
-    let thrown: unknown
 
-    const response = await request(
+    const { response, thrown } = await requestReporting(
       defineEventHandler((event) => validatedContext(event, plan)),
-      '/api/test?page=nope',
-      {
-        onError: (error) => {
-          thrown = error
-        },
-      }
+      '/api/test?page=nope'
     )
 
     expect(response.status).toBe(400)
@@ -46,10 +50,9 @@ describe('validatedContext with no options', () => {
 
 describe('validatedContext with an onInvalid hook', () => {
   it('hands the hook the projected issues of one source, once, and throws what it throws', async () => {
-    const calls: Array<[string, unknown]> = []
+    const calls: HookCall[] = []
     // An H3Error, so h3 passes it through by identity rather than wrapping it.
     const own = createError({ statusCode: 422, statusMessage: 'Custom' })
-    let thrown: unknown
 
     // A vendor-shaped issue: only `message` and a normalized `path` may reach
     // the hook; `input` and `expected` must not.
@@ -65,7 +68,7 @@ describe('validatedContext with an onInvalid hook', () => {
       body: z.object({ name: z.string() }),
     })
 
-    const response = await request(
+    const { response, thrown } = await requestReporting(
       defineEventHandler((event) =>
         validatedContext(event, plan, {
           onInvalid: (source, issues) => {
@@ -75,12 +78,7 @@ describe('validatedContext with an onInvalid hook', () => {
         })
       ),
       '/api/test',
-      {
-        init: postJson('{ not json at all'),
-        onError: (error) => {
-          thrown = error
-        },
-      }
+      { init: postJson('{ not json at all') }
     )
 
     // One call, for the first failing source - the unparseable body after it
@@ -96,7 +94,7 @@ describe('validatedContext with an onInvalid hook', () => {
   })
 
   it('routes an unparseable body through the same hook as one body issue', async () => {
-    const calls: Array<[string, unknown]> = []
+    const calls: HookCall[] = []
     const own = createError({ statusCode: 422, statusMessage: 'Custom' })
     const plan = sourcePlan({ body: z.object({ name: z.string() }) })
 
@@ -132,11 +130,10 @@ describe('validatedContext with an onInvalid hook', () => {
 /** Mounts the plan with a hook that records any call, and reports what h3 saw. */
 async function faultOf(
   plan: readonly SourcePlan[]
-): Promise<{ status: number; calls: number; thrown: unknown }> {
+): Promise<{ status: number; calls: number; thrown: H3Error }> {
   let calls = 0
-  let thrown: unknown
 
-  const response = await request(
+  const { response, thrown } = await requestReporting(
     defineEventHandler((event) =>
       validatedContext(event, plan, {
         onInvalid: () => {
@@ -145,12 +142,7 @@ async function faultOf(
         },
       })
     ),
-    '/api/test',
-    {
-      onError: (error) => {
-        thrown = error
-      },
-    }
+    '/api/test'
   )
 
   return { status: response.status, calls, thrown }
@@ -185,17 +177,19 @@ describe('the faults validatedContext raises on its own', () => {
 
 describe('sourcePlan', () => {
   it('refuses a non-schema at route evaluation with a plain, unmarked Error', () => {
-    let thrown: unknown
+    let thrown: Error | undefined
 
     try {
-      sourcePlan({ query: 'not a schema' } as unknown as ValidationSchemas)
+      // A plain-JavaScript route file's declaration: the types never saw it.
+      sourcePlan(wire('{ "query": "not a schema" }'))
     } catch (error) {
-      thrown = error
+      if (error instanceof Error) thrown = error
     }
 
     // No request exists yet, so no hook can be consulted: the throw happens
     // before `validatedContext` is ever called.
-    expect(thrown).toBeInstanceOf(Error)
+    if (thrown === undefined) throw new Error('sourcePlan did not throw')
+
     expect(thrown).not.toHaveProperty('statusCode')
     expect(readValidationMarker(thrown)).toBeUndefined()
   })

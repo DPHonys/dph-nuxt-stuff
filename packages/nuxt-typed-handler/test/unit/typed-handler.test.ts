@@ -1,36 +1,37 @@
 import { defineError } from '@dphonys/nuxt-handler-errors/server'
 import { KNOWN_ERROR_KEY } from '@dphonys/nuxt-handler-errors/shared'
-import { describe, expect, it, vi } from 'vitest'
+import { validatedContext } from '@dphonys/nuxt-handler-validation/internals/server'
+import type { H3Error } from 'h3'
+import { afterEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
   defineTypedEventHandler,
   recognizeKnownError,
   recognizeValidationError,
 } from '../../src/runtime/server'
-import { postJson, request } from '../h3-app'
+import type { TypedHandlerInternals } from '../../src/runtime/server/lib/typed-handler'
+import { createDefineTypedEventHandler } from '../../src/runtime/server/lib/typed-handler'
+import { firstError, postJson, request } from '../h3-app'
 
 // The real internals, with the one seam the errors-only case asserts on
-// observed through a spy: `validatedContext` is the only door to a body read.
-const { validatedContextSpy } = vi.hoisted(() => ({
-  validatedContextSpy: vi.fn(),
-}))
+// counted on its way through: `validatedContext` is the only door to a body
+// read, and the factory takes it injected. A plain delegating function
+// rather than `vi.fn`, which cannot carry the seam's generic signature.
+let validatedContextCalls = 0
 
-vi.mock(
-  '@dphonys/nuxt-handler-validation/internals/server',
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('@dphonys/nuxt-handler-validation/internals/server')
-      >()
+const observed: TypedHandlerInternals = {
+  validatedContext: (event, plan, options) => {
+    validatedContextCalls += 1
 
-    return {
-      ...actual,
-      validatedContext: validatedContextSpy.mockImplementation(
-        actual.validatedContext
-      ),
-    }
-  }
-)
+    return validatedContext(event, plan, options)
+  },
+}
+
+const defineObserved = createDefineTypedEventHandler(observed)
+
+afterEach(() => {
+  validatedContextCalls = 0
+})
 
 // Handlers built by `defineTypedEventHandler`, driven by real requests through
 // a real h3 app, with both parents' internals imported for real.
@@ -63,16 +64,15 @@ describe('a route declaring only errors', () => {
     // Observed at the seam the internals expose rather than by a body spy:
     // `validatedContext` is the one door to a body read, and it is never
     // opened for a route that declares nothing to validate.
-    const handler = defineTypedEventHandler(
-      { errors: [...userErrors] },
-      () => ({ reached: true })
-    )
+    const handler = defineObserved({ errors: [...userErrors] }, () => ({
+      reached: true,
+    }))
 
     const response = await request(handler, '/api/test', {
       init: postJson('{ not json at all'),
     })
 
-    expect(validatedContextSpy).not.toHaveBeenCalled()
+    expect(validatedContextCalls).toBe(0)
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ reached: true })
   })
@@ -80,7 +80,7 @@ describe('a route declaring only errors', () => {
 
 describe('a route declaring only validation', () => {
   it('hands the handler exactly the validation parent’s context without factories', async () => {
-    const handler = defineTypedEventHandler(
+    const handler = defineObserved(
       { validate: { query: z.object({ page: z.coerce.number() }) } },
       (_event, context) => ({
         keys: Object.keys(context),
@@ -95,7 +95,7 @@ describe('a route declaring only validation', () => {
       keys: ['query'],
       page: 2,
     })
-    expect(validatedContextSpy).toHaveBeenCalled()
+    expect(validatedContextCalls).toBe(1)
   })
 
   it('answers a rejected source with the built-in variant, both markers on', async () => {
@@ -104,7 +104,7 @@ describe('a route declaring only validation', () => {
       () => 'the body never runs'
     )
 
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     const response = await request(handler, '/api/test?page=nope', {
       onError: (error) => seen.push(error),
     })
@@ -126,11 +126,11 @@ describe('a route declaring only validation', () => {
     })
 
     // The live error is what an observability hook sees: both recognizers.
-    expect(recognizeKnownError(seen[0])).toMatchObject({
+    expect(recognizeKnownError(firstError(seen))).toMatchObject({
       tag: 'validationFailed',
       status: 400,
     })
-    expect(recognizeValidationError(seen[0])).toMatchObject({ issues })
+    expect(recognizeValidationError(firstError(seen))).toMatchObject({ issues })
   })
 
   it('answers an unparseable body with the same variant and the parent’s issue', async () => {
@@ -226,16 +226,20 @@ describe('a route declaring both', () => {
 })
 
 describe('declaration-time misuse', () => {
-  const foreign = {} as (typeof userErrors)[number]
+  // A structured clone keeps the type and drops the symbol-keyed internals:
+  // exactly what a value from a second copy of the module looks like.
+  const foreign = structuredClone(defineError('foreign', { status: 500 }))
+  // The compile guards refuse every declaration below; each is what a
+  // JavaScript caller can still write, so the runtime answers too.
   const reserved = defineError('validationFailed', { status: 400 })
+  const notASchema = { query: 42 }
 
   it('throws the parents’ and its own messages in the order foreign copy, reserved tag, not a schema', () => {
-    const notASchema = { query: 42 as never }
-
     // All three mistakes at once: the foreign copy wins.
     expect(() =>
       defineTypedEventHandler(
-        { validate: notASchema, errors: [foreign, reserved] as never },
+        // @ts-expect-error - not a schema, and the reserved tag
+        { validate: notASchema, errors: [foreign, reserved] },
         () => null
       )
     ).toThrow(
@@ -249,7 +253,8 @@ describe('declaration-time misuse', () => {
     // Without the foreign copy: the reserved tag, ahead of the schema check.
     expect(() =>
       defineTypedEventHandler(
-        { validate: notASchema, errors: [reserved] as never },
+        // @ts-expect-error - not a schema, and the reserved tag
+        { validate: notASchema, errors: [reserved] },
         () => null
       )
     ).toThrow(
@@ -259,6 +264,7 @@ describe('declaration-time misuse', () => {
     // With a clean declaration: the validation parent's own message.
     expect(() =>
       defineTypedEventHandler(
+        // @ts-expect-error - not a schema
         { validate: notASchema, errors: [...userErrors] },
         () => null
       )
@@ -269,14 +275,16 @@ describe('declaration-time misuse', () => {
   })
 
   it('throws on a bare `{}` - the compile guard’s answer for a JavaScript caller', () => {
-    expect(() => defineTypedEventHandler({} as never, () => null)).toThrow(
+    // @ts-expect-error - declares nothing
+    expect(() => defineTypedEventHandler({}, () => null)).toThrow(
       '[nuxt-typed-handler] defineTypedEventHandler needs validate, errors, or both.'
     )
   })
 
   it('throws on an empty `validate` just the same - it plans nothing', () => {
     expect(() =>
-      defineTypedEventHandler({ validate: {} } as never, () => null)
+      // @ts-expect-error - declares nothing
+      defineTypedEventHandler({ validate: {} }, () => null)
     ).toThrow(
       '[nuxt-typed-handler] defineTypedEventHandler needs validate, errors, or both.'
     )
@@ -291,7 +299,7 @@ describe('declaration-time misuse', () => {
       }
     )
 
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     const response = await request(handler, '/api/test', {
       onError: (error) => seen.push(error),
     })

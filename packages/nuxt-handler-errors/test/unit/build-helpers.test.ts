@@ -1,5 +1,5 @@
 import { loadNuxt, logger } from '@nuxt/kit'
-import type { Nuxt } from '@nuxt/schema'
+import type { Nuxt, NuxtTemplate } from '@nuxt/schema'
 import type { Nitro } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -9,6 +9,13 @@ import {
   normalizeChannelToken,
 } from '../../src/build/channel-token'
 import { warnCustomErrorHandler } from '../../src/build/error-handler-warning'
+
+type TemplateData = Parameters<NonNullable<NuxtTemplate['getContents']>>[0]
+
+// SAFETY: the channel-token template renders a constant and reads nothing
+// off `data`; the bare object stands in for a render context this suite
+// never builds.
+const NO_TEMPLATE_DATA = {} as TemplateData
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
 
@@ -100,11 +107,9 @@ describe('addChannelToken', () => {
       )
 
       expect(template?.write).toBe(true)
-      expect(
-        (
-          template as { getContents?: () => string } | undefined
-        )?.getContents?.()
-      ).toBe('export const configuredChannelToken = "tok"\n')
+      expect(template?.getContents?.(NO_TEMPLATE_DATA)).toBe(
+        'export const configuredChannelToken = "tok"\n'
+      )
 
       const dst = nuxt.options.alias['#other-name/channel-token']
       expect(dst).toMatch(/\/other-name\/channel-token\.mjs$/)
@@ -124,11 +129,9 @@ describe('addChannelToken', () => {
         (entry) => entry.filename === 'other-name/channel-token.mjs'
       )
 
-      expect(
-        (
-          template as { getContents?: () => string } | undefined
-        )?.getContents?.()
-      ).toBe('export const configuredChannelToken = undefined\n')
+      expect(template?.getContents?.(NO_TEMPLATE_DATA)).toBe(
+        'export const configuredChannelToken = undefined\n'
+      )
     } finally {
       await nuxt.close()
     }
@@ -196,7 +199,11 @@ describe('addChannelStripErrorHandler', () => {
 
 describe('warnCustomErrorHandler', () => {
   it('warns under the caller’s prefix only when a handler is set', async () => {
+    // SAFETY: `warnCustomErrorHandler` reads `options.nitro.errorHandler`
+    // and nothing else off the instance; the two stand-ins carry exactly
+    // that.
     const unset = { options: { nitro: {} } } as Nuxt
+    // SAFETY: as above, with the handler set.
     const set = { options: { nitro: { errorHandler: '~/one' } } } as Nuxt
 
     const warnings = await warningsDuring(async () => {

@@ -4,8 +4,13 @@
 // time goes stale with no watcher that would fix it.
 
 import { resolveNitroPath } from 'nitropack/kit'
-import type { Nitro, NitroEventHandler } from 'nitropack/types'
+import type {
+  Nitro,
+  NitroDevEventHandler,
+  NitroEventHandler,
+} from 'nitropack/types'
 import { isAbsolute, relative, resolve } from 'pathe'
+import * as v from 'valibot'
 
 /**
  * The specifier the map augments - the module's own name, not Nitro's.
@@ -26,14 +31,14 @@ const RELATIVE_SPECIFIER = /^\.\.?\//
 
 // Escaping, not rejection: a route key is a file name and must reach the map
 // verbatim or it stops matching Nitro's.
-const STRING_ESCAPES: Readonly<Record<string, string>> = {
-  '\\': '\\\\',
-  "'": "\\'",
-  '\n': '\\n',
-  '\r': '\\r',
-  '\u2028': '\\u2028',
-  '\u2029': '\\u2029',
-}
+const STRING_ESCAPES = new Map([
+  ['\\', '\\\\'],
+  ["'", "\\'"],
+  ['\n', '\\n'],
+  ['\r', '\\r'],
+  ['\u2028', '\\u2028'],
+  ['\u2029', '\\u2029'],
+])
 
 const NEEDS_ESCAPE = /[\\'\n\r\u2028\u2029]/g
 
@@ -91,7 +96,7 @@ export interface EmitMapOptions {
  * `never` naturally.
  */
 export function emitMap(
-  handlers: readonly NitroEventHandler[],
+  handlers: readonly (NitroEventHandler | NitroDevEventHandler)[],
   options: EmitMapOptions
 ): string {
   const { nitroOptions } = options
@@ -105,7 +110,7 @@ export function emitMap(
   for (const handler of handlers) {
     // Nitro's own guard: dev handlers carry a function, and a route-less
     // entry is middleware.
-    if (typeof handler.handler !== 'string' || !handler.route) continue
+    if (!isScanned(handler) || !handler.route) continue
 
     // `||`, not `??`, because Nitro writes `mw.method || "default"`.
     const method = (handler.method || DEFAULT_METHOD).toLowerCase()
@@ -127,6 +132,14 @@ export function emitMap(
   ])
 
   return renderFile(grid, options)
+}
+
+// Nitro's own guard: a dev handler carries a function rather than a path,
+// and has no route type to emit.
+function isScanned(
+  handler: NitroEventHandler | NitroDevEventHandler
+): handler is NitroEventHandler {
+  return v.is(v.string(), handler.handler)
 }
 
 /**
@@ -219,6 +232,9 @@ function specifierFor(
   typesDir: string,
   nitroOptions: NitroPathOptions
 ): string {
+  // SAFETY: `resolveNitroPath` reads `alias` and `srcDir` off the options,
+  // plus `{{ }}` template params - and a scanned handler path is absolute,
+  // so it carries none; the picked slice is everything it touches.
   const resolved = resolveNitroPath(
     handlerPath,
     nitroOptions as Nitro['options']
@@ -231,7 +247,7 @@ function specifierFor(
 }
 
 function quote(value: string): string {
-  return `'${value.replaceAll(NEEDS_ESCAPE, (char) => STRING_ESCAPES[char] ?? char)}'`
+  return `'${value.replaceAll(NEEDS_ESCAPE, (char) => STRING_ESCAPES.get(char) ?? char)}'`
 }
 
 function getOrCreate<K, V>(map: Map<K, V>, key: K, create: () => V): V {

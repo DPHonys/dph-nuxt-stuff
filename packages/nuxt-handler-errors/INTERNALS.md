@@ -76,7 +76,7 @@ the _caller's_ alias; each module layer owns a one-line handler over
 | `EventFetchUnavailableError`                             | Thrown when `getBase` yields no `$fetch`.                                                                                                                       |
 | `createChannelStripHandler(getToken)`                    | The Nitro error handler that strips the marker off responses lacking the channel header; `getToken(event)` reads the caller's token.                            |
 | `DeclaredError`                                          | `{ tag, status, schema }`, what `resolveDeclared` returns and `createErrorContext` consumes; `schema` is a Standard Schema or `undefined`.                      |
-| `RawEventFetch`                                          | The loose event-fetch shape `createCheckedEventFetch` accepts.                                                                                                  |
+| `RawEventFetch<Body>`                                    | The loose event-fetch shape `createCheckedEventFetch` accepts; `Body` is the instance-level body claim, `unknown` on Nitro's own `event.$fetch`.                |
 
 Call `createErrorContext(resolveDeclared(options.errors))` at handler declaration,
 not per request. Merge its `errors` into the umbrella's flat validated context.
@@ -103,10 +103,10 @@ fields.
 | `toNuxtError(cause)`                    | h3's `createError` normalisation plus `status`/`statusText` getters, the shape the matcher reads.                     |
 | `toTryResult(call)`                     | Runs `call` and folds the outcome into a `RawTryResult`.                                                              |
 | `knownErrorMarker(tag, status, fields)` | The wire marker placed under `KNOWN_ERROR_KEY`.                                                                       |
-| `readFloor(error)`                      | The marker's variant off any error-shaped value, or `undefined`.                                                      |
+| `readFloor(error)`                      | The marker's variant off an `Error`, or `undefined`; `isMarkedError` in `shared/wire` is the parse under it.          |
 | `CHANNEL_HEADER`                        | `'x-known-error-channel'`.                                                                                            |
 | `CheckedFetchFactoryOptions`            | `{ token, instanceHeaders? }`; `token` is read on every call, so a binding may hand in a getter over a live import.   |
-| `RawFetch`, `RawOptions`                | The loose `$fetch` shape (`call`, `raw`, `create`, `native`) and its options.                                         |
+| `RawFetch<Body, Raw>`, `RawOptions`     | The loose `$fetch` shape (`call`, `raw`, `create`, `native`) and its options; `Body`/`Raw` mirror `$Fetch<DefaultT>`. |
 | `RawTryResult`                          | `TryResult<unknown, NuxtError>`.                                                                                      |
 
 ### `@dphonys/nuxt-handler-errors/internals/app`

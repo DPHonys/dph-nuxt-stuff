@@ -1,8 +1,10 @@
+import type { NitroFetchRequest } from 'nitropack/types'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createCheckedEventFetch,
   EventFetchUnavailableError,
 } from '../../src/runtime/server/lib/event-checked-fetch'
+import type { RawEventFetch } from '../../src/runtime/server/lib/event-checked-fetch'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { knownFailure, settled } from '../fetch-channel'
 
@@ -22,35 +24,46 @@ interface EventFetchInit {
 // `accept` is deliberately not among them: h3 lists it in `ignoredHeaders`,
 // which is why this surface needs a presence check, not the global's
 // three-way one.
-const FORWARDED: Readonly<Record<string, string>> = {
+const FORWARDED = {
   cookie: 'session=abc',
   'user-agent': 'probe',
 }
 
+/**
+ * What h3's spread leaves: the forwarded set with the caller's headers spread
+ * over it - whatever shape that spread really produces, which is the point.
+ */
+const spreadLikeH3 = (headers: HeadersInit | undefined) => ({
+  ...FORWARDED,
+  ...headers,
+})
+
+type Spread = ReturnType<typeof spreadLikeH3>
+
 /** One call as it reached the event's fetch. */
 interface Recorded {
-  readonly request: unknown
+  readonly request: NitroFetchRequest
   /** Exactly what the wrapper handed on, unresolved. */
   readonly init: EventFetchInit | undefined
   /** What h3's spread would put on the wire. */
-  readonly sent: Record<string, unknown>
+  readonly sent: Spread
 }
 
 const calls: Recorded[] = []
 
+/** What the fake resolves with: a body, as the fetch underneath decided. */
+type Body = string | { id: string }
+
 /** What the fake does next: resolve with this, or reject with it. */
-let outcome: { resolve: unknown } | { reject: unknown } = { resolve: 'ok' }
+let outcome: { resolve: Body } | { reject: unknown } = { resolve: 'ok' }
 
 /** `event.$fetch`, modelling h3's single-spread header merge. */
-function fakeEventFetch(): (
-  request: unknown,
-  init?: EventFetchInit
-) => Promise<unknown> {
+function fakeEventFetch(): RawEventFetch<Body> {
   return (request, init) => {
     calls.push({
       request,
       init,
-      sent: { ...FORWARDED, ...init?.headers },
+      sent: spreadLikeH3(init?.headers),
     })
 
     return 'reject' in outcome
@@ -60,7 +73,7 @@ function fakeEventFetch(): (
 }
 
 /** The headers that would go on the wire for the last call. */
-function sentHeaders(): Record<string, unknown> {
+function sentHeaders(): Spread {
   const last = calls.at(-1)
 
   if (last === undefined) throw new Error('nothing reached the event fetch')
@@ -162,7 +175,7 @@ describe('the header merge - the EVENT-BOUND form', () => {
       method: 'POST',
       query: { page: 2 },
       context: { tenant: 'acme' },
-    } as never)
+    })
 
     expect(calls.at(-1)?.request).toBe('/api/anything')
     expect(calls.at(-1)?.init).toMatchObject({
@@ -218,10 +231,9 @@ describe('.try is the global’s, not a second copy', () => {
       createCheckedEventFetch(fakeEventFetch).try('/api/anything')
     )
 
-    expect(result.threw).toBe(false)
-    expect((result.value as { error: { status: number } }).error.status).toBe(
-      500
-    )
+    if (result.threw) throw new Error('.try rethrew')
+
+    expect(result.value.error?.status).toBe(500)
   })
 
   it('applies the same header merge as the throwing form', async () => {
@@ -261,8 +273,9 @@ describe('the skew guard: event.$fetch gone at runtime', () => {
 
     expect(result.threw).toBe(true)
     expect(result.value).toBeInstanceOf(EventFetchUnavailableError)
-    expect((result.value as Error).name).toBe('EventFetchUnavailableError')
-    expect((result.value as Error).message).toMatch(/version skew/)
+    if (!(result.value instanceof Error)) throw new Error('not an Error')
+    expect(result.value.name).toBe('EventFetchUnavailableError')
+    expect(result.value.message).toMatch(/version skew/)
     expect(calls).toHaveLength(0)
   })
 
@@ -326,7 +339,7 @@ describe('the channel tag - the EVENT-BOUND form', () => {
       { headers: { [CHANNEL_HEADER]: 'forged' } }
     )
 
-    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
+    expect(sentHeaders()).toMatchObject({ [CHANNEL_HEADER]: 'first-party' })
   })
 
   it('rides .try as well', async () => {
@@ -334,6 +347,6 @@ describe('the channel tag - the EVENT-BOUND form', () => {
       '/api/anything'
     )
 
-    expect(sentHeaders()[CHANNEL_HEADER]).toBe('first-party')
+    expect(sentHeaders()).toMatchObject({ [CHANNEL_HEADER]: 'first-party' })
   })
 })

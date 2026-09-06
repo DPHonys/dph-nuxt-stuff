@@ -1,3 +1,4 @@
+import * as v from 'valibot'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ref, toValue } from 'vue'
 import {
@@ -15,7 +16,11 @@ import { calls } from '../doubles/nuxt-app'
 // `{"0": …}`.
 
 /** A stand-in for a caller's own `transform`, identified by reference. */
-const transform = (value: unknown): unknown => value
+const transform = <T>(value: T): T => value
+
+// What the wrapper hands vanilla is read back as the flat record it claims
+// to be - a `Headers` instance or a tuple array would fail this parse.
+const flatHeaders = v.record(v.string(), v.string())
 
 /** The headers the wrapper handed vanilla, resolved and flattened as sent. */
 function sentHeaders(): Record<string, string> {
@@ -23,9 +28,7 @@ function sentHeaders(): Record<string, string> {
 
   if (last === undefined) throw new Error('nothing reached the vanilla double')
 
-  return Object.fromEntries(
-    new Headers(toValue(last.opts?.headers) as HeadersInit)
-  )
+  return v.parse(flatHeaders, toValue(last.opts?.headers))
 }
 
 beforeEach(() => {
@@ -120,7 +123,7 @@ describe('the header merge', () => {
     const sent = toValue(calls.at(-1)?.opts?.headers)
 
     expect(sent).not.toBeInstanceOf(Headers)
-    expect({ ...(sent as object) }).toEqual({
+    expect(v.parse(flatHeaders, sent)).toEqual({
       authorization: 'Bearer t',
       accept: 'application/json',
     })
@@ -151,7 +154,7 @@ describe('what else reaches vanilla', () => {
       watch: [watch],
       immediate: false,
     })
-    expect(typeof opts?.default).toBe('function')
+    expect(opts?.default).toBeTypeOf('function')
   })
 
   it('splits vanilla’s (request, arg1, arg2) exactly as vanilla does', () => {

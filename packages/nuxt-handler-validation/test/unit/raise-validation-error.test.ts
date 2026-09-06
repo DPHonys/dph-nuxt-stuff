@@ -1,3 +1,6 @@
+import type { H3Error } from 'h3'
+import { isError } from 'h3'
+import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { raiseValidationError } from '../../src/runtime/internals/server'
 import { readValidationMarker } from '../../src/runtime/internals/shared'
@@ -11,13 +14,29 @@ const issues: readonly ValidationIssue[] = [
   { source: 'query', message: 'Invalid enum value', path: ['sort', 0] },
 ]
 
-function thrownBy(raise: () => never): unknown {
+/** The H3Error a raise threw - anything else is the failure this reports. */
+function thrownBy(raise: () => never): H3Error {
   try {
     raise()
   } catch (error) {
-    return error
+    if (isError(error)) return error
+
+    throw new Error('the raise threw something other than an H3Error', {
+      cause: error,
+    })
   }
 }
+
+/** The wire payload as the error carries it, narrowed in place - no copy. */
+const WIRE_DATA = v.object({
+  issues: v.array(
+    v.object({
+      source: v.string(),
+      message: v.string(),
+      path: v.array(v.union([v.string(), v.number()])),
+    })
+  ),
+})
 
 describe('raiseValidationError', () => {
   it('throws the marked 400 in its one fixed shape', () => {
@@ -31,14 +50,22 @@ describe('raiseValidationError', () => {
     })
   })
 
-  it('hangs a marker that is a copy of the issues, not the same object', () => {
+  it('hangs a marker that no edit of the wire payload reaches', () => {
+    // The raise copies the array, not the issues in it, so the fixture is
+    // reached by the edits below; the comparison is against a snapshot.
+    const raised = structuredClone(issues)
     const error = thrownBy(() => raiseValidationError('query', issues))
-    const marker = readValidationMarker(error)
-    const data = (error as { data: { issues: ValidationIssue[] } }).data
+    const { data } = error
 
-    expect(marker?.issues).toEqual(issues)
-    expect(marker?.issues).not.toBe(data.issues)
-    expect(marker?.issues[0]).not.toBe(data.issues[0])
-    expect(marker?.issues[0]?.path).not.toBe(data.issues[0]?.path)
+    if (!v.is(WIRE_DATA, data)) throw new Error('the 400 carries no issues')
+
+    // The wire payload is enumerable, so every middleware in the chain can edit
+    // an issue in place, its path, or the array. None of that may reach the
+    // marker, which is the raise's own snapshot.
+    data.issues[0]!.message = 'forged'
+    data.issues[0]!.path.push('forged')
+    data.issues.push({ source: 'body', message: 'forged', path: [] })
+
+    expect(readValidationMarker(error)).toEqual({ issues: raised })
   })
 })

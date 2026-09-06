@@ -1,36 +1,46 @@
 import { access, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
 const repositoryRoot = resolve(import.meta.dirname, '../../..')
 const workflowPath = join(repositoryRoot, '.github', 'workflows', 'publish.yml')
 
-interface WorkflowStep {
-  name?: string
-  uses?: string
-  if?: string
-  run?: string
-  with?: Record<string, unknown>
-  env?: Record<string, unknown>
-}
+const scalarSchema = v.union([v.string(), v.number(), v.boolean()])
+const stepSchema = v.object({
+  name: v.optional(v.string()),
+  uses: v.optional(v.string()),
+  if: v.optional(v.string()),
+  run: v.optional(v.string()),
+  with: v.optional(v.record(v.string(), scalarSchema)),
+  env: v.optional(v.record(v.string(), scalarSchema)),
+})
+const workflowSchema = v.object({
+  on: v.record(v.string(), v.nullable(v.looseObject({}))),
+  concurrency: v.object({
+    group: v.string(),
+    'cancel-in-progress': v.boolean(),
+  }),
+  permissions: v.record(v.string(), v.string()),
+  jobs: v.record(
+    v.string(),
+    v.object({
+      environment: v.optional(v.union([v.string(), v.looseObject({})])),
+      permissions: v.optional(v.record(v.string(), v.string())),
+      'runs-on': v.optional(v.string()),
+      steps: v.array(stepSchema),
+    })
+  ),
+})
+const rootManifestSchema = v.object({
+  packageManager: v.string(),
+  scripts: v.record(v.string(), v.string()),
+  devDependencies: v.record(v.string(), v.string()),
+})
 
-interface WorkflowJob {
-  environment?: unknown
-  permissions?: Record<string, unknown>
-  'runs-on'?: string
-  steps: WorkflowStep[]
-}
-
-interface PublishWorkflow {
-  on: Record<string, unknown>
-  concurrency: {
-    group: string
-    'cancel-in-progress': boolean
-  }
-  permissions: Record<string, unknown>
-  jobs: Record<string, WorkflowJob>
-}
+type WorkflowStep = v.InferOutput<typeof stepSchema>
+type PublishWorkflow = v.InferOutput<typeof workflowSchema>
 
 describe('trusted publication workflow', () => {
   it('is manual-only, main-only, serialized, and least-privileged', async () => {
@@ -58,9 +68,7 @@ describe('trusted publication workflow', () => {
 
   it('prepares the pinned toolchain and passes the gate before publishing', async () => {
     const workflow = await readWorkflow()
-    const rootManifest = JSON.parse(
-      await readFile(join(repositoryRoot, 'package.json'), 'utf8')
-    ) as { packageManager: string }
+    const rootManifest = await readRootManifest()
     const steps = workflow.jobs.publish?.steps ?? []
     const checkoutIndex = stepIndex(steps, (step) =>
       step.uses?.startsWith('actions/checkout@')
@@ -103,12 +111,7 @@ describe('trusted publication workflow', () => {
 
   it('contains no legacy or additional publication capabilities', async () => {
     const workflowSource = await readFile(workflowPath, 'utf8')
-    const rootManifest = JSON.parse(
-      await readFile(join(repositoryRoot, 'package.json'), 'utf8')
-    ) as {
-      scripts: Record<string, string>
-      devDependencies: Record<string, string>
-    }
+    const rootManifest = await readRootManifest()
 
     expect(workflowSource).not.toMatch(
       /NPM_TOKEN|NODE_AUTH_TOKEN|GITHUB_TOKEN|secrets\./
@@ -128,7 +131,14 @@ describe('trusted publication workflow', () => {
 })
 
 async function readWorkflow(): Promise<PublishWorkflow> {
-  return parse(await readFile(workflowPath, 'utf8')) as PublishWorkflow
+  return v.parse(workflowSchema, parse(await readFile(workflowPath, 'utf8')))
+}
+
+async function readRootManifest() {
+  return v.parse(
+    rootManifestSchema,
+    JSON.parse(await readFile(join(repositoryRoot, 'package.json'), 'utf8'))
+  )
 }
 
 function stepIndex(

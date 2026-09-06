@@ -1,11 +1,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { EventHandler } from 'h3'
+import type { EventHandler, H3Error } from 'h3'
 import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineValidatedEventHandler } from '../../src/runtime/server'
+import type { JsonValue } from '../../src/runtime/server/lib/sources'
 import { readValidationMarker } from '../../src/runtime/shared/error-marker'
-import { request } from '../h3-app'
+import { failureBodyOf, request, requestReporting, wire } from '../h3-app'
 
 // The per-source tuple, driven through the same real-h3-app seam as every other
 // runtime claim; the compile-time half lives in
@@ -19,21 +20,25 @@ const pagination = z.object({
 
 const sorting = v.object({ sort: v.picklist(['asc', 'desc']) })
 
+/** What the fixtures below hand back: JSON, or the one exotic object tested. */
+type Produced = JsonValue | Date
+
 /**
  * A schema producing whatever `produce` hands back, under an output type of the
- * caller's choosing. The gap between the two is the point: it stands in for the
- * `any`-typed schema or plain-JS caller a suite cannot otherwise write.
+ * caller's choosing. The gap between the two is the point: `v.custom` is how a
+ * library lets an author claim an output it does not check, which stands in
+ * for the `any`-typed schema or plain-JS caller a suite cannot otherwise write.
+ * valibot rather than zod, whose Standard Schema door runs an async pipeline
+ * twice - once to discover it is async - which would double every side effect.
  */
 function schemaOutputting<Output>(
-  produce: () => unknown
+  produce: () => Produced | Promise<Produced>
 ): StandardSchemaV1<unknown, Output> {
-  return {
-    '~standard': {
-      version: 1,
-      vendor: 'test',
-      validate: async () => ({ value: (await produce()) as Output }),
-    },
-  }
+  return v.pipeAsync(
+    v.unknown(),
+    v.transformAsync(async () => produce()),
+    v.custom<Output>(() => true)
+  )
 }
 
 /**
@@ -52,13 +57,16 @@ function schemaReportingNothing<Output>(): StandardSchemaV1<unknown, Output> {
 }
 
 /**
- * A declaration whose `query` slot holds whatever a caller the types never saw
- * put there. The cast stands in for a plain-JS route file.
+ * A declaration whose `query` slot holds whatever a plain-JS route file put
+ * there. The slot is typed as the schema the types would insist on; what the
+ * callers hand over came off the wire, which the types never saw.
  */
-function declaring(slot: unknown): { validate: { query: StandardSchemaV1 } } {
-  return { validate: { query: slot } } as {
-    validate: { query: StandardSchemaV1 }
-  }
+interface Declaring {
+  validate: { query: StandardSchemaV1 }
+}
+
+function declaring(slot: StandardSchemaV1): Declaring {
+  return { validate: { query: slot } }
 }
 
 /** A query both units above reject: a bad `page`, a missing `size`, a bad `sort`. */
@@ -66,9 +74,7 @@ const SPOILED = '/api/test?page=x&sort=sideways'
 
 /** What a failure answer said, flattened to `source:path` per issue. */
 async function issuesOf(response: Response): Promise<string[]> {
-  const body = (await response.json()) as {
-    data: { issues: Array<{ source: string; path: unknown[] }> }
-  }
+  const body = await failureBodyOf(response)
 
   return body.data.issues.map(
     (issue) => `${issue.source}:${issue.path.join('.')}`
@@ -83,14 +89,10 @@ async function sortedIssuesOf(response: Response): Promise<string[]> {
 /** The 500 a request produced, as the error object the process saw. */
 async function errorFrom(
   handler: EventHandler
-): Promise<{ status: number; error: unknown }> {
-  let error: unknown
+): Promise<{ status: number; error: H3Error }> {
+  const { response, thrown } = await requestReporting(handler, '/api/test')
 
-  const response = await request(handler, '/api/test', {
-    onError: (thrown) => void (error = thrown),
-  })
-
-  return { status: response.status, error }
+  return { status: response.status, error: thrown }
 }
 
 describe('a source composed from a tuple', () => {
@@ -207,15 +209,17 @@ describe('the merge of a tuple’s outputs', () => {
     // plain object would call the setter that swaps the prototype. h3's readers
     // strip that key from every source, so this stands in for the schema that
     // reconstructs one.
-    const polluting = schemaOutputting<{ page: number }>(
-      () => JSON.parse('{"page":1,"__proto__":{"admin":true}}') as unknown
+    const polluting = schemaOutputting<{ page: number }>(() =>
+      wire('{"page":1,"__proto__":{"admin":true}}')
     )
     const benign = schemaOutputting<{ size: number }>(() => ({ size: 2 }))
 
     const handler = defineValidatedEventHandler(
       { validate: { query: [polluting, benign] } },
       (event, { query }) => ({
-        inherited: (query as Record<string, unknown>).admin ?? null,
+        // `in` walks the prototype chain, which is exactly what a swapped
+        // prototype would show up on.
+        inherited: 'admin' in query ? query.admin : null,
         ownPrototype: Object.getPrototypeOf(query) === Object.prototype,
       })
     )
@@ -272,8 +276,8 @@ describe('an element output the merge cannot take', () => {
     const { status, error } = await errorFrom(handler)
 
     expect(status).toBe(500)
-    expect((error as Error).message).toContain('query')
-    expect((error as Error).message).toContain('index 1')
+    expect(error.message).toContain('query')
+    expect(error.message).toContain('index 1')
   })
 
   it('carries no marker, so an observability hook still reports it', async () => {
@@ -315,7 +319,7 @@ describe('an element output the merge cannot take', () => {
     const { status, error } = await errorFrom(handler)
 
     expect(status).toBe(500)
-    expect((error as Error).message).toContain('an instance of Date')
+    expect(error.message).toContain('an instance of Date')
   })
 })
 
@@ -340,8 +344,8 @@ describe('an element that reports neither an output nor an issue', () => {
     // stayed empty, and the request answered 200 with it missing from the
     // merge. Silent data loss is the one outcome the merge may never produce.
     expect(status).toBe(500)
-    expect((error as Error).message).toContain('query')
-    expect((error as Error).message).toContain('index 1')
+    expect(error.message).toContain('query')
+    expect(error.message).toContain('index 1')
   })
 
   it('carries no marker, so an observability hook still reports it', async () => {
@@ -378,19 +382,12 @@ describe('a source no schema ran for', () => {
     // The tuple type refuses `[]`, so this arrives only from plain JS or an
     // `any`-typed declaration. Delivering `{}` would tell the handler the query
     // validated when nothing looked at it.
-    const declaredEmpty = [] as unknown as readonly [
-      StandardSchemaV1<unknown, { page: number }>,
-    ]
-
     const { status, error } = await errorFrom(
-      defineValidatedEventHandler(
-        { validate: { query: declaredEmpty } },
-        (event, { query }) => ({ ...query })
-      )
+      defineValidatedEventHandler(declaring(wire('[]')), () => 'never')
     )
 
     expect(status).toBe(500)
-    expect((error as Error).message).toContain('query')
+    expect(error.message).toContain('query')
     expect(readValidationMarker(error)).toBeUndefined()
   })
 })
@@ -401,7 +398,7 @@ describe('a source slot holding something that is not a schema', () => {
     // unattributed `TypeError: Cannot read properties of null` - naming neither
     // this package nor the source that broke.
     expect(() =>
-      defineValidatedEventHandler(declaring(null), () => 'never evaluated')
+      defineValidatedEventHandler(declaring(wire('null')), () => 'never')
     ).toThrowError(
       "[nuxt-handler-validation] cannot validate query: the value at index 0 is not a Standard Schema. A source slot holds a schema or a non-empty tuple of them - every element must carry a '~standard' property."
     )
@@ -410,7 +407,7 @@ describe('a source slot holding something that is not a schema', () => {
   it('names the offending element of a composed tuple', () => {
     expect(() =>
       defineValidatedEventHandler(
-        declaring([pagination, { parse: () => ({}) }]),
+        { validate: { query: [pagination, wire('{ "parse": "not it" }')] } },
         () => 'never evaluated'
       )
     ).toThrowError('cannot validate query: the value at index 1')
@@ -434,7 +431,9 @@ describe('a source slot holding something that is not a schema', () => {
     // not enough to call something a schema.
     expect(() =>
       defineValidatedEventHandler(
-        declaring({ '~standard': { version: 1, vendor: 'broken' } }),
+        declaring(
+          wire('{ "~standard": { "version": 1, "vendor": "broken" } }')
+        ),
         () => 'never evaluated'
       )
     ).toThrowError('is not a Standard Schema')
@@ -474,19 +473,15 @@ describe('a lone element', () => {
 
     const handler = defineValidatedEventHandler(
       { validate: { query: [pageOrAll] } },
-      (event, { query }) => ({ query, type: typeof query })
+      (event, { query }) => ({ query })
     )
 
     const primitive = await request(handler, '/api/test?page=2')
     const object = await request(handler, '/api/test?all=yes')
 
-    await expect(primitive.json()).resolves.toEqual({
-      query: 2,
-      type: 'number',
-    })
-    await expect(object.json()).resolves.toEqual({
-      query: { all: 'yes' },
-      type: 'object',
-    })
+    // `toEqual` is strict about `2` against `'2'` and `{}`: the JSON shape is
+    // the whole observation of what came through.
+    await expect(primitive.json()).resolves.toEqual({ query: 2 })
+    await expect(object.json()).resolves.toEqual({ query: { all: 'yes' } })
   })
 })

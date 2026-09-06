@@ -1,6 +1,8 @@
+import type { NitroFetchRequest } from 'nitropack/types'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { createCheckedFetch } from '../../src/runtime/shared/checked-fetch'
+import type { RawFetch } from '../../src/runtime/shared/checked-fetch-factory'
 import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { knownFailure, settled } from '../fetch-channel'
 
@@ -16,7 +18,7 @@ interface FetchOptionsLike {
 /** One call as it reached the fetcher underneath. */
 interface Recorded {
   readonly member: 'call' | 'raw' | 'native'
-  readonly request: unknown
+  readonly request: NitroFetchRequest | URL | RequestInfo
   /** Exactly what the wrapper handed on, unresolved. */
   readonly opts: FetchOptionsLike | undefined
   /** What ofetch would put on the wire, once its own defaults are merged in. */
@@ -25,8 +27,11 @@ interface Recorded {
 
 const calls: Recorded[] = []
 
+/** What the fake resolves with: a body, as the fetcher underneath decided. */
+type Body = string | { id: string }
+
 /** What the fake fetcher does next: resolve with this, or reject with it. */
-let outcome: { resolve: unknown } | { reject: unknown } = { resolve: 'ok' }
+let outcome: { resolve: Body } | { reject: unknown } = { resolve: 'ok' }
 
 /**
  * ofetch's own header merge, verbatim (`ofetch@1.5.1`): instance defaults
@@ -53,17 +58,17 @@ function mergeLikeOfetch(
  * from a wrong one. So `create` here is ofetch's own shallow spread, where a
  * `headers` key replaces the instance's wholesale.
  */
-function fakeFetch(defaults: FetchOptionsLike = {}) {
-  const settle = (): Promise<unknown> =>
+function fakeFetch(defaults: FetchOptionsLike = {}): RawFetch<Body, Body> {
+  const settle = (): Promise<Body> =>
     'reject' in outcome
       ? Promise.reject(outcome.reject)
       : Promise.resolve(outcome.resolve)
 
   const send = (
     member: Recorded['member'],
-    request: unknown,
+    request: Recorded['request'],
     opts: FetchOptionsLike | undefined
-  ): Promise<unknown> => {
+  ): Promise<Body> => {
     calls.push({
       member,
       request,
@@ -74,14 +79,22 @@ function fakeFetch(defaults: FetchOptionsLike = {}) {
     return settle()
   }
 
+  // `native` records the call and answers a bare `Response` over the body:
+  // ofetch's own `fetch` is what sits there, untouched by the wrapper.
+  const native: typeof globalThis.fetch = async (request, init) => {
+    await send('native', request, init)
+
+    return new Response()
+  }
+
   return Object.assign(
-    (request: unknown, opts?: FetchOptionsLike) => send('call', request, opts),
+    (request: NitroFetchRequest, opts?: FetchOptionsLike) =>
+      send('call', request, opts),
     {
-      raw: (request: unknown, opts?: FetchOptionsLike) =>
+      raw: (request: NitroFetchRequest, opts?: FetchOptionsLike) =>
         send('raw', request, opts),
       create: (next: FetchOptionsLike) => fakeFetch({ ...defaults, ...next }),
-      native: ((request: unknown, init?: FetchOptionsLike) =>
-        send('native', request, init)) as typeof globalThis.fetch,
+      native,
     }
   )
 }
@@ -177,7 +190,7 @@ describe('the header merge - the GLOBAL form', () => {
       method: 'POST',
       query: { page: 2 },
       retry: 3,
-    } as never)
+    })
 
     expect(calls.at(-1)?.opts).toMatchObject({
       method: 'POST',
@@ -261,7 +274,7 @@ describe('create, and the instance half of the rule', () => {
     // outer's survive inside ofetch, so this module must not overwrite them.
     const instance = createCheckedFetch(fakeFetch())
       .create({ headers: { accept: 'application/vnd.api+json' } })
-      .create({ retry: 3 } as never)
+      .create({ retry: 3 })
 
     await instance('/anything')
 

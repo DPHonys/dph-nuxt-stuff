@@ -1,14 +1,15 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandler, H3Error } from 'h3'
 import { createError } from 'h3'
+import * as v from 'valibot'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
   defineValidatedEventHandler,
   recognizeValidationError,
 } from '../../src/runtime/server'
-import type { ValidationIssue } from '../../src/runtime/types'
-import { postJson, request } from '../h3-app'
+import type { JsonValue } from '../../src/runtime/server/lib/sources'
+import { postJson, requestReporting, wire } from '../h3-app'
 
 // The observability read, from the seat that consumes it: h3's `onError` hook,
 // where a Nitro `error` hook sits.
@@ -23,9 +24,10 @@ const failingHandler = defineValidatedEventHandler(
  * A failure marked the way a second physical copy of this package marks one:
  * the same key off the global symbol registry, written from outside this
  * module. Version skew and Nuxt layers produce exactly this, which is why the
- * key is not a module-local `Symbol()`.
+ * key is not a module-local `Symbol()`. The payload is whatever that copy
+ * chose to write, so it is typed as any JSON at all.
  */
-function markedByAnotherCopy(payload: unknown): H3Error {
+function markedByAnotherCopy(payload: JsonValue): H3Error {
   return Object.defineProperty(
     createError({ statusCode: 400 }),
     Symbol.for('@dphonys/nuxt-handler-validation:error'),
@@ -33,21 +35,30 @@ function markedByAnotherCopy(payload: unknown): H3Error {
   )
 }
 
-/** The error an operator's hook is handed for one request, if any. */
+/** The error an operator's hook is handed for one request. */
 async function reportedBy(
   handler: EventHandler,
   path: string,
   init?: RequestInit
-): Promise<unknown> {
-  let reported: unknown
+): Promise<H3Error> {
+  const { thrown } =
+    init === undefined
+      ? await requestReporting(handler, path)
+      : await requestReporting(handler, path, { init })
 
-  await request(handler, path, {
-    ...(init !== undefined && { init }),
-    onError: (error) => void (reported = error),
-  })
-
-  return reported
+  return thrown
 }
+
+/** The wire payload as the error carries it, narrowed in place - no copy. */
+const WIRE_DATA = v.object({
+  issues: v.array(
+    v.object({
+      source: v.string(),
+      message: v.string(),
+      path: v.array(v.union([v.string(), v.number()])),
+    })
+  ),
+})
 
 describe('a validation failure at the error hook', () => {
   it('is recognized, and answers with the issues it raised', async () => {
@@ -70,31 +81,27 @@ describe('a validation failure at the error hook', () => {
     // Both copies the error meets on its way to a client: Nitro's production
     // handler builds a fresh body, and the response writer stringifies. A
     // non-enumerable symbol survives neither.
+    expect(recognizeValidationError({ ...reported })).toBeUndefined()
     expect(
-      recognizeValidationError({ ...(reported as object) })
-    ).toBeUndefined()
-    expect(
-      recognizeValidationError(JSON.parse(JSON.stringify(reported)))
+      recognizeValidationError(wire(JSON.stringify(reported)))
     ).toBeUndefined()
   })
 
   it('answers what was raised, not what the error currently says', async () => {
-    const reported = (await reportedBy(
-      failingHandler,
-      '/api/test?page=nope'
-    )) as Record<string, unknown> & {
-      data: { issues: ValidationIssue[] }
-    }
+    const reported = await reportedBy(failingHandler, '/api/test?page=nope')
+    const { data } = reported
 
-    const raised = structuredClone(reported.data.issues[0]!)
+    if (!v.is(WIRE_DATA, data)) throw new Error('the 400 carries no issues')
+
+    const raised = structuredClone(data.issues[0]!)
 
     // The wire payload is enumerable, so every middleware in the chain can edit
     // an issue in place, or replace the array, or replace `data` itself. None
     // of that may reach the marker.
-    reported.data.issues[0]!.message = 'forged'
-    reported.data.issues[0]!.path.push('forged')
-    reported.data.issues.push({ source: 'body', message: 'forged', path: [] })
-    reported.data.issues.length = 0
+    data.issues[0]!.message = 'forged'
+    data.issues[0]!.path.push('forged')
+    data.issues.push({ source: 'body', message: 'forged', path: [] })
+    data.issues.length = 0
     reported.data = { issues: [] }
 
     expect(recognizeValidationError(reported)).toEqual({ issues: [raised] })
@@ -146,14 +153,12 @@ describe('a developer mistake at the error hook', () => {
 
   it('is not recognized when a source’s outputs cannot merge', async () => {
     // The compile-time rule cannot see this one: the element's declared output
-    // is an object, and only the parse reveals a string.
-    const notAnObject: StandardSchemaV1<unknown, { tag: string }> = {
-      '~standard': {
-        version: 1,
-        vendor: 'test',
-        validate: () => ({ value: 'not an object at all' as never }),
-      },
-    }
+    // is an object, and only the parse reveals a string. `z.custom` is how a
+    // library lets an author claim an output it does not check.
+    const notAnObject = z.preprocess(
+      () => 'not an object at all',
+      z.custom<{ tag: string }>(() => true)
+    )
 
     const handler = defineValidatedEventHandler(
       {
@@ -170,7 +175,7 @@ describe('a developer mistake at the error hook', () => {
 
 describe('what the predicate reads', () => {
   /** A real failure, raised by a real request - the marked error to hand. */
-  let marked: unknown
+  let marked: H3Error
 
   beforeAll(async () => {
     marked = await reportedBy(failingHandler, '/api/test?page=nope')
@@ -185,8 +190,11 @@ describe('what the predicate reads', () => {
   })
 
   it('never reads `error.data`, at either wire depth', () => {
-    const raised = { data: { issues: [] } }
-    const fetched = { data: { data: { issues: [] } } }
+    const raised = createError({ statusCode: 400, data: { issues: [] } })
+    const fetched = createError({
+      statusCode: 400,
+      data: { data: { issues: [] } },
+    })
 
     // `data` is the wire object, so reading it would recognize a failure that
     // came back over a fetch as one this process raised.
@@ -204,11 +212,15 @@ describe('what the predicate reads', () => {
     expect(recognizeValidationError(deeper)).toBeUndefined()
   })
 
-  it.each([
+  it.each<[string, JsonValue]>([
     ['a non-object payload', 'Validation Error'],
     ['a null payload', null],
     ['a payload with no issues at all', {}],
     ['a payload whose issues are not an array', { issues: { page: 'nope' } }],
+    [
+      'an issue naming no source',
+      { issues: [{ source: 'cookies', message: 'nope', path: [] }] },
+    ],
   ])('answers undefined for a marker carrying %s', (_label, payload) => {
     // What `Symbol.for` costs: a version-skewed copy sharing the registry key
     // can put anything behind it. Malformed reads as unrecognized, never as a
@@ -221,10 +233,18 @@ describe('what the predicate reads', () => {
   it.each([
     ['an unrelated h3 error', createError({ statusCode: 403 })],
     ['a plain error', new Error('boom')],
-    ['null', null],
-    ['undefined', undefined],
-    ['a string', 'boom'],
   ])('answers undefined for %s', (_label, error) => {
     expect(recognizeValidationError(error)).toBeUndefined()
+  })
+
+  it.each([
+    ['null', 'null'],
+    ['a string', '"boom"'],
+    ['a number', '400'],
+    ['an object that is no error', '{ "statusCode": 400 }'],
+  ])('tolerates %s from a JavaScript hook', (_label, json) => {
+    // The signature asks for an `Error`; a hook written in JavaScript passes on
+    // whatever it was handed, and must get `undefined` rather than a throw.
+    expect(recognizeValidationError(wire(json))).toBeUndefined()
   })
 })

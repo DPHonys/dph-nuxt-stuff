@@ -72,13 +72,15 @@ function prepare(): string {
 }
 
 /** The `declare module` blocks of a map, by the specifier each augments. */
-function blocksOf(source: string): Record<string, string> {
-  const blocks: Record<string, string> = {}
+function blocksOf(source: string): Map<string, string> {
+  const blocks = new Map<string, string>()
   const pattern = /^declare module '([^']+)' \{\n([\s\S]*?)^\}$/gm
 
   for (const match of source.matchAll(pattern)) {
     const [, specifier, body] = match
-    if (specifier !== undefined && body !== undefined) blocks[specifier] = body
+    if (specifier !== undefined && body !== undefined) {
+      blocks.set(specifier, body)
+    }
   }
 
   return blocks
@@ -105,9 +107,11 @@ describe('the generated map, in a real Nuxt app', () => {
   it('carries both maps, each augmenting its own specifier, and closes as a module', () => {
     const blocks = blocksOf(map)
 
-    expect(Object.keys(blocks)).toEqual([ERRORS_SPECIFIER, OWN_SPECIFIER])
-    expect(blocks[ERRORS_SPECIFIER]).toContain('  interface KnownApiErrors {')
-    expect(blocks[OWN_SPECIFIER]).toContain(
+    expect([...blocks.keys()]).toEqual([ERRORS_SPECIFIER, OWN_SPECIFIER])
+    expect(blocks.get(ERRORS_SPECIFIER)).toContain(
+      '  interface KnownApiErrors {'
+    )
+    expect(blocks.get(OWN_SPECIFIER)).toContain(
       '  interface KnownApiRequestInputs {'
     )
 
@@ -120,7 +124,7 @@ describe('the generated map, in a real Nuxt app', () => {
   it('keys every route the app serves in both maps, as Nitro keys them', () => {
     const blocks = blocksOf(map)
 
-    for (const block of Object.values(blocks)) {
+    for (const block of blocks.values()) {
       expect(block).toContain(`    '/api/users/:id': {`)
       expect(block).toContain(`    '/api/users': {`)
       expect(block).toContain(`    '/api/legacy': {`)
@@ -133,13 +137,13 @@ describe('the generated map, in a real Nuxt app', () => {
   })
 
   it('reads the errors slot through the parent’s extractor, serialised', () => {
-    expect(blocksOf(map)[ERRORS_SPECIFIER]).toContain(
+    expect(blocksOf(map).get(ERRORS_SPECIFIER)).toContain(
       `'get': Simplify<Serialize<KnownErrorsOfHandler<typeof import('../../server/api/users/[id].get').default>>>`
     )
   })
 
   it('reads the request-inputs slot with Simplify alone - the input is the wire shape', () => {
-    const block = blocksOf(map)[OWN_SPECIFIER] ?? ''
+    const block = blocksOf(map).get(OWN_SPECIFIER) ?? ''
 
     expect(block).toContain(
       `'post': Simplify<RequestInputOfHandler<typeof import('../../server/api/users.post').default>>`
@@ -194,7 +198,7 @@ describe('the generated map, in a real Nuxt app', () => {
 
     const refreshed = prepare()
 
-    for (const block of Object.values(blocksOf(refreshed))) {
+    for (const block of blocksOf(refreshed).values()) {
       expect(block).toContain(`    '/api/added': {`)
     }
   }, 300_000)

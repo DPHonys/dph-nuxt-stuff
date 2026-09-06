@@ -1,6 +1,7 @@
 import { loadNuxt } from '@nuxt/kit'
 import type { Nuxt, NuxtConfig, NuxtHooks } from '@nuxt/schema'
 import { fileURLToPath } from 'node:url'
+import * as v from 'valibot'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
@@ -49,11 +50,11 @@ function registrationsOf({ nuxt, nitro }: Booted) {
     // Directories handed to Nitro to scan. A dir entry is a path or a
     // `{ glob }`, so both are read as their pattern.
     serverImportDirs: (resolved?.dirs ?? [])
-      .map((dir) => (typeof dir === 'string' ? dir : dir.glob))
+      .map((dir) => (v.is(v.string(), dir) ? dir : dir.glob))
       .filter((dir) => FROM_THIS_PACKAGE.test(dir)),
 
     appPlugins: nuxt.options.plugins.filter((plugin) =>
-      FROM_THIS_PACKAGE.test(typeof plugin === 'string' ? plugin : plugin.src)
+      FROM_THIS_PACKAGE.test(v.is(v.string(), plugin) ? plugin : plugin.src)
     ),
 
     // `?? ''` because Nitro's own option type admits a hole in the array.

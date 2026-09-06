@@ -14,7 +14,12 @@ import type { KnownVariant } from '../../types/known-error'
  *
  * Keep the `unhandled === false` half: an *escaped* callee failure carries a
  * marker too, and that one is a caller bug that must keep reporting.
+ *
+ * Takes an `Error` because that is what every hook hands over - Nitro
+ * normalises through `createError` before `captureError` fires. A tracker's
+ * `unknown` (Sentry's `hint.originalException`) is narrowed with
+ * `instanceof Error` first.
  */
-export function recognizeKnownError(error: unknown): KnownVariant | undefined {
+export function recognizeKnownError(error: Error): KnownVariant | undefined {
   return readFloor(error)
 }

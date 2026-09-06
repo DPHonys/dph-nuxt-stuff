@@ -1,3 +1,4 @@
+import { eventHandler } from 'h3'
 import type { NitroEventHandler } from 'nitropack/types'
 import { describe, expect, it } from 'vitest'
 import {
@@ -166,14 +167,12 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   it('files an empty method under `default`, as Nitro’s `||` does', () => {
     // Nitro writes `mw.method || "default"`. `??` would file this under `''`
     // and the route would answer on no method at all.
+    // SAFETY: Nitro's type names the router methods, but the scanner writes
+    // `''` for a file that names none - the emitter takes what arrives.
+    const method = '' as NonNullable<NitroEventHandler['method']>
+
     const emitted = emitMap(
-      [
-        {
-          route: '/api/blank',
-          method: '' as NonNullable<NitroEventHandler['method']>,
-          handler: '/app/server/api/blank.ts',
-        },
-      ],
+      [{ route: '/api/blank', method, handler: '/app/server/api/blank.ts' }],
       { nitroOptions: NITRO }
     )
 
@@ -185,11 +184,15 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
     // Filesystem scanning guarantees lowercase; `addServerHandler` does not,
     // and modules hand it `'POST'`. The lookup side normalises with
     // `Lowercase<M>`, so an uppercased key here would never be found.
+    // SAFETY: Nitro's type says lowercase, but `addServerHandler` forwards
+    // a module's `'POST'` verbatim - the emitter takes what arrives.
+    const method = 'POST' as NonNullable<NitroEventHandler['method']>
+
     const emitted = emitMap(
       [
         {
           route: '/api/programmatic',
-          method: 'POST' as NonNullable<NitroEventHandler['method']>,
+          method,
           handler: '/app/server/api/programmatic.ts',
         },
       ],
@@ -257,7 +260,7 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
         },
         {
           route: '/api/live',
-          handler: (() => {}) as unknown as string,
+          handler: eventHandler(() => {}),
         },
         {
           route: '/api/real',

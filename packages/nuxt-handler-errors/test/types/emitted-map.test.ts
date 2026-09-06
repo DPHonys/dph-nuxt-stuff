@@ -72,7 +72,7 @@ const DEFINITIONS_B = [
  * in the definitions, which is what makes the path-referentiality assertion a
  * byte comparison.
  */
-function appFiles(definitions: string): Record<string, string> {
+function appFiles(definitions: string) {
   return {
     'server/errors/user.ts': definitions,
 
