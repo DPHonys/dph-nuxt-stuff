@@ -49,6 +49,7 @@ const INTERNALS = [
     runtime: [
       'createCheckedEventFetch',
       'createChannelStripHandler',
+      'createErrorContext',
       'createKnownError',
       'EventFetchUnavailableError',
       'resolveDeclared',

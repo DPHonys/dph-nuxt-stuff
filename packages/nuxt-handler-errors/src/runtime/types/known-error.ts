@@ -137,6 +137,8 @@ type IdentifierTail<S extends string> = S extends ''
     : false
 
 // A tag is a factory property, so it must be spellable as `errors.tag`.
+// ASCII only, matching the runtime regex: `Δ` is a legal identifier to
+// JavaScript but not a tag.
 export type IsIdentifier<T extends string> = string extends T
   ? false
   : T extends `${infer C}${infer R}`

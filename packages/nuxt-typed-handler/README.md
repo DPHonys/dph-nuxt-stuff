@@ -102,7 +102,7 @@ matchError(
 - **Your return type flows to Nitro's typed routes unchanged.** The wrapper
   returns a `TypedEventHandler` - still assignable to h3's `EventHandler` - so
   the response type infers exactly as it would with `defineEventHandler`.
-- **Auto-imported where you use it.** `defineTypedEventHandler`, `defineError`, `payload`,
+- **Auto-imported where you use it.** `defineTypedEventHandler`, `defineError`,
   `recognizeKnownError` and `recognizeValidationError` are ambient
   inside `server/`, like `defineEventHandler`; `useTypedFetch` and its siblings
   are ambient in app code, like `useFetch`; `$typedFetch` is a global, like
@@ -146,13 +146,16 @@ export default defineTypedEventHandler(
   optional `payload`. Export them from `server/errors/` when useful. Spread
   groups, combine them with singles, or select a subset with `.pick()`.
 - **Tags are identifiers.** A tag names its factory - `errors.userNotFound` -
-  so it must be a valid JavaScript identifier such as `userNotFound`. Anything
-  else is a compile error (`__invalidTag__`) and a declaration-time throw.
+  so it must be an ASCII identifier such as `userNotFound`: letters, digits,
+  `_` and `$`, not starting with a digit. Anything else, including Unicode
+  identifiers such as `Δ`, is a compile error (`__invalidTag__`) and a
+  declaration-time throw.
 - **Factories are synchronous.** Write `throw errors.userNotFound({ userId })`.
   The argument is the schema's input; a definition without `payload` has a
   zero-argument factory. Undeclared factory keys are compile errors.
-- **Payload schemas execute**, synchronously or asynchronously. Validation is
-  finalized at the handler boundary, so never `await` a factory. Schema output
+- **Payload schemas execute** inside the factory call, so never `await` a
+  factory. Schemas must validate synchronously; an asynchronous schema throws
+  a `TypeError` from the factory. Schema output
   (including transforms) reaches the client as flat fields such as `e.userId`
   and must be a JSON-serializable object without `tag` or `status` keys.
   Invalid factory payloads are programmer errors answering an
@@ -217,7 +220,7 @@ The wrapper's second parameter is one flat object, built fresh per request:
   handler hands back h3's memoized _unvalidated_ parse - not what your schema
   produced.
 - **An `errors`-only route never reads the request.** No validation plan or body
-  read; it still finalizes thrown factory errors at the handler boundary.
+  read.
 - The factories are frozen and scoped to the endpoint's declaration.
 
 ## Request typing at the call site
@@ -487,14 +490,14 @@ parent.
 Already on `@dphonys/nuxt-handler-errors` or
 `@dphonys/nuxt-handler-validation`? Almost everything is a rename.
 
-| Before                                                                                                                                                                                              | After                                                                                                                                                  |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `modules: ['@dphonys/nuxt-handler-errors', '@dphonys/nuxt-handler-validation']`                                                                                                                     | `modules: ['@dphonys/nuxt-typed-handler']`                                                                                                             |
-| `handlerErrors: { channelToken }` / `handlerValidation: …`                                                                                                                                          | `typedHandler: { channelToken }`                                                                                                                       |
-| `defineCheckedEventHandler({ errors }, …)` / `defineValidatedEventHandler({ validate }, …)`                                                                                                         | `defineTypedEventHandler({ errors \| validate }, …)`                                                                                                   |
-| `useCheckedFetch`, `useLazyCheckedFetch`, `useRequestCheckedFetch`, `useCheckedAsyncData`, `useLazyCheckedAsyncData`, `$checkedFetch`(`.try`), `event.$checkedFetch`                                | `useTypedFetch`, `useLazyTypedFetch`, `useRequestTypedFetch`, `useTypedAsyncData`, `useLazyTypedAsyncData`, `$typedFetch`(`.try`), `event.$typedFetch` |
-| imports from `@dphonys/nuxt-handler-errors/{shared,types}` and `@dphonys/nuxt-handler-validation/types`                                                                                             | the same names from `@dphonys/nuxt-typed-handler/{shared,types}`                                                                                       |
-| **Unchanged:** `defineError`, `payload`, `matchError`, `recognizeKnownError`, `recognizeValidationError`, `KnownErrorsOfRoute`, `ValidationErrorData`, `ValidationSchemas`, every other parent name | same name, new specifier only                                                                                                                          |
+| Before                                                                                                                                                                                   | After                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `modules: ['@dphonys/nuxt-handler-errors', '@dphonys/nuxt-handler-validation']`                                                                                                          | `modules: ['@dphonys/nuxt-typed-handler']`                                                                                                             |
+| `handlerErrors: { channelToken }` / `handlerValidation: …`                                                                                                                               | `typedHandler: { channelToken }`                                                                                                                       |
+| `defineCheckedEventHandler({ errors }, …)` / `defineValidatedEventHandler({ validate }, …)`                                                                                              | `defineTypedEventHandler({ errors \| validate }, …)`                                                                                                   |
+| `useCheckedFetch`, `useLazyCheckedFetch`, `useRequestCheckedFetch`, `useCheckedAsyncData`, `useLazyCheckedAsyncData`, `$checkedFetch`(`.try`), `event.$checkedFetch`                     | `useTypedFetch`, `useLazyTypedFetch`, `useRequestTypedFetch`, `useTypedAsyncData`, `useLazyTypedAsyncData`, `$typedFetch`(`.try`), `event.$typedFetch` |
+| imports from `@dphonys/nuxt-handler-errors/{shared,types}` and `@dphonys/nuxt-handler-validation/types`                                                                                  | the same names from `@dphonys/nuxt-typed-handler/{shared,types}`                                                                                       |
+| **Unchanged:** `defineError`, `matchError`, `recognizeKnownError`, `recognizeValidationError`, `KnownErrorsOfRoute`, `ValidationErrorData`, `ValidationSchemas`, every other parent name | same name, new specifier only                                                                                                                          |
 
 Substitute **exact identifiers**, never the bare words `Checked` or
 `Validated`, which would also hit kept names such as `CheckedEventHandler`

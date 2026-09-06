@@ -38,9 +38,7 @@ function raiseForeignError(index: number): never {
 }
 
 // Identical declarations dedupe; different validators must never silently win.
-export function byDistinctTag(
-  entries: readonly DeclaredError[]
-): DeclaredError[] {
+function byDistinctTag(entries: readonly DeclaredError[]): DeclaredError[] {
   // A `Map`, not an object: `__proto__` is a legal tag.
   const distinct = new Map<string, DeclaredError>()
 
@@ -54,7 +52,7 @@ export function byDistinctTag(
         `[nuxt-handler-errors] conflicting declarations for ${entry.tag}`
       )
     }
-    if (!distinct.has(entry.tag)) distinct.set(entry.tag, entry)
+    if (!previous) distinct.set(entry.tag, entry)
   }
 
   return [...distinct.values()]

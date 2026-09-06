@@ -1,7 +1,7 @@
-import type { defineCheckedEventHandler } from '@dphonys/nuxt-handler-errors/server'
 import type {
   CheckedEventHandler,
   AnyKnownError,
+  ConflictGuard,
   HandlerContext,
   KnownErrorsOf,
 } from '@dphonys/nuxt-handler-errors/types'
@@ -96,13 +96,6 @@ export type ReservedTagGuard<A extends readonly AnyKnownError[]> =
       }
     : // eslint-disable-next-line ts/no-empty-object-type
       {}
-
-// The errors parent's `ConflictGuard`, read off its wrapper's options type
-// because the parent's `/types` entry does not export the guard by name.
-type ConflictGuard<A extends ReadonlyArray<AnyKnownError>> = Omit<
-  Parameters<typeof defineCheckedEventHandler<A, EventHandlerResponse>>[0],
-  'errors'
->
 
 export type TypedHandlerOptions<
   S extends ValidationSchemas,

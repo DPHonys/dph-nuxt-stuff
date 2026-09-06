@@ -53,7 +53,6 @@ const PARENT_INTERNALS = {
     'createErrorContext',
     'createKnownError',
     'EventFetchUnavailableError',
-    'finalizeError',
     'resolveDeclared',
     // errors `/internals/shared`
     'CHANNEL_HEADER',

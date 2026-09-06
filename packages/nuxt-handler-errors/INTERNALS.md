@@ -22,9 +22,7 @@ them gets no support for doing so.
 A module layer composing these entries must:
 
 - Depend on this package as a regular `dependency`, not a peer, pinned exactly.
-  `createErrorContext` and `finalizeError` must share the same module instance:
-  pending factory validation lives in a private WeakMap.
-  `resolveDeclared` also uses a per-instance Symbol for its foreign-copy guard.
+  `resolveDeclared` uses a per-instance Symbol for its foreign-copy guard.
   pnpm's dedupe keeps these aligned when the pin matches the parent's `/server`.
 - Push this package onto `nuxt.options.build.transpile`. Nuxt transpiles only
   the packages listed in `modules`; the umbrella is installed _instead of_ the
@@ -69,31 +67,30 @@ the _caller's_ alias; each module layer owns a one-line handler over
 
 `src/runtime/internals/server/index.ts`, copied by mkdist. Nitro side.
 
-| Export                                                   | One line                                                                                                                                                                      |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createErrorContext(declared: readonly DeclaredError[])` | Returns frozen `{ errors }` with synchronous factories for resolved declarations; schema input is validated and output becomes flat variant fields.                           |
-| `finalizeError(error)`                                   | Async catch seam that always throws: finalizes pending factory validation, producing a known error or an unmarked 500 for invalid payloads; unrelated errors retain identity. |
-| `resolveDeclared(errors)`                                | Resolves `defineError` declaration arrays, guards against foreign module copies, deduplicates identical declarations and rejects conflicting tags.                            |
-| `createKnownError(tag, status, fields)`                  | The unthrown known-error `H3Error`: `statusCode`, `message === tag`, `data` carrying the marker, no `statusMessage`.                                                          |
-| `createCheckedEventFetch(getBase, token?)`               | The event-scoped `$checkedFetch` the server auto-import is built on; `getBase` reads the event's `$fetch` lazily.                                                             |
-| `EventFetchUnavailableError`                             | Thrown when `getBase` yields no `$fetch`.                                                                                                                                     |
-| `createChannelStripHandler(getToken)`                    | The Nitro error handler that strips the marker off responses lacking the channel header; `getToken(event)` reads the caller's token.                                          |
-| `DeclaredError`                                          | `{ tag, status, schema }`, what `resolveDeclared` returns and `createErrorContext` consumes; `schema` is a Standard Schema or `undefined`.                                    |
-| `RawEventFetch`                                          | The loose event-fetch shape `createCheckedEventFetch` accepts.                                                                                                                |
+| Export                                                   | One line                                                                                                                                                        |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createErrorContext(declared: readonly DeclaredError[])` | Returns frozen `{ errors }` with synchronous factories for resolved declarations; schema input is validated at the call and output becomes flat variant fields. |
+| `resolveDeclared(errors)`                                | Resolves `defineError` declaration arrays, guards against foreign module copies, deduplicates identical declarations and rejects conflicting tags.              |
+| `createKnownError(tag, status, fields)`                  | The unthrown known-error `H3Error`: `statusCode`, `message === tag`, `data` carrying the marker, no `statusMessage`.                                            |
+| `createCheckedEventFetch(getBase, token?)`               | The event-scoped `$checkedFetch` the server auto-import is built on; `getBase` reads the event's `$fetch` lazily.                                               |
+| `EventFetchUnavailableError`                             | Thrown when `getBase` yields no `$fetch`.                                                                                                                       |
+| `createChannelStripHandler(getToken)`                    | The Nitro error handler that strips the marker off responses lacking the channel header; `getToken(event)` reads the caller's token.                            |
+| `DeclaredError`                                          | `{ tag, status, schema }`, what `resolveDeclared` returns and `createErrorContext` consumes; `schema` is a Standard Schema or `undefined`.                      |
+| `RawEventFetch`                                          | The loose event-fetch shape `createCheckedEventFetch` accepts.                                                                                                  |
 
 Call `createErrorContext(resolveDeclared(options.errors))` at handler declaration,
-not per request. Merge its
-`errors` into the umbrella's flat validated context. Wrap handler execution
-with a catch that delegates to `finalizeError`, including synchronous throws
-and rejected promises. Factories themselves are never awaited: async Standard
-Schema validation is tracked privately until that boundary, and the boundary
-must finalize before Nitro observes or serializes the error. Schema exceptions
-remain unexpected failures; rejected payloads become an unmarked 500 rather than
-the declared failure. Successful schema output becomes flat variant fields
-beside `tag` and `status`; a declaration without a schema yields a zero-argument
-factory. Tags are identifiers, checked by `defineError`. `ErrorFactories<A>` is the public type projection from a
-declaration array to its local factories: schema factories accept `InferInput`,
-while the route's known-error union carries flat `InferOutput` fields.
+not per request. Merge its `errors` into the umbrella's flat validated context.
+A factory returns a finished `H3Error`: the schema runs inside the call, so
+nothing is tracked past it and no catch seam is needed at the boundary. Schemas
+must validate synchronously; a Promise-returning schema makes the factory throw
+a `TypeError`. Schema exceptions remain unexpected failures; rejected payloads
+become an unmarked 500 rather than the declared failure. Successful schema
+output becomes flat variant fields beside `tag` and `status`; a declaration
+without a schema yields a zero-argument factory. Tags are ASCII identifiers,
+checked by `defineError`. `ErrorFactories<A>` is the public type projection
+from a declaration array to its local factories: schema factories accept
+`InferInput`, while the route's known-error union carries flat `InferOutput`
+fields.
 
 ### `@dphonys/nuxt-handler-errors/internals/shared`
 

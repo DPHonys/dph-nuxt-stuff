@@ -53,15 +53,18 @@ export default defineCheckedEventHandler(
   an HTTP error `status` (400-599) and an optional `payload` Standard Schema.
   The handler's `errors` array selects exactly what the route can raise.
 - **Tags are identifiers.** A tag is a factory property, so it must be
-  spellable as `errors.tag`: `userNotFound`, not `'user-not-found'`. Anything
-  else is a compile error and a `TypeError` at declaration.
+  spellable as `errors.tag`: `userNotFound`, not `'user-not-found'`. ASCII
+  letters, digits, `_` and `$` only, not starting with a digit. Anything
+  else, including Unicode identifiers such as `Δ`, is a compile error and a
+  `TypeError` at declaration.
 - The second argument receives **local factories** in `errors`. A factory with
   a schema takes its inferred input; one without `payload` takes no arguments.
   Undeclared keys are compile errors. Use `throw errors.tag(input)`, not
   `return` and not `await`: factories synchronously return errors.
-- **Schemas execute at runtime**, whether synchronous or asynchronous. The
-  handler boundary finalizes validation before a declared failure leaves it;
-  transforms become flat client fields, typed as the schema's output.
+- **Schemas execute at runtime**, inside the factory call, so the result is a
+  finished error. Schemas must validate synchronously; an asynchronous schema
+  throws a `TypeError` from the factory. Transforms become flat client
+  fields, typed as the schema's output.
   Invalid factory payloads are programmer errors and answer an unmarked **500**,
   not the declared status. Schema output must be a JSON-serializable object
   without the reserved keys `tag` and `status`.

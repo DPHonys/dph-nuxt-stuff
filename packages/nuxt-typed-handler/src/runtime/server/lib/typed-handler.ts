@@ -1,6 +1,5 @@
 import {
   createErrorContext,
-  finalizeError,
   resolveDeclared,
 } from '@dphonys/nuxt-handler-errors/internals/server'
 import type { AnyKnownError } from '@dphonys/nuxt-handler-errors/types'
@@ -65,27 +64,12 @@ export const defineTypedEventHandler: DefineTypedEventHandler = (
     )
   }
 
+  // A fresh object per request, so a handler may decorate its own context.
+  // Validation-only routes keep the parent's context without a factories slot.
   // Cast because the loose record is typed at this seam and nowhere else.
   const contextFor = (validated: Record<string, unknown>): never =>
-    (errorContext !== undefined
-      ? { ...validated, ...errorContext }
-      : validated) as never
+    ({ ...validated, ...errorContext }) as never
 
-  if (errorContext !== undefined) {
-    return defineEventHandler(async (event) => {
-      try {
-        const validated =
-          plan === undefined
-            ? {}
-            : await validatedContext(event, plan, VALIDATION_OPTIONS)
-        return await handler(event, contextFor(validated))
-      } catch (error) {
-        return finalizeError(error)
-      }
-    }) as never
-  }
-
-  // Validation-only routes keep the parent's context without a factories slot.
   return defineEventHandler((event) =>
     plan === undefined
       ? handler(event, contextFor({}))

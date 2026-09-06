@@ -13,17 +13,16 @@ import type {
   VariantDef,
 } from '../../types/known-error'
 import type { DeclaredError } from './declared'
-import { byDistinctTag, knownErrorValue, resolveDeclared } from './declared'
-import { createErrorContext, finalizeError } from './error-context'
+import { knownErrorValue, resolveDeclared } from './declared'
+import { createErrorContext } from './error-context'
 
+// Record keys are unique, so a group never holds two entries for one tag.
 function buildGroup(
   entries: readonly DeclaredError[]
 ): KnownErrorGroup<KnownVariant> {
-  const distinct = byDistinctTag(entries)
-
-  return Object.assign(distinct.map(knownErrorValue), {
+  return Object.assign(entries.map(knownErrorValue), {
     pick: (...tags: readonly string[]) =>
-      buildGroup(distinct.filter((entry) => tags.includes(entry.tag))),
+      buildGroup(entries.filter((entry) => tags.includes(entry.tag))),
   }) as KnownErrorGroup<KnownVariant>
 }
 
@@ -47,32 +46,21 @@ export const defineError: DefineError = ((
   if (typeof tagOrDefs === 'string') {
     return knownErrorValue(declaration(tagOrDefs, def as VariantDef))
   }
-
-  if (
-    !tagOrDefs ||
-    typeof tagOrDefs !== 'object' ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(tagOrDefs))
-  ) {
+  if (!tagOrDefs || typeof tagOrDefs !== 'object' || Array.isArray(tagOrDefs)) {
     throw new TypeError('[nuxt-handler-errors] invalid error definitions')
   }
   return buildGroup(
-    Reflect.ownKeys(tagOrDefs).map((tag) => {
-      const entry = Object.getOwnPropertyDescriptor(tagOrDefs, tag)!
-      if (
-        typeof tag !== 'string' ||
-        !entry.enumerable ||
-        !Object.hasOwn(entry, 'value')
-      ) {
-        throw new TypeError('[nuxt-handler-errors] invalid error definition')
-      }
-      return declaration(tag, entry.value)
-    })
+    Object.entries(tagOrDefs).map(([tag, entry]) => declaration(tag, entry))
   )
 }) as DefineError
 
-// Mirrors the `ValidTag` type: a tag is a factory property name.
+// Mirrors the `ValidTag` type: ASCII letters, digits, `_` and `$`, so a tag
+// is a factory property name.
 const IDENTIFIER = /^[a-z_$][\w$]*$/i
 
+// The compile-time guards' answer for a JavaScript caller, kept to what a
+// typo would produce: a bad tag, a non-error status, a misspelt key, or a
+// payload that is not a Standard Schema.
 function declaration(tag: string, def: VariantDef): DeclaredError {
   if (!IDENTIFIER.test(tag)) {
     throw new TypeError(
@@ -82,29 +70,17 @@ function declaration(tag: string, def: VariantDef): DeclaredError {
   if (
     !def ||
     typeof def !== 'object' ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(def)) ||
-    Reflect.ownKeys(def).some(
-      (key) =>
-        (key !== 'status' && key !== 'payload') ||
-        !Object.hasOwn(Object.getOwnPropertyDescriptor(def, key)!, 'value')
-    ) ||
-    !Object.hasOwn(def, 'status') ||
     !Number.isInteger(def.status) ||
     def.status < 400 ||
-    def.status > 599
+    def.status > 599 ||
+    Object.keys(def).some((key) => key !== 'status' && key !== 'payload')
   ) {
     throw new TypeError('[nuxt-handler-errors] invalid error definition')
   }
-  const schema = Object.hasOwn(def, 'payload')
-    ? (def.payload as StandardSchemaV1 | undefined)
-    : undefined
+  const schema = def.payload as StandardSchemaV1 | undefined
   if (
     schema !== undefined &&
-    (schema === null ||
-      (typeof schema !== 'object' && typeof schema !== 'function') ||
-      schema['~standard']?.version !== 1 ||
-      typeof schema['~standard'].vendor !== 'string' ||
-      typeof schema['~standard'].validate !== 'function')
+    typeof schema?.['~standard']?.validate !== 'function'
   ) {
     throw new TypeError(
       `[nuxt-handler-errors] invalid Standard Schema for ${tag}`
@@ -115,7 +91,7 @@ function declaration(tag: string, def: VariantDef): DeclaredError {
 
 /**
  * Declare handler-local error factories. The returned handler is an ordinary
- * h3 `EventHandler`; thrown factory errors are validated before escaping it.
+ * h3 `EventHandler`; a factory's result is a finished `H3Error` to throw.
  *
  * ```ts
  * export default defineCheckedEventHandler(
@@ -135,13 +111,10 @@ export const defineCheckedEventHandler: DefineCheckedEventHandler = (
 ) => {
   const context = createErrorContext(resolveDeclared(options.errors))
 
-  // No cast on the way out: the brand is an optional property, so a plain
-  // `EventHandler` already inhabits `CheckedEventHandler`.
-  return defineEventHandler<EventHandlerRequest, any>(async (event) => {
-    try {
-      return await handler(event, context as never)
-    } catch (error) {
-      return finalizeError(error)
-    }
-  })
+  // `async` so a synchronous throw surfaces as a rejection, the same as an
+  // async body's. No cast on the way out: the brand is an optional property,
+  // so a plain `EventHandler` already inhabits `CheckedEventHandler`.
+  return defineEventHandler<EventHandlerRequest, any>(async (event) =>
+    handler(event, context as never)
+  )
 }

@@ -279,6 +279,10 @@ export function tagsMustBeIdentifiers(): void {
   defineError('404', { status: 404 })
   // @ts-expect-error - an empty tag is not an identifier
   defineError('', { status: 404 })
+  // @ts-expect-error - ASCII only: `Δ` is a JavaScript identifier, not a tag
+  defineError('Δ', { status: 404 })
+  // @ts-expect-error - `__invalidTag__` names `Δ` on the record form too
+  defineError({ Δ: { status: 404 } })
   // Valid identifiers are accepted verbatim.
   defineError('$ok_1', { status: 404 })
   defineError({ _under: { status: 404 }, camelCase2: { status: 410 } })

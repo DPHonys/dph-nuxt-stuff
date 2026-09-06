@@ -111,13 +111,7 @@ describe('defined errors at runtime', () => {
     { 'user-not-found': { status: 404 } },
     { '404': { status: 404 } },
     { '': { status: 404 } },
-    { [Symbol('tag')]: { status: 404 } },
-    {
-      bad: {
-        status: 404,
-        payload: { '~standard': { version: 2, vendor: 'test', validate() {} } },
-      },
-    },
+    { Δ: { status: 404 } },
     {
       bad: {
         status: 404,
@@ -137,27 +131,11 @@ describe('defined errors at runtime', () => {
     expect(() =>
       defineError({ 'user-not-found': { status: 404 } } as never)
     ).toThrow('error tag must be a valid identifier: user-not-found')
+    // ASCII only: a Unicode identifier is legal to JavaScript but not a tag.
+    expect(() => defineError('Δ' as never, { status: 404 })).toThrow(
+      'error tag must be a valid identifier: Δ'
+    )
     expect(() => defineError('$ok_1', { status: 404 })).not.toThrow()
-  })
-
-  it('does not invoke declaration getters or accept inherited declarations', () => {
-    expect(() =>
-      defineError({
-        get bad() {
-          throw new Error('getter invoked')
-        },
-      } as never)
-    ).toThrow('invalid error definition')
-    expect(() =>
-      defineError('bad', {
-        get status() {
-          throw new Error('getter invoked')
-        },
-      } as never)
-    ).toThrow('invalid error definition')
-    expect(() =>
-      defineError(Object.create({ inherited: { status: 404 } }) as never)
-    ).toThrow('invalid error definitions')
   })
 
   it('makes payload-less factories zero-argument, and rejects any argument', async () => {

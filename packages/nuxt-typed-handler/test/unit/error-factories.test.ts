@@ -36,58 +36,45 @@ describe('handler-local error factories', () => {
     expect(contexts[0]).not.toBe(contexts[1])
   })
 
-  it.each([false, true])(
-    'finalizes transformed flat payload fields (async schema: %s)',
-    async (asyncSchema) => {
-      const schema = asyncSchema
-        ? z.string().transform(async (value) => ({ count: Number(value) }))
-        : z.string().transform((value) => ({ count: Number(value) }))
-      const handler = defineTypedEventHandler(
-        { errors: [defineError('conflict', { status: 409, payload: schema })] },
-        (_event, { errors }) => {
-          throw errors.conflict('3')
-        }
-      )
-      const seen: unknown[] = []
-      const response = await request(handler, '/api/test', {
-        onError: (error) => seen.push(error),
-      })
-      expect(response.status).toBe(409)
-      expect(recognizeKnownError(seen[0])).toEqual({
-        tag: 'conflict',
-        status: 409,
-        count: 3,
-      })
-    }
-  )
+  it('exposes transformed flat payload fields', async () => {
+    const schema = z.string().transform((value) => ({ count: Number(value) }))
+    const handler = defineTypedEventHandler(
+      { errors: [defineError('conflict', { status: 409, payload: schema })] },
+      (_event, { errors }) => {
+        throw errors.conflict('3')
+      }
+    )
+    const seen: unknown[] = []
+    const response = await request(handler, '/api/test', {
+      onError: (error) => seen.push(error),
+    })
+    expect(response.status).toBe(409)
+    expect(recognizeKnownError(seen[0])).toEqual({
+      tag: 'conflict',
+      status: 409,
+      count: 3,
+    })
+  })
 
-  it.each([false, true])(
-    'rejects invalid error data without a known marker (async schema: %s)',
-    async (asyncSchema) => {
-      const schema = asyncSchema
-        ? z
-            .string()
-            .refine(async () => false)
-            .transform((value) => ({ value }))
-        : z
-            .string()
-            .min(10)
-            .transform((value) => ({ value }))
-      const handler = defineTypedEventHandler(
-        { errors: [defineError('bad', { status: 400, payload: schema })] },
-        async (_event, { errors }) => {
-          await Promise.resolve()
-          throw errors.bad('short')
-        }
-      )
-      const seen: unknown[] = []
-      const response = await request(handler, '/api/test', {
-        onError: (error) => seen.push(error),
-      })
-      expect(response.status).toBe(500)
-      expect(recognizeKnownError(seen[0])).toBeUndefined()
-    }
-  )
+  it('rejects invalid error data without a known marker', async () => {
+    const schema = z
+      .string()
+      .min(10)
+      .transform((value) => ({ value }))
+    const handler = defineTypedEventHandler(
+      { errors: [defineError('bad', { status: 400, payload: schema })] },
+      async (_event, { errors }) => {
+        await Promise.resolve()
+        throw errors.bad('short')
+      }
+    )
+    const seen: unknown[] = []
+    const response = await request(handler, '/api/test', {
+      onError: (error) => seen.push(error),
+    })
+    expect(response.status).toBe(500)
+    expect(recognizeKnownError(seen[0])).toBeUndefined()
+  })
 
   it('combines all validated sources with factories and preserves success', async () => {
     const handler = defineTypedEventHandler(
@@ -102,7 +89,7 @@ describe('handler-local error factories', () => {
           ...defineError({
             conflict: {
               status: 409,
-              payload: z.number().transform(async (value) => ({ page: value })),
+              payload: z.number().transform((value) => ({ page: value })),
             },
           }),
         ],
@@ -208,27 +195,28 @@ describe('handler-local error factories', () => {
     }
   )
 
-  it('propagates asynchronous data validator exceptions without a known marker', async () => {
-    const error = createError({ statusCode: 500, message: 'validator bug' })
-    const schema = {
-      '~standard': {
-        ...z.string().transform((value) => ({ value }))['~standard'],
-        validate: async (): Promise<{ value: { value: string } }> => {
-          throw error
-        },
-      },
-    }
+  it('rejects an asynchronous payload schema at the factory call', async () => {
     const handler = defineTypedEventHandler(
-      { errors: [defineError('bad', { status: 400, payload: schema })] },
+      {
+        errors: [
+          defineError('bad', {
+            status: 400,
+            payload: z.string().transform(async (value) => ({ value })),
+          }),
+        ],
+      },
       (_event, { errors }) => {
         throw errors.bad('input')
       }
     )
     const seen: unknown[] = []
-    await request(handler, '/api/test', {
+    const response = await request(handler, '/api/test', {
       onError: (value) => seen.push(value),
     })
-    expect(seen[0]).toBe(error)
+    expect(response.status).toBe(500)
+    expect(seen[0]).toMatchObject({
+      message: expect.stringContaining('validates asynchronously'),
+    })
     expect(recognizeKnownError(seen[0])).toBeUndefined()
   })
 

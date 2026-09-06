@@ -11,6 +11,7 @@ export type {
 
 export type {
   AnyKnownError,
+  ConflictGuard,
   ErrorFactories,
   KnownError,
   KnownErrorGroup,
