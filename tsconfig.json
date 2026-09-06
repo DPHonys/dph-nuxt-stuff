@@ -10,7 +10,9 @@
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
     "isolatedModules": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "exclude": [
     "node_modules",
