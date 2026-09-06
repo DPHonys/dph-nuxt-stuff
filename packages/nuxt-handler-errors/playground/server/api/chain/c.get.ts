@@ -1,7 +1,7 @@
 // `defineCheckedEventHandler` arrives by auto-import, like `defineEventHandler`.
 import { z } from 'zod'
 
-const gone = defineError('cGone', {
+const gone = defineError('c-gone', {
   status: 404,
   payload: z.object({ resource: z.string() }),
 })

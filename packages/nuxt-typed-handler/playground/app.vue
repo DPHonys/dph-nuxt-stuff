@@ -18,8 +18,8 @@ const { error: createError } = await useTypedFetch('/api/users', {
 matchError(
   createError,
   {
-    userExists: (e) => (created.value = `userExists: ${e.email}`),
-    validationFailed: (e) =>
+    'user-exists': (e) => (created.value = `user-exists: ${e.email}`),
+    'validation-failed': (e) =>
       (created.value = `rejected: ${e.issues.map((i) => i.message).join(', ')}`),
   },
   (err, unrecognized) =>
@@ -49,7 +49,7 @@ async function describeSearch(): Promise<string> {
     matchError(
       error,
       {
-        validationFailed: (e) =>
+        'validation-failed': (e) =>
           (described = e.issues
             .map((issue) => `${issue.source}.${issue.path.join('.')}`)
             .join(', ')),

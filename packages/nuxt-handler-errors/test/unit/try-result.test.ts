@@ -83,7 +83,7 @@ describe('toTryResult', () => {
 
   it('answers the failure arm with the carrier, not the flat variant', async () => {
     const result = await toTryResult(() =>
-      Promise.reject(knownFailure({ tag: 'userNotFound', status: 404 }))
+      Promise.reject(knownFailure({ tag: 'user-not-found', status: 404 }))
     )
 
     expect(result.data).toBeUndefined()
@@ -93,7 +93,7 @@ describe('toTryResult', () => {
       | undefined
 
     expect(body?.data).toEqual({
-      __knownError__: { tag: 'userNotFound', status: 404 },
+      __knownError__: { tag: 'user-not-found', status: 404 },
     })
   })
 

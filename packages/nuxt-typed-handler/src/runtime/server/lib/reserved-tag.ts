@@ -1,7 +1,7 @@
 import type { DeclaredError } from '@dphonys/nuxt-handler-errors/internals/server'
 
 /** The tag of the built-in variant; no umbrella route may declare it. */
-export const RESERVED_TAG = 'validationFailed'
+export const RESERVED_TAG = 'validation-failed'
 
 // The compile guard's answer for a JavaScript caller: thrown at declaration,
 // so the route never becomes servable.

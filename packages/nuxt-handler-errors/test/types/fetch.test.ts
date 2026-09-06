@@ -43,8 +43,8 @@ export async function imperative(): Promise<User | null> {
       error,
       {
         forbidden: (e) => snack(`You need ${e.requiredRole}`),
-        userNotFound: (e) => notFound(e.userId),
-        userSuspended: (e) => blocked(e.until),
+        'user-not-found': (e) => notFound(e.userId),
+        'user-suspended': (e) => blocked(e.until),
       },
       (err, unrecognized) => {
         if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
@@ -77,8 +77,8 @@ export async function matchErrorDoesNotNarrow(): Promise<void> {
     error,
     {
       forbidden: (e) => snack(e.requiredRole),
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
     },
     (err) => showError(err)
   )
@@ -102,8 +102,8 @@ export async function armParametersAreTheVariants(): Promise<void> {
         snack(e.userId)
         snack(`You need ${role}`)
       },
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
     },
     (err) => showError(err)
   )
@@ -130,8 +130,10 @@ export async function createKeepsTheSibling(): Promise<{ ok: true } | null> {
   const { data, error } = await api.try('/api/chain/c')
 
   if (error) {
-    matchError(error, { cGone: (e) => report(`gone: ${e.resource}`) }, (err) =>
-      showError(err)
+    matchError(
+      error,
+      { 'c-gone': (e) => report(`gone: ${e.resource}`) },
+      (err) => showError(err)
     )
     return null
   }
@@ -189,7 +191,7 @@ export const serverHandler = defineEventHandler(async (event) => {
     matchError(
       error,
       {
-        cGone: (e) => {
+        'c-gone': (e) => {
           const resource: string = e.resource
           report(`upstream resource gone: ${resource}`)
         },
@@ -230,8 +232,8 @@ async function sharedGetUser(fetcher: CheckedFetch): Promise<User | null> {
       error,
       {
         forbidden: (e) => snack(`You need ${e.requiredRole}`),
-        userNotFound: (e) => notFound(e.userId),
-        userSuspended: (e) => blocked(e.until),
+        'user-not-found': (e) => notFound(e.userId),
+        'user-suspended': (e) => blocked(e.until),
       },
       (err) => showError(err)
     )
@@ -274,8 +276,8 @@ export async function composable(): Promise<void> {
     error,
     {
       forbidden: (e) => snack(`You need ${e.requiredRole}`),
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
     },
     (err, unrecognized) => {
       if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
@@ -289,7 +291,7 @@ export async function composableUndeclaredRoute(): Promise<void> {
   const { error } = await useCheckedFetch('/api/boom')
 
   // @ts-expect-error - nothing was declared, so there is no arm to name
-  matchError(error, { cGone: () => report('gone') }, (err) => showError(err))
+  matchError(error, { 'c-gone': () => report('gone') }, (err) => showError(err))
 
   matchError(error, {}, (err) => showError(err))
 }
@@ -298,7 +300,7 @@ export async function composableUndeclaredRoute(): Promise<void> {
 export async function composableLazyTwin(): Promise<void> {
   const { error } = await useLazyCheckedFetch('/api/chain/c')
 
-  matchError(error, { cGone: (e) => report(e.resource) }, (err) =>
+  matchError(error, { 'c-gone': (e) => report(e.resource) }, (err) =>
     showError(err)
   )
 }

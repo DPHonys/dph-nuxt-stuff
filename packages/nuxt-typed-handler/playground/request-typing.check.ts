@@ -130,7 +130,7 @@ export async function createdInstance(): Promise<void> {
         NonNullable<
           typeof viaCreate.error.data
         >['data']['__knownError__']['tag'],
-        'userExists' | 'validationFailed'
+        'user-exists' | 'validation-failed'
       >
     >
   }
@@ -222,10 +222,10 @@ export async function tryResults(): Promise<void> {
   if (both.error) {
     const variant = both.error.data!.data.__knownError__
     type _tags = Assert<
-      Equal<typeof variant.tag, 'userExists' | 'validationFailed'>
+      Equal<typeof variant.tag, 'user-exists' | 'validation-failed'>
     >
 
-    if (variant.tag === 'userExists') {
+    if (variant.tag === 'user-exists') {
       type _payload = Assert<Equal<typeof variant.email, string>>
     }
   } else {
@@ -244,7 +244,7 @@ export async function tryResults(): Promise<void> {
         NonNullable<
           typeof validateOnly.error.data
         >['data']['__knownError__']['tag'],
-        'validationFailed'
+        'validation-failed'
       >
     >
   }

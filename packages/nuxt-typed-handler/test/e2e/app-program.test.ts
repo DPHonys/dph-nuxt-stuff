@@ -94,7 +94,7 @@ const REQUEST_TYPING_CHECK = join(PLAYGROUND, 'request-typing.check.ts')
 const UNUSED_TS_EXPECT_ERROR = 2578
 
 /** What `/api/users` on `post` really declares, in the playground. */
-const DECLARED_TAGS = ['userExists', 'validationFailed']
+const DECLARED_TAGS = ['user-exists', 'validation-failed']
 
 /**
  * One file's own diagnostics out of the app program. The harness's
@@ -175,8 +175,8 @@ describe('both maps, rendered in the app program', () => {
   it('answers a `validate`-only route with the built-in variant alone', () => {
     const rendered = appProgram().renderHover('ValidateOnlyErrors')
 
-    expect(rendered).toContain('"validationFailed"')
-    expect(rendered).not.toContain('"userExists"')
+    expect(rendered).toContain('"validation-failed"')
+    expect(rendered).not.toContain('"user-exists"')
   })
 
   it('extracts nothing from an unbranded route in either map', () => {

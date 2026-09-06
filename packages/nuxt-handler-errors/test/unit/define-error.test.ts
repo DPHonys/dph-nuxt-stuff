@@ -108,9 +108,14 @@ describe('defined errors at runtime', () => {
     { bad: { status: 404, data: {} } },
     { bad: { status: 404, payload: () => {} } },
     { bad: { status: 404, payload: {} } },
-    { 'user-not-found': { status: 404 } },
+    { userNotFound: { status: 404 } },
+    { 'user--gone': { status: 404 } },
+    { 'user-': { status: 404 } },
+    { '-user': { status: 404 } },
+    { 'a-1b': { status: 404 } },
     { '404': { status: 404 } },
     { '': { status: 404 } },
+    { $ok_1: { status: 404 } },
     { Δ: { status: 404 } },
     {
       bad: {
@@ -122,20 +127,43 @@ describe('defined errors at runtime', () => {
     expect(() => defineError(definitions as never)).toThrow(TypeError)
   })
 
-  it('rejects tags that are not identifiers, on both forms', () => {
+  it('rejects tags that are not kebab-case, on both forms', () => {
+    expect(() => defineError('userNotFound' as never, { status: 404 })).toThrow(
+      '[nuxt-handler-errors] error tag must be kebab-case, such as user-not-found: userNotFound'
+    )
     expect(() =>
-      defineError('user-not-found' as never, { status: 404 })
+      defineError({ userNotFound: { status: 404 } } as never)
     ).toThrow(
-      '[nuxt-handler-errors] error tag must be a valid identifier: user-not-found'
+      'error tag must be kebab-case, such as user-not-found: userNotFound'
     )
-    expect(() =>
-      defineError({ 'user-not-found': { status: 404 } } as never)
-    ).toThrow('error tag must be a valid identifier: user-not-found')
-    // ASCII only: a Unicode identifier is legal to JavaScript but not a tag.
-    expect(() => defineError('Δ' as never, { status: 404 })).toThrow(
-      'error tag must be a valid identifier: Δ'
+    expect(() => defineError('user-not-found', { status: 404 })).not.toThrow()
+    expect(() => defineError('v2', { status: 404 })).not.toThrow()
+  })
+
+  it('names factories in camelCase from kebab-case tags', async () => {
+    const handler = defineCheckedEventHandler(
+      {
+        errors: [
+          ...defineError({
+            'user-not-found': { status: 404 },
+            'rate-limited-v2': { status: 429 },
+            single: { status: 410 },
+          }),
+        ],
+      },
+      (_event, { errors }) => {
+        expect(Object.keys(errors)).toEqual([
+          'userNotFound',
+          'rateLimitedV2',
+          'single',
+        ])
+        throw errors.rateLimitedV2()
+      }
     )
-    expect(() => defineError('$ok_1', { status: 404 })).not.toThrow()
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 429,
+      data: { __knownError__: { tag: 'rate-limited-v2', status: 429 } },
+    })
   })
 
   it('makes payload-less factories zero-argument, and rejects any argument', async () => {

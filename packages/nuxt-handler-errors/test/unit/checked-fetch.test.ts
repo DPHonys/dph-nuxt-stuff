@@ -290,7 +290,7 @@ describe('.try over this surface', () => {
   })
 
   it('answers the failure arm with the carrier', async () => {
-    outcome = { reject: knownFailure({ tag: 'userNotFound', status: 404 }) }
+    outcome = { reject: knownFailure({ tag: 'user-not-found', status: 404 }) }
 
     const result = await createCheckedFetch(fakeFetch()).try('/anything')
 

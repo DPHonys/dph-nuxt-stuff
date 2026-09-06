@@ -7,6 +7,7 @@ import {
 } from '../../src/runtime/server'
 import type { KnownRaiseInput } from '../../src/runtime/shared/wire'
 import type {
+  ErrorFactories,
   KnownErrorsOf,
   KnownErrorsOfHandler,
 } from '../../src/runtime/types'
@@ -31,12 +32,15 @@ type Expect<T extends true> = T
 const userId = z.object({ userId: z.string() })
 
 const userErrors = defineError({
-  userNotFound: { status: 404, payload: userId },
-  userSuspended: { status: 403, payload: z.object({ until: z.string() }) },
+  'user-not-found': { status: 404, payload: userId },
+  'user-suspended': { status: 403, payload: z.object({ until: z.string() }) },
 })
 
 const orderErrors = defineError({
-  orderCancelled: { status: 410, payload: z.object({ orderId: z.string() }) },
+  'order-cancelled': {
+    status: 410,
+    payload: z.object({ orderId: z.string() }),
+  },
   maintenance: { status: 503 },
 })
 
@@ -45,7 +49,7 @@ const forbidden = defineError('forbidden', {
   payload: z.object({ requiredRole: z.enum(['admin', 'owner']) }),
 })
 
-const rateLimited = defineError('rateLimited', {
+const rateLimited = defineError('rate-limited', {
   status: 429,
   payload: z.object({ retryAfter: z.number() }),
 })
@@ -57,17 +61,17 @@ type RouteErrors = KnownErrorsOf<typeof routeErrors>
 export type AssertTags = Expect<
   Equal<
     RouteErrors['tag'],
-    | 'userNotFound'
-    | 'userSuspended'
-    | 'orderCancelled'
+    | 'user-not-found'
+    | 'user-suspended'
+    | 'order-cancelled'
     | 'maintenance'
     | 'forbidden'
-    | 'rateLimited'
+    | 'rate-limited'
   >
 >
 
 export type AssertStatusLiteral = Expect<
-  Equal<Extract<RouteErrors, { tag: 'userNotFound' }>['status'], 404>
+  Equal<Extract<RouteErrors, { tag: 'user-not-found' }>['status'], 404>
 >
 
 export type AssertPayload = Expect<
@@ -78,7 +82,7 @@ export type AssertPayload = Expect<
 >
 
 export type AssertSchemaPayload = Expect<
-  Equal<Extract<RouteErrors, { tag: 'rateLimited' }>['retryAfter'], number>
+  Equal<Extract<RouteErrors, { tag: 'rate-limited' }>['retryAfter'], number>
 >
 
 export const wholeGroups = defineCheckedEventHandler(
@@ -105,18 +109,18 @@ export const wholeGroups = defineCheckedEventHandler(
 // ---------------------------------------------------------------------------
 
 export const pickedSubset = defineCheckedEventHandler(
-  { errors: [...userErrors.pick('userNotFound'), forbidden] },
+  { errors: [...userErrors.pick('user-not-found'), forbidden] },
   (event, { errors }) => {
     if (event.path === 'a') throw errors.userNotFound({ userId: 'u1' })
-    // @ts-expect-error - `userSuspended` was not picked
+    // @ts-expect-error - `user-suspended` was not picked
     if (event.path === 'b') throw errors.userSuspended({ until: 'x' })
     return { ok: true }
   }
 )
 
 // Repetition and emptiness are absorbed, not rejected.
-const _pickedOnce = userErrors.pick('userNotFound')
-const _pickedTwice = userErrors.pick('userNotFound', 'userNotFound')
+const _pickedOnce = userErrors.pick('user-not-found')
+const _pickedTwice = userErrors.pick('user-not-found', 'user-not-found')
 const _pickedNone = userErrors.pick()
 
 export type AssertRepetitionCollapses = Expect<
@@ -129,14 +133,14 @@ export type AssertEmptyPickIsEmpty = Expect<
 // Overlapping picks compose without complaint - the slot's union dedupes
 // itself.
 const _overlappingErrors = [
-  ...orderErrors.pick('orderCancelled', 'maintenance'),
-  ...orderErrors.pick('orderCancelled'),
+  ...orderErrors.pick('order-cancelled', 'maintenance'),
+  ...orderErrors.pick('order-cancelled'),
 ]
 
 export type AssertOverlapDedupes = Expect<
   Equal<
     KnownErrorsOf<typeof _overlappingErrors>['tag'],
-    'orderCancelled' | 'maintenance'
+    'order-cancelled' | 'maintenance'
   >
 >
 
@@ -152,12 +156,12 @@ export function pickStaysChecked(): void {
 export type AssertHandlerCarriesUnion = Expect<
   Equal<
     KnownErrorsOfHandler<typeof wholeGroups>['tag'],
-    | 'userNotFound'
-    | 'userSuspended'
-    | 'orderCancelled'
+    | 'user-not-found'
+    | 'user-suspended'
+    | 'order-cancelled'
     | 'maintenance'
     | 'forbidden'
-    | 'rateLimited'
+    | 'rate-limited'
   >
 >
 
@@ -184,7 +188,7 @@ export type AssertAnyYieldsNever = Expect<
 // The same tag declared again with the same status and schema: the union
 // collapses, nothing yells.
 const userErrorsAgain = defineError({
-  userNotFound: { status: 404, payload: userId },
+  'user-not-found': { status: 404, payload: userId },
 })
 
 export const identicalRedeclarationPasses = defineCheckedEventHandler(
@@ -198,17 +202,17 @@ export const identicalRedeclarationPasses = defineCheckedEventHandler(
 export type AssertIdenticalCollapses = Expect<
   Equal<
     KnownErrorsOfHandler<typeof identicalRedeclarationPasses>['tag'],
-    'userNotFound' | 'userSuspended'
+    'user-not-found' | 'user-suspended'
   >
 >
 
 // The same tag with a different shape breaks the factory payload lookup and the
 // matcher's arms, so the guard names the tag in the diagnostic.
-const conflictingUserErrors = defineError({ userNotFound: { status: 410 } })
+const conflictingUserErrors = defineError({ 'user-not-found': { status: 410 } })
 
 export function divergentRedeclarationIsCaught(): void {
   defineCheckedEventHandler(
-    // @ts-expect-error - `__divergentErrorTag__` names `userNotFound`
+    // @ts-expect-error - `__divergentErrorTag__` names `user-not-found`
     { errors: [...userErrors, ...conflictingUserErrors] },
     () => ({ ok: true })
   )
@@ -219,15 +223,15 @@ export function divergentRedeclarationIsCaught(): void {
 // ---------------------------------------------------------------------------
 
 export const raiseSiteCannotLeakTheTag: KnownRaiseInput<{
-  tag: 'userNotFound'
+  tag: 'user-not-found'
   status: 404
 }> = {
   statusCode: 404,
-  message: 'userNotFound',
+  message: 'user-not-found',
   // @ts-expect-error - the reason phrase survives escapes untouched, so the
   // tag must never ride it
-  statusMessage: 'userNotFound',
-  data: { __knownError__: { tag: 'userNotFound', status: 404 } },
+  statusMessage: 'user-not-found',
+  data: { __knownError__: { tag: 'user-not-found', status: 404 } },
 }
 
 /**
@@ -267,29 +271,51 @@ export function schemaOutputMustSurviveSerialization(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Tags are identifiers: a tag is spelled `errors.tag`
+// Tags are kebab-case: `user-not-found` on the wire, `errors.userNotFound`
 // ---------------------------------------------------------------------------
 
-export function tagsMustBeIdentifiers(): void {
-  // @ts-expect-error - `__invalidTag__` names `user-not-found`
-  defineError('user-not-found', { status: 404 })
-  // @ts-expect-error - `__invalidTag__` names `user-not-found`
-  defineError({ 'user-not-found': { status: 404 } })
-  // @ts-expect-error - a leading digit is not an identifier either
+export function tagsMustBeKebabCase(): void {
+  // @ts-expect-error - `__invalidTag__` names `userNotFound`
+  defineError('userNotFound', { status: 404 })
+  // @ts-expect-error - `__invalidTag__` names `userNotFound`
+  defineError({ userNotFound: { status: 404 } })
+  // @ts-expect-error - a leading digit is not a tag
   defineError('404', { status: 404 })
-  // @ts-expect-error - an empty tag is not an identifier
+  // @ts-expect-error - an empty tag is not a tag
   defineError('', { status: 404 })
-  // @ts-expect-error - ASCII only: `Δ` is a JavaScript identifier, not a tag
-  defineError('Δ', { status: 404 })
-  // @ts-expect-error - `__invalidTag__` names `Δ` on the record form too
-  defineError({ Δ: { status: 404 } })
-  // Valid identifiers are accepted verbatim.
+  // @ts-expect-error - a double separator
+  defineError('user--gone', { status: 404 })
+  // @ts-expect-error - a trailing separator
+  defineError('user-', { status: 404 })
+  // @ts-expect-error - a separator must be followed by a letter
+  defineError('a-1b', { status: 404 })
+  // @ts-expect-error - `_` and `$` are not tag characters
   defineError('$ok_1', { status: 404 })
-  defineError({ _under: { status: 404 }, camelCase2: { status: 410 } })
+  // @ts-expect-error - ASCII only: `Δ` is a JavaScript identifier, not a tag
+  defineError({ Δ: { status: 404 } })
+  // Kebab-case and single lowercase words are accepted verbatim.
+  defineError('user-not-found', { status: 404 })
+  defineError({ v2: { status: 404 }, 'rate-limited-v2': { status: 410 } })
 }
 
+/** The factory name is the tag in camelCase. */
+export type AssertFactoryNames = Expect<
+  Equal<
+    keyof ErrorFactories<typeof _factoryErrors>,
+    'userNotFound' | 'rateLimitedV2' | 'single'
+  >
+>
+
+const _factoryErrors = [
+  ...defineError({
+    'user-not-found': { status: 404 },
+    'rate-limited-v2': { status: 429 },
+    single: { status: 410 },
+  }),
+]
+
 const _datedErrors = defineError({
-  trialExpired: { status: 402, payload: z.object({ endedAt: z.date() }) },
+  'trial-expired': { status: 402, payload: z.object({ endedAt: z.date() }) },
 })
 
 /** A nested `Date` field is typed as what the wire really carries. */
@@ -297,7 +323,7 @@ export type AssertSchemaDateSurvives = Expect<
   Equal<
     Extract<
       KnownErrorsOf<typeof _datedErrors>,
-      { tag: 'trialExpired' }
+      { tag: 'trial-expired' }
     >['endedAt'],
     Date
   >

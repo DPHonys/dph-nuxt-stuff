@@ -6,7 +6,7 @@ import {
 import { createUser, pagination } from '../validation/schemas'
 
 const userErrors = defineError({
-  userExists: { status: 409, payload: z.object({ email: z.string() }) },
+  'user-exists': { status: 409, payload: z.object({ email: z.string() }) },
 })
 
 /** Both halves declared: the generated map keys this route in both slots. */

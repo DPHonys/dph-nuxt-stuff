@@ -13,6 +13,7 @@ export type {
   AnyKnownError,
   ConflictGuard,
   ErrorFactories,
+  FactoryName,
   KnownError,
   KnownErrorGroup,
   KnownErrorsOf,

@@ -5,7 +5,7 @@ import { RESERVED_TAG } from './reserved-tag'
 
 /**
  * Every client-input rejection becomes the one built-in known error,
- * `validationFailed` `400`, carrying both parents' markers so both
+ * `validation-failed` `400`, carrying both parents' markers so both
  * recognizers answer.
  */
 export const onInvalid: OnInvalid = (_source, issues) => {

@@ -121,7 +121,7 @@ export function narrowError(
     void error.data
     return count
   }
-  if (error.tag === 'validationFailed') return error.issues
+  if (error.tag === 'validation-failed') return error.issues
   // @ts-expect-error No-data definitions add no data slot.
   return error.data
 }
@@ -182,14 +182,14 @@ export function misuse() {
   )
   defineTypedEventHandler(
     // @ts-expect-error Reserved even without validation.
-    { errors: [defineError('validationFailed', { status: 400 })] },
+    { errors: [defineError('validation-failed', { status: 400 })] },
     () => null
   )
   defineTypedEventHandler(
     // @ts-expect-error Reserved with validation, too.
     {
       validate: { body: z.string() },
-      errors: [defineError('validationFailed', { status: 400 })],
+      errors: [defineError('validation-failed', { status: 400 })],
     },
     () => null
   )

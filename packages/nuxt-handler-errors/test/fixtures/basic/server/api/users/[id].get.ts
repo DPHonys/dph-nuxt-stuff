@@ -5,8 +5,8 @@ import {
 } from '../../../../../../src/runtime/server'
 
 const userErrors = defineError({
-  userNotFound: { status: 404, payload: z.object({ userId: z.string() }) },
-  userSuspended: { status: 403, payload: z.object({ until: z.string() }) },
+  'user-not-found': { status: 404, payload: z.object({ userId: z.string() }) },
+  'user-suspended': { status: 403, payload: z.object({ until: z.string() }) },
 })
 
 // A checked route, so the generated map has a branded entry to key. Imported

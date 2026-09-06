@@ -78,8 +78,8 @@ export async function throughARepository(): Promise<void> {
         const role: 'admin' | 'owner' = e.requiredRole
         snack(`You need ${role}`)
       },
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
     },
     (err, unrecognized) => {
       if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
@@ -97,8 +97,8 @@ export async function keylessForm(): Promise<void> {
     error,
     {
       forbidden: (e) => snack(e.requiredRole),
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
     },
     (err) => showError(err)
   )
@@ -118,8 +118,8 @@ export async function lazyTwin(): Promise<void> {
         error,
         {
           forbidden: (e) => snack(`You need ${e.requiredRole}`),
-          userNotFound: (e) => notFound(e.userId),
-          userSuspended: (e) => blocked(e.until),
+          'user-not-found': (e) => notFound(e.userId),
+          'user-suspended': (e) => blocked(e.until),
         },
         (err) => showError(err)
       ),
@@ -133,10 +133,10 @@ export async function wrapperKeepsExhaustiveness(): Promise<void> {
 
   matchError(
     error,
-    // @ts-expect-error - `userSuspended` has no arm
+    // @ts-expect-error - `user-suspended` has no arm
     {
       forbidden: (e) => snack(e.requiredRole),
-      userNotFound: (e) => notFound(e.userId),
+      'user-not-found': (e) => notFound(e.userId),
     },
     (err) => showError(err)
   )
@@ -157,9 +157,9 @@ export async function multiRouteRepository(): Promise<void> {
     error,
     {
       forbidden: (e) => snack(e.requiredRole),
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
-      cGone: (e) => {
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
+      'c-gone': (e) => {
         const resource: string = e.resource
         report(`gone: ${resource}`)
       },
@@ -176,11 +176,11 @@ export async function multiRouteExhaustiveness(): Promise<void> {
 
   matchError(
     error,
-    // @ts-expect-error - `cGone` has no arm
+    // @ts-expect-error - `c-gone` has no arm
     {
       forbidden: (e) => snack(e.requiredRole),
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
     },
     (err) => showError(err)
   )
@@ -235,7 +235,7 @@ export async function degradedRouteThroughTheWrapper(): Promise<void> {
   )
 
   // @ts-expect-error - nothing was declared, so there is no arm to name
-  matchError(error, { cGone: () => report('gone') }, (err) => showError(err))
+  matchError(error, { 'c-gone': () => report('gone') }, (err) => showError(err))
 
   matchError(error, {}, (err, unrecognized) => {
     if (unrecognized) return report(unrecognized.tag)

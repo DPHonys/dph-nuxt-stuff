@@ -80,7 +80,7 @@ describe('matchError', () => {
 
     matchError(
       fetched(forbidden),
-      { forbidden: arm, userNotFound: other },
+      { forbidden: arm, 'user-not-found': other },
       fallback
     )
 
@@ -101,7 +101,7 @@ describe('matchError', () => {
     const arm = vi.fn()
     const fallback = vi.fn()
     const error = fetched({
-      tag: 'userSuspended',
+      tag: 'user-suspended',
       status: 403,
       until: 'tomorrow',
     })
@@ -110,7 +110,7 @@ describe('matchError', () => {
 
     expect(arm).not.toHaveBeenCalled()
     expect(fallback).toHaveBeenCalledExactlyOnceWith(error, {
-      tag: 'userSuspended',
+      tag: 'user-suspended',
       status: 403,
       until: 'tomorrow',
     })

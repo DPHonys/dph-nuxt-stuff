@@ -55,7 +55,7 @@ const createUser = z.object({
 })
 
 const userErrors = defineError({
-  userExists: {
+  'user-exists': {
     status: 409,
     payload: z.object({ email: z.string().trim().toLowerCase() }),
   },
@@ -87,8 +87,8 @@ const { error } = await useTypedFetch('/api/users', {
 matchError(
   error,
   {
-    userExists: (e) => snack(`${e.email} is taken`),
-    validationFailed: (e) => showIssues(e.issues),
+    'user-exists': (e) => snack(`${e.email} is taken`),
+    'validation-failed': (e) => showIssues(e.issues),
   },
   (err) => showError(err)
 )
@@ -121,13 +121,13 @@ import { z } from 'zod'
 
 const unauthorized = defineError('unauthorized', { status: 401 })
 const userErrors = defineError({
-  userNotFound: { status: 404, payload: z.object({ userId: z.string() }) },
-  userSuspended: { status: 403, payload: z.object({ until: z.string() }) },
+  'user-not-found': { status: 404, payload: z.object({ userId: z.string() }) },
+  'user-suspended': { status: 403, payload: z.object({ until: z.string() }) },
 })
 
 export default defineTypedEventHandler(
   {
-    errors: [...userErrors.pick('userNotFound'), unauthorized],
+    errors: [...userErrors.pick('user-not-found'), unauthorized],
   },
   async (event, { errors }) => {
     if (!(await authenticated(event))) throw errors.unauthorized()
@@ -145,11 +145,12 @@ export default defineTypedEventHandler(
   creates singles or groups with tags, HTTP error `status` (400-599), and
   optional `payload`. Export them from `server/errors/` when useful. Spread
   groups, combine them with singles, or select a subset with `.pick()`.
-- **Tags are identifiers.** A tag names its factory - `errors.userNotFound` -
-  so it must be an ASCII identifier such as `userNotFound`: letters, digits,
-  `_` and `$`, not starting with a digit. Anything else, including Unicode
-  identifiers such as `Δ`, is a compile error (`__invalidTag__`) and a
-  declaration-time throw.
+- **Tags are kebab-case; factories are camelCase.** Declare
+  `'user-not-found'`, match on `'user-not-found'` at the call site, and throw
+  `errors.userNotFound(...)` in the handler. A tag is lowercase ASCII letters
+  and digits in `-`-separated words, each word starting with a letter.
+  Anything else, `userNotFound` included, is a compile error
+  (`__invalidTag__`) and a declaration-time throw.
 - **Factories are synchronous.** Write `throw errors.userNotFound({ userId })`.
   The argument is the schema's input; a definition without `payload` has a
   zero-argument factory. Undeclared factory keys are compile errors.
@@ -159,10 +160,10 @@ export default defineTypedEventHandler(
   (including transforms) reaches the client as flat fields such as `e.userId`
   and must be a JSON-serializable object without `tag` or `status` keys.
   Invalid factory payloads are programmer errors answering an
-  unmarked **500**, not a declared failure or `validationFailed`.
+  unmarked **500**, not a declared failure or `validation-failed`.
 - Success return values and their inferred types are unchanged; errors do not
   add a success envelope. Clients still match exhaustively by tag.
-- **`'validationFailed'` is reserved on every route**, whether or not it
+- **`'validation-failed'` is reserved on every route**, whether or not it
   validates: declaring it is a compile error and a declaration-time throw, and
   there is no local factory for it.
 
@@ -275,8 +276,8 @@ await $typedFetch('/api/search', { query: { page: '2' } })
 matchError(
   error,
   {
-    userNotFound: (e) => notFound(e.userId),
-    validationFailed: (e) => showIssues(e.issues),
+    'user-not-found': (e) => notFound(e.userId),
+    'validation-failed': (e) => showIssues(e.issues),
   },
   (err, unrecognized) => {
     if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
@@ -292,17 +293,17 @@ and the fallback is positional and required. Local factory variants carry
 validation variant keeps its top-level `issues`. `matchError` is imported from
 `@dphonys/nuxt-typed-handler/shared` - it is used on the server too.
 
-### The built-in `validationFailed` variant
+### The built-in `validation-failed` variant
 
 Every route that declares any `validate` source implicitly declares one extra
-variant, `validationFailed`, `400`, carrying the rejected source's issues.
+variant, `validation-failed`, `400`, carrying the rejected source's issues.
 It is always on, it has no local factory, and the wire is a known
 error rather than the validation parent's own `400`:
 
 ```jsonc
 {
   "statusCode": 400,
-  "message": "validationFailed", // the tag; no `statusMessage`
+  "message": "validation-failed", // the tag; no `statusMessage`
   "data": {
     "issues": [
       { "source": "query", "message": "Expected number", "path": ["page"] },
@@ -315,7 +316,7 @@ The known-error marker rides in `data` beside `issues` and is stripped for
 callers off the channel, exactly as for any known error - `data.issues`
 survives, so a plain `$fetch` client still reads
 `err.data.data.issues`. Both predicates answer on the thrown error:
-`recognizeKnownError` returns `{ tag: 'validationFailed', status: 400, issues }`
+`recognizeKnownError` returns `{ tag: 'validation-failed', status: 400, issues }`
 and `recognizeValidationError` returns `{ issues }`.
 
 Issues are the validation parent's projection - `{ source, message, path }` and
@@ -331,8 +332,8 @@ const { data, error } = await $typedFetch.try('/api/search', {
 
 if (error) {
   matchError(
-    error, // typed as exactly `validationFailed`
-    { validationFailed: (e) => showIssues(e.issues) },
+    error, // typed as exactly `validation-failed`
+    { 'validation-failed': (e) => showIssues(e.issues) },
     (err) => showError(err)
   )
   return null
@@ -403,7 +404,7 @@ One hook, and this module suppresses nothing on its own:
 // server/plugins/observability.ts
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('error', (error) => {
-    // A route's own declared failure, `validationFailed` included.
+    // A route's own declared failure, `validation-failed` included.
     if (recognizeKnownError(error) && error.unhandled === false) return
 
     report(error)
@@ -417,7 +418,7 @@ declared failure that **escaped** an inner handler reaches the hook carrying a
 marker too, and that one is a caller bug that must keep reporting - so it must
 not be added to the arm above.
 
-**Both predicates answer on a `validationFailed` error**, by design:
+**Both predicates answer on a `validation-failed` error**, by design:
 `recognizeKnownError` returns the variant `{ tag, status, issues }` and
 `recognizeValidationError` returns `{ issues }`. Reach for the second one when
 input rejections are routed somewhere else than declared failures; it answers
@@ -452,14 +453,14 @@ Warned once per key, for `handlerErrors` and `handlerValidation`, whenever the
 key is present at all - `handlerValidation: false` included, since there is
 nothing left for it to switch off.
 
-### `'validationFailed'` in a route's declared errors
+### `'validation-failed'` in a route's declared errors
 
 ```text
-[nuxt-typed-handler] The error tag "validationFailed" is reserved for the built-in validation variant. Rename the declared error.
+[nuxt-typed-handler] The error tag "validation-failed" is reserved for the built-in validation variant. Rename the declared error.
 ```
 
 The compile guard says the same thing at the declaration
-(`__reservedErrorTag__: 'validationFailed is reserved for the built-in variant'`);
+(`__reservedErrorTag__: 'validation-failed is reserved for the built-in variant'`);
 this throw is the answer a JavaScript caller gets. Rename the declared variant.
 
 ### `satisfies`, never `: ValidationSchemas`
@@ -525,7 +526,7 @@ Under the umbrella there is one wrapper and one context.
 ```ts
 // Before - two wrappers, two second parameters, one call forwarded by hand.
 const userErrors = defineError({
-  userExists: { status: 409, payload: z.object({ email: z.string() }) },
+  'user-exists': { status: 409, payload: z.object({ email: z.string() }) },
 })
 
 export default defineCheckedEventHandler(
@@ -569,17 +570,17 @@ value has to change. Pinning your own `channelToken` makes this a non-event.
 
 Under the validation parent a rejected request answered its own `400` and the
 call site saw an untyped `FetchError`. Under the umbrella every validating
-route implicitly declares `validationFailed`, so:
+route implicitly declares `validation-failed`, so:
 
 - `.try` and `useTypedFetch` type the `error` as a union that **includes**
-  `validationFailed` - a new exhaustive arm your existing `matchError` calls
+  `validation-failed` - a new exhaustive arm your existing `matchError` calls
   do not have yet, reported by the compiler;
 - the wire becomes the known-error body ([Handling
   failures](#handling-failures)): `message` is the tag and there is no
   `statusMessage: 'Validation Error'` to branch on.
 
 Code that read `error.data.data.issues` off a raw `FetchError` still finds the
-issues there, but move it to `matchError`'s `validationFailed` arm (client) or
+issues there, but move it to `matchError`'s `validation-failed` arm (client) or
 `recognizeValidationError` (server) - both are typed, and neither depends on
 the envelope.
 
@@ -623,7 +624,7 @@ from components.
 | `TypedErrors<S, A>`                                             | Declared variants plus `ValidationFailed` iff the route validates.                                                                |
 | `TypedHandlerFn<S, A, …>`, `DefineTypedEventHandler`            | The handler function shape and the wrapper's call signatures.                                                                     |
 | `AtLeastOne<S, A>`, `ReservedTagGuard<A>`                       | Compile-time guards for empty declarations and the reserved validation tag.                                                       |
-| `ValidationFailed`                                              | `{ tag: 'validationFailed'; status: 400; issues: ValidationIssue[] }`.                                                            |
+| `ValidationFailed`                                              | `{ tag: 'validation-failed'; status: 400; issues: ValidationIssue[] }`.                                                           |
 | `RequestInputOfRoute<R, M>`                                     | A route's declared Request input from its path alone; `never` means "declares no sources".                                        |
 | `KnownApiRequestInputs`                                         | The generated map of every route's Request input - you never write to it.                                                         |
 | `ModuleOptions`                                                 | From `@dphonys/nuxt-typed-handler`: `{ channelToken: string \| false }`.                                                          |

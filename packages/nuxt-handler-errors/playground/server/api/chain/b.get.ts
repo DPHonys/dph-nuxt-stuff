@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     matchError(
       error,
       {
-        cGone: (e) => {
+        'c-gone': (e) => {
           throw createError({
             statusCode: 410,
             message: `upstream gone: ${e.resource}`,

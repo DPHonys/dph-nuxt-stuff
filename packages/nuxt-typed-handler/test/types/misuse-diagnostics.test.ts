@@ -23,7 +23,7 @@ const ARGUMENT_NOT_ASSIGNABLE = 2345
 const PROPERTY_MISSING = 2339
 
 /** The reserved-tag sentence, verbatim. */
-const RESERVED_TAG = 'validationFailed is reserved for the built-in variant'
+const RESERVED_TAG = 'validation-failed is reserved for the built-in variant'
 
 /** The bare-`{}` sentence, verbatim. */
 const DECLARE_SOMETHING = 'declare validate, errors, or both'
@@ -93,13 +93,13 @@ describe('the declaration guards’ diagnostics', () => {
     expect(stray?.line).toBe(lineContaining(FIXTURE, '      boyd:'))
   })
 
-  it('still fires the errors parent’s identifier-tag guard at the declaration', () => {
+  it('still fires the errors parent’s kebab-tag guard at the declaration', () => {
     const [invalid] = saying(diagnostics, '__invalidTag__')
 
     expect(invalid?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
-    expect(invalid?.message).toContain('user-gone')
+    expect(invalid?.message).toContain('userGone')
     expect(invalid?.line).toBe(
-      lineContaining(FIXTURE, "defineError({ 'user-gone': { status: 410 } })")
+      lineContaining(FIXTURE, 'defineError({ userGone: { status: 410 } })')
     )
   })
 

@@ -99,8 +99,9 @@ type InputsOf<A extends readonly AnyKnownError[]> = A[number] extends infer M
     : never
   : never
 
+/** Local factories, one per declared tag, named by {@link FactoryName}. */
 export type ErrorFactories<A extends readonly AnyKnownError[]> = {
-  readonly [K in KnownErrorsOf<A>['tag']]: (
+  readonly [K in KnownErrorsOf<A>['tag'] as FactoryName<K>]: (
     ...args: Parameters<Extract<InputsOf<A>, { tag: K }>['input']>
   ) => H3Error
 }
@@ -125,34 +126,46 @@ type Chars<S extends string> = S extends `${infer C}${infer R}`
 
 // Chunked: one long literal trips the instantiation-depth limit.
 type Lower = Chars<'abcdefghijklm'> | Chars<'nopqrstuvwxyz'>
-type IdentifierStart = Lower | Uppercase<Lower> | '_' | '$'
-type IdentifierChar = IdentifierStart | Chars<'0123456789'>
+type LowerOrDigit = Lower | Chars<'0123456789'>
 
-type IdentifierTail<S extends string> = S extends ''
+// After the first character: lowercase, digits, and single `-` separators,
+// each followed by a letter, so the camelCase mapping is injective.
+type TagTail<S extends string> = S extends ''
   ? true
-  : S extends `${infer C}${infer R}`
-    ? C extends IdentifierChar
-      ? IdentifierTail<R>
+  : S extends `-${infer C}${infer R}`
+    ? C extends Lower
+      ? TagTail<R>
       : false
-    : false
+    : S extends `${infer C}${infer R}`
+      ? C extends LowerOrDigit
+        ? TagTail<R>
+        : false
+      : false
 
-// A tag is a factory property, so it must be spellable as `errors.tag`.
-// ASCII only, matching the runtime regex: `Δ` is a legal identifier to
-// JavaScript but not a tag.
-export type IsIdentifier<T extends string> = string extends T
+/**
+ * Whether `T` is a tag: kebab-case, `user-not-found`. The wire carries the
+ * tag; the handler reaches it as `errors.userNotFound`.
+ */
+export type IsTag<T extends string> = string extends T
   ? false
   : T extends `${infer C}${infer R}`
-    ? C extends IdentifierStart
-      ? IdentifierTail<R>
+    ? C extends Lower
+      ? TagTail<R>
       : false
     : false
+
+/** `user-not-found` → `user-not-found`: the property a tag's factory sits on. */
+export type FactoryName<T extends string> =
+  T extends `${infer Head}-${infer Tail}`
+    ? `${Head}${Capitalize<FactoryName<Tail>>}`
+    : T
 
 /** The guard on a single tag; the failure names the tag. */
 export type ValidTag<T extends string> =
-  IsIdentifier<T> extends true
+  IsTag<T> extends true
     ? unknown
     : {
-        __invalidTag__: `Tag must be a valid identifier so it can be written as errors.tag: ${T}`
+        __invalidTag__: `Tag must be kebab-case, such as user-not-found (reached as errors.userNotFound): ${T}`
       }
 
 // The guard over a whole definition, where a Standard Schema's inferred
@@ -175,7 +188,7 @@ export type ValidDefs<D extends Defs> = (Extract<keyof D, symbol> extends never
     ? // eslint-disable-next-line ts/no-empty-object-type
       {}
     : {
-        __invalidTag__: `Tag must be a valid identifier so it can be written as errors.tag: ${InvalidTags<D> & string}`
+        __invalidTag__: `Tag must be kebab-case, such as user-not-found (reached as errors.userNotFound): ${InvalidTags<D> & string}`
       })
 
 type InvalidPayloadTags<D extends Defs> = {
@@ -183,9 +196,7 @@ type InvalidPayloadTags<D extends Defs> = {
 }[keyof D]
 
 type InvalidTags<D extends Defs> = {
-  [K in keyof D & (string | number)]: IsIdentifier<`${K}`> extends true
-    ? never
-    : K
+  [K in keyof D & (string | number)]: IsTag<`${K}`> extends true ? never : K
 }[keyof D & (string | number)]
 
 // Local and bounded: do not recursively inspect the generated route union.

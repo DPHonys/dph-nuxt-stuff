@@ -4,7 +4,7 @@ import {
   defineTypedEventHandler,
 } from '../../../../../../src/runtime/server'
 
-const notFound = defineError('userNotFound', {
+const notFound = defineError('user-not-found', {
   status: 404,
   payload: z.object({ userId: z.string() }),
 })
