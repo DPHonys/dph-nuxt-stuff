@@ -59,11 +59,15 @@ describe('raiseValidationError', () => {
 
     if (!v.is(WIRE_DATA, data)) throw new Error('the 400 carries no issues')
 
+    const [first] = data.issues
+
+    if (first === undefined) throw new Error('the 400 carries no issues')
+
     // The wire payload is enumerable, so every middleware in the chain can edit
     // an issue in place, its path, or the array. None of that may reach the
     // marker, which is the raise's own snapshot.
-    data.issues[0]!.message = 'forged'
-    data.issues[0]!.path.push('forged')
+    first.message = 'forged'
+    first.path.push('forged')
     data.issues.push({ source: 'body', message: 'forged', path: [] })
 
     expect(readValidationMarker(error)).toEqual({ issues: raised })

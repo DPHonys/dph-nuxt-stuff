@@ -93,13 +93,17 @@ describe('a validation failure at the error hook', () => {
 
     if (!v.is(WIRE_DATA, data)) throw new Error('the 400 carries no issues')
 
-    const raised = structuredClone(data.issues[0]!)
+    const [first] = data.issues
+
+    if (first === undefined) throw new Error('the 400 carries no issues')
+
+    const raised = structuredClone(first)
 
     // The wire payload is enumerable, so every middleware in the chain can edit
     // an issue in place, or replace the array, or replace `data` itself. None
     // of that may reach the marker.
-    data.issues[0]!.message = 'forged'
-    data.issues[0]!.path.push('forged')
+    first.message = 'forged'
+    first.path.push('forged')
     data.issues.push({ source: 'body', message: 'forged', path: [] })
     data.issues.length = 0
     reported.data = { issues: [] }

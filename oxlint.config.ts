@@ -38,6 +38,7 @@ export default defineConfig({
     'import/no-duplicates': 'error',
     'no-unused-vars': 'off',
     'no-underscore-dangle': 'off',
+    'typescript/no-non-null-assertion': 'error',
 
     // Vendored from https://github.com/dmmulroy/anti-slop.
     'anti-slop/no-chained-type-assertions': 'error',

@@ -400,7 +400,11 @@ async function recordIntent(
     (name) => !before.has(name)
   )
   expect(created).toHaveLength(1)
-  return created[0]!
+  const [file] = created
+
+  if (file === undefined) throw new Error('no changeset was recorded')
+
+  return file
 }
 
 async function changesetMarkdownFiles(root: string): Promise<string[]> {

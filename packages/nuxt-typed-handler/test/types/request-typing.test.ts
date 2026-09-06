@@ -249,14 +249,18 @@ export async function tryResults(): Promise<void> {
   })
 
   if (result.error) {
-    const variant = result.error.data!.data.__knownError__
-    // The built-in variant rides the errors map: the wrapper's slot carries it.
-    type _union = Assert<Equal<typeof variant, Forbidden | ValidationFailed>>
+    const { data } = result.error
 
-    if (variant.tag === 'validation-failed') {
-      type _issues = Assert<
-        Equal<typeof variant.issues, ValidationFailed['issues']>
-      >
+    if (data) {
+      const variant = data.data.__knownError__
+      // The built-in variant rides the errors map: the wrapper's slot carries it.
+      type _union = Assert<Equal<typeof variant, Forbidden | ValidationFailed>>
+
+      if (variant.tag === 'validation-failed') {
+        type _issues = Assert<
+          Equal<typeof variant.issues, ValidationFailed['issues']>
+        >
+      }
     }
   } else {
     // Narrowed by the sibling guard alone - no second check and no `!`.

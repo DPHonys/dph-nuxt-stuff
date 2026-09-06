@@ -70,7 +70,7 @@ describe('first-release bootstrap contract', () => {
       (indexes: number[]) =>
         indexes.every((index) => index >= 0) &&
         indexes.every((index, position) =>
-          position === 0 ? true : index > indexes[position - 1]!
+          indexes.slice(0, position).every((earlier) => earlier < index)
         )
     )
     expect(guide).not.toContain('pnpm publish -r')

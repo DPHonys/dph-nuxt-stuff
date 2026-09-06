@@ -17,6 +17,18 @@ import { createTestEvent } from '../h3-event'
 // the factories, is exercised.
 const event = createTestEvent()
 
+/** The factory the context built under `name`; the test fails if it is missing. */
+function factory(
+  errors: Record<string, ErrorFactory>,
+  name: string
+): ErrorFactory {
+  const found = errors[name]
+
+  if (found === undefined) throw new Error(`no factory named ${name}`)
+
+  return found
+}
+
 const schema = (
   validate: StandardSchemaV1<
     unknown,
@@ -71,7 +83,7 @@ describe('handler-local factories', () => {
     })
     const declarations = [...group.pick('conflict')]
     const { errors } = createErrorContext(resolveDeclared(declarations))
-    const error = errors.conflict!('42')
+    const error = factory(errors, 'conflict')('42')
     expect(error).toBeInstanceOf(H3Error)
     expect(error.data).toEqual({
       __knownError__: { tag: 'conflict', status: 409, amount: 42 },
@@ -119,7 +131,7 @@ describe('handler-local factories', () => {
       payload: schema(() => ({ issues: [{ message: 'bad input' }] })),
     })
     const { errors } = createErrorContext(resolveDeclared([bad]))
-    expect(errors.bad!('secret')).toMatchObject({
+    expect(factory(errors, 'bad')('secret')).toMatchObject({
       statusCode: 500,
       data: undefined,
     })
@@ -134,7 +146,7 @@ describe('handler-local factories', () => {
       }),
     })
     expect(() =>
-      createErrorContext(resolveDeclared([bad])).errors.bad!(null)
+      factory(createErrorContext(resolveDeclared([bad])).errors, 'bad')(null)
     ).toThrow(exception)
   })
 
@@ -146,7 +158,7 @@ describe('handler-local factories', () => {
       }),
     })
     const { errors } = createErrorContext(resolveDeclared([asynchronous]))
-    const call = () => errors.slow!(null)
+    const call = () => factory(errors, 'slow')(null)
     expect(call).toThrow(TypeError)
     expect(call).toThrow(
       '[nuxt-handler-errors] the payload schema for slow validates asynchronously'
@@ -180,7 +192,7 @@ describe('handler-local factories', () => {
         payload: lyingSchema(() => value),
       })
       const { errors } = createErrorContext(resolveDeclared([bad]))
-      expect(errors.bad!(null)).toMatchObject({
+      expect(factory(errors, 'bad')(null)).toMatchObject({
         statusCode: 500,
         message: 'Invalid declared error payload',
         data: undefined,
@@ -202,7 +214,7 @@ describe('handler-local factories', () => {
       })),
     })
     const { errors } = createErrorContext(resolveDeclared([dated]))
-    const error = errors.dated!(null)
+    const error = factory(errors, 'dated')(null)
     date.setFullYear(2000)
     expect(error.data).toEqual({
       __knownError__: {
@@ -226,15 +238,15 @@ describe('handler-local factories', () => {
     expect(Object.getPrototypeOf(errors)).toBeNull()
     expect(Object.isFrozen(errors)).toBe(true)
     expect(Object.isFrozen(errors.constructor)).toBe(true)
-    expect(errors.constructor!()).toMatchObject({
+    expect(factory(errors, 'constructor')()).toMatchObject({
       statusCode: 404,
       data: { __knownError__: { tag: 'constructor', status: 404 } },
     })
-    expect(errors.isFrozen!().statusCode).toBe(409)
+    expect(factory(errors, 'isFrozen')().statusCode).toBe(409)
     Object.assign(data['~standard'], {
       validate: () => ({ value: { amount: 999 } }),
     })
-    expect(errors.conflict!('42').data).toMatchObject({
+    expect(factory(errors, 'conflict')('42').data).toMatchObject({
       __knownError__: { amount: 42 },
     })
   })
