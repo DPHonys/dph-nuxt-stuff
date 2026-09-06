@@ -13,10 +13,10 @@ export default defineEventHandler(async (event) => {
     matchError(
       suspended.error,
       {
-        userNotFound: (e) => (declared = `userNotFound: ${e.userId}`),
-        userSuspended: (e) => (declared = `userSuspended until ${e.until}`),
+        'user-not-found': (e) => (declared = `user-not-found: ${e.userId}`),
+        'user-suspended': (e) => (declared = `userSuspended until ${e.until}`),
         forbidden: (e) => (declared = `forbidden, needs ${e.requiredRole}`),
-        rateLimited: (e) => (declared = `rateLimited for ${e.retryAfter}s`),
+        'rate-limited': (e) => (declared = `rateLimited for ${e.retryAfter}s`),
       },
       (err, unrecognized) =>
         (declared = unrecognized

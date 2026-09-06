@@ -44,17 +44,17 @@ describe('the known-failure wire', async () => {
       url: expect.stringMatching(/\/api\/users\/suspended$/),
       statusCode: 403,
       statusMessage: expect.any(String),
-      message: 'userSuspended',
+      message: 'user-suspended',
       data: {
         [KNOWN_ERROR_KEY]: {
-          tag: 'userSuspended',
+          tag: 'user-suspended',
           status: 403,
           until: '2026-12-31',
         },
       },
     })
 
-    expect(body.statusMessage).not.toBe('userSuspended')
+    expect(body.statusMessage).not.toBe('user-suspended')
   })
 
   it('arrives at err.data.data.__knownError__ through a client fetch', async () => {
@@ -66,7 +66,7 @@ describe('the known-failure wire', async () => {
     // `error.data` under `data`, and ofetch's `FetchError.data` is the whole
     // parsed body.
     expect(error.data.data[KNOWN_ERROR_KEY]).toEqual({
-      tag: 'userNotFound',
+      tag: 'user-not-found',
       status: 404,
       userId: 'missing',
     })
@@ -117,7 +117,7 @@ describe('the known-failure wire', async () => {
   })
 
   it('translates an upstream failure through the matcher’s arms', async () => {
-    // `/api/chain/b` calls `/api/chain/c` with `.try`, and the `cGone` arm
+    // `/api/chain/b` calls `/api/chain/c` with `.try`, and the `c-gone` arm
     // throws this route's own 410.
     const translated = await rejectionOf('/api/chain/b?mode=gone', firstParty)
 
@@ -160,10 +160,10 @@ describe('the known-failure wire', async () => {
     // `useCheckedAsyncData` over a repository built on `$checkedFetch.try`.
     expect(html).toContain('forbidden, needs owner')
     // The imperative shape: `.try` inside a function that can return.
-    expect(html).toContain('cGone: gone')
+    expect(html).toContain('c-gone: gone')
     // A degraded call site - a throwing `useAsyncData` handler - reading the
     // tag off the fallback's second parameter.
-    expect(html).toContain('userNotFound/404')
+    expect(html).toContain('user-not-found/404')
     // Vanilla `useFetch` attaches no channel tag, so with gating on its
     // response comes back stripped and nothing is recognized.
     expect(html).toContain('unknown: 404')
@@ -194,7 +194,7 @@ describe('the known-failure wire', async () => {
 
     // The tokenless request whose response went out stripped.
     expect(observed).toContainEqual({
-      tag: 'rateLimited',
+      tag: 'rate-limited',
       status: 429,
       unhandled: false,
     })
@@ -202,7 +202,7 @@ describe('the known-failure wire', async () => {
     // A route's own declared failure is `unhandled: false` and filterable; the
     // same variant escaping a caller reports as the caller bug it is.
     expect(observed).toContainEqual({
-      tag: 'userNotFound',
+      tag: 'user-not-found',
       status: 404,
       unhandled: true,
     })

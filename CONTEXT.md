@@ -91,7 +91,7 @@ A failure a Handler selects from reusable error declarations and raises through 
 _Avoid_: Expected error, business error
 
 **Error declaration**:
-A named failure contract with a tag, an HTTP error status and an optional Error payload; reusable individually or as part of an Error group.
+A named failure contract with a kebab-case tag (`user-not-found`, reached in the Handler as `errors.userNotFound`), an HTTP error status and an optional Error payload; reusable individually or as part of an Error group.
 _Avoid_: Error record, registry entry
 
 **Error group**:
@@ -118,12 +118,12 @@ _Avoid_: Parsed request, payload
 The Umbrella Handler's second parameter: the Validated context's keys plus `errors` factories when Known errors are declared; the door to validated values and to creating a Known error.
 _Avoid_: Context object, helpers, second argument
 
-**Built-in validationFailed variant**:
+**Built-in validation-failed variant**:
 The Known error every Umbrella route implicitly carries when it declares any Validation source, always on, carrying the rejected source's issues; call sites handle input rejection with a typed arm, and it is recognised both as a Known error and as a validation failure.
 _Avoid_: Validation error, 400
 
 **Reserved tag**:
-A Known-error tag the Umbrella keeps for itself (`validationFailed`) and refuses in any route's declared errors, whether or not that route validates.
+A Known-error tag the Umbrella keeps for itself (`validation-failed`) and refuses in any route's declared errors, whether or not that route validates.
 _Avoid_: Built-in tag, system error
 
 **Checked fetch family**:

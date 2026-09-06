@@ -37,7 +37,7 @@ afterEach(() => {
 // a real h3 app, with both parents' internals imported for real.
 
 const userErrors = defineError({
-  userNotFound: { status: 404 },
+  'user-not-found': { status: 404 },
   forbidden: { status: 403 },
 })
 
@@ -56,7 +56,7 @@ describe('a route declaring only errors', () => {
     // The marker is the observation: plain h3 withholds `message` off a
     // non-debug app, and the wire suite covers Nitro's envelope.
     await expect(response.json()).resolves.toMatchObject({
-      data: { [KNOWN_ERROR_KEY]: { tag: 'userNotFound', status: 404 } },
+      data: { [KNOWN_ERROR_KEY]: { tag: 'user-not-found', status: 404 } },
     })
   })
 
@@ -121,13 +121,13 @@ describe('a route declaring only validation', () => {
       statusCode: 400,
       data: {
         issues,
-        [KNOWN_ERROR_KEY]: { tag: 'validationFailed', status: 400, issues },
+        [KNOWN_ERROR_KEY]: { tag: 'validation-failed', status: 400, issues },
       },
     })
 
     // The live error is what an observability hook sees: both recognizers.
     expect(recognizeKnownError(firstError(seen))).toMatchObject({
-      tag: 'validationFailed',
+      tag: 'validation-failed',
       status: 400,
     })
     expect(recognizeValidationError(firstError(seen))).toMatchObject({ issues })
@@ -153,7 +153,7 @@ describe('a route declaring only validation', () => {
             path: [],
           },
         ],
-        [KNOWN_ERROR_KEY]: { tag: 'validationFailed', status: 400 },
+        [KNOWN_ERROR_KEY]: { tag: 'validation-failed', status: 400 },
       },
     })
   })
@@ -196,7 +196,7 @@ describe('a route declaring both', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({
-      data: { [KNOWN_ERROR_KEY]: { tag: 'validationFailed', status: 400 } },
+      data: { [KNOWN_ERROR_KEY]: { tag: 'validation-failed', status: 400 } },
     })
   })
 
@@ -231,7 +231,7 @@ describe('declaration-time misuse', () => {
   const foreign = structuredClone(defineError('foreign', { status: 500 }))
   // The compile guards refuse every declaration below; each is what a
   // JavaScript caller can still write, so the runtime answers too.
-  const reserved = defineError('validationFailed', { status: 400 })
+  const reserved = defineError('validation-failed', { status: 400 })
   const notASchema = { query: 42 }
 
   it('throws the parents’ and its own messages in the order foreign copy, reserved tag, not a schema', () => {
@@ -258,7 +258,7 @@ describe('declaration-time misuse', () => {
         () => null
       )
     ).toThrow(
-      '[nuxt-typed-handler] The error tag "validationFailed" is reserved for the built-in validation variant. Rename the declared error.'
+      '[nuxt-typed-handler] The error tag "validation-failed" is reserved for the built-in validation variant. Rename the declared error.'
     )
 
     // With a clean declaration: the validation parent's own message.
@@ -294,7 +294,7 @@ describe('declaration-time misuse', () => {
     const handler = defineTypedEventHandler(
       { errors: [...userErrors] },
       (_event, { errors }) => {
-        expect('validationFailed' in errors).toBe(false)
+        expect('validation-failed' in errors).toBe(false)
         return null
       }
     )

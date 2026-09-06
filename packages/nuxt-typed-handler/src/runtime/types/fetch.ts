@@ -85,7 +85,7 @@ export type Resp<R, T, M extends string> = TypedInternalResponse<
 
 /**
  * The error one call can produce. The known-errors map already carries
- * `validationFailed` for every validating route.
+ * `validation-failed` for every validating route.
  */
 export type TypedErrorFor<R, M extends string> = KnownErrorFor<
   R,

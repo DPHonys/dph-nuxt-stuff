@@ -86,8 +86,8 @@ must validate synchronously; a Promise-returning schema makes the factory throw
 a `TypeError`. Schema exceptions remain unexpected failures; rejected payloads
 become an unmarked 500 rather than the declared failure. Successful schema
 output becomes flat variant fields beside `tag` and `status`; a declaration
-without a schema yields a zero-argument factory. Tags are ASCII identifiers,
-checked by `defineError`. `ErrorFactories<A>` is the public type projection
+without a schema yields a zero-argument factory. Tags are kebab-case, checked
+by `defineError`; each factory sits on the tag's camelCase form (`FactoryName`). `ErrorFactories<A>` is the public type projection
 from a declaration array to its local factories: schema factories accept
 `InferInput`, while the route's known-error union carries flat `InferOutput`
 fields.

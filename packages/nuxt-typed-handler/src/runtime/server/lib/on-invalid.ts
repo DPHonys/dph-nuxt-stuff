@@ -20,7 +20,7 @@ export interface ValidationFailedData extends ValidationErrorData {
 }
 
 /**
- * The one built-in known error, `validationFailed` `400`, carrying both
+ * The one built-in known error, `validation-failed` `400`, carrying both
  * parents' markers so both recognizers answer.
  *
  * Raised the way the errors parent raises a known error: `message` is the

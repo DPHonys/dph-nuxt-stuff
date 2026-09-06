@@ -4,7 +4,7 @@ import { createError } from 'h3'
 import type { PlainObject } from '../../shared/plain-object'
 import { isPlainObject } from '../../shared/plain-object'
 import type { DeclaredError } from './declared'
-import { createKnownError } from './declared'
+import { createKnownError, factoryName } from './declared'
 
 // Invalid outgoing payloads are programming errors, not declared failures.
 function invalidPayload(): H3Error {
@@ -59,7 +59,7 @@ export function createErrorContext(
     const standard = schema?.['~standard']
     // Bound once: a schema swapped after declaration is not consulted.
     const validate = standard?.validate.bind(standard)
-    errors[tag] = Object.freeze((...args: unknown[]): H3Error => {
+    errors[factoryName(tag)] = Object.freeze((...args: unknown[]): H3Error => {
       if (args.length !== (validate ? 1 : 0)) {
         throw new TypeError(
           `[nuxt-handler-errors] invalid arguments for ${tag}`

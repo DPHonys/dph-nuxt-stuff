@@ -74,10 +74,10 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     url: expect.any(String),
     statusCode: 400,
     statusMessage: expect.any(String),
-    message: 'validationFailed',
+    message: 'validation-failed',
     data: {
       issues,
-      [KNOWN_ERROR_KEY]: { tag: 'validationFailed', status: 400, issues },
+      [KNOWN_ERROR_KEY]: { tag: 'validation-failed', status: 400, issues },
     },
   })
 
@@ -93,7 +93,7 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     // The whole body, so an extra key fails too. The tag must never ride the
     // reason phrase.
     expect(body).toEqual(variantBody([BAD_PAGE]))
-    expect(body.statusMessage).not.toBe('validationFailed')
+    expect(body.statusMessage).not.toBe('validation-failed')
   })
 
   it('strips the marker for a third party and leaves data.issues', async () => {
@@ -142,10 +142,10 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     expect(declared.status).toBe(409)
     expect(await declared.json()).toMatchObject({
       statusCode: 409,
-      message: 'userExists',
+      message: 'user-exists',
       data: {
         [KNOWN_ERROR_KEY]: {
-          tag: 'userExists',
+          tag: 'user-exists',
           status: 409,
           email: 'taken@example.com',
         },
@@ -199,10 +199,10 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
       url: expect.stringMatching(/\/api\/users\/missing$/),
       statusCode: 404,
       statusMessage: expect.any(String),
-      message: 'userNotFound',
+      message: 'user-not-found',
       data: {
         [KNOWN_ERROR_KEY]: {
-          tag: 'userNotFound',
+          tag: 'user-not-found',
           status: 404,
           userId: 'missing',
         },

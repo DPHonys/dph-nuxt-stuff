@@ -48,13 +48,13 @@ const pagination = z.object({ page: z.string().transform(Number) })
 
 export function bothDeclared() {
   const userErrors = defineError({
-    userExists: { status: 409, payload: z.object({ email: z.string() }) },
+    'user-exists': { status: 409, payload: z.object({ email: z.string() }) },
   })
 
   return defineTypedEventHandler(
     {
       validate: { body: createUser, query: pagination },
-      errors: userErrors.pick('userExists'),
+      errors: userErrors.pick('user-exists'),
     },
     (_event, { body, errors }) => {
       if (body.name === '') throw errors.userExists({ email: '' })
@@ -71,10 +71,10 @@ export function validateOnly() {
 }
 
 export function errorsOnly() {
-  const userErrors = defineError({ userNotFound: { status: 404 } })
+  const userErrors = defineError({ 'user-not-found': { status: 404 } })
 
   return defineTypedEventHandler(
-    { errors: userErrors.pick('userNotFound') },
+    { errors: userErrors.pick('user-not-found') },
     (_event, { errors }) => {
       throw errors.userNotFound()
     }
@@ -112,7 +112,7 @@ interface EmptyInput {}
 
 /** The declared failure, as the errors parent computes it from the tuple. */
 interface UserExists {
-  tag: 'userExists'
+  tag: 'user-exists'
   status: 409
   email: string
 }

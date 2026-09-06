@@ -5,7 +5,7 @@ import { createUser } from '../validation/schemas'
 export default defineTypedEventHandler(
   {
     validate: { body: createUser },
-    errors: userErrors.pick('userExists'),
+    errors: userErrors.pick('user-exists'),
   },
   (_event, { body, errors }) => {
     if (body.email === 'taken@example.com') {

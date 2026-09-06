@@ -123,7 +123,7 @@ export function createDefineTypedEventHandler(
  * export default defineTypedEventHandler(
  *   {
  *     validate: { body: createUser },
- *     errors: [defineError('userExists', { status: 409 })]
+ *     errors: [defineError('user-exists', { status: 409 })]
  *   },
  *   async (event, { body, errors }) => {
  *     if (await exists(body.email)) throw errors.userExists()
@@ -132,7 +132,7 @@ export function createDefineTypedEventHandler(
  * )
  * ```
  *
- * A rejected request answers the built-in `validationFailed` variant rather
+ * A rejected request answers the built-in `validation-failed` variant rather
  * than the validation parent's own `400`; everything else about each half is
  * the parent's, unchanged. Reading the body again with `readBody` yields h3's
  * memoized unvalidated parse.

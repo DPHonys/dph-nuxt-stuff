@@ -27,11 +27,11 @@ type Expect<T extends true> = T
 
 type UserVariants =
   | { tag: 'forbidden'; status: 403; requiredRole: 'admin' | 'owner' }
-  | { tag: 'userNotFound'; status: 404; userId: string }
-  | { tag: 'userSuspended'; status: 403; until: string }
+  | { tag: 'user-not-found'; status: 404; userId: string }
+  | { tag: 'user-suspended'; status: 403; until: string }
 
 interface ChainVariants {
-  tag: 'cGone'
+  tag: 'c-gone'
   status: 410
   resource: string
 }
@@ -82,8 +82,8 @@ export function typedCall(): void {
     userError,
     {
       forbidden: (e) => snack(`You need ${e.requiredRole}`),
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
     },
     (err, unrecognized) => {
       if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
@@ -105,12 +105,12 @@ export function armParameters(): void {
         snack(e.userId)
         snack(`${tag} ${status}: you need ${role}`)
       },
-      userNotFound: (e) => {
+      'user-not-found': (e) => {
         const userId: string = e.userId
         const status: 404 = e.status
         report(`${status}: no user ${userId}`)
       },
-      userSuspended: (e) => blocked(e.until),
+      'user-suspended': (e) => blocked(e.until),
     },
     (err, unrecognized) => {
       const status: number | undefined = err.status
@@ -125,10 +125,10 @@ export function armParameters(): void {
 export function exhaustiveness(): void {
   matchError(
     userError,
-    // @ts-expect-error - `userSuspended` has no arm
+    // @ts-expect-error - `user-suspended` has no arm
     {
       forbidden: (e) => snack(e.requiredRole),
-      userNotFound: (e) => notFound(e.userId),
+      'user-not-found': (e) => notFound(e.userId),
     },
     (err) => showError(err)
   )
@@ -141,9 +141,9 @@ export function unionOfCarriers(): void {
     unionError,
     {
       forbidden: (e) => snack(e.requiredRole),
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
-      cGone: (e) => {
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
+      'c-gone': (e) => {
         const resource: string = e.resource
         report(`gone: ${resource}`)
       },
@@ -155,11 +155,11 @@ export function unionOfCarriers(): void {
 export function unionOfCarriersExhaustiveness(): void {
   matchError(
     unionError,
-    // @ts-expect-error - `cGone` has no arm
+    // @ts-expect-error - `c-gone` has no arm
     {
       forbidden: (e) => snack(e.requiredRole),
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
     },
     (err) => showError(err)
   )
@@ -172,8 +172,8 @@ export function armsMayDisagree(): void {
     userError,
     {
       forbidden: () => navigateTo('/login'),
-      userNotFound: (e) => notFound(e.userId),
-      userSuspended: (e) => blocked(e.until),
+      'user-not-found': (e) => notFound(e.userId),
+      'user-suspended': (e) => blocked(e.until),
     },
     () => navigateTo('/error')
   )
@@ -181,7 +181,7 @@ export function armsMayDisagree(): void {
 
 /** Passing the value rather than the ref works identically. */
 export function plainValue(): void {
-  matchError(chainError, { cGone: (e) => report(e.resource) }, (err) =>
+  matchError(chainError, { 'c-gone': (e) => report(e.resource) }, (err) =>
     showError(err)
   )
 }
@@ -196,8 +196,8 @@ export function reactiveComposition(): void {
         userError,
         {
           forbidden: (e) => snack(`You need ${e.requiredRole}`),
-          userNotFound: (e) => notFound(e.userId),
-          userSuspended: (e) => blocked(e.until),
+          'user-not-found': (e) => notFound(e.userId),
+          'user-suspended': (e) => blocked(e.until),
         },
         (err) => showError(err)
       ),
@@ -210,8 +210,8 @@ export function fallbackIsRequired(): void {
   // @ts-expect-error - two arguments is no longer a call
   matchError(userError, {
     forbidden: (e: KnownVariant) => snack(e.tag),
-    userNotFound: (e: KnownVariant) => snack(e.tag),
-    userSuspended: (e: KnownVariant) => snack(e.tag),
+    'user-not-found': (e: KnownVariant) => snack(e.tag),
+    'user-suspended': (e: KnownVariant) => snack(e.tag),
   })
 }
 

@@ -90,7 +90,7 @@ describe('handler-local factories', () => {
   it('enforces no-payload and schema arity, including empty schema input', async () => {
     const declarations = [
       ...defineError({
-        notFound: { status: 404 },
+        'not-found': { status: 404 },
         empty: { status: 400, payload: z.object({}) },
       }),
     ]
@@ -98,7 +98,7 @@ describe('handler-local factories', () => {
       { errors: declarations },
       (_event, context) => {
         expect(context.errors.notFound().data).toEqual({
-          __knownError__: { tag: 'notFound', status: 404 },
+          __knownError__: { tag: 'not-found', status: 404 },
         })
         // Widened to the factories' runtime face, where any argument list is
         // callable - the arity check under test is what refuses them.
@@ -146,7 +146,9 @@ describe('handler-local factories', () => {
       }),
     })
     const { errors } = createErrorContext(resolveDeclared([asynchronous]))
-    expect(() => errors.slow!(null)).toThrow(
+    const call = () => errors.slow!(null)
+    expect(call).toThrow(TypeError)
+    expect(call).toThrow(
       '[nuxt-handler-errors] the payload schema for slow validates asynchronously'
     )
   })
@@ -216,20 +218,19 @@ describe('handler-local factories', () => {
   it('uses frozen prototype-safe maps and snapshots the validator', () => {
     const data = schema((value) => ({ value: { amount: Number(value) } }))
     const group = defineError({
-      ['__proto__']: { status: 404 },
-      constructor: { status: 409 },
+      constructor: { status: 404 },
+      'is-frozen': { status: 409 },
       conflict: { status: 409, payload: data },
     })
     const { errors } = createErrorContext(resolveDeclared([...group]))
     expect(Object.getPrototypeOf(errors)).toBeNull()
     expect(Object.isFrozen(errors)).toBe(true)
-    const protoTag = '__proto__'
-    expect(Object.isFrozen(errors[protoTag])).toBe(true)
-    expect(errors[protoTag]!()).toMatchObject({
+    expect(Object.isFrozen(errors.constructor)).toBe(true)
+    expect(errors.constructor!()).toMatchObject({
       statusCode: 404,
-      data: { __knownError__: { tag: '__proto__', status: 404 } },
+      data: { __knownError__: { tag: 'constructor', status: 404 } },
     })
-    expect(errors.constructor!().statusCode).toBe(409)
+    expect(errors.isFrozen!().statusCode).toBe(409)
     Object.assign(data['~standard'], {
       validate: () => ({ value: { amount: 999 } }),
     })

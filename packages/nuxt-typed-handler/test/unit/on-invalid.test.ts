@@ -19,19 +19,19 @@ const issues: ValidationIssue[] = [
   { source: 'query', message: 'sort must be asc or desc', path: ['sort'] },
 ]
 
-describe('the built-in validationFailed variant', () => {
+describe('the built-in validation-failed variant', () => {
   const error = validationFailedError(issues)
 
   it('is what the hook throws', () => {
     expect(() => onInvalid('query', issues)).toThrow(
-      expect.objectContaining({ statusCode: 400, message: 'validationFailed' })
+      expect.objectContaining({ statusCode: 400, message: 'validation-failed' })
     )
   })
 
   it('is a known error: 400, message === tag, no reason phrase', () => {
     expect(error).toBeInstanceOf(Error)
     expect(error.statusCode).toBe(400)
-    expect(error.message).toBe('validationFailed')
+    expect(error.message).toBe('validation-failed')
     // The reason phrase survives an escaped throw untouched, so the tag must
     // never ride it.
     expect(error.statusMessage).toBeUndefined()
@@ -44,7 +44,7 @@ describe('the built-in validationFailed variant', () => {
     // is what a stripped response keeps, the marker is the first-party wire.
     expect(error.data).toEqual({
       issues,
-      [KNOWN_ERROR_KEY]: { tag: 'validationFailed', status: 400, issues },
+      [KNOWN_ERROR_KEY]: { tag: 'validation-failed', status: 400, issues },
     })
   })
 
@@ -58,14 +58,14 @@ describe('the built-in validationFailed variant', () => {
 
   it('answers both parents’ recognizers and both markers', () => {
     expect(readFloor(error)).toEqual({
-      tag: 'validationFailed',
+      tag: 'validation-failed',
       status: 400,
       issues,
     })
     expect(readValidationMarker(error)).toEqual({ issues })
 
     expect(recognizeKnownError(error)).toEqual({
-      tag: 'validationFailed',
+      tag: 'validation-failed',
       status: 400,
       issues,
     })
@@ -89,11 +89,11 @@ describe('the built-in validationFailed variant', () => {
     const bodyError = validationFailedError(unparseable)
 
     expect(bodyError.statusCode).toBe(400)
-    expect(bodyError.message).toBe('validationFailed')
+    expect(bodyError.message).toBe('validation-failed')
     expect(bodyError.data).toEqual({
       issues: unparseable,
       [KNOWN_ERROR_KEY]: {
-        tag: 'validationFailed',
+        tag: 'validation-failed',
         status: 400,
         issues: unparseable,
       },

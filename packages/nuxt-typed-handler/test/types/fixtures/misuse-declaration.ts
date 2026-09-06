@@ -10,13 +10,13 @@ import { z } from 'zod'
 import { defineTypedEventHandler } from '../../../src/runtime/server'
 
 const userErrors = defineError({
-  userNotFound: { status: 404 },
+  'user-not-found': { status: 404 },
   forbidden: { status: 403 },
 })
 
 // --- The built-in variant's tag cannot be declared ------------------------
 
-const reserved = defineError('validationFailed', { status: 400 })
+const reserved = defineError('validation-failed', { status: 400 })
 
 export const reservedTag = defineTypedEventHandler(
   { errors: [...userErrors, reserved] },
@@ -53,11 +53,11 @@ export const strayKey = defineTypedEventHandler(
   () => null
 )
 
-const conflicting = defineError({ userNotFound: { status: 410 } })
+const conflicting = defineError({ 'user-not-found': { status: 410 } })
 
-// --- A tag is a factory property name, so it must be an identifier -------
+// --- A tag is kebab-case; the factory is its camelCase form ---------------
 
-export const kebabTag = defineError({ 'user-gone': { status: 410 } })
+export const camelTag = defineError({ userGone: { status: 410 } })
 
 export const divergentTag = defineTypedEventHandler(
   { errors: [...userErrors, ...conflicting] },

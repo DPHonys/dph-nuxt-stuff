@@ -155,11 +155,6 @@ describe('module setup wiring', () => {
         from: expect.stringMatching(/\/runtime\/server\/lib\/errors$/),
       },
       {
-        name: 'payload',
-        as: 'payload',
-        from: expect.stringMatching(/\/runtime\/server\/lib\/errors$/),
-      },
-      {
         name: 'recognizeKnownError',
         as: 'recognizeKnownError',
         from: expect.stringMatching(

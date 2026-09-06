@@ -30,7 +30,7 @@ declared, in the route.
 import { z } from 'zod'
 
 const userErrors = defineError({
-  userNotFound: { status: 404, payload: z.object({ userId: z.string() }) },
+  'user-not-found': { status: 404, payload: z.object({ userId: z.string() }) },
   forbidden: { status: 403 },
 })
 
@@ -52,11 +52,12 @@ export default defineCheckedEventHandler(
   declaration or a reusable group. Group keys are tags; each definition has
   an HTTP error `status` (400-599) and an optional `payload` Standard Schema.
   The handler's `errors` array selects exactly what the route can raise.
-- **Tags are identifiers.** A tag is a factory property, so it must be
-  spellable as `errors.tag`: `userNotFound`, not `'user-not-found'`. ASCII
-  letters, digits, `_` and `$` only, not starting with a digit. Anything
-  else, including Unicode identifiers such as `Δ`, is a compile error and a
-  `TypeError` at declaration.
+- **Tags are kebab-case; factories are camelCase.** The wire carries the tag
+  you declare, `'user-not-found'`, and the handler reaches its factory as
+  `errors.userNotFound`. A tag is lowercase ASCII letters and digits in
+  `-`-separated words, each word starting with a letter. Anything else,
+  `userNotFound` included, is a compile error and a `TypeError` at
+  declaration.
 - The second argument receives **local factories** in `errors`. A factory with
   a schema takes its inferred input; one without `payload` takes no arguments.
   Undeclared keys are compile errors. Use `throw errors.tag(input)`, not
@@ -84,7 +85,7 @@ import { z } from 'zod'
 
 export const unauthorized = defineError('unauthorized', { status: 401 })
 export const userErrors = defineError({
-  notFound: { status: 404 },
+  'not-found': { status: 404 },
   conflict: {
     status: 409,
     payload: z.object({ email: z.string().trim().toLowerCase() }),
@@ -97,7 +98,7 @@ export const userErrors = defineError({
 import { unauthorized, userErrors } from '~~/server/errors/users'
 
 export default defineCheckedEventHandler(
-  { errors: [unauthorized, ...userErrors.pick('notFound', 'conflict')] },
+  { errors: [unauthorized, ...userErrors.pick('not-found', 'conflict')] },
   async (event, { errors }) => {
     if (!event.context.user) throw errors.unauthorized()
     const user = await lookup(event.context.params?.id ?? '')
@@ -131,7 +132,7 @@ matchError(
   error,
   {
     forbidden: () => snack('Sign in first'),
-    userNotFound: (e) => notFound(e.userId),
+    'user-not-found': (e) => notFound(e.userId),
   },
   (err, unrecognized) => {
     if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
@@ -212,7 +213,7 @@ export default defineEventHandler(async (event) => {
     matchError(
       error,
       {
-        cGone: (e) => {
+        'c-gone': (e) => {
           throw createError({
             statusCode: 410,
             message: `gone: ${e.resource}`,

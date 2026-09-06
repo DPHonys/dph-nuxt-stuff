@@ -77,6 +77,11 @@ export function resolveDeclared(
   )
 }
 
+/** Mirrors the `FactoryName` type: `user-not-found` → `userNotFound`. */
+export function factoryName(tag: string): string {
+  return tag.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())
+}
+
 // `statusMessage` is never set - the reason phrase survives an escaped
 // server-to-server throw untouched, so the tag must not ride it.
 // `fatal`/`unhandled` are left alone, so the production serializer keeps

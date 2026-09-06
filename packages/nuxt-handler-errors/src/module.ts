@@ -79,7 +79,6 @@ export default defineNuxtModule<ModuleOptions>({
     addServerImports([
       { name: 'defineCheckedEventHandler', from: errorHelpers },
       { name: 'defineError', from: errorHelpers },
-      { name: 'payload', from: errorHelpers },
       {
         name: 'recognizeKnownError',
         from: resolver.resolve('./runtime/server/lib/recognize-known-error'),

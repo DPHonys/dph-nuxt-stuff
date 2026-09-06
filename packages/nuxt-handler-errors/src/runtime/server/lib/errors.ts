@@ -56,8 +56,8 @@ function buildGroup(
  * const forbidden = defineError('forbidden', { status: 403 })
  *
  * const userErrors = defineError({
- *   userNotFound: { status: 404, payload: z.object({ userId: z.string() }) },
- *   userSuspended: { status: 403, payload: z.object({ until: z.string() }) },
+ *   'user-not-found': { status: 404, payload: z.object({ userId: z.string() }) },
+ *   'user-suspended': { status: 403, payload: z.object({ until: z.string() }) },
  * })
  * ```
  */
@@ -88,9 +88,8 @@ export function defineError(
   )
 }
 
-// Mirrors the `ValidTag` type: ASCII letters, digits, `_` and `$`, so a tag
-// is a factory property name.
-const IDENTIFIER = /^[a-z_$][\w$]*$/i
+// Mirrors the `IsTag` type: kebab-case, each `-` followed by a letter.
+const TAG = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/
 
 // A Standard Schema's host may be an object or a callable; either way the
 // only member consulted is `validate`.
@@ -114,17 +113,18 @@ function isStandardSchema(
 }
 
 // The compile-time guards' answer for a JavaScript caller, kept to what a
-// typo would produce: a non-error status, a misspelt key, or a payload that
-// is not a Standard Schema. Strict, so an unknown key is a rejection.
+// typo would produce: a bad tag, a non-error status, a misspelt key, or a
+// payload that is not a Standard Schema. Strict, so an unknown key is a
+// rejection.
 const definitionSchema = v.strictObject({
   status: v.pipe(v.number(), v.integer(), v.minValue(400), v.maxValue(599)),
   payload: v.optional(standardHostSchema),
 })
 
 function declaration(tag: string, def: VariantDef | undefined): DeclaredError {
-  if (!IDENTIFIER.test(tag)) {
+  if (!TAG.test(tag)) {
     throw new TypeError(
-      `[nuxt-handler-errors] error tag must be a valid identifier: ${tag}`
+      `[nuxt-handler-errors] error tag must be kebab-case, such as user-not-found: ${tag}`
     )
   }
   if (!v.is(definitionSchema, def)) {
@@ -144,7 +144,7 @@ function declaration(tag: string, def: VariantDef | undefined): DeclaredError {
  *
  * ```ts
  * export default defineCheckedEventHandler(
- *   { errors: [defineError('notFound', { status: 404 })] },
+ *   { errors: [defineError('not-found', { status: 404 })] },
  *   async (event, { errors }) => {
  *     const userId = event.context.params?.id ?? ''
  *     const user = await lookup(userId)

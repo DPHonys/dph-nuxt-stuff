@@ -15,7 +15,7 @@ import type {
 import type { PayloadArgs } from '../../src/runtime/types/known-error'
 
 const group = defineError({
-  notFound: { status: 404 },
+  'not-found': { status: 404 },
   conflict: {
     status: 409,
     payload: z.string().transform((value) => ({ length: value.length })),
@@ -35,7 +35,7 @@ const group = defineError({
           : { kind: 'empty' as const, empty: true }
       ),
   },
-  objectUnion: {
+  'object-union': {
     status: 400,
     payload: z.union([
       z.object({ text: z.string() }),
@@ -47,7 +47,7 @@ const single = defineError('single', {
   status: 403,
   payload: z.string().transform((value) => ({ value: Number(value) })),
 })
-const unionSingle = defineError('unionSingle', {
+const unionSingle = defineError('union-single', {
   status: 400,
   payload: z.union([
     z.object({ kind: z.literal('text'), text: z.string() }),
@@ -57,11 +57,11 @@ const unionSingle = defineError('unionSingle', {
 const declarations = [
   ...group.pick(
     'conflict',
-    'notFound',
+    'not-found',
     'numbered',
     'empty',
     'union',
-    'objectUnion'
+    'object-union'
   ),
   single,
   unionSingle,
@@ -140,10 +140,10 @@ export function declarationGuards(): void {
   })
   // @ts-expect-error the payload must be a Standard Schema, not a plain type
   defineError('bad', { status: 404, payload: { until: '' } })
-  // @ts-expect-error `__invalidTag__` names the kebab tag on a single
-  defineError('not-found', { status: 404 })
-  // @ts-expect-error `__invalidTag__` names the kebab tag in a group
-  defineError({ 'not-found': { status: 404 } })
+  // @ts-expect-error `__invalidTag__` names the camelCase tag on a single
+  defineError('notFound', { status: 404 })
+  // @ts-expect-error `__invalidTag__` names the camelCase tag in a group
+  defineError({ notFound: { status: 404 } })
   // @ts-expect-error nested bigint must survive serialization
   defineError('bad', {
     status: 404,
@@ -235,7 +235,7 @@ const umbrella = defineUmbrella({ errors: declarations }, ({ errors }) => {
 
 it('preserves output brands, success inference, and the generic composition seam', () => {
   expectTypeOf<
-    PayloadArgs<KnownErrorsOf<typeof declarations>, 'objectUnion'>
+    PayloadArgs<KnownErrorsOf<typeof declarations>, 'object-union'>
   >().toEqualTypeOf<[payload: { text: string } | { count: number }]>()
   expectTypeOf<
     PayloadArgs<KnownErrorsOf<typeof declarations>, 'bare'>
