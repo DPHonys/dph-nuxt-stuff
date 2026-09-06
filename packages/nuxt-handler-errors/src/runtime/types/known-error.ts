@@ -1,16 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Error } from 'h3'
-import type { Serialize } from 'nitropack/types'
 import type { IsAny, IsUnion } from './utils'
-
-// A real `Symbol()` because declaration emit drops a non-exported ambient
-// `unique symbol`, silently unbranding every definition a consumer imports.
-export const PAYLOAD: unique symbol = Symbol('nuxt-handler-errors:payload')
-
-/** A variant's payload type, marked. The runtime value is inert. */
-export interface Payload<P> {
-  readonly [PAYLOAD]?: P
-}
 
 // Required rather than optional: an optional phantom makes `KnownError` a weak
 // type every object structurally matches. Nothing carries this at runtime.
@@ -35,16 +25,11 @@ export type ErrorStatus =
   | 504
   | (number & {})
 
-/**
- * What may sit in the `payload` position: the `payload<T>()` phantom, or any
- * Standard Schema value, validated at runtime.
- */
-export type PayloadSlot = Payload<any> | StandardSchemaV1
-
 /** One entry of a `defineError` definition object. */
 export interface VariantDef {
   status: ErrorStatus
-  payload?: PayloadSlot
+  /** Any Standard Schema; validated at runtime when the factory is called. */
+  payload?: StandardSchemaV1
 }
 
 /** A definition record - the many-at-once form of `defineError`. */
@@ -56,17 +41,13 @@ export interface KnownVariant {
   status: number
 }
 
-// The schema arm is tested first: `Payload<P>` is all-optional, so a weak-type
-// check against it cannot reliably tell a schema from a phantom.
 export type PayloadTypeOf<D extends VariantDef> = D extends {
   payload: infer S extends StandardSchemaV1
 }
   ? StandardSchemaV1.InferOutput<S>
-  : D extends { payload: Payload<infer P> }
-    ? P
-    : // `{}` is the identity element for `&`.
-      // eslint-disable-next-line ts/no-empty-object-type
-      {}
+  : // `{}` is the identity element for `&`.
+    // eslint-disable-next-line ts/no-empty-object-type
+    {}
 
 /** One definition, flattened into its variant. */
 export type VariantOfDef<Tag extends string, D extends VariantDef> = {
@@ -93,9 +74,7 @@ type ArgsOfDef<D extends VariantDef> = D extends {
   payload: infer S extends StandardSchemaV1
 }
   ? [payload: StandardSchemaV1.InferInput<S>]
-  : KeysOfUnion<PayloadTypeOf<D>> extends never
-    ? []
-    : [payload: PayloadTypeOf<D>]
+  : []
 
 export type InputsOfDefs<D extends Defs> = {
   [K in keyof D & (string | number)]: InputOfDef<`${K}`, D[K]>
@@ -140,64 +119,72 @@ export type PayloadArgs<E extends KnownVariant, T extends E['tag']> = [
   ? []
   : [payload: PayloadOf<E, T>]
 
-// `undefined` is excluded first because an optional field is `T | undefined` -
-// without that, `amount?: bigint` walks straight through.
-type SurvivesSerialization<V> = [V] extends [never]
+type Chars<S extends string> = S extends `${infer C}${infer R}`
+  ? C | Chars<R>
+  : never
+
+// Chunked: one long literal trips the instantiation-depth limit.
+type Lower = Chars<'abcdefghijklm'> | Chars<'nopqrstuvwxyz'>
+type IdentifierStart = Lower | Uppercase<Lower> | '_' | '$'
+type IdentifierChar = IdentifierStart | Chars<'0123456789'>
+
+type IdentifierTail<S extends string> = S extends ''
   ? true
-  : IsAny<V> extends true
-    ? true
-    : unknown extends V
-      ? false
-      : [V] extends [void]
-        ? false
-        : [Serialize<Exclude<V, undefined>>] extends [never]
-          ? false
-          : true
+  : S extends `${infer C}${infer R}`
+    ? C extends IdentifierChar
+      ? IdentifierTail<R>
+      : false
+    : false
 
-/** The top-level payload fields that do not survive Nitro's `Serialize`. */
-export type UnserializablePayloadFields<T> = {
-  [K in keyof T]-?: SurvivesSerialization<T[K]> extends true ? never : K
-}[keyof T]
+// A tag is a factory property, so it must be spellable as `errors.tag`.
+export type IsIdentifier<T extends string> = string extends T
+  ? false
+  : T extends `${infer C}${infer R}`
+    ? C extends IdentifierStart
+      ? IdentifierTail<R>
+      : false
+    : false
 
-// Every field must survive JSON serialization - a `bigint` makes
-// `JSON.stringify` throw inside Nitro, turning a declared 403 into a 500.
-export type SerializablePayload<T> = [UnserializablePayloadFields<T>] extends [
-  never,
-]
-  ? unknown
-  : {
-      __unserializablePayloadField__: `Payload field does not survive JSON serialization: ${UnserializablePayloadFields<T> & string}`
-    }
+/** The guard on a single tag; the failure names the tag. */
+export type ValidTag<T extends string> =
+  IsIdentifier<T> extends true
+    ? unknown
+    : {
+        __invalidTag__: `Tag must be a valid identifier so it can be written as errors.tag: ${T}`
+      }
 
-// The same guard over a whole definition - where a Standard Schema's
-// inferred output would otherwise walk in unchecked.
-export type SerializableDef<D extends VariantDef> = ValidPayload<
-  PayloadTypeOf<D>
-> &
+// The guard over a whole definition, where a Standard Schema's inferred
+// output would otherwise walk in unchecked.
+export type ValidDef<D extends VariantDef> = ValidPayload<PayloadTypeOf<D>> &
   (Exclude<keyof D, 'status' | 'payload'> extends never
     ? unknown
-    : { __invalidDefinition__: 'Only status and payload are supported' }) &
-  (D extends { payload: StandardSchemaV1 }
-    ? unknown
-    : SerializablePayload<PayloadTypeOf<D>>)
+    : { __invalidDefinition__: 'Only status and payload are supported' })
 
-// Over a definition record; the failure names the tag.
-export type SerializableDefs<D extends Defs> = (Extract<
-  keyof D,
-  symbol
-> extends never
+// Over a definition record; each failure names the tag.
+export type ValidDefs<D extends Defs> = (Extract<keyof D, symbol> extends never
   ? unknown
   : never) &
-  ([UnserializableDefTags<D>] extends [never]
+  ([InvalidPayloadTags<D>] extends [never]
+    ? unknown
+    : {
+        __invalidPayload__: `Payload must be a serializable object without tag, status, or toJSON fields: ${InvalidPayloadTags<D> & string}`
+      }) &
+  ([InvalidTags<D>] extends [never]
     ? // eslint-disable-next-line ts/no-empty-object-type
       {}
     : {
-        __unserializablePayloadField__: `Payload does not survive JSON serialization: ${UnserializableDefTags<D> & string}`
+        __invalidTag__: `Tag must be a valid identifier so it can be written as errors.tag: ${InvalidTags<D> & string}`
       })
 
-type UnserializableDefTags<D extends Defs> = {
-  [K in keyof D]: unknown extends SerializableDef<D[K]> ? never : K
+type InvalidPayloadTags<D extends Defs> = {
+  [K in keyof D]: unknown extends ValidDef<D[K]> ? never : K
 }[keyof D]
+
+type InvalidTags<D extends Defs> = {
+  [K in keyof D & (string | number)]: IsIdentifier<`${K}`> extends true
+    ? never
+    : K
+}[keyof D & (string | number)]
 
 // Local and bounded: do not recursively inspect the generated route union.
 type JsonOutput<T, Depth extends unknown[] = []> =

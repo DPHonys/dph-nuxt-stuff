@@ -1,6 +1,5 @@
 export {
   defineError,
-  payload,
   recognizeKnownError,
 } from '@dphonys/nuxt-handler-errors/server'
 export { recognizeValidationError } from '@dphonys/nuxt-handler-validation/server'

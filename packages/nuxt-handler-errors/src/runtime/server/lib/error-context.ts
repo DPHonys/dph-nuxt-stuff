@@ -72,28 +72,20 @@ export function createErrorContext(declared: readonly DeclaredError[]): {
     string,
     (...args: any[]) => H3Error
   >
-  for (const { tag, status, schema, hasPayload } of byDistinctTag(declared)) {
+  for (const { tag, status, schema } of byDistinctTag(declared)) {
     const standard = schema?.['~standard']
     const validate = standard?.validate.bind(standard)
     errors[tag] = Object.freeze((...args: unknown[]): H3Error => {
-      // Phantom empty payloads take zero arguments; their shape is type-only.
-      if (
-        validate
-          ? args.length !== 1
-          : hasPayload
-            ? args.length > 1
-            : args.length !== 0
-      ) {
+      if (args.length !== (validate ? 1 : 0)) {
         throw new TypeError(
           `[nuxt-handler-errors] invalid arguments for ${tag}`
         )
       }
       if (!validate) {
-        const fields = (args[0] ?? {}) as Record<string, unknown>
-        const error = createKnownError(tag, status, fields)
+        const error = createKnownError(tag, status, {})
         pending.set(error, {
           stack: error.stack,
-          finalize: async () => createKnownError(tag, status, fields),
+          finalize: async () => createKnownError(tag, status, {}),
         })
         return error
       }

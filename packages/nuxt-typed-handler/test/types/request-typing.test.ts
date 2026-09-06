@@ -253,7 +253,7 @@ export async function tryResults(): Promise<void> {
     // The built-in variant rides the errors map: the wrapper's slot carries it.
     type _union = Assert<Equal<typeof variant, Forbidden | ValidationFailed>>
 
-    if (variant.tag === 'validation-failed') {
+    if (variant.tag === 'validationFailed') {
       type _issues = Assert<
         Equal<typeof variant.issues, ValidationFailed['issues']>
       >

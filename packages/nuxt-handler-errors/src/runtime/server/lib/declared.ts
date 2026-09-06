@@ -9,7 +9,6 @@ import type { AnyKnownError, KnownVariant } from '../../types/known-error'
 export interface DeclaredError {
   readonly tag: string
   readonly status: number
-  readonly hasPayload: boolean
   readonly schema: StandardSchemaV1 | undefined
 }
 
@@ -49,9 +48,7 @@ export function byDistinctTag(
     const previous = distinct.get(entry.tag)
     if (
       previous &&
-      (previous.status !== entry.status ||
-        previous.schema !== entry.schema ||
-        previous.hasPayload !== entry.hasPayload)
+      (previous.status !== entry.status || previous.schema !== entry.schema)
     ) {
       throw new TypeError(
         `[nuxt-handler-errors] conflicting declarations for ${entry.tag}`

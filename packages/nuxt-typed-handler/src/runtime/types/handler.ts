@@ -17,7 +17,7 @@ import type { EventHandlerRequest, EventHandlerResponse, H3Event } from 'h3'
 
 /** The built-in variant every validating route can fail with. */
 export interface ValidationFailed {
-  tag: 'validation-failed'
+  tag: 'validationFailed'
   status: 400
   issues: ValidationIssue[]
 }
@@ -88,11 +88,11 @@ export type AtLeastOne<
         {}
       : { __declareSomething__: 'declare validate, errors, or both' }
 
-/** `validation-failed` belongs to the built-in variant on every umbrella route. */
+/** `validationFailed` belongs to the built-in variant on every umbrella route. */
 export type ReservedTagGuard<A extends readonly AnyKnownError[]> =
-  'validation-failed' extends KnownErrorsOf<A>['tag']
+  'validationFailed' extends KnownErrorsOf<A>['tag']
     ? {
-        __reservedErrorTag__: 'validation-failed is reserved for the built-in variant'
+        __reservedErrorTag__: 'validationFailed is reserved for the built-in variant'
       }
     : // eslint-disable-next-line ts/no-empty-object-type
       {}

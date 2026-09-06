@@ -1,11 +1,10 @@
-/* eslint-disable ts/no-empty-object-type -- Exercise phantom empty PayloadArgs. */
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
   createKnownError,
   resolveDeclared,
 } from '../../src/runtime/internals/server'
-import { defineError, payload } from '../../src/runtime/server'
+import { defineError } from '../../src/runtime/server'
 
 describe('resolveDeclared', () => {
   const auth = defineError({
@@ -17,28 +16,24 @@ describe('resolveDeclared', () => {
     expect(
       resolveDeclared([...auth, defineError('unauthorized', { status: 401 })])
     ).toEqual([
-      {
-        tag: 'unauthorized',
-        status: 401,
-        hasPayload: false,
-        schema: undefined,
-      },
-      { tag: 'forbidden', status: 403, hasPayload: false, schema: undefined },
+      { tag: 'unauthorized', status: 401, schema: undefined },
+      { tag: 'forbidden', status: 403, schema: undefined },
     ])
     const schema = z.object({ value: z.number() })
     const group = defineError({
       transformed: { status: 409, payload: schema },
-      phantom: { status: 400, payload: payload<{}>() },
+      bare: { status: 400 },
     })
     expect(resolveDeclared([...group.pick('transformed')])[0]).toEqual({
       tag: 'transformed',
       status: 409,
-      hasPayload: true,
       schema,
     })
-    expect(resolveDeclared([...group.pick('phantom')])[0]?.hasPayload).toBe(
-      true
-    )
+    expect(resolveDeclared([...group.pick('bare')])[0]).toEqual({
+      tag: 'bare',
+      status: 400,
+      schema: undefined,
+    })
   })
 
   it('rejects differing status, payload presence, and schema identity', () => {
@@ -48,7 +43,7 @@ describe('resolveDeclared', () => {
     expect(() =>
       resolveDeclared([
         ...auth,
-        defineError('unauthorized', { status: 401, payload: payload<{}>() }),
+        defineError('unauthorized', { status: 401, payload: z.object({}) }),
       ])
     ).toThrow('conflicting declarations')
     const schema = z.object({ value: z.number() })
@@ -99,7 +94,7 @@ describe('createKnownError', () => {
     expect(error.statusMessage).toBeUndefined()
   })
 
-  it('keeps reserved fields authoritative for type-only payloads', () => {
+  it('keeps reserved fields authoritative over payload fields', () => {
     expect(
       createKnownError('unauthorized', 401, { tag: 'spoofed', status: 200 })
         .data

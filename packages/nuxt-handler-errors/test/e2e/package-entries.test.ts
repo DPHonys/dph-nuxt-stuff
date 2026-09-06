@@ -169,13 +169,13 @@ describe('the published entries', () => {
     const probes = [
       `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
       `import type { $CheckedFetch, CheckedEventHandler, CheckedFetch, ErrorFactories, HandlerContext, Fallback, KnownApiErrors, KnownError, KnownErrorBody, KnownErrorCarrier, KnownErrorFor, KnownErrorGroup, KnownErrorKey, KnownErrorsOf, KnownErrorsOfHandler, KnownErrorsOfRoute, KnownVariant, TryResult, VariantsOf } from '${TYPES_ENTRY}'`,
-      `import { defineCheckedEventHandler, defineError, payload, recognizeKnownError } from '${SERVER_ENTRY}'`,
+      `import { defineCheckedEventHandler, defineError, recognizeKnownError } from '${SERVER_ENTRY}'`,
       `import { KNOWN_ERROR_KEY, matchError } from '${SHARED_ENTRY}'`,
       ...INTERNALS.flatMap(({ entry, runtime, types }) => [
         `import { ${runtime.join(', ')} } from '${entry}'`,
         `import type { ${types.join(', ')} } from '${entry}'`,
       ]),
-      `export type Probe = [ModuleOptions, $CheckedFetch, CheckedEventHandler, CheckedFetch, ErrorFactories<readonly []>, HandlerContext<readonly []>, Fallback, KnownApiErrors, KnownError<never>, KnownErrorBody<KnownVariant>, KnownErrorCarrier<KnownVariant>, KnownErrorFor<'/api/users/:id', 'get'>, KnownErrorGroup<KnownVariant>, KnownErrorKey, KnownErrorsOf<never>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, VariantsOf<never>, typeof defineCheckedEventHandler, typeof defineError, typeof payload, typeof recognizeKnownError, typeof KNOWN_ERROR_KEY, typeof matchError, ${INTERNALS.flatMap(({ runtime }) => runtime.map((name) => `typeof ${name}`)).join(', ')}, EmitMapOptions, EmitMapSlot, NitroPathOptions, SlotImport, DeclaredError, RawEventFetch, CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult, FetchWrapperOptions, KnownErrorRef<'/api/users/:id', 'get'>, RawUseFetch, UseCheckedFetch, FailureOf<TrySource>, RawUseAsyncData, SuccessOf<TrySource>, TrySource, UseCheckedAsyncData]`,
+      `export type Probe = [ModuleOptions, $CheckedFetch, CheckedEventHandler, CheckedFetch, ErrorFactories<readonly []>, HandlerContext<readonly []>, Fallback, KnownApiErrors, KnownError<never>, KnownErrorBody<KnownVariant>, KnownErrorCarrier<KnownVariant>, KnownErrorFor<'/api/users/:id', 'get'>, KnownErrorGroup<KnownVariant>, KnownErrorKey, KnownErrorsOf<never>, KnownErrorsOfHandler<never>, KnownErrorsOfRoute<'/api/users/:id'>, KnownVariant, TryResult<unknown, Error>, VariantsOf<never>, typeof defineCheckedEventHandler, typeof defineError, typeof recognizeKnownError, typeof KNOWN_ERROR_KEY, typeof matchError, ${INTERNALS.flatMap(({ runtime }) => runtime.map((name) => `typeof ${name}`)).join(', ')}, EmitMapOptions, EmitMapSlot, NitroPathOptions, SlotImport, DeclaredError, RawEventFetch, CheckedFetchFactoryOptions, RawFetch, RawOptions, RawTryResult, FetchWrapperOptions, KnownErrorRef<'/api/users/:id', 'get'>, RawUseFetch, UseCheckedFetch, FailureOf<TrySource>, RawUseAsyncData, SuccessOf<TrySource>, TrySource, UseCheckedAsyncData]`,
     ]
 
     expect(diagnosticsFor(probes.join('\n'))).toEqual([])

@@ -57,10 +57,10 @@ const SERVER_PROBE_SOURCE = [
 
 /** The tags `/api/users/:id` really declares, in the playground. */
 const DECLARED_TAGS = [
-  'user-not-found',
-  'user-suspended',
+  'userNotFound',
+  'userSuspended',
   'forbidden',
-  'rate-limited',
+  'rateLimited',
 ]
 
 beforeAll(() => {

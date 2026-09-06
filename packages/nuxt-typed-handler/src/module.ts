@@ -94,7 +94,6 @@ export default defineNuxtModule<ModuleOptions>({
       [
         'defineTypedEventHandler',
         'defineError',
-        'payload',
         'recognizeKnownError',
         'recognizeValidationError',
       ].map((name) => ({ name, from: serverEntry }))

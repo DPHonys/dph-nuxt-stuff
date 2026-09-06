@@ -52,8 +52,8 @@ const APP_FILES: Record<string, string> = {
     `import { z } from 'zod'`,
     ``,
     `export const userErrors = defineError({`,
-    `  'user-exists': { status: 409, payload: z.object({ existingId: z.string().transform(Number), until: z.date() }) },`,
-    `  'user-not-found': { status: 404 },`,
+    `  userExists: { status: 409, payload: z.object({ existingId: z.string().transform(Number), until: z.date() }) },`,
+    `  userNotFound: { status: 404 },`,
     `})`,
     ``,
   ].join('\n'),
@@ -81,11 +81,11 @@ const APP_FILES: Record<string, string> = {
     `export default defineTypedEventHandler(`,
     `  {`,
     `    validate: { body: createUser, query: pagination },`,
-    `    errors: userErrors.pick('user-exists'),`,
+    `    errors: userErrors.pick('userExists'),`,
     `  },`,
     `  (_event, { body, query, errors }) => {`,
     `    if (body.fullName === '') {`,
-    `      throw errors['user-exists']({ existingId: '1', until: new Date() })`,
+    `      throw errors.userExists({ existingId: '1', until: new Date() })`,
     `    }`,
     ``,
     `    return { created: body.fullName, page: query.page }`,
@@ -100,8 +100,8 @@ const APP_FILES: Record<string, string> = {
     `import { userErrors } from '../../errors/users'`,
     ``,
     `export default defineTypedEventHandler(`,
-    `  { errors: userErrors.pick('user-not-found') },`,
-    `  (_event, { errors }) => { throw errors['user-not-found']() },`,
+    `  { errors: userErrors.pick('userNotFound') },`,
+    `  (_event, { errors }) => { throw errors.userNotFound() },`,
     `)`,
     ``,
   ].join('\n'),
@@ -266,13 +266,13 @@ describe('the emitted map, with both slots in one file', () => {
   it('reads the errors slot through the parent’s extractor, serialised', () => {
     const rendered = compilation.renderHover('BothErrors')
 
-    expect(rendered).toContain('"user-exists"')
+    expect(rendered).toContain('"userExists"')
     expect(rendered).toContain('existingId: number')
     expect(rendered).not.toContain('payload:')
     // The definition declares `until: Date`; `Serialize` is the wire's view.
     expect(rendered).toContain('until: string')
     // The built-in variant every validating route can fail with.
-    expect(rendered).toContain('"validation-failed"')
+    expect(rendered).toContain('"validationFailed"')
   })
 
   it('reads the request-inputs slot with no Serialize at all', () => {
@@ -295,13 +295,13 @@ describe('the emitted map, with both slots in one file', () => {
 
   it('answers each half for a route that declared only the other', () => {
     expect(compilation.renderHover('ErrorsOnlyErrors')).toContain(
-      '"user-not-found"'
+      '"userNotFound"'
     )
     // Nothing declared to send: an empty input, not a failure to resolve.
     expect(compilation.renderHover('ErrorsOnlyInput')).toBe('{}')
 
     expect(compilation.renderHover('ValidateOnlyErrors')).toContain(
-      '"validation-failed"'
+      '"validationFailed"'
     )
     expect(compilation.renderHover('ValidateOnlyInput')).toContain(
       'page: string'

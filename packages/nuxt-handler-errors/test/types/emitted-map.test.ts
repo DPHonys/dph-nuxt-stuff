@@ -45,24 +45,25 @@ const DEFINITIONS_A = [
   `import { z } from 'zod'`,
   ``,
   `export const userErrors = defineError({`,
-  `  'user-not-found': { status: 404, payload: z.object({ userId: z.string().transform(Number), until: z.date() }) },`,
-  `  'user-suspended': { status: 403 },`,
+  `  userNotFound: { status: 404, payload: z.object({ userId: z.string().transform(Number), until: z.date() }) },`,
+  `  userSuspended: { status: 403 },`,
   `})`,
   ``,
-  `export const firstTag = 'user-not-found'`,
+  `export const firstTag = 'userNotFound'`,
   ``,
 ].join('\n')
 
 const DEFINITIONS_B = [
-  `import { defineError, payload } from '@dphonys/nuxt-handler-errors/server'`,
+  `import { defineError } from '@dphonys/nuxt-handler-errors/server'`,
+  `import { z } from 'zod'`,
   ``,
   `export const userErrors = defineError({`,
-  `  'account-locked': { status: 423, payload: payload<{ userId: string, until: Date }>() },`,
-  `  'rate-limited': { status: 429 },`,
-  `  'quota-exceeded': { status: 402 },`,
+  `  accountLocked: { status: 423, payload: z.object({ userId: z.string(), until: z.date() }) },`,
+  `  rateLimited: { status: 429 },`,
+  `  quotaExceeded: { status: 402 },`,
   `})`,
   ``,
-  `export const firstTag = 'account-locked'`,
+  `export const firstTag = 'accountLocked'`,
   ``,
 ].join('\n')
 
@@ -286,10 +287,10 @@ describe('the emitted map', () => {
         `export type Unbranded = KnownApiErrors['/api/legacy']['get']`,
         `export type Indexed = KnownApiErrors['/api/indexed']['get']`,
         ``,
-        `type _tags = Expect<Equal<Declared['tag'], 'user-not-found' | 'user-suspended'>>`,
+        `type _tags = Expect<Equal<Declared['tag'], 'userNotFound' | 'userSuspended'>>`,
         `type _payload = Expect<`,
-        `  Equal<Extract<Declared, { tag: 'user-not-found' }>['userId'], number>>`,
-        `type _serialized = Expect<Equal<Extract<Declared, { tag: 'user-not-found' }>['until'], string>>`,
+        `  Equal<Extract<Declared, { tag: 'userNotFound' }>['userId'], number>>`,
+        `type _serialized = Expect<Equal<Extract<Declared, { tag: 'userNotFound' }>['until'], string>>`,
         `type _flat = Expect<Equal<'payload' extends keyof Declared ? true : false, false>>`,
         `type _notCollapsed = Expect<Equal<IsAny<Declared>, false>>`,
         `type _notEmpty = Expect<Equal<IsNever<Declared>, false>>`,
@@ -308,8 +309,8 @@ describe('the emitted map', () => {
       // The one check that catches a map that resolved to nothing.
       const rendered = compilation.renderHover('Declared')
 
-      expect(rendered).toContain('"user-not-found"')
-      expect(rendered).toContain('"user-suspended"')
+      expect(rendered).toContain('"userNotFound"')
+      expect(rendered).toContain('"userSuspended"')
       expect(rendered).toContain('userId: number')
       expect(rendered).not.toContain('payload:')
     })
@@ -343,7 +344,7 @@ describe('the emitted map', () => {
         ...CONSUMER_PRELUDE,
         `export type Declared = KnownApiErrors['/api/users/:id']['get']`,
         ``,
-        `type _tags = Expect<Equal<Declared['tag'], 'user-not-found' | 'user-suspended'>>`,
+        `type _tags = Expect<Equal<Declared['tag'], 'userNotFound' | 'userSuspended'>>`,
         `type _notCollapsed = Expect<Equal<IsAny<Declared>, false>>`,
         `type _isAnyToo = Expect<Equal<IsAny<Declared>, true>>`,
         `type _notEmpty = Expect<Equal<IsNever<Declared>, false>>`,
@@ -392,7 +393,7 @@ describe('the emitted map', () => {
         ...CONSUMER_PRELUDE,
         `export type Declared = KnownApiErrors['/api/users/:id']['get']`,
         ``,
-        `type _tags = Expect<Equal<Declared['tag'], 'account-locked' | 'rate-limited' | 'quota-exceeded'>>`,
+        `type _tags = Expect<Equal<Declared['tag'], 'accountLocked' | 'rateLimited' | 'quotaExceeded'>>`,
         ``,
       ].join('\n')
     )
@@ -411,9 +412,9 @@ describe('the emitted map', () => {
       // Byte identity would be worthless if the type were stale too.
       const rendered = compilation.renderHover('Declared')
 
-      expect(rendered).toContain('"account-locked"')
-      expect(rendered).toContain('"rate-limited"')
-      expect(rendered).not.toContain('"user-not-found"')
+      expect(rendered).toContain('"accountLocked"')
+      expect(rendered).toContain('"rateLimited"')
+      expect(rendered).not.toContain('"userNotFound"')
     })
   })
 })
@@ -508,7 +509,7 @@ describe('the emitted map, with a second slot', () => {
       `export type Handler = RouteKinds['/api/legacy']['get']`,
       `export type Value = RouteKinds['/api/indexed']['get']`,
       ``,
-      `type _tags = Expect<Equal<Declared['tag'], 'user-not-found' | 'user-suspended'>>`,
+      `type _tags = Expect<Equal<Declared['tag'], 'userNotFound' | 'userSuspended'>>`,
       `type _handler = Expect<Equal<Handler, 'handler'>>`,
       `type _value = Expect<Equal<Value, 'value'>>`,
       ``,
@@ -530,7 +531,7 @@ describe('the emitted map, with a second slot', () => {
   })
 
   it('resolves the known-errors augmentation as before', () => {
-    expect(compilation.renderHover('Declared')).toContain('"user-not-found"')
+    expect(compilation.renderHover('Declared')).toContain('"userNotFound"')
   })
 
   it('resolves the second augmentation against the throwaway specifier', () => {

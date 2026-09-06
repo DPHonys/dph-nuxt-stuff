@@ -103,7 +103,7 @@ A Handler-local function that synchronously creates a throwable for one selected
 _Avoid_: Fail helper, error raiser
 
 **Error payload**:
-The fields of a Known error beside its tag and status. A schema-backed payload validates input and supplies transformed output; a type-only payload describes trusted values without runtime validation.
+The fields of a Known error beside its tag and status. A schema-backed payload validates input and supplies transformed output; a declaration without a payload carries no fields beyond its tag and status.
 _Avoid_: Nested data, response envelope
 
 **Validation source**:
@@ -118,12 +118,12 @@ _Avoid_: Parsed request, payload
 The Umbrella Handler's second parameter: the Validated context's keys plus `errors` factories when Known errors are declared; the door to validated values and to creating a Known error.
 _Avoid_: Context object, helpers, second argument
 
-**Built-in validation-failed variant**:
+**Built-in validationFailed variant**:
 The Known error every Umbrella route implicitly carries when it declares any Validation source, always on, carrying the rejected source's issues; call sites handle input rejection with a typed arm, and it is recognised both as a Known error and as a validation failure.
 _Avoid_: Validation error, 400
 
 **Reserved tag**:
-A Known-error tag the Umbrella keeps for itself (`validation-failed`) and refuses in any route's declared errors, whether or not that route validates.
+A Known-error tag the Umbrella keeps for itself (`validationFailed`) and refuses in any route's declared errors, whether or not that route validates.
 _Avoid_: Built-in tag, system error
 
 **Checked fetch family**:

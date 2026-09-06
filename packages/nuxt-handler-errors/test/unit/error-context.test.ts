@@ -11,7 +11,6 @@ import {
 import {
   defineCheckedEventHandler,
   defineError,
-  payload,
 } from '../../src/runtime/server'
 
 const event = {} as H3Event
@@ -69,7 +68,6 @@ describe('handler-local factories', () => {
     const handler = defineCheckedEventHandler(
       { errors: declarations },
       (_event, context) => {
-        expect('fail' in context).toBe(false)
         expect(context.errors.notFound().data).toEqual({
           __knownError__: { tag: 'notFound', status: 404 },
         })
@@ -172,7 +170,7 @@ describe('handler-local factories', () => {
     }
   )
 
-  it.each(['no-data', 'phantom', 'sync', 'async'] as const)(
+  it.each(['no-data', 'sync', 'async'] as const)(
     'preserves the original factory call stack after async finalization (%s)',
     async (kind) => {
       const declaration = defineError('conflict', {
@@ -180,13 +178,10 @@ describe('handler-local factories', () => {
         ...(kind === 'no-data'
           ? {}
           : {
-              payload:
-                kind === 'phantom'
-                  ? payload<{ amount: number }>()
-                  : schema(() => {
-                      const result = { value: { amount: 42 } }
-                      return kind === 'async' ? Promise.resolve(result) : result
-                    }),
+              payload: schema(() => {
+                const result = { value: { amount: 42 } }
+                return kind === 'async' ? Promise.resolve(result) : result
+              }),
             }),
       })
       const { errors } = createErrorContext(resolveDeclared([declaration]))
@@ -226,15 +221,15 @@ describe('handler-local factories', () => {
     }
   )
 
-  it('supports numeric keys and snapshots validated output', async () => {
+  it('snapshots validated output at the factory call', async () => {
     const group = defineError({
-      123: { status: 409, payload: z.object({ date: z.date() }) },
+      dated: { status: 409, payload: z.object({ date: z.date() }) },
     })
     const { errors } = createErrorContext(
-      resolveDeclared([...group.pick('123')])
+      resolveDeclared([...group.pick('dated')])
     )
     const date = new Date('2026-01-01T00:00:00.000Z')
-    const error = errors['123']!({ date })
+    const error = errors.dated!({ date })
     date.setFullYear(2000)
     error.statusCode = 503
     error.data = { __knownError__: { tag: 'spoofed' } }
@@ -242,7 +237,7 @@ describe('handler-local factories', () => {
       statusCode: 409,
       data: {
         __knownError__: {
-          tag: '123',
+          tag: 'dated',
           status: 409,
           date: '2026-01-01T00:00:00.000Z',
         },

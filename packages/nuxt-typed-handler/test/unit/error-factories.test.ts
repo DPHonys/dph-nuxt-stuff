@@ -180,7 +180,7 @@ describe('handler-local error factories', () => {
     expect(response.status).toBe(400)
     expect(body).not.toHaveBeenCalled()
     expect(recognizeKnownError(seen[0])).toMatchObject({
-      tag: 'validation-failed',
+      tag: 'validationFailed',
       status: 400,
       issues: [{ source: 'body' }],
     })
@@ -238,15 +238,15 @@ describe('handler-local error factories', () => {
         defineTypedEventHandler(
           {
             validate,
-            errors: [defineError('validation-failed', { status: 400 })],
+            errors: [defineError('validationFailed', { status: 400 })],
           } as never,
           () => null
         )
-      ).toThrow('"validation-failed" is reserved')
+      ).toThrow('"validationFailed" is reserved')
     }
   })
 
-  it('rejects inline records rather than retaining compatibility', () => {
+  it('rejects inline records', () => {
     expect(() =>
       defineTypedEventHandler(
         { errors: { missing: { status: 404 } } } as never,

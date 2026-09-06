@@ -72,7 +72,7 @@ export function combined() {
         ctx.headers.token,
       ]
       // @ts-expect-error The built-in error is not a user factory.
-      ctx.errors['validation-failed']()
+      ctx.errors.validationFailed()
       if (page > 1) throw ctx.errors.conflict({ count: String(page) })
       return { page, sources }
     }
@@ -121,7 +121,7 @@ export function narrowError(
     void error.data
     return count
   }
-  if (error.tag === 'validation-failed') return error.issues
+  if (error.tag === 'validationFailed') return error.issues
   // @ts-expect-error No-data definitions add no data slot.
   return error.data
 }
@@ -182,14 +182,14 @@ export function misuse() {
   )
   defineTypedEventHandler(
     // @ts-expect-error Reserved even without validation.
-    { errors: [defineError('validation-failed', { status: 400 })] },
+    { errors: [defineError('validationFailed', { status: 400 })] },
     () => null
   )
   defineTypedEventHandler(
     // @ts-expect-error Reserved with validation, too.
     {
       validate: { body: z.string() },
-      errors: [defineError('validation-failed', { status: 400 })],
+      errors: [defineError('validationFailed', { status: 400 })],
     },
     () => null
   )

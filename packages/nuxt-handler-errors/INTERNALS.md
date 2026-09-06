@@ -78,7 +78,7 @@ the _caller's_ alias; each module layer owns a one-line handler over
 | `createCheckedEventFetch(getBase, token?)`               | The event-scoped `$checkedFetch` the server auto-import is built on; `getBase` reads the event's `$fetch` lazily.                                                             |
 | `EventFetchUnavailableError`                             | Thrown when `getBase` yields no `$fetch`.                                                                                                                                     |
 | `createChannelStripHandler(getToken)`                    | The Nitro error handler that strips the marker off responses lacking the channel header; `getToken(event)` reads the caller's token.                                          |
-| `DeclaredError`                                          | `{ tag, status, hasPayload, schema }`, what `resolveDeclared` returns and `createErrorContext` consumes; `schema` is a Standard Schema or `undefined`.                        |
+| `DeclaredError`                                          | `{ tag, status, schema }`, what `resolveDeclared` returns and `createErrorContext` consumes; `schema` is a Standard Schema or `undefined`.                                    |
 | `RawEventFetch`                                          | The loose event-fetch shape `createCheckedEventFetch` accepts.                                                                                                                |
 
 Call `createErrorContext(resolveDeclared(options.errors))` at handler declaration,
@@ -90,8 +90,8 @@ Schema validation is tracked privately until that boundary, and the boundary
 must finalize before Nitro observes or serializes the error. Schema exceptions
 remain unexpected failures; rejected payloads become an unmarked 500 rather than
 the declared failure. Successful schema output becomes flat variant fields
-beside `tag` and `status`. `payload<T>()` is inert type metadata and does not
-execute validation. `ErrorFactories<A>` is the public type projection from a
+beside `tag` and `status`; a declaration without a schema yields a zero-argument
+factory. Tags are identifiers, checked by `defineError`. `ErrorFactories<A>` is the public type projection from a
 declaration array to its local factories: schema factories accept `InferInput`,
 while the route's known-error union carries flat `InferOutput` fields.
 

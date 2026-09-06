@@ -27,13 +27,13 @@ function thrownBy(run: () => never): H3Error {
   throw new Error('expected a throw')
 }
 
-describe('the built-in validation-failed variant', () => {
+describe('the built-in validationFailed variant', () => {
   const error = thrownBy(() => onInvalid('query', issues))
 
   it('is a known error: 400, message === tag, no reason phrase', () => {
     expect(error).toBeInstanceOf(Error)
     expect(error.statusCode).toBe(400)
-    expect(error.message).toBe('validation-failed')
+    expect(error.message).toBe('validationFailed')
     // The reason phrase survives an escaped throw untouched, so the tag must
     // never ride it.
     expect(error.statusMessage).toBeUndefined()
@@ -46,7 +46,7 @@ describe('the built-in validation-failed variant', () => {
     // is what a stripped response keeps, the marker is the first-party wire.
     expect(error.data).toEqual({
       issues,
-      [KNOWN_ERROR_KEY]: { tag: 'validation-failed', status: 400, issues },
+      [KNOWN_ERROR_KEY]: { tag: 'validationFailed', status: 400, issues },
     })
   })
 
@@ -63,14 +63,14 @@ describe('the built-in validation-failed variant', () => {
 
   it('answers both parents’ recognizers and both markers', () => {
     expect(readFloor(error)).toEqual({
-      tag: 'validation-failed',
+      tag: 'validationFailed',
       status: 400,
       issues,
     })
     expect(readValidationMarker(error)).toEqual({ issues })
 
     expect(recognizeKnownError(error)).toEqual({
-      tag: 'validation-failed',
+      tag: 'validationFailed',
       status: 400,
       issues,
     })
@@ -94,11 +94,11 @@ describe('the built-in validation-failed variant', () => {
     const bodyError = thrownBy(() => onInvalid('body', unparseable))
 
     expect(bodyError.statusCode).toBe(400)
-    expect(bodyError.message).toBe('validation-failed')
+    expect(bodyError.message).toBe('validationFailed')
     expect(bodyError.data).toEqual({
       issues: unparseable,
       [KNOWN_ERROR_KEY]: {
-        tag: 'validation-failed',
+        tag: 'validationFailed',
         status: 400,
         issues: unparseable,
       },

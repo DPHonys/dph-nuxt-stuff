@@ -5,8 +5,8 @@ import {
 } from '../../../../../../src/runtime/server'
 
 const userErrors = defineError({
-  'user-not-found': { status: 404, payload: z.object({ userId: z.string() }) },
-  'user-suspended': { status: 403, payload: z.object({ until: z.string() }) },
+  userNotFound: { status: 404, payload: z.object({ userId: z.string() }) },
+  userSuspended: { status: 403, payload: z.object({ until: z.string() }) },
 })
 
 // A checked route, so the generated map has a branded entry to key. Imported
@@ -19,7 +19,7 @@ export default defineCheckedEventHandler(
   (event, { errors }) => {
     const id = event.context.params?.id ?? ''
 
-    if (id === '') throw errors['user-not-found']({ userId: id })
+    if (id === '') throw errors.userNotFound({ userId: id })
 
     return { id, name: 'Ada' }
   }

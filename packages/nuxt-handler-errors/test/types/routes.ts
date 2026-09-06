@@ -15,12 +15,12 @@ export interface User {
 /** What `/api/users/:id` declares, on `get`. */
 export type UserVariants =
   | { tag: 'forbidden'; status: 403; requiredRole: 'admin' | 'owner' }
-  | { tag: 'user-not-found'; status: 404; userId: string }
-  | { tag: 'user-suspended'; status: 403; until: string }
+  | { tag: 'userNotFound'; status: 404; userId: string }
+  | { tag: 'userSuspended'; status: 403; until: string }
 
 /** What `/api/chain/c` declares - one variant, so a single arm is exhaustive. */
 export interface ChainVariant {
-  tag: 'c-gone'
+  tag: 'cGone'
   status: 410
   resource: string
 }

@@ -14,10 +14,9 @@ import type {
   KnownError,
   KnownErrorGroup,
   KnownErrorsOf,
-  Payload,
-  SerializableDef,
-  SerializableDefs,
-  SerializablePayload,
+  ValidDef,
+  ValidDefs,
+  ValidTag,
   VariantDef,
   VariantOfDef,
   VariantsOf,
@@ -59,22 +58,17 @@ export type CheckedHandlerFn<
   A extends readonly AnyKnownError[],
 > = (event: H3Event<Request>, ctx: HandlerContext<A>) => Response
 
-/** Declare a type-only payload. */
-export interface DefinePayload {
-  <T extends SerializablePayload<T>>(): Payload<T>
-}
-
 /** Declare single errors or spreadable groups. */
 export interface DefineError {
   /** One definition → one error value. */
   <Tag extends string, const D extends VariantDef>(
-    tag: Tag,
-    def: SerializableDef<D> & D
+    tag: Tag & ValidTag<Tag>,
+    def: ValidDef<D> & D
   ): KnownError<VariantOfDef<Tag, D>, InputOfDef<Tag, D>>
 
   /** Several definitions → a spreadable group. */
   <const D extends Defs>(
-    defs: SerializableDefs<D> & D
+    defs: ValidDefs<D> & D
   ): KnownErrorGroup<VariantsOf<D>, InputsOfDefs<D>>
 }
 

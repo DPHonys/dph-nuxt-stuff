@@ -1,11 +1,10 @@
-/* eslint-disable ts/no-empty-object-type -- Exercise phantom empty PayloadArgs. */
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import {
   defineCheckedEventHandler,
   defineError,
-  payload,
 } from '../../src/runtime/server'
 
 const event = {} as H3Event
@@ -15,7 +14,7 @@ describe('defined errors at runtime', () => {
     unauthorized: { status: 401 },
     forbidden: {
       status: 403,
-      payload: payload<{ requiredRole: 'admin' | 'owner' }>(),
+      payload: z.object({ requiredRole: z.enum(['admin', 'owner']) }),
     },
   })
   const maintenance = defineError('maintenance', { status: 503 })
@@ -107,8 +106,11 @@ describe('defined errors at runtime', () => {
     { bad: { status: 200 } },
     { bad: { status: 404.5 } },
     { bad: { status: 404, data: {} } },
-    { bad: { status: 404, payload: undefined } },
     { bad: { status: 404, payload: () => {} } },
+    { bad: { status: 404, payload: {} } },
+    { 'user-not-found': { status: 404 } },
+    { '404': { status: 404 } },
+    { '': { status: 404 } },
     { [Symbol('tag')]: { status: 404 } },
     {
       bad: {
@@ -124,6 +126,18 @@ describe('defined errors at runtime', () => {
     },
   ])('rejects malformed definitions: %j', (definitions) => {
     expect(() => defineError(definitions as never)).toThrow(TypeError)
+  })
+
+  it('rejects tags that are not identifiers, on both forms', () => {
+    expect(() =>
+      defineError('user-not-found' as never, { status: 404 })
+    ).toThrow(
+      '[nuxt-handler-errors] error tag must be a valid identifier: user-not-found'
+    )
+    expect(() =>
+      defineError({ 'user-not-found': { status: 404 } } as never)
+    ).toThrow('error tag must be a valid identifier: user-not-found')
+    expect(() => defineError('$ok_1', { status: 404 })).not.toThrow()
   })
 
   it('does not invoke declaration getters or accept inherited declarations', () => {
@@ -146,8 +160,8 @@ describe('defined errors at runtime', () => {
     ).toThrow('invalid error definitions')
   })
 
-  it('keeps phantom payloads type-only, with empty payloads callable without arguments', async () => {
-    const empty = defineError('empty', { status: 400, payload: payload<{}>() })
+  it('makes payload-less factories zero-argument, and rejects any argument', async () => {
+    const empty = defineError('empty', { status: 400 })
     const handler = defineCheckedEventHandler(
       { errors: [empty] },
       (_event, { errors }) => {
@@ -157,14 +171,27 @@ describe('defined errors at runtime', () => {
     await expect(handler(event)).rejects.toMatchObject({
       data: { __knownError__: { tag: 'empty', status: 400 } },
     })
-    const unchecked = defineCheckedEventHandler(
+    const withArgument = defineCheckedEventHandler(
+      { errors: [empty] },
+      (_event, { errors }) => {
+        throw (errors.empty as (...args: unknown[]) => never)({})
+      }
+    )
+    await expect(withArgument(event)).rejects.toThrow(
+      '[nuxt-handler-errors] invalid arguments for empty'
+    )
+  })
+
+  it('answers an unmarked 500 when a schema rejects the payload', async () => {
+    const rejected = defineCheckedEventHandler(
       { errors: [...auth] },
       (_event, { errors }) => {
         throw errors.forbidden({ requiredRole: 42 } as never)
       }
     )
-    await expect(unchecked(event)).rejects.toMatchObject({
-      data: { __knownError__: { requiredRole: 42 } },
+    await expect(rejected(event)).rejects.toMatchObject({
+      statusCode: 500,
+      message: 'Invalid declared error payload',
     })
   })
 })

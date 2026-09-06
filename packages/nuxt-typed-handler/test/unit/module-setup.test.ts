@@ -108,7 +108,6 @@ describe('module setup wiring', () => {
       [
         'defineTypedEventHandler',
         'defineError',
-        'payload',
         'recognizeKnownError',
         'recognizeValidationError',
       ].map((name) => ({

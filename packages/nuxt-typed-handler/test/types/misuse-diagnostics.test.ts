@@ -19,8 +19,11 @@ const diagnostics = compileFixture(FIXTURE_TSCONFIG, FIXTURE)
 /** TS2345 - an argument that does not fit its parameter. */
 const ARGUMENT_NOT_ASSIGNABLE = 2345
 
+/** TS2339 - a property read that the type does not have. */
+const PROPERTY_MISSING = 2339
+
 /** The reserved-tag sentence, verbatim. */
-const RESERVED_TAG = 'validation-failed is reserved for the built-in variant'
+const RESERVED_TAG = 'validationFailed is reserved for the built-in variant'
 
 /** The bare-`{}` sentence, verbatim. */
 const DECLARE_SOMETHING = 'declare validate, errors, or both'
@@ -29,7 +32,7 @@ describe('the declaration guards’ diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(5)
+    expect(diagnostics).toHaveLength(6)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -42,6 +45,7 @@ describe('the declaration guards’ diagnostics', () => {
       '__declareSomething__',
       'validation-declaration-error',
       '__divergentErrorTag__',
+      '__invalidTag__',
     ]) {
       expect(
         diagnostics.some((diagnostic) => diagnostic.message.includes(guard))
@@ -70,12 +74,12 @@ describe('the declaration guards’ diagnostics', () => {
   it('refuses a factory for the built-in validation variant', () => {
     const [reservedFactory] = saying(
       diagnostics,
-      "Property 'validation-failed' does not exist"
+      "Property 'validationFailed' does not exist"
     )
 
-    expect(reservedFactory?.code).toBe(7053)
+    expect(reservedFactory?.code).toBe(PROPERTY_MISSING)
     expect(reservedFactory?.line).toBe(
-      lineContaining(FIXTURE, "throw errors['validation-failed']()")
+      lineContaining(FIXTURE, 'throw errors.validationFailed()')
     )
   })
 
@@ -87,6 +91,16 @@ describe('the declaration guards’ diagnostics', () => {
 
     expect(stray?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
     expect(stray?.line).toBe(lineContaining(FIXTURE, '      boyd:'))
+  })
+
+  it('still fires the errors parent’s identifier-tag guard at the declaration', () => {
+    const [invalid] = saying(diagnostics, '__invalidTag__')
+
+    expect(invalid?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(invalid?.message).toContain('user-gone')
+    expect(invalid?.line).toBe(
+      lineContaining(FIXTURE, "defineError({ 'user-gone': { status: 410 } })")
+    )
   })
 
   it('still fires the errors parent’s divergent-tag guard at the declaration', () => {

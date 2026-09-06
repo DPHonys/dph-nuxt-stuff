@@ -1,11 +1,9 @@
-/* eslint-disable ts/no-empty-object-type -- Exercise phantom empty PayloadArgs. */
 import type { H3Error } from 'h3'
 import { expect, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
 import {
   defineCheckedEventHandler,
   defineError,
-  payload,
 } from '../../src/runtime/server'
 import type {
   AnyKnownError,
@@ -22,7 +20,7 @@ const group = defineError({
     status: 409,
     payload: z.string().transform((value) => ({ length: value.length })),
   },
-  123: {
+  numbered: {
     status: 400,
     payload: z.number().transform((value) => ({ value: String(value) })),
   },
@@ -37,9 +35,12 @@ const group = defineError({
           : { kind: 'empty' as const, empty: true }
       ),
   },
-  phantomUnion: {
+  objectUnion: {
     status: 400,
-    payload: payload<{ text: string } | { count: number }>(),
+    payload: z.union([
+      z.object({ text: z.string() }),
+      z.object({ count: z.number() }),
+    ]),
   },
 })
 const single = defineError('single', {
@@ -57,15 +58,15 @@ const declarations = [
   ...group.pick(
     'conflict',
     'notFound',
-    '123',
+    'numbered',
     'empty',
     'union',
-    'phantomUnion'
+    'objectUnion'
   ),
   single,
   unionSingle,
   unionSingle,
-  defineError('phantom', { status: 400, payload: payload<{}>() }),
+  defineError('bare', { status: 400 }),
 ]
 
 const handler = defineCheckedEventHandler(
@@ -78,28 +79,26 @@ const handler = defineCheckedEventHandler(
     expectTypeOf(context.errors.notFound()).toEqualTypeOf<H3Error>()
     context.errors.conflict('input')
     context.errors.single('42')
-    context.errors['123'](42)
+    context.errors.numbered(42)
     context.errors.empty({})
-    context.errors.phantom()
+    context.errors.bare()
     context.errors.union('input')
     context.errors.unionSingle({ kind: 'text', text: 'input' })
     context.errors.unionSingle({ kind: 'count', count: 1 })
     // @ts-expect-error union discriminants retain their associated fields
     context.errors.unionSingle({ kind: 'text', count: 1 })
-    context.errors.phantomUnion({ text: 'input' })
-    context.errors.phantomUnion({ count: 1 })
+    context.errors.objectUnion({ text: 'input' })
+    context.errors.objectUnion({ count: 1 })
     const unionInput: { text: string } | { count: number } = Math.random()
       ? { text: 'input' }
       : { count: 1 }
-    context.errors.phantomUnion(unionInput)
+    context.errors.objectUnion(unionInput)
     // @ts-expect-error disjoint union payloads still require an argument
-    context.errors.phantomUnion()
+    context.errors.objectUnion()
     // @ts-expect-error every union member requires its payload fields
-    context.errors.phantomUnion({})
+    context.errors.objectUnion({})
     // @ts-expect-error schema union output is not its input
     context.errors.union({ kind: 'text', text: 'input' })
-    // @ts-expect-error factories are the only context API
-    context.fail('notFound')
     // @ts-expect-error undeclared factory
     context.errors.missing()
     // @ts-expect-error zero arguments for a no-payload factory
@@ -110,12 +109,14 @@ const handler = defineCheckedEventHandler(
     context.errors.conflict({ length: 1 })
     // @ts-expect-error single retains input too
     context.errors.single({ value: 42 })
-    // @ts-expect-error numeric keys retain transformed inputs
-    context.errors['123']({ value: '42' })
+    // @ts-expect-error transformed inputs survive a group pick
+    context.errors.numbered({ value: '42' })
     // @ts-expect-error empty schema input is still required
     context.errors.empty()
-    // @ts-expect-error phantom matches the original empty PayloadArgs
-    context.errors.phantom({})
+    // @ts-expect-error a definition without a payload takes no argument
+    context.errors.bare({})
+    // @ts-expect-error a definition without a payload takes no argument
+    context.errors.bare(undefined)
     return { ok: true }
   }
 )
@@ -137,8 +138,12 @@ export function declarationGuards(): void {
   defineError({
     bad: { status: 404, payload: z.object({ status: z.number() }) },
   })
-  // @ts-expect-error phantom cannot overwrite the floor
-  defineError('bad', { status: 404, payload: payload<{ tag: string }>() })
+  // @ts-expect-error the payload must be a Standard Schema, not a plain type
+  defineError('bad', { status: 404, payload: {} as { until: string } })
+  // @ts-expect-error `__invalidTag__` names the kebab tag on a single
+  defineError('not-found', { status: 404 })
+  // @ts-expect-error `__invalidTag__` names the kebab tag in a group
+  defineError({ 'not-found': { status: 404 } })
   // @ts-expect-error nested bigint must survive serialization
   defineError('bad', {
     status: 404,
@@ -230,8 +235,11 @@ const umbrella = defineUmbrella({ errors: declarations }, ({ errors }) => {
 
 it('preserves output brands, success inference, and the generic composition seam', () => {
   expectTypeOf<
-    PayloadArgs<KnownErrorsOf<typeof declarations>, 'phantomUnion'>
+    PayloadArgs<KnownErrorsOf<typeof declarations>, 'objectUnion'>
   >().toEqualTypeOf<[payload: { text: string } | { count: number }]>()
+  expectTypeOf<
+    PayloadArgs<KnownErrorsOf<typeof declarations>, 'bare'>
+  >().toEqualTypeOf<[]>()
   type Discriminated = { tag: 'union'; status: 400 } & (
     | { kind: 'text'; text: string }
     | { kind: 'count'; count: number }

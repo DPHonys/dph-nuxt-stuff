@@ -4,7 +4,6 @@ import type { EventHandlerRequest, H3Event } from 'h3'
 import type {
   DefineCheckedEventHandler,
   DefineError,
-  DefinePayload,
 } from '../../types/handler'
 import type {
   AnyKnownError,
@@ -16,14 +15,6 @@ import type {
 import type { DeclaredError } from './declared'
 import { byDistinctTag, knownErrorValue, resolveDeclared } from './declared'
 import { createErrorContext, finalizeError } from './error-context'
-
-/**
- * Marks a variant's payload type: `payload<{ userId: string }>()`. The
- * runtime value is inert - only the type argument matters, checked against
- * what survives JSON serialization. A Standard Schema may sit in the same
- * position instead.
- */
-export const payload: DefinePayload = () => ({})
 
 function buildGroup(
   entries: readonly DeclaredError[]
@@ -44,8 +35,8 @@ function buildGroup(
  * const forbidden = defineError('forbidden', { status: 403 })
  *
  * const userErrors = defineError({
- *   'user-not-found': { status: 404, payload: payload<{ userId: string }>() },
- *   'user-suspended': { status: 403, payload: payload<{ until: string }>() },
+ *   userNotFound: { status: 404, payload: z.object({ userId: z.string() }) },
+ *   userSuspended: { status: 403, payload: z.object({ until: z.string() }) },
  * })
  * ```
  */
@@ -79,7 +70,15 @@ export const defineError: DefineError = ((
   )
 }) as DefineError
 
+// Mirrors the `ValidTag` type: a tag is a factory property name.
+const IDENTIFIER = /^[a-z_$][\w$]*$/i
+
 function declaration(tag: string, def: VariantDef): DeclaredError {
+  if (!IDENTIFIER.test(tag)) {
+    throw new TypeError(
+      `[nuxt-handler-errors] error tag must be a valid identifier: ${tag}`
+    )
+  }
   if (
     !def ||
     typeof def !== 'object' ||
@@ -96,20 +95,14 @@ function declaration(tag: string, def: VariantDef): DeclaredError {
   ) {
     throw new TypeError('[nuxt-handler-errors] invalid error definition')
   }
-  const slot = def.payload
+  const schema = Object.hasOwn(def, 'payload')
+    ? (def.payload as StandardSchemaV1 | undefined)
+    : undefined
   if (
-    Object.hasOwn(def, 'payload') &&
-    (slot === null ||
-      (typeof slot !== 'object' &&
-        !(typeof slot === 'function' && '~standard' in slot)))
-  ) {
-    throw new TypeError(`[nuxt-handler-errors] invalid payload for ${tag}`)
-  }
-  const schema =
-    slot && '~standard' in slot ? (slot as StandardSchemaV1) : undefined
-  if (
-    schema &&
-    (schema['~standard']?.version !== 1 ||
+    schema !== undefined &&
+    (schema === null ||
+      (typeof schema !== 'object' && typeof schema !== 'function') ||
+      schema['~standard']?.version !== 1 ||
       typeof schema['~standard'].vendor !== 'string' ||
       typeof schema['~standard'].validate !== 'function')
   ) {
@@ -117,12 +110,7 @@ function declaration(tag: string, def: VariantDef): DeclaredError {
       `[nuxt-handler-errors] invalid Standard Schema for ${tag}`
     )
   }
-  return {
-    tag,
-    status: def.status,
-    hasPayload: Object.hasOwn(def, 'payload'),
-    schema,
-  }
+  return { tag, status: def.status, schema }
 }
 
 /**

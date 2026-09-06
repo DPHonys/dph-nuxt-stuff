@@ -4,7 +4,7 @@ import {
   defineTypedEventHandler,
 } from '../../../../../../src/runtime/server'
 
-const notFound = defineError('user-not-found', {
+const notFound = defineError('userNotFound', {
   status: 404,
   payload: z.object({ userId: z.string() }),
 })
@@ -17,7 +17,7 @@ export default defineTypedEventHandler(
   (event, { errors }) => {
     const id = event.context.params?.id ?? ''
 
-    if (id === '') throw errors['user-not-found']({ userId: id })
+    if (id === '') throw errors.userNotFound({ userId: id })
 
     return { id, name: 'Ada' }
   }

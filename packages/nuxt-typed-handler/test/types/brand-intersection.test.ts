@@ -29,7 +29,6 @@ declare const defineTypedEventHandler: typeof import('../../src/runtime/server/l
 declare const defineCheckedEventHandler: typeof import('@dphonys/nuxt-handler-errors/server').defineCheckedEventHandler
 declare const defineValidatedEventHandler: typeof import('@dphonys/nuxt-handler-validation/server').defineValidatedEventHandler
 declare const defineError: typeof import('@dphonys/nuxt-handler-errors/server').defineError
-declare const payload: typeof import('@dphonys/nuxt-handler-errors/server').payload
 
 /** `[A] extends [B]`, so a union on the left is answered whole. */
 type Extends<A, B> = [A] extends [B] ? true : false
@@ -49,16 +48,16 @@ const pagination = z.object({ page: z.string().transform(Number) })
 
 export function bothDeclared() {
   const userErrors = defineError({
-    'user-exists': { status: 409, payload: payload<{ email: string }>() },
+    userExists: { status: 409, payload: z.object({ email: z.string() }) },
   })
 
   return defineTypedEventHandler(
     {
       validate: { body: createUser, query: pagination },
-      errors: userErrors.pick('user-exists'),
+      errors: userErrors.pick('userExists'),
     },
     (_event, { body, errors }) => {
-      if (body.name === '') throw errors['user-exists']({ email: '' })
+      if (body.name === '') throw errors.userExists({ email: '' })
       return { ok: true }
     }
   )
@@ -72,12 +71,12 @@ export function validateOnly() {
 }
 
 export function errorsOnly() {
-  const userErrors = defineError({ 'user-not-found': { status: 404 } })
+  const userErrors = defineError({ userNotFound: { status: 404 } })
 
   return defineTypedEventHandler(
-    { errors: userErrors.pick('user-not-found') },
+    { errors: userErrors.pick('userNotFound') },
     (_event, { errors }) => {
-      throw errors['user-not-found']()
+      throw errors.userNotFound()
     }
   )
 }
@@ -113,7 +112,7 @@ interface EmptyInput {}
 
 /** The declared failure, as the errors parent computes it from the tuple. */
 interface UserExists {
-  tag: 'user-exists'
+  tag: 'userExists'
   status: 409
   email: string
 }
