@@ -1,3 +1,4 @@
+import { postJson } from '@dphonys/test-utils/h3-app'
 import { $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { expect, it } from 'vitest'
 import { VALIDATION_ERROR_KEY } from '../../src/runtime/shared/error-marker'
@@ -18,7 +19,7 @@ import type { ValidationIssue } from '../../src/runtime/types'
  * missing description degrades to the empty string, which every
  * `not.toContain` below fails on.
  */
-const MARKER_KEY: string = VALIDATION_ERROR_KEY.description ?? ''
+const MARKER_KEY = VALIDATION_ERROR_KEY.description ?? ''
 
 /** What `/api/search?page=nope` and the composed `/api/reports` produce. */
 const BAD_PAGE: ValidationIssue = {
@@ -74,7 +75,7 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
   it('answers a bad body with every issue that source had', async () => {
     const response = await fetch(
       '/api/users',
-      jsonPost(JSON.stringify({ name: '', age: 12 }))
+      postJson(JSON.stringify({ name: '', age: 12 }))
     )
 
     expect(response.status).toBe(400)
@@ -87,7 +88,7 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
   })
 
   it('answers a malformed JSON body in that same shape', async () => {
-    const response = await fetch('/api/users', jsonPost('{"name":'))
+    const response = await fetch('/api/users', postJson('{"name":'))
 
     // The wording is the package's own, content-type-agnostic one, not h3's.
     expect(response.status).toBe(400)
@@ -106,7 +107,7 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
     expect(
       await $fetch(
         '/api/profile',
-        jsonPost(JSON.stringify({ nickname: 'dph' }))
+        postJson(JSON.stringify({ nickname: 'dph' }))
       )
     ).toEqual({ method: 'POST', nickname: 'dph' })
   })
@@ -149,7 +150,7 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
     // key a whole-body assertion happens not to name.
     const responses = await Promise.all([
       fetch('/api/search?page=nope'),
-      fetch('/api/users', jsonPost('{"name":')),
+      fetch('/api/users', postJson('{"name":')),
       fetch('/api/reports?page=nope&sort=desc&report=w'),
       // The developer-error path, which carries no marker to begin with, and
       // the success path, which is nobody's failure at all.
@@ -207,22 +208,4 @@ interface ObservedError {
   message: string
   recognized: boolean
   issues: ValidationIssue[] | null
-}
-
-/**
- * A POST carrying an already-serialized payload. Typed structurally rather than
- * as `RequestInit`, because it is handed to both `fetch` and ofetch's `$fetch`.
- */
-interface JsonPost {
-  method: 'POST'
-  headers: Record<string, string>
-  body: string
-}
-
-function jsonPost(body: string): JsonPost {
-  return {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body,
-  }
 }

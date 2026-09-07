@@ -1,3 +1,4 @@
+import { readJson } from '@dphonys/test-utils/json'
 import {
   cp,
   mkdir,
@@ -468,19 +469,6 @@ async function listFiles(root: string, current = ''): Promise<string[]> {
   }
 
   return files.toSorted()
-}
-
-/** The values `JSON.parse` can produce. */
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-async function readJson(file: string): Promise<JsonValue> {
-  return JSON.parse(await readFile(file, 'utf8'))
 }
 
 async function readGeneratedContents(

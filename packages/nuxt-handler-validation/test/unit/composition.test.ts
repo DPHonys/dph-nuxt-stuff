@@ -1,5 +1,4 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { EventHandler, H3Error } from 'h3'
 import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -84,15 +83,6 @@ async function issuesOf(response: Response): Promise<string[]> {
 /** The same, as a set - the part of the answer a tuple's order cannot change. */
 async function sortedIssuesOf(response: Response): Promise<string[]> {
   return (await issuesOf(response)).toSorted()
-}
-
-/** The 500 a request produced, as the error object the process saw. */
-async function errorFrom(
-  handler: EventHandler
-): Promise<{ status: number; error: H3Error }> {
-  const { response, thrown } = await requestReporting(handler, '/api/test')
-
-  return { status: response.status, error: thrown }
 }
 
 describe('a source composed from a tuple', () => {
@@ -273,11 +263,11 @@ describe('an element output the merge cannot take', () => {
       () => 'the body never runs'
     )
 
-    const { status, error } = await errorFrom(handler)
+    const { response, thrown } = await requestReporting(handler, '/api/test')
 
-    expect(status).toBe(500)
-    expect(error.message).toContain('query')
-    expect(error.message).toContain('index 1')
+    expect(response.status).toBe(500)
+    expect(thrown.message).toContain('query')
+    expect(thrown.message).toContain('index 1')
   })
 
   it('carries no marker, so an observability hook still reports it', async () => {
@@ -293,11 +283,11 @@ describe('an element output the merge cannot take', () => {
       () => 'the body never runs'
     )
 
-    const { error } = await errorFrom(handler)
+    const { thrown } = await requestReporting(handler, '/api/test')
 
     // Only the 400 is marked: this is a bug in the route, and a hook that skips
     // validation failures must not swallow it.
-    expect(readValidationMarker(error)).toBeUndefined()
+    expect(readValidationMarker(thrown)).toBeUndefined()
   })
 
   it('refuses an exotic object the declaration guard let through', async () => {
@@ -316,10 +306,10 @@ describe('an element output the merge cannot take', () => {
       () => 'the body never runs'
     )
 
-    const { status, error } = await errorFrom(handler)
+    const { response, thrown } = await requestReporting(handler, '/api/test')
 
-    expect(status).toBe(500)
-    expect(error.message).toContain('an instance of Date')
+    expect(response.status).toBe(500)
+    expect(thrown.message).toContain('an instance of Date')
   })
 })
 
@@ -338,22 +328,22 @@ describe('an element that reports neither an output nor an issue', () => {
   )
 
   it('is a 500 naming the source and the element position', async () => {
-    const { status, error } = await errorFrom(handler)
+    const { response, thrown } = await requestReporting(handler, '/api/test')
 
     // The failure this replaces: the element contributed nothing, `issues`
     // stayed empty, and the request answered 200 with it missing from the
     // merge. Silent data loss is the one outcome the merge may never produce.
-    expect(status).toBe(500)
-    expect(error.message).toContain('query')
-    expect(error.message).toContain('index 1')
+    expect(response.status).toBe(500)
+    expect(thrown.message).toContain('query')
+    expect(thrown.message).toContain('index 1')
   })
 
   it('carries no marker, so an observability hook still reports it', async () => {
-    const { error } = await errorFrom(handler)
+    const { thrown } = await requestReporting(handler, '/api/test')
 
     // A bug in the route, not a client's bad input, so it takes the unmarked
     // 500 rather than the marked 400 a hook is invited to skip.
-    expect(readValidationMarker(error)).toBeUndefined()
+    expect(readValidationMarker(thrown)).toBeUndefined()
   })
 
   it('does not pre-empt the issues its siblings did report', async () => {
@@ -382,13 +372,14 @@ describe('a source no schema ran for', () => {
     // The tuple type refuses `[]`, so this arrives only from plain JS or an
     // `any`-typed declaration. Delivering `{}` would tell the handler the query
     // validated when nothing looked at it.
-    const { status, error } = await errorFrom(
-      defineValidatedEventHandler(declaring(wire('[]')), () => 'never')
+    const { response, thrown } = await requestReporting(
+      defineValidatedEventHandler(declaring(wire('[]')), () => 'never'),
+      '/api/test'
     )
 
-    expect(status).toBe(500)
-    expect(error.message).toContain('query')
-    expect(readValidationMarker(error)).toBeUndefined()
+    expect(response.status).toBe(500)
+    expect(thrown.message).toContain('query')
+    expect(readValidationMarker(thrown)).toBeUndefined()
   })
 })
 

@@ -1,5 +1,5 @@
+import { postJson, request, requestReporting } from '@dphonys/test-utils/h3-app'
 import { createError } from 'h3'
-import type { H3Error } from 'h3'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import {
@@ -8,7 +8,6 @@ import {
   recognizeKnownError,
   recognizeValidationError,
 } from '../../src/runtime/server'
-import { firstError, postJson, request } from '../h3-app'
 
 describe('handler-local error factories', () => {
   it('provides only local factories, without reading an undeclared body', async () => {
@@ -22,18 +21,20 @@ describe('handler-local error factories', () => {
         throw ctx.errors.missing()
       }
     )
-    const seen: H3Error[] = []
     for (let i = 0; i < 2; i++) {
-      const response = await request(handler, '/api/test', {
-        init: postJson('{ invalid'),
-        onError: (error) => seen.push(error),
-      })
+      const { response, thrown } = await requestReporting(
+        handler,
+        '/api/test',
+        {
+          init: postJson('{ invalid'),
+        }
+      )
       expect(response.status).toBe(404)
+      expect(recognizeKnownError(thrown)).toEqual({
+        tag: 'missing',
+        status: 404,
+      })
     }
-    expect(recognizeKnownError(firstError(seen))).toEqual({
-      tag: 'missing',
-      status: 404,
-    })
     expect(contexts[0]).not.toBe(contexts[1])
   })
 
@@ -45,12 +46,9 @@ describe('handler-local error factories', () => {
         throw errors.conflict('3')
       }
     )
-    const seen: H3Error[] = []
-    const response = await request(handler, '/api/test', {
-      onError: (error) => seen.push(error),
-    })
+    const { response, thrown } = await requestReporting(handler, '/api/test')
     expect(response.status).toBe(409)
-    expect(recognizeKnownError(firstError(seen))).toEqual({
+    expect(recognizeKnownError(thrown)).toEqual({
       tag: 'conflict',
       status: 409,
       count: 3,
@@ -69,12 +67,9 @@ describe('handler-local error factories', () => {
         throw errors.bad('short')
       }
     )
-    const seen: H3Error[] = []
-    const response = await request(handler, '/api/test', {
-      onError: (error) => seen.push(error),
-    })
+    const { response, thrown } = await requestReporting(handler, '/api/test')
     expect(response.status).toBe(500)
-    expect(recognizeKnownError(firstError(seen))).toBeUndefined()
+    expect(recognizeKnownError(thrown)).toBeUndefined()
   })
 
   it('combines all validated sources with factories and preserves success', async () => {
@@ -118,13 +113,13 @@ describe('handler-local error factories', () => {
       id: '42',
       token: 'secret',
     })
-    const seen: H3Error[] = []
-    const failure = await request(handler, '/api/test/42?page=2', {
-      ...options,
-      onError: (error) => seen.push(error),
-    })
+    const { response: failure, thrown } = await requestReporting(
+      handler,
+      '/api/test/42?page=2',
+      options
+    )
     expect(failure.status).toBe(409)
-    expect(recognizeKnownError(firstError(seen))).toEqual({
+    expect(recognizeKnownError(thrown)).toEqual({
       tag: 'conflict',
       status: 409,
       page: 2,
@@ -160,19 +155,17 @@ describe('handler-local error factories', () => {
       },
       body
     )
-    const seen: H3Error[] = []
-    const response = await request(handler, '/api/test', {
+    const { response, thrown } = await requestReporting(handler, '/api/test', {
       init: postJson('{}'),
-      onError: (error) => seen.push(error),
     })
     expect(response.status).toBe(400)
     expect(body).not.toHaveBeenCalled()
-    expect(recognizeKnownError(firstError(seen))).toMatchObject({
+    expect(recognizeKnownError(thrown)).toMatchObject({
       tag: 'validation-failed',
       status: 400,
       issues: [{ source: 'body' }],
     })
-    expect(recognizeValidationError(firstError(seen))).toMatchObject({
+    expect(recognizeValidationError(thrown)).toMatchObject({
       issues: [{ source: 'body' }],
     })
   })
@@ -188,11 +181,8 @@ describe('handler-local error factories', () => {
         { errors: [defineError('missing', { status: 404 })] },
         asyncHandler ? async () => throwError() : throwError
       )
-      const seen: H3Error[] = []
-      await request(handler, '/api/test', {
-        onError: (value) => seen.push(value),
-      })
-      expect(seen[0]).toBe(error)
+      const { thrown } = await requestReporting(handler, '/api/test')
+      expect(thrown).toBe(error)
     }
   )
 
@@ -210,15 +200,12 @@ describe('handler-local error factories', () => {
         throw errors.bad('input')
       }
     )
-    const seen: H3Error[] = []
-    const response = await request(handler, '/api/test', {
-      onError: (value) => seen.push(value),
-    })
+    const { response, thrown } = await requestReporting(handler, '/api/test')
     expect(response.status).toBe(500)
-    expect(seen[0]).toMatchObject({
+    expect(thrown).toMatchObject({
       message: expect.stringContaining('validates asynchronously'),
     })
-    expect(recognizeKnownError(firstError(seen))).toBeUndefined()
+    expect(recognizeKnownError(thrown)).toBeUndefined()
   })
 
   // Every declaration the compile guards refuse below is what a JavaScript

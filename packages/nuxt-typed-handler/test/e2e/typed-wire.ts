@@ -1,6 +1,7 @@
 import { CHANNEL_HEADER } from '@dphonys/nuxt-handler-errors/internals/shared'
 import { VALIDATION_ERROR_KEY } from '@dphonys/nuxt-handler-validation/internals/shared'
 import type { ValidationIssue } from '@dphonys/nuxt-handler-validation/types'
+import { postJson } from '@dphonys/test-utils/h3-app'
 import { $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { expect, it } from 'vitest'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared'
@@ -25,7 +26,7 @@ const thirdParty = { accept: 'application/json' }
  * The validation marker's key as it would read if it ever reached a client,
  * derived rather than restated so a rename cannot leave this passing.
  */
-const VALIDATION_MARKER: string = VALIDATION_ERROR_KEY.description ?? ''
+const VALIDATION_MARKER = VALIDATION_ERROR_KEY.description ?? ''
 
 /** What `/api/search?page=nope` produces. */
 const BAD_PAGE: ValidationIssue = {
@@ -116,7 +117,7 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
   it('raises each half of a route declaring both', async () => {
     const rejected = await fetch(
       '/api/users',
-      jsonPost(JSON.stringify({ name: '', email: 'nope' }), firstParty)
+      postJson(JSON.stringify({ name: '', email: 'nope' }), firstParty)
     )
 
     expect(rejected.status).toBe(400)
@@ -133,7 +134,7 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
 
     const declared = await fetch(
       '/api/users',
-      jsonPost(
+      postJson(
         JSON.stringify({ name: 'Ada', email: 'taken@example.com' }),
         firstParty
       )
@@ -155,21 +156,21 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     expect(
       await $fetch(
         '/api/users',
-        jsonPost(JSON.stringify({ name: 'Ada', email: 'ada@example.com' }))
+        postJson(JSON.stringify({ name: 'Ada', email: 'ada@example.com' }))
       )
     ).toEqual({ created: 'Ada' })
   })
 
   it('lets malformed JSON reach an `errors`-only POST untouched', async () => {
     // No validation declared, so nothing reads the body before the handler.
-    expect(await $fetch('/api/notes', jsonPost('{"name":'))).toEqual({
+    expect(await $fetch('/api/notes', postJson('{"name":'))).toEqual({
       reached: true,
       raw: '{"name":',
     })
   })
 
   it('answers malformed JSON on a validating POST with the body issue', async () => {
-    const response = await fetch('/api/users', jsonPost('{"name":', firstParty))
+    const response = await fetch('/api/users', postJson('{"name":', firstParty))
 
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual(variantBody([UNPARSEABLE_BODY]))
@@ -179,7 +180,7 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     const responses = await Promise.all([
       fetch('/api/search?page=nope', { headers: firstParty }),
       fetch('/api/search?page=nope', { headers: thirdParty }),
-      fetch('/api/users', jsonPost('{"name":', firstParty)),
+      fetch('/api/users', postJson('{"name":', firstParty)),
     ])
 
     for (const response of responses) {
@@ -225,7 +226,7 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     // source arrives together, and the success path is untouched.
     const response = await fetch(
       '/api/users',
-      jsonPost(JSON.stringify({ name: '', email: 'nope' }), thirdParty)
+      postJson(JSON.stringify({ name: '', email: 'nope' }), thirdParty)
     )
 
     expect(response.status).toBe(400)
@@ -242,27 +243,4 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
       },
     })
   })
-}
-
-/**
- * A POST carrying an already-serialized payload. Typed structurally rather
- * than as `RequestInit`, because it is handed to both `fetch` and ofetch's
- * `$fetch`.
- */
-interface JsonPost {
-  method: 'POST'
-  headers: Record<string, string>
-  body: string
-}
-
-/** The caller's headers land last. */
-function jsonPost(
-  body: string,
-  headers: Record<string, string> = {}
-): JsonPost {
-  return {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
-    body,
-  }
 }

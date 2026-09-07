@@ -1,20 +1,21 @@
 /**
- * The `#app` double, wired in by `vitest.config.ts`'s alias - `#app` only
- * exists inside a Nuxt build. It records what the wrappers handed vanilla and
- * simulates nothing; the composables running for real is the e2e tier.
+ * The `#app` double, wired in by each module's `vitest.config.ts` alias -
+ * `#app` only exists inside a Nuxt build. It records what the wrappers handed
+ * vanilla and simulates nothing; the composables running for real is the e2e
+ * tier. Typed off vanilla's own signatures, so it serves every module that
+ * wraps them.
  */
 
+import type { H3Event } from 'h3'
+import type {
+  useAsyncData as vanillaUseAsyncData,
+  useFetch as vanillaUseFetch,
+} from 'nuxt/app'
 import { shallowRef } from 'vue'
-import type {
-  VanillaFetchArgs,
-  VanillaFetchResult,
-} from '../../src/runtime/app/composables/fetch-wrapper'
-import type {
-  VanillaAsyncDataArg,
-  VanillaAsyncDataResult,
-} from '../../src/runtime/app/composables/use-checked-async-data'
-import { isString } from '../../src/runtime/shared/primitives'
-import type { CheckedFetch } from '../../src/runtime/types'
+import { z } from 'zod'
+
+type VanillaFetchArgs = Parameters<typeof vanillaUseFetch>
+type VanillaAsyncDataArg = Parameters<typeof vanillaUseAsyncData>[number]
 
 /** One recorded call, split as vanilla's own runtime splits its three arguments. */
 export interface RecordedCall {
@@ -27,16 +28,20 @@ export interface RecordedCall {
 export const calls: RecordedCall[] = []
 
 // What the double hands back: the two refs a caller destructures, empty.
-// The wrappers never read the result; the shape is vanilla's for the
-// module layer that types the composable over it.
-const emptyResult = (): Pick<VanillaFetchResult, 'data' | 'error'> => ({
+// The wrappers never read the result; the shape is vanilla's for the module
+// layer that types the composable over it, and the same for both families.
+const emptyResult = () => ({
   data: shallowRef(undefined),
   error: shallowRef(undefined),
 })
 
+// A string in vanilla's second slot is the injected auto-key, not options.
+const isKey = (arg: VanillaFetchArgs[1]): arg is string =>
+  z.string().safeParse(arg).success
+
 function record(name: RecordedCall['name']) {
   return (...[request, arg1, arg2]: VanillaFetchArgs) => {
-    const [opts, autoKey] = isString(arg1) ? [undefined, arg1] : [arg1, arg2]
+    const [opts, autoKey] = isKey(arg1) ? [undefined, arg1] : [arg1, arg2]
 
     calls.push({ name, request, opts, autoKey })
 
@@ -58,19 +63,11 @@ export interface RecordedAsyncDataCall {
 
 export const asyncDataCalls: RecordedAsyncDataCall[] = []
 
-const emptyAsyncDataResult = (): Pick<
-  VanillaAsyncDataResult,
-  'data' | 'error'
-> => ({
-  data: shallowRef(undefined),
-  error: shallowRef(undefined),
-})
-
 function recordAsyncData(name: RecordedAsyncDataCall['name']) {
   return (...args: readonly VanillaAsyncDataArg[]) => {
     asyncDataCalls.push({ name, args })
 
-    return emptyAsyncDataResult()
+    return emptyResult()
   }
 }
 
@@ -79,8 +76,12 @@ export const useLazyAsyncData = recordAsyncData('useLazyAsyncData')
 
 export const defineNuxtPlugin = <T>(plugin: T): T => plugin
 
-/** What `useRequestEvent()` answers next; `undefined` is the no-request case. */
-type RequestEvent = { $checkedFetch: CheckedFetch } | undefined
+/**
+ * What `useRequestEvent()` answers next; `undefined` is the no-request case.
+ * Each module reads its own injected member off the event, so a suite hands
+ * over just that slice.
+ */
+type RequestEvent = Partial<H3Event> | undefined
 
 let requestEvent: RequestEvent
 

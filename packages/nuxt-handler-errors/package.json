@@ -110,6 +110,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@dphonys/test-utils": "workspace:*",
     "@nuxt/devtools": "catalog:",
     "@nuxt/module-builder": "catalog:",
     "@nuxt/schema": "catalog:",

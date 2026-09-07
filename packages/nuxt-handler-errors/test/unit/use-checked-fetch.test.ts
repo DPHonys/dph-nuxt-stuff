@@ -1,3 +1,5 @@
+import { setConfiguredChannelToken } from '@dphonys/test-utils/doubles/channel-token'
+import { calls } from '@dphonys/test-utils/doubles/nuxt-app'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ref, toValue } from 'vue'
 import { z } from 'zod'
@@ -6,8 +8,6 @@ import {
   useLazyCheckedFetch,
 } from '../../src/runtime/app/composables/use-checked-fetch'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
-import { setConfiguredChannelToken } from '../doubles/channel-token'
-import { calls } from '../doubles/nuxt-app'
 
 // The header merge, composable form. The `#app` double records the three
 // arguments the wrapper passed on; the composable *running* against a real

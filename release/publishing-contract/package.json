@@ -9,6 +9,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@dphonys/test-utils": "workspace:*",
     "vitest": "catalog:",
     "yaml": "catalog:"
   }

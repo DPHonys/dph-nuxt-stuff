@@ -1,3 +1,7 @@
+import {
+  asyncDataCalls,
+  useAsyncData,
+} from '@dphonys/test-utils/doubles/nuxt-app'
 import { createError } from 'h3'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ref } from 'vue'
@@ -9,7 +13,6 @@ import {
   wrapRawAsyncData,
 } from '../../src/runtime/app/composables/use-checked-async-data'
 import { functionSchema } from '../../src/runtime/shared/primitives'
-import { asyncDataCalls, useAsyncData } from '../doubles/nuxt-app'
 
 // The wrapper must replace the right argument (vanilla's own split, not
 // "argument 0"), forward everything else by reference, and the substituted
@@ -48,13 +51,9 @@ function substituted(): AsyncDataHandler<User> {
 
   // The *last* function argument: a getter key is a function too, and it can
   // only ever sit before the handler.
-  const handler = last.args.findLast(
-    (arg) => functionSchema.safeParse(arg).success
-  )
+  const handler = last.args.findLast(isSubstituted)
 
-  if (handler === undefined || !isSubstituted(handler)) {
-    throw new Error('no handler was forwarded')
-  }
+  if (handler === undefined) throw new Error('no handler was forwarded')
 
   return handler
 }

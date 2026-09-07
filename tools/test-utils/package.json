@@ -1,0 +1,22 @@
+{
+  "name": "@dphonys/test-utils",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Test doubles and harness helpers shared by the workspace suites; source is consumed directly, nothing is built or published.",
+  "type": "module",
+  "exports": {
+    "./h3-app": "./src/h3-app.ts",
+    "./json": "./src/json.ts",
+    "./run": "./src/run.ts",
+    "./doubles/channel-token": "./src/doubles/channel-token.ts",
+    "./doubles/nitro-runtime": "./src/doubles/nitro-runtime.ts",
+    "./doubles/nuxt-app": "./src/doubles/nuxt-app.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "h3": "catalog:",
+    "nuxt": "catalog:",
+    "vue": "catalog:",
+    "zod": "catalog:"
+  }
+}

@@ -5,17 +5,13 @@ import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { TypesPathsHost } from '../../src/build/parent-types-paths'
 import { addParentTypesPaths } from '../../src/build/parent-types-paths'
+import { PARENT_SPECIFIERS } from '../parent-specifiers'
 
 // Which *location* the parents' declarations are resolved from. The e2e suite
 // reads the entries off the generated tsconfigs; the claim here is the one
 // that suite cannot make, because it runs with the package root as the
 // working directory: an app installs the umbrella alone, so the answer must
 // come from the umbrella's own location and from nowhere else.
-
-const PARENT_SPECIFIERS = [
-  '@dphonys/nuxt-handler-errors/types',
-  '@dphonys/nuxt-handler-validation/types',
-]
 
 /** The slice of a tsconfig the entry is written on. */
 interface TsConfig {

@@ -6,6 +6,7 @@
     "test": "vitest run tests"
   },
   "devDependencies": {
+    "@dphonys/test-utils": "workspace:*",
     "vitest": "catalog:",
     "zod": "catalog:"
   }

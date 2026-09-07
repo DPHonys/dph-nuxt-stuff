@@ -39,6 +39,12 @@ export function knownFailure<E extends KnownVariant>(
   })
 }
 
+/** What a fake fetcher resolves with: a body, as the fetch underneath decided. */
+export type Body = string | { id: string }
+
+/** What a fake fetcher does next: resolve with this, or reject with it. */
+export type Outcome = { resolve: Body } | { reject: unknown }
+
 /** Whether a call threw, and with what. */
 export type Settled<T> =
   | { readonly threw: false; readonly value: T }

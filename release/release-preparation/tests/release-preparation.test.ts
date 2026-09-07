@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { runSucceeding } from '@dphonys/test-utils/run'
 import { once } from 'node:events'
 import {
   mkdtemp,
@@ -491,41 +491,10 @@ async function run(
   arguments_: string[],
   cwd: string
 ): Promise<CommandResult> {
-  const result = await new Promise<CommandResult & { exitCode: number | null }>(
-    (settle, reject) => {
-      const child = spawn(executable, arguments_, {
-        cwd,
-        env: {
-          ...process.env,
-          CI: 'true',
-          FORCE_COLOR: '0',
-          NO_COLOR: '1',
-        },
-        timeout: 30_000,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      let stdout = ''
-      let stderr = ''
-      child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
-        stdout += chunk
-      })
-      child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
-        stderr += chunk
-      })
-      child.once('error', reject)
-      child.once('close', (exitCode) => settle({ exitCode, stdout, stderr }))
-    }
-  )
-  if (result.exitCode !== 0) {
-    throw new Error(
-      [
-        `${executable} ${arguments_.join(' ')} exited with ${result.exitCode ?? 'a signal'}`,
-        result.stdout,
-        result.stderr,
-      ]
-        .filter((part) => part.trim())
-        .join('\n')
-    )
-  }
-  return { stdout: result.stdout, stderr: result.stderr }
+  const { stdout, stderr } = await runSucceeding(executable, arguments_, {
+    cwd,
+    env: { CI: 'true', FORCE_COLOR: '0', NO_COLOR: '1' },
+    timeout: 30_000,
+  })
+  return { stdout, stderr }
 }

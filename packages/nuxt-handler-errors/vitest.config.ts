@@ -1,24 +1,17 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
+// The build-only specifiers, pointed at the shared doubles by their package
+// subpath so the files move without touching this config.
+const double = (name: string): string =>
+  fileURLToPath(import.meta.resolve(`@dphonys/test-utils/doubles/${name}`))
+
 const aliases = [
-  {
-    find: /^#app$/,
-    replacement: fileURLToPath(
-      new URL('./test/doubles/nuxt-app.ts', import.meta.url)
-    ),
-  },
-  {
-    find: /^nitropack\/runtime$/,
-    replacement: fileURLToPath(
-      new URL('./test/doubles/nitro-runtime.ts', import.meta.url)
-    ),
-  },
+  { find: /^#app$/, replacement: double('nuxt-app') },
+  { find: /^nitropack\/runtime$/, replacement: double('nitro-runtime') },
   {
     find: /^#nuxt-handler-errors\/channel-token$/,
-    replacement: fileURLToPath(
-      new URL('./test/doubles/channel-token.ts', import.meta.url)
-    ),
+    replacement: double('channel-token'),
   },
 ]
 

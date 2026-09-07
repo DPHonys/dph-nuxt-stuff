@@ -6,6 +6,7 @@ import {
 } from '../../src/runtime/server/lib/event-checked-fetch'
 import type { RawEventFetch } from '../../src/runtime/server/lib/event-checked-fetch'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
+import type { Body, Outcome } from '../fetch-channel'
 import { knownFailure, settled } from '../fetch-channel'
 
 // The run-time half of `event.$checkedFetch`. The fake here deliberately
@@ -51,11 +52,8 @@ interface Recorded {
 
 const calls: Recorded[] = []
 
-/** What the fake resolves with: a body, as the fetch underneath decided. */
-type Body = string | { id: string }
-
-/** What the fake does next: resolve with this, or reject with it. */
-let outcome: { resolve: Body } | { reject: unknown } = { resolve: 'ok' }
+/** What the fake does next. */
+let outcome: Outcome = { resolve: 'ok' }
 
 /** `event.$fetch`, modelling h3's single-spread header merge. */
 function fakeEventFetch(): RawEventFetch<Body> {

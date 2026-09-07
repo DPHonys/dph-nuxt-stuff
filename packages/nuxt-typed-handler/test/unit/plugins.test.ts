@@ -1,8 +1,8 @@
 import type { RawEventFetch } from '@dphonys/nuxt-handler-errors/internals/server'
 import { EventFetchUnavailableError } from '@dphonys/nuxt-handler-errors/internals/server'
 import { CHANNEL_HEADER } from '@dphonys/nuxt-handler-errors/internals/shared'
+import { setConfiguredChannelToken } from '@dphonys/test-utils/doubles/channel-token'
 import type { NitroFetchRequest, NitroRuntimeHooks } from 'nitropack/types'
-import type { $Fetch as OfetchInstance } from 'ofetch'
 import { createFetch } from 'ofetch'
 import { afterEach, describe, expect, it } from 'vitest'
 import clientPlugin from '../../src/runtime/app/plugins/typed-fetch.client'
@@ -19,26 +19,13 @@ import {
   $typedFetch,
   installTypedFetchGlobal,
 } from '../../src/runtime/shared/typed-fetch'
-import { setConfiguredChannelToken } from '../doubles/channel-token'
+import { globals } from '../doubles/fetch-globals'
 
 // What each of the three plugins does, not how it is registered - the aliased
 // doubles hand each setup function back unchanged. Registration is module
 // wiring, and its own test. The runtime underneath is the errors parent's
 // factories; what is asserted here is the umbrella's binding of them: its
 // own global, its own alias's token.
-
-/**
- * `globalThis`, with the two fetch globals as the slots they are at runtime:
- * absent until a plugin installs them, and `$fetch` any ofetch instance -
- * Nitro's declarations say otherwise, and a suite has to put them back that
- * way.
- */
-interface FetchGlobals {
-  $typedFetch?: typeof globalThis.$typedFetch
-  $fetch?: typeof globalThis.$fetch | OfetchInstance
-}
-
-const globals: FetchGlobals = globalThis
 
 /** The headers of every request a fetch double received, flattened. */
 type SentHeaders = Record<string, string>[]

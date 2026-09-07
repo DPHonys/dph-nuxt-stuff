@@ -1,4 +1,5 @@
-import { spawn } from 'node:child_process'
+import { readJson } from '@dphonys/test-utils/json'
+import { runSucceeding } from '@dphonys/test-utils/run'
 import {
   cp,
   lstat,
@@ -158,11 +159,9 @@ describe('disposable Acceptance fixture', () => {
     const nuxtPackages = z
       .array(
         z.object({
-          devDependencies: z.optional(
-            z.object({
-              nuxt: z.optional(z.object({ version: z.string() })),
-            })
-          ),
+          devDependencies: z
+            .object({ nuxt: z.object({ version: z.string() }).optional() })
+            .optional(),
         })
       )
       .parse(
@@ -395,44 +394,17 @@ async function createDisposableRepository(): Promise<string> {
   return repositoryRoot
 }
 
+/** A repository command that must succeed; only its stdout is read. */
 async function run(
   command: string,
   arguments_: string[],
   options: { cwd: string }
 ): Promise<string> {
-  const result = await new Promise<{
-    exitCode: number | null
-    stdout: string
-    stderr: string
-  }>((settle, reject) => {
-    const child = spawn(command, arguments_, {
-      cwd: options.cwd,
-      env: { ...process.env, CI: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    let stdout = ''
-    let stderr = ''
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
-      stdout += chunk
-    })
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
-      stderr += chunk
-    })
-    child.once('error', reject)
-    child.once('close', (exitCode) => settle({ exitCode, stdout, stderr }))
+  const { stdout } = await runSucceeding(command, arguments_, {
+    cwd: options.cwd,
+    env: { CI: '1' },
   })
-  if (result.exitCode !== 0) {
-    throw new Error(
-      [
-        `${command} ${arguments_.join(' ')} exited with ${result.exitCode ?? 'a signal'}`,
-        result.stdout,
-        result.stderr,
-      ]
-        .filter(Boolean)
-        .join('\n')
-    )
-  }
-  return result.stdout
+  return stdout
 }
 
 async function listFiles(root: string, current = ''): Promise<string[]> {
@@ -467,19 +439,6 @@ function compareVersions(left: string, right: string): number {
       return (a[index] ?? 0) - (b[index] ?? 0)
   }
   return 0
-}
-
-/** The values `JSON.parse` can produce. */
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-async function readJson(file: string): Promise<JsonValue> {
-  return JSON.parse(await readFile(file, 'utf8'))
 }
 
 async function pathExists(path: string): Promise<boolean> {

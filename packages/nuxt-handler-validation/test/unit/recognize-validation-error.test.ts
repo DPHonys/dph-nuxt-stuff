@@ -8,7 +8,7 @@ import {
   recognizeValidationError,
 } from '../../src/runtime/server'
 import type { JsonValue } from '../../src/runtime/server/lib/sources'
-import { postJson, requestReporting, wire } from '../h3-app'
+import { isIssuesPayload, postJson, requestReporting, wire } from '../h3-app'
 
 // The observability read, from the seat that consumes it: h3's `onError` hook,
 // where a Nitro `error` hook sits.
@@ -38,29 +38,11 @@ function markedByAnotherCopy(payload: JsonValue): H3Error {
 async function reportedBy(
   handler: EventHandler,
   path: string,
-  init?: RequestInit
+  options: { init?: RequestInit } = {}
 ): Promise<H3Error> {
-  const { thrown } =
-    init === undefined
-      ? await requestReporting(handler, path)
-      : await requestReporting(handler, path, { init })
+  const { thrown } = await requestReporting(handler, path, options)
 
   return thrown
-}
-
-/** The wire payload as the error carries it, narrowed in place - no copy. */
-const WIRE_DATA = z.looseObject({
-  issues: z.array(
-    z.looseObject({
-      source: z.string(),
-      message: z.string(),
-      path: z.array(z.union([z.string(), z.number()])),
-    })
-  ),
-})
-
-function isWireData(value: unknown): value is z.infer<typeof WIRE_DATA> {
-  return WIRE_DATA.safeParse(value).success
 }
 
 describe('a validation failure at the error hook', () => {
@@ -94,7 +76,7 @@ describe('a validation failure at the error hook', () => {
     const reported = await reportedBy(failingHandler, '/api/test?page=nope')
     const { data } = reported
 
-    if (!isWireData(data)) throw new Error('the 400 carries no issues')
+    if (!isIssuesPayload(data)) throw new Error('the 400 carries no issues')
 
     const [first] = data.issues
 
@@ -120,11 +102,9 @@ describe('a validation failure at the error hook', () => {
       () => 'the body never runs'
     )
 
-    const reported = await reportedBy(
-      bodyHandler,
-      '/api/test',
-      postJson('{ not json at all')
-    )
+    const reported = await reportedBy(bodyHandler, '/api/test', {
+      init: postJson('{ not json at all'),
+    })
 
     // A client mistake like any other, so the absorbed 4xx is marked exactly as
     // a rejecting schema is.

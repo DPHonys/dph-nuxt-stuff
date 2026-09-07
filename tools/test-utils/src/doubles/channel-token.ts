@@ -1,6 +1,6 @@
 /**
- * The `#nuxt-handler-errors/channel-token` double, wired in by
- * `vitest.config.ts`'s alias. The real specifier resolves to a template the
+ * The `#<module>/channel-token` double, wired in by each module's
+ * `vitest.config.ts` alias. The real specifier resolves to a template the
  * module writes at build time; this stands in with a settable live binding so
  * suites can vary the token. The default is no token.
  */
