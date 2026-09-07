@@ -1,5 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { createError } from 'h3'
+import { z } from 'zod'
 import { markValidationError } from '../../shared/error-marker'
 import type {
   ValidationErrorData,
@@ -32,10 +33,20 @@ export function projectIssues(
   }))
 }
 
-// The null check is not redundant: `typeof null === 'object'`, so without it a
-// `null` segment - which the interface forbids and a hand-written schema can
-// still produce - is dereferenced, throwing from inside the `400` this is
-// building and turning a validation failure into an unhandled `500`.
+/** The two key shapes a projected path carries; everything else stringifies. */
+const PATH_KEY = z.union([z.string(), z.number()])
+
+function isPathKey(value: unknown): value is string | number {
+  return PATH_KEY.safeParse(value).success
+}
+
+// A segment is a key or an object carrying one. The explicit `null` guard keeps
+// a `null` segment - which the interface forbids and a hand-written schema can
+// still produce - on the key side, where it stringifies instead of being
+// dereferenced from inside the `400` this is building. `typeof` rather than
+// `instanceof Object` is what keeps a null-prototype segment on the object side:
+// it is a valid carrier of `key`, and `String()` on it would throw. Either slip
+// would turn a validation failure into an unhandled `500`.
 function projectPath(
   path: StandardSchemaV1.Issue['path']
 ): Array<string | number> {
@@ -45,9 +56,7 @@ function projectPath(
     const key =
       segment !== null && typeof segment === 'object' ? segment.key : segment
 
-    return typeof key === 'string' || typeof key === 'number'
-      ? key
-      : String(key)
+    return isPathKey(key) ? key : String(key)
   })
 }
 

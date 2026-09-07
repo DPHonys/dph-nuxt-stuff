@@ -82,7 +82,8 @@
   "dependencies": {
     "@nuxt/kit": "catalog:",
     "@standard-schema/spec": "catalog:",
-    "h3": "catalog:"
+    "h3": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@nuxt/devtools": "catalog:",
@@ -95,8 +96,7 @@
     "typescript": "catalog:",
     "valibot": "catalog:",
     "vitest": "catalog:",
-    "vue-tsc": "catalog:",
-    "zod": "catalog:"
+    "vue-tsc": "catalog:"
   },
   "peerDependencies": {
     "nuxt": ">=4.5.1 <5.0.0"

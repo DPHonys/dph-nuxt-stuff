@@ -33,12 +33,16 @@ export function defineValidatedEventHandler<
   options: { validate: S & ValidationSchemasGuard<S> },
   handler: (event: H3Event<Request>, validated: ValidatedContext<S>) => Response
 ): ValidatedEventHandler<Request, Response, RequestInput<S>> {
-  const plan = sourcePlan(options.validate)
+  // Planned over `S` alone: the guard is a compile-time refusal, not a slot.
+  const plan = sourcePlan<S>(options.validate)
 
-  // Cast because the wrapper always hands h3 one promise, while the public
-  // signature reports the handler's own `Response` for Nitro's typed routes.
+  // SAFETY: `defineEventHandler` types its product by the one promise the
+  // wrapper always returns, while the public signature reports the handler's
+  // own `Response`, so Nitro's typed routes see the success type rather than
+  // the wrapper's promise of it. The phantom Request-input slot is optional and
+  // never assigned, so the h3 handler satisfies it as it is.
   return defineEventHandler(async (event: H3Event<Request>) =>
-    handler(event, (await validatedContext(event, plan)) as ValidatedContext<S>)
+    handler(event, await validatedContext(event, plan))
   ) as ValidatedEventHandler<Request, Response, RequestInput<S>>
 }
 
@@ -53,15 +57,17 @@ export function defineValidatedEventHandler<
  * })
  * ```
  *
- * Only a `400` validation failure is marked - every developer mistake this
- * package raises carries no marker, so the early return cannot swallow a bug.
- * The marker is a non-serialized symbol: recognition works on the live server
- * error, never on a payload that already crossed the wire.
+ * Takes the `Error` a hook is handed; a `catch` narrows with `instanceof Error`
+ * first, since only an `Error` can carry the marker. Only a `400` validation
+ * failure is marked - every developer mistake this package raises carries no
+ * marker, so the early return cannot swallow a bug. The marker is a
+ * non-serialized symbol: recognition works on the live server error, never on
+ * a payload that already crossed the wire.
  */
 // The sibling's recognizer also checks `unhandled === false`; that half is
 // dropped here because the non-serialized marker already cannot cross the wire.
 export function recognizeValidationError(
-  error: unknown
+  error: Error
 ): ValidationErrorData | undefined {
   // The symbol and nothing else - never `error.cause`, because a deliberate
   // re-wrap is the caller choosing to raise a report of their own.
