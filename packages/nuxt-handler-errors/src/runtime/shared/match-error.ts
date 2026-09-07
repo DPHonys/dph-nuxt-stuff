@@ -2,35 +2,18 @@ import type { NuxtError } from 'nuxt/app'
 import type { MaybeRef } from 'vue'
 import { unref } from 'vue'
 import type { KnownVariant } from '../types/known-error'
-import type { Fallback, MatchError } from '../types/matcher'
-import { KNOWN_ERROR_KEY } from './wire'
-
-// Presence is not enough: `tag` and `status` are verified, so a
-// present-but-malformed marker reads as unknown.
-function readMarker(container: unknown): KnownVariant | undefined {
-  const marker = (container as Record<string, unknown> | null | undefined)?.[
-    KNOWN_ERROR_KEY
-  ]
-
-  return typeof marker === 'object' &&
-    marker !== null &&
-    typeof (marker as KnownVariant).tag === 'string' &&
-    typeof (marker as KnownVariant).status === 'number'
-    ? (marker as KnownVariant)
-    : undefined
-}
+import type { Arms, Fallback, MatchError } from '../types/matcher'
+import { isMarkedError, markerOf } from './wire'
 
 /**
  * The variant an error carries, or `undefined` for "not a known failure".
  * Reads both wire depths: `data.<marker>` (the raise site's own throw) and
- * `data.data.<marker>` (a fetched carrier).
+ * `data.data.<marker>` (a fetched carrier). Every error surface this module
+ * meets - h3's, Nuxt's, ofetch's - throws an `Error`; the marker parse
+ * decides what is on it.
  */
-export function readFloor(error: unknown): KnownVariant | undefined {
-  const data = (error as { data?: unknown } | null | undefined)?.data
-
-  return (
-    readMarker(data) ?? readMarker((data as { data?: unknown } | null)?.data)
-  )
+export function readFloor(error: Error): KnownVariant | undefined {
+  return isMarkedError(error) ? markerOf(error) : undefined
 }
 
 /**
@@ -51,12 +34,18 @@ export function readFloor(error: unknown): KnownVariant | undefined {
  * )
  * ```
  */
-export const matchError: MatchError = (
-  error: MaybeRef<unknown>,
-  arms: Record<string, unknown>,
+export const matchError: MatchError = dispatchOnFloor
+
+/**
+ * The matcher's one runtime signature, which every overload of `matchError`
+ * narrows: the arms are keyed by whatever tag the wire carries.
+ */
+export function dispatchOnFloor(
+  error: MaybeRef<NuxtError | null | undefined>,
+  arms: Arms<KnownVariant>,
   fallback: Fallback
-): void => {
-  const err: unknown = unref(error)
+): void {
+  const err = unref(error)
   if (err === null || err === undefined) return
 
   const variant = readFloor(err)
@@ -68,10 +57,10 @@ export const matchError: MatchError = (
       ? arms[variant.tag]
       : undefined
 
-  if (variant !== undefined && typeof arm === 'function') {
-    ;(arm as (v: KnownVariant) => void)(variant)
+  if (variant !== undefined && arm !== undefined) {
+    arm(variant)
     return
   }
 
-  fallback(err as NuxtError, variant)
+  fallback(err, variant)
 }

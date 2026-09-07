@@ -1,6 +1,8 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Error } from 'h3'
 import { createError } from 'h3'
+import type { PlainObject } from '../../shared/plain-object'
+import { isPlainObject } from '../../shared/plain-object'
 import type { DeclaredError } from './declared'
 import { createKnownError, factoryName } from './declared'
 
@@ -12,6 +14,12 @@ function invalidPayload(): H3Error {
   })
 }
 
+// What a payload may be once the wire has settled it: an object - not an
+// array, not a primitive - that does not spoof either reserved name.
+function isPayloadFields(settled: unknown): settled is PlainObject {
+  return isPlainObject(settled) && !('tag' in settled) && !('status' in settled)
+}
+
 // A JSON round trip snapshots the output and settles `toJSON`, dates and
 // dropped fields the way the wire would; the parsed result is what the
 // client will read, so that is what the reserved-key check runs on.
@@ -21,32 +29,32 @@ function payloadError(
   result: StandardSchemaV1.Result<unknown>
 ): H3Error {
   if (result.issues) return invalidPayload()
-  let fields: unknown
+  let settled: unknown
   try {
-    fields = JSON.parse(JSON.stringify(result.value))
+    settled = JSON.parse(JSON.stringify(result.value))
   } catch {
     return invalidPayload()
   }
-  if (
-    fields === null ||
-    typeof fields !== 'object' ||
-    Array.isArray(fields) ||
-    'tag' in fields ||
-    'status' in fields
-  ) {
-    return invalidPayload()
-  }
-  return createKnownError(tag, status, fields as Record<string, unknown>)
+  return isPayloadFields(settled)
+    ? createKnownError(tag, status, settled)
+    : invalidPayload()
+}
+
+/** One handler-local factory: the declared payload in, a finished `H3Error` out. */
+export type ErrorFactory = (...args: any[]) => H3Error
+
+/** The handler context as the runtime builds it: one factory per declared tag. */
+export interface ErrorContext {
+  readonly errors: Record<string, ErrorFactory>
 }
 
 /** Internal composition seam. Resolve declarations before constructing context. */
-export function createErrorContext(declared: readonly DeclaredError[]): {
-  errors: Record<string, (...args: any[]) => H3Error>
-} {
-  const errors = Object.create(null) as Record<
-    string,
-    (...args: any[]) => H3Error
-  >
+export function createErrorContext(
+  declared: readonly DeclaredError[]
+): ErrorContext {
+  // Prototype-less, so a tag like `constructor` is an own factory and nothing
+  // else; `Object.create(null)` is untyped, and the annotation types it.
+  const errors: Record<string, ErrorFactory> = Object.create(null)
   for (const { tag, status, schema } of declared) {
     const standard = schema?.['~standard']
     // Bound once: a schema swapped after declaration is not consulted.

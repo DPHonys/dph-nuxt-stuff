@@ -228,6 +228,6 @@ async function rejectionOf(
 ): Promise<any> {
   return $fetch(path, { headers }).then(
     () => undefined,
-    (thrown: unknown) => thrown
+    (thrown) => thrown
   )
 }

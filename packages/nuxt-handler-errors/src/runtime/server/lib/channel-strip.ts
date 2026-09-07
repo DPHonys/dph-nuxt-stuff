@@ -6,31 +6,52 @@ import {
   setResponseStatus,
 } from 'h3'
 import type { NitroErrorHandler } from 'nitropack/types'
+import { z } from 'zod'
 import { CHANNEL_HEADER } from '../../shared/channel'
 import { readFloor } from '../../shared/match-error'
-import { KNOWN_ERROR_KEY } from '../../shared/wire'
+import type { KnownErrorKey } from '../../shared/wire'
+import { KNOWN_ERROR_KEY, variantSchema } from '../../shared/wire'
 
-// Strips the marker at either depth the wire uses - `data.<marker>` for the
-// route's own raise, `data.data.<marker>` for a rethrown fetched carrier.
+// The builtin's serialized body, at the depth the recognizer read the marker
+// from: `data.<marker>` for the route's own raise, `data.data.<marker>` for a
+// rethrown fetched carrier. Loose at every level - a consumer's own sibling
+// keys, and dev's `stack`, ride through untouched.
+const markerHost = z.looseObject({ [KNOWN_ERROR_KEY]: variantSchema })
+
+const markedBodySchema = z.looseObject({
+  data: z.union([markerHost, z.looseObject({ data: markerHost })]),
+})
+
+type MarkedBody = z.infer<typeof markedBodySchema>
+type RaisedData = z.infer<typeof markerHost>
+
+// A guard over the builtin's own body rather than zod's copy, so the keys
+// go back out in the order the builtin wrote them.
+function isMarkedBody(body: unknown): body is MarkedBody {
+  return markedBodySchema.safeParse(body).success
+}
+
+// The depth the recognizer read from, decided by the schema rather than by
+// key presence - a consumer's own sibling keys may include `data`.
+function isRaisedData(data: MarkedBody['data']): data is RaisedData {
+  return markerHost.safeParse(data).success
+}
+
 // Built by spread throughout so the thrown error's own `data` object is left
 // untouched. A `data` left with no other key is dropped rather than sent as
 // `{}` - `undefined` is the shape the builtin itself sends.
-function withoutMarker(data: unknown): unknown {
-  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-    return data
-  }
-
-  const record = data as Record<string, unknown>
-
-  if (KNOWN_ERROR_KEY in record) {
-    const { [KNOWN_ERROR_KEY]: _marker, ...rest } = record
+function withoutMarker(
+  data: MarkedBody['data']
+): Omit<RaisedData, KnownErrorKey> | undefined {
+  if (isRaisedData(data)) {
+    const { [KNOWN_ERROR_KEY]: _marker, ...rest } = data
 
     return Object.keys(rest).length > 0 ? rest : undefined
   }
 
-  return 'data' in record
-    ? { ...record, data: withoutMarker(record.data) }
-    : record
+  const { [KNOWN_ERROR_KEY]: _marker, ...rest } = data.data
+
+  return { ...data, data: Object.keys(rest).length > 0 ? rest : undefined }
 }
 
 /**
@@ -50,8 +71,9 @@ export function createChannelStripHandler(
 
     const res = await defaultHandler(error, event)
 
-    // A non-object body is the dev builtin's youch HTML page - nothing to strip.
-    if (typeof res.body !== 'object' || res.body === null) return
+    // A body without the marker is the dev builtin's youch HTML page -
+    // nothing to strip.
+    if (!isMarkedBody(res.body)) return
 
     const body = { ...res.body, data: withoutMarker(res.body.data) }
 

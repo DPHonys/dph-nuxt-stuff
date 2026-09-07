@@ -3,31 +3,31 @@
  * is not matched as a suite; knip reaches it through the suites importing it.
  */
 
-import type { EventHandler } from 'h3'
+import type { AppOptions, EventHandler, H3Error } from 'h3'
 import { createApp, createRouter, toWebHandler } from 'h3'
 
-/**
- * Mount one handler and send it a request.
- *
- * `debug` is h3's verbose-errors switch, the knob a Nitro dev build turns on.
- * `route` mounts on h3's own router rather than the plain prefix, which is the
- * only way to get real route params. `onError` is h3's error hook, the only
- * place a suite sees the thrown error rather than its serialized body.
- */
+/** The knobs one mounted request takes. */
+export interface RequestOptions {
+  init?: RequestInit
+  /** h3's verbose-errors switch, the knob a Nitro dev build turns on. */
+  debug?: boolean
+  /** Mounts on h3's own router, the only way to get real route params. */
+  route?: string
+  /** h3's error hook: the only place a suite sees the thrown error itself. */
+  onError?: (error: H3Error) => void
+}
+
+/** Mount one handler and send it a request for `path`. */
 export function request(
   handler: EventHandler,
   path: string,
-  options: {
-    init?: RequestInit
-    debug?: boolean
-    route?: string
-    onError?: (error: unknown) => void
-  } = {}
+  options: RequestOptions = {}
 ): Promise<Response> {
-  const app = createApp({
-    debug: options.debug ?? false,
-    ...(options.onError === undefined ? {} : { onError: options.onError }),
-  })
+  const appOptions: AppOptions = { debug: options.debug ?? false }
+
+  if (options.onError !== undefined) appOptions.onError = options.onError
+
+  const app = createApp(appOptions)
 
   if (options.route === undefined) {
     app.use('/api/test', handler)
@@ -53,4 +53,13 @@ export function postJson(
     headers: { 'content-type': 'application/json', ...headers },
     body: payload,
   }
+}
+
+/** The first error a suite's `onError` saw; none is a failed expectation. */
+export function firstError(seen: readonly H3Error[]): H3Error {
+  const [error] = seen
+
+  if (error === undefined) throw new Error('no error reached onError')
+
+  return error
 }

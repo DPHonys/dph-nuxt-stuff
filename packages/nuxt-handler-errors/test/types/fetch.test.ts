@@ -1,4 +1,5 @@
 import { defineEventHandler } from 'h3'
+import type { NuxtError } from 'nuxt/app'
 import { it } from 'vitest'
 import { matchError } from '../../src/runtime/shared'
 import type { CheckedFetch } from '../../src/runtime/types'
@@ -25,7 +26,7 @@ type _MapCarriesTheFixtureRoutes = Expect<
 
 declare function snack(message: string): void
 declare function report(message: string): void
-declare function showError(error: unknown): void
+declare function showError(error: NuxtError): void
 declare function notFound(id: string): void
 declare function blocked(until: string): void
 declare function render(user: User): void
@@ -161,12 +162,22 @@ export async function nativePassesThrough(): Promise<number> {
   return res.status
 }
 
-/** The throwing form is vanilla's: the union does not survive a `throw`. */
+// Declared rather than imported: it lives behind `#app`, which does not
+// resolve under a plain `vitest run`.
+declare const isNuxtError: typeof import('nuxt/app').isNuxtError
+
+/**
+ * The throwing form is vanilla's: the union does not survive a `throw`, and
+ * a `catch` variable is `unknown` - Nuxt's own guard is the parse that gets
+ * it to the degraded overload.
+ */
 export async function throwingPathReadsTheFloor(): Promise<void> {
   try {
     render(await $checkedFetch('/api/users/:id'))
   } catch (e) {
-    // @ts-expect-error - degraded only; both overloads fail on an `unknown`
+    if (!isNuxtError(e)) throw e
+
+    // @ts-expect-error - degraded only; a vanilla error carries no union
     matchError(e, { forbidden: () => snack('nope') }, (err) => showError(err))
 
     matchError(e, {}, (err, unrecognized) => {

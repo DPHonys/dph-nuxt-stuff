@@ -1,3 +1,4 @@
+import type { NuxtError } from 'nuxt/app'
 import { it } from 'vitest'
 import { watch } from 'vue'
 import { matchError } from '../../src/runtime/shared'
@@ -20,7 +21,7 @@ type Expect<T extends true> = T
 
 declare function snack(message: string): void
 declare function report(message: string): void
-declare function showError(error: unknown): void
+declare function showError(error: NuxtError): void
 declare function notFound(id: string): void
 declare function blocked(until: string): void
 

@@ -3,9 +3,11 @@
 // handler PATHS, never definition content - anything resolving values at emit
 // time goes stale with no watcher that would fix it.
 
+import type { EventHandler } from 'h3'
 import { resolveNitroPath } from 'nitropack/kit'
-import type { Nitro, NitroEventHandler } from 'nitropack/types'
+import type { Nitro } from 'nitropack/types'
 import { isAbsolute, relative, resolve } from 'pathe'
+import { isString } from './runtime/shared/primitives'
 
 /**
  * The specifier the map augments - the module's own name, not Nitro's.
@@ -26,14 +28,14 @@ const RELATIVE_SPECIFIER = /^\.\.?\//
 
 // Escaping, not rejection: a route key is a file name and must reach the map
 // verbatim or it stops matching Nitro's.
-const STRING_ESCAPES: Readonly<Record<string, string>> = {
-  '\\': '\\\\',
-  "'": "\\'",
-  '\n': '\\n',
-  '\r': '\\r',
-  '\u2028': '\\u2028',
-  '\u2029': '\\u2029',
-}
+const STRING_ESCAPES = new Map([
+  ['\\', '\\\\'],
+  ["'", "\\'"],
+  ['\n', '\\n'],
+  ['\r', '\\r'],
+  ['\u2028', '\\u2028'],
+  ['\u2029', '\\u2029'],
+])
 
 const NEEDS_ESCAPE = /[\\'\n\r\u2028\u2029]/g
 
@@ -74,6 +76,24 @@ export const KNOWN_ERRORS_SLOT: EmitMapSlot = {
     `Simplify<Serialize<KnownErrorsOfHandler<${handlerType}>>>`,
 }
 
+/**
+ * A handler entry as the emitter reads it - the slice of Nitro's
+ * `NitroEventHandler` and `NitroDevEventHandler` it touches. `method` is a
+ * plain string: the filesystem scanner writes `''` for a file naming none,
+ * and `addServerHandler` forwards a module's `'POST'` verbatim.
+ */
+export interface HandlerEntry {
+  readonly route?: string
+  readonly method?: string
+  /** A path for a scanned handler; a dev handler carries the function itself. */
+  readonly handler: string | EventHandler
+}
+
+/** A handler entry with a path to emit a type for. */
+export interface ScannedHandlerEntry extends HandlerEntry {
+  readonly handler: string
+}
+
 export interface EmitMapOptions {
   /** Nitro's resolved options - `nitro.options` from the `nitro:init` closure. */
   readonly nitroOptions: NitroPathOptions
@@ -91,7 +111,7 @@ export interface EmitMapOptions {
  * `never` naturally.
  */
 export function emitMap(
-  handlers: readonly NitroEventHandler[],
+  handlers: readonly HandlerEntry[],
   options: EmitMapOptions
 ): string {
   const { nitroOptions } = options
@@ -105,7 +125,7 @@ export function emitMap(
   for (const handler of handlers) {
     // Nitro's own guard: dev handlers carry a function, and a route-less
     // entry is middleware.
-    if (typeof handler.handler !== 'string' || !handler.route) continue
+    if (!isScanned(handler) || !handler.route) continue
 
     // `||`, not `??`, because Nitro writes `mw.method || "default"`.
     const method = (handler.method || DEFAULT_METHOD).toLowerCase()
@@ -127,6 +147,12 @@ export function emitMap(
   ])
 
   return renderFile(grid, options)
+}
+
+// Nitro's own guard: a dev handler carries a function rather than a path,
+// and has no route type to emit.
+function isScanned(handler: HandlerEntry): handler is ScannedHandlerEntry {
+  return isString(handler.handler)
 }
 
 /**
@@ -219,6 +245,9 @@ function specifierFor(
   typesDir: string,
   nitroOptions: NitroPathOptions
 ): string {
+  // SAFETY: `resolveNitroPath` reads `alias` and `srcDir` off the options,
+  // plus `{{ }}` template params - and a scanned handler path is absolute,
+  // so it carries none; the picked slice is everything it touches.
   const resolved = resolveNitroPath(
     handlerPath,
     nitroOptions as Nitro['options']
@@ -231,7 +260,7 @@ function specifierFor(
 }
 
 function quote(value: string): string {
-  return `'${value.replaceAll(NEEDS_ESCAPE, (char) => STRING_ESCAPES[char] ?? char)}'`
+  return `'${value.replaceAll(NEEDS_ESCAPE, (char) => STRING_ESCAPES.get(char) ?? char)}'`
 }
 
 function getOrCreate<K, V>(map: Map<K, V>, key: K, create: () => V): V {

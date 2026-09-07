@@ -7,8 +7,11 @@ import { addChannelStripErrorHandler } from '../../src/build/channel-strip'
 import {
   addChannelToken,
   normalizeChannelToken,
+  renderChannelToken,
 } from '../../src/build/channel-token'
+import type { ErrorHandlerHost } from '../../src/build/error-handler-warning'
 import { warnCustomErrorHandler } from '../../src/build/error-handler-warning'
+import { templateData } from '../template-data'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
 
@@ -85,6 +88,21 @@ describe('normalizeChannelToken', () => {
   })
 })
 
+describe('renderChannelToken', () => {
+  it('renders the token as one exported constant, or `undefined`', () => {
+    expect(renderChannelToken('tok')).toBe(
+      'export const configuredChannelToken = "tok"\n'
+    )
+    // JSON-quoted, so a token with a quote in it stays one string literal.
+    expect(renderChannelToken('say "hi"')).toBe(
+      'export const configuredChannelToken = "say \\"hi\\""\n'
+    )
+    expect(renderChannelToken(undefined)).toBe(
+      'export const configuredChannelToken = undefined\n'
+    )
+  })
+})
+
 describe('addChannelToken', () => {
   it('writes the template and aliases it on both builds under the caller’s name', async () => {
     let specifier: string | undefined
@@ -100,11 +118,10 @@ describe('addChannelToken', () => {
       )
 
       expect(template?.write).toBe(true)
-      expect(
-        (
-          template as { getContents?: () => string } | undefined
-        )?.getContents?.()
-      ).toBe('export const configuredChannelToken = "tok"\n')
+      expect(template).toBeDefined()
+      expect(template?.getContents?.(templateData(nuxt, template))).toBe(
+        'export const configuredChannelToken = "tok"\n'
+      )
 
       const dst = nuxt.options.alias['#other-name/channel-token']
       expect(dst).toMatch(/\/other-name\/channel-token\.mjs$/)
@@ -124,11 +141,10 @@ describe('addChannelToken', () => {
         (entry) => entry.filename === 'other-name/channel-token.mjs'
       )
 
-      expect(
-        (
-          template as { getContents?: () => string } | undefined
-        )?.getContents?.()
-      ).toBe('export const configuredChannelToken = undefined\n')
+      expect(template).toBeDefined()
+      expect(template?.getContents?.(templateData(nuxt, template))).toBe(
+        'export const configuredChannelToken = undefined\n'
+      )
     } finally {
       await nuxt.close()
     }
@@ -196,8 +212,10 @@ describe('addChannelStripErrorHandler', () => {
 
 describe('warnCustomErrorHandler', () => {
   it('warns under the caller’s prefix only when a handler is set', async () => {
-    const unset = { options: { nitro: {} } } as Nuxt
-    const set = { options: { nitro: { errorHandler: '~/one' } } } as Nuxt
+    const unset: ErrorHandlerHost = { options: { nitro: {} } }
+    const set: ErrorHandlerHost = {
+      options: { nitro: { errorHandler: '~/one' } },
+    }
 
     const warnings = await warningsDuring(async () => {
       warnCustomErrorHandler(unset, 'other-name')

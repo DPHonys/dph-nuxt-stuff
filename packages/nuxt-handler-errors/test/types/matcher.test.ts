@@ -48,7 +48,7 @@ declare const vanillaError: Ref<NuxtError | undefined>
 
 declare function snack(message: string): void
 declare function report(message: string): void
-declare function showError(error: unknown): void
+declare function showError(error: NuxtError): void
 declare function notFound(id: string): void
 declare function blocked(until: string): void
 declare function navigateTo(to: string): Promise<void>
@@ -228,11 +228,20 @@ export function degraded(): void {
   })
 }
 
-/** A `catch` variable is `unknown`; the floor is all that survives a throw. */
+// Declared rather than imported: it lives behind `#app`, which does not
+// resolve under a plain `vitest run`.
+declare const isNuxtError: typeof import('nuxt/app').isNuxtError
+
+/**
+ * A `catch` variable is `unknown`; Nuxt's own guard is the parse that gets it
+ * to the degraded overload, and the floor is all that survives a throw.
+ */
 export function degradedCatch(): void {
   try {
     report('work')
   } catch (e) {
+    if (!isNuxtError(e)) throw e
+
     matchError(e, {}, (err, unrecognized) => {
       if (unrecognized) return report(`unknown failure: ${unrecognized.tag}`)
       showError(err)
@@ -240,12 +249,25 @@ export function degradedCatch(): void {
   }
 }
 
-/** Typed arms cannot ride along on an `unknown`: both overloads fail, so the
- * diagnostic is a whole-call TS2769. */
+/** An unparsed `catch` variable reaches neither overload: the diagnostic is
+ * a whole-call TS2769. */
+export function degradedNeedsTheParse(): void {
+  try {
+    report('work')
+  } catch (e) {
+    // @ts-expect-error - `unknown` is not an error object
+    matchError(e, {}, (err) => showError(err))
+  }
+}
+
+/** Typed arms cannot ride along on a vanilla error: both overloads fail, so
+ * the diagnostic is a whole-call TS2769. */
 export function degradedCannotMatchTags(): void {
   try {
     report('work')
   } catch (e) {
+    if (!isNuxtError(e)) throw e
+
     // @ts-expect-error - degraded only; restating the route here was rejected
     matchError(e, { forbidden: () => snack('nope') }, (err) => showError(err))
   }

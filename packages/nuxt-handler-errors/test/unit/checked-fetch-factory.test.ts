@@ -1,3 +1,4 @@
+import type { NitroFetchRequest } from 'nitropack/types'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import type {
@@ -14,8 +15,8 @@ let sent: Headers = new Headers()
 
 // `create` is ofetch's own shallow spread: a `headers` key replaces the
 // instance's wholesale.
-function fakeFetch(defaults: RawOptions = {}): RawFetch {
-  const record = (opts?: RawOptions): Promise<unknown> => {
+function fakeFetch(defaults: RawOptions = {}): RawFetch<string, string> {
+  const record = (opts?: RawOptions): Promise<string> => {
     sent = new Headers(defaults.headers)
     for (const [name, value] of new Headers(opts?.headers)) {
       sent.set(name, value)
@@ -23,11 +24,14 @@ function fakeFetch(defaults: RawOptions = {}): RawFetch {
     return Promise.resolve('ok')
   }
 
-  return Object.assign((_request: unknown, opts?: RawOptions) => record(opts), {
-    raw: (_request: unknown, opts?: RawOptions) => record(opts),
-    create: (next: RawOptions) => fakeFetch({ ...defaults, ...next }),
-    native: globalThis.fetch,
-  })
+  return Object.assign(
+    (_request: NitroFetchRequest, opts?: RawOptions) => record(opts),
+    {
+      raw: (_request: NitroFetchRequest, opts?: RawOptions) => record(opts),
+      create: (next: RawOptions) => fakeFetch({ ...defaults, ...next }),
+      native: globalThis.fetch,
+    }
+  )
 }
 
 describe('createCheckedFetch with the token as a value', () => {

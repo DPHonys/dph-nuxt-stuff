@@ -12,6 +12,7 @@ import type {
 import type { KeysOf, PickFrom } from '#app/composables/asyncData'
 import type { UseFetchOptionsWithTransform } from '#app/composables/fetch'
 import { CHANNEL_HEADER } from '../../shared/channel'
+import { isString } from '../../shared/primitives'
 import type { KnownErrorBody } from '../../shared/wire'
 import type { KnownErrorsOfRoute, KnownVariant } from '../../types'
 
@@ -164,26 +165,38 @@ export interface UseCheckedFetch {
 // fails outside `/api/**`, and a declared failure arrives as HTML.
 const ACCEPT_JSON = 'application/json'
 
+/** Vanilla's runtime signature - its last overload, the one the compiler's key injection targets. */
+export type VanillaFetchArgs = Parameters<typeof useFetch>
+
+/** What vanilla hands back; the module layer that binds it owns the typed face. */
+export type VanillaFetchResult = ReturnType<typeof useFetch>
+
+type VanillaOptions = Exclude<VanillaFetchArgs[1], string>
+
+/** The `headers` option as vanilla types it: refs and getters at every level. */
+type HeadersOption = NonNullable<VanillaOptions>['headers']
+
+/** The option with its outer ref or getter read - what `toValue` leaves. */
+type RawHeaders = ReturnType<typeof toValue<HeadersOption>>
+
 // Unwraps refs at every level - vanilla's option type is
 // `ComputedOptions<HeadersInit>`, and reading the raw object without
 // unwrapping stringifies a ref to `[object Object]`.
-function resolveHeadersInit(raw: unknown): HeadersInit | undefined {
-  if (raw === null || raw === undefined) return undefined
+function resolveHeadersInit(raw: RawHeaders): HeadersInit | undefined {
+  if (raw === undefined) return undefined
 
   if (raw instanceof Headers) return raw
 
   if (Array.isArray(raw)) {
     return raw.map((entry) => {
-      const [name, value] = entry as [unknown, unknown]
-      return [String(toValue(name)), String(toValue(value))] as [string, string]
+      const [name, value] = toValue(entry)
+
+      return [String(toValue(name)), String(toValue(value))]
     })
   }
 
   return Object.fromEntries(
-    Object.entries(raw as Record<string, unknown>).map(([name, value]) => [
-      name,
-      String(toValue(value)),
-    ])
+    Object.entries(raw).map(([name, value]) => [name, String(toValue(value))])
   )
 }
 
@@ -192,7 +205,7 @@ function resolveHeadersInit(raw: unknown): HeadersInit | undefined {
 // instance spreads to nothing. A `computed` so vanilla's deep watch on the
 // `headers` option keeps tracking the caller's refs.
 function checkedHeaders(
-  headers: unknown,
+  headers: HeadersOption,
   token: string | undefined
 ): ComputedRef<HeadersInit> {
   return computed(() => {
@@ -206,33 +219,26 @@ function checkedHeaders(
   })
 }
 
-export type RawUseFetch = (
-  request: unknown,
-  arg1?: unknown,
-  arg2?: string
-) => unknown
+export type RawUseFetch = (...args: VanillaFetchArgs) => VanillaFetchResult
 
 export interface FetchWrapperOptions {
   /** Read once per composable call, never at bind time - a binding may hand in a getter. */
   readonly token: string | undefined
 }
 
-// The returned shape is loose on purpose: the module layer that binds it
-// owns the signature, and applies it with one cast.
+// The returned shape is vanilla's own runtime signature: the module layer
+// that binds it owns the route-typed face, and applies it with one cast.
 export function wrapVanillaFetch(
   vanilla: typeof useFetch,
   options: FetchWrapperOptions
 ): RawUseFetch {
   // Vanilla's last overload is its runtime signature: the middle argument is
   // either the options object or the auto-key.
-  return (request: unknown, arg1?: unknown, arg2?: string) => {
-    const [opts, autoKey] =
-      typeof arg1 === 'string'
-        ? ([undefined, arg1] as const)
-        : ([arg1 as UseFetchOptions<unknown> | undefined, arg2] as const)
+  return (request, arg1, arg2) => {
+    const [opts, autoKey] = isString(arg1) ? [undefined, arg1] : [arg1, arg2]
 
     return vanilla(
-      request as NitroFetchRequest,
+      request,
       {
         ...opts,
         headers: checkedHeaders(opts?.headers, options.token),

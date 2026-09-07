@@ -23,8 +23,8 @@ function bound(instanceHeaders: Headers): CheckedFetchFactoryOptions {
   }
 }
 
-export function createCheckedFetch(
-  base: RawFetch,
+export function createCheckedFetch<Body, Raw>(
+  base: RawFetch<Body, Raw>,
   instanceHeaders: Headers = new Headers()
 ): $CheckedFetch {
   return createCheckedFetchWith(base, bound(instanceHeaders))
@@ -35,3 +35,8 @@ export const $checkedFetch: $CheckedFetch = createCheckedFetchWith(
   lazyGlobalFetch,
   bound(new Headers())
 )
+
+/** The one thing both global plugins do: put `$checkedFetch` on `globalThis`. */
+export function installCheckedFetchGlobal(): void {
+  globalThis.$checkedFetch = $checkedFetch
+}

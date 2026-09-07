@@ -1,5 +1,4 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { H3Event } from 'h3'
 import { createError, H3Error } from 'h3'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -11,8 +10,25 @@ import {
   defineCheckedEventHandler,
   defineError,
 } from '../../src/runtime/server'
+import type { ErrorFactory } from '../../src/runtime/server/lib/error-context'
+import { createTestEvent } from '../h3-event'
 
-const event = {} as H3Event
+// The handlers under test never read the event - only the second argument,
+// the factories, is exercised.
+const event = createTestEvent()
+
+/** The factory the context built under `name`; the test fails if it is missing. */
+function factory(
+  errors: Record<string, ErrorFactory>,
+  name: string
+): ErrorFactory {
+  const found = errors[name]
+
+  if (found === undefined) throw new Error(`no factory named ${name}`)
+
+  return found
+}
+
 const schema = (
   validate: StandardSchemaV1<
     unknown,
@@ -21,6 +37,40 @@ const schema = (
 ): StandardSchemaV1<unknown, { amount: number }> => ({
   '~standard': { version: 1, vendor: 'test', validate },
 })
+
+interface Cycle {
+  self?: Cycle
+}
+
+/** What a lying schema may hand out at runtime: none of it a clean `{ amount }`. */
+type Junk =
+  | undefined
+  | null
+  | number
+  | string
+  | never[]
+  | Cycle
+  | Date
+  | { tag: string }
+  | { status: number }
+  | { amount: bigint }
+  | { amount: number; date: Date; callback: () => number; nested: object }
+  | { toJSON: () => number | { tag: string } }
+
+/**
+ * A schema whose declared output is clean, so the definition compiles, and
+ * whose runtime value is whatever `produce` says - the factory's own
+ * validation of the output is what is under test. The lie is zod's own: a
+ * preprocess that answers the junk, into a custom type that checks nothing.
+ */
+function lyingSchema(
+  produce: () => Junk
+): StandardSchemaV1<unknown, { amount: number }> {
+  return z.preprocess(
+    () => produce(),
+    z.custom<{ amount: number }>(() => true)
+  )
+}
 
 describe('handler-local factories', () => {
   it('transforms flat output through group pick', async () => {
@@ -33,7 +83,7 @@ describe('handler-local factories', () => {
     })
     const declarations = [...group.pick('conflict')]
     const { errors } = createErrorContext(resolveDeclared(declarations))
-    const error = errors.conflict!('42')
+    const error = factory(errors, 'conflict')('42')
     expect(error).toBeInstanceOf(H3Error)
     expect(error.data).toEqual({
       __knownError__: { tag: 'conflict', status: 409, amount: 42 },
@@ -62,12 +112,12 @@ describe('handler-local factories', () => {
         expect(context.errors.notFound().data).toEqual({
           __knownError__: { tag: 'not-found', status: 404 },
         })
-        expect(() =>
-          (context.errors.notFound as (...args: unknown[]) => H3Error)({})
-        ).toThrow('invalid arguments')
-        expect(() =>
-          (context.errors.empty as (...args: unknown[]) => H3Error)()
-        ).toThrow('invalid arguments')
+        // Widened to the factories' runtime face, where any argument list is
+        // callable - the arity check under test is what refuses them.
+        const looseNotFound: ErrorFactory = context.errors.notFound
+        const looseEmpty: ErrorFactory = context.errors.empty
+        expect(() => looseNotFound({})).toThrow('invalid arguments')
+        expect(() => looseEmpty()).toThrow('invalid arguments')
         expect(context.errors.empty({})).toBeInstanceOf(H3Error)
         return { ok: true }
       }
@@ -81,7 +131,7 @@ describe('handler-local factories', () => {
       payload: schema(() => ({ issues: [{ message: 'bad input' }] })),
     })
     const { errors } = createErrorContext(resolveDeclared([bad]))
-    expect(errors.bad!('secret')).toMatchObject({
+    expect(factory(errors, 'bad')('secret')).toMatchObject({
       statusCode: 500,
       data: undefined,
     })
@@ -96,7 +146,7 @@ describe('handler-local factories', () => {
       }),
     })
     expect(() =>
-      createErrorContext(resolveDeclared([bad])).errors.bad!(null)
+      factory(createErrorContext(resolveDeclared([bad])).errors, 'bad')(null)
     ).toThrow(exception)
   })
 
@@ -108,7 +158,7 @@ describe('handler-local factories', () => {
       }),
     })
     const { errors } = createErrorContext(resolveDeclared([asynchronous]))
-    const call = () => errors.slow!(null)
+    const call = () => factory(errors, 'slow')(null)
     expect(call).toThrow(TypeError)
     expect(call).toThrow(
       '[nuxt-handler-errors] the payload schema for slow validates asynchronously'
@@ -116,7 +166,7 @@ describe('handler-local factories', () => {
   })
 
   it('rejects non-object, reserved and unserializable output', () => {
-    const cycle: { self?: unknown } = {}
+    const cycle: Cycle = {}
     cycle.self = cycle
     for (const value of [
       undefined,
@@ -139,10 +189,10 @@ describe('handler-local factories', () => {
     ]) {
       const bad = defineError('bad', {
         status: 409,
-        payload: schema(() => ({ value: value as { amount: number } })),
+        payload: lyingSchema(() => value),
       })
       const { errors } = createErrorContext(resolveDeclared([bad]))
-      expect(errors.bad!(null)).toMatchObject({
+      expect(factory(errors, 'bad')(null)).toMatchObject({
         statusCode: 500,
         message: 'Invalid declared error payload',
         data: undefined,
@@ -156,17 +206,15 @@ describe('handler-local factories', () => {
     const date = new Date('2026-01-01T00:00:00.000Z')
     const dated = defineError('dated', {
       status: 409,
-      payload: schema(() => ({
-        value: {
-          amount: 1,
-          date,
-          callback: () => 1,
-          nested: { toJSON: () => ({ amount: 42 }) },
-        } as unknown as { amount: number },
+      payload: lyingSchema(() => ({
+        amount: 1,
+        date,
+        callback: () => 1,
+        nested: { toJSON: () => ({ amount: 42 }) },
       })),
     })
     const { errors } = createErrorContext(resolveDeclared([dated]))
-    const error = errors.dated!(null)
+    const error = factory(errors, 'dated')(null)
     date.setFullYear(2000)
     expect(error.data).toEqual({
       __knownError__: {
@@ -190,15 +238,15 @@ describe('handler-local factories', () => {
     expect(Object.getPrototypeOf(errors)).toBeNull()
     expect(Object.isFrozen(errors)).toBe(true)
     expect(Object.isFrozen(errors.constructor)).toBe(true)
-    expect(errors.constructor!()).toMatchObject({
+    expect(factory(errors, 'constructor')()).toMatchObject({
       statusCode: 404,
       data: { __knownError__: { tag: 'constructor', status: 404 } },
     })
-    expect(errors.isFrozen!().statusCode).toBe(409)
+    expect(factory(errors, 'isFrozen')().statusCode).toBe(409)
     Object.assign(data['~standard'], {
       validate: () => ({ value: { amount: 999 } }),
     })
-    expect(errors.conflict!('42').data).toMatchObject({
+    expect(factory(errors, 'conflict')('42').data).toMatchObject({
       __knownError__: { amount: 42 },
     })
   })

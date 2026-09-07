@@ -331,6 +331,6 @@ export type AssertSchemaDateSurvives = Expect<
 
 describe('the definition surface', () => {
   it('is asserted by the compiler, not by this suite', () => {
-    expect(typeof wholeGroups).toBe('function')
+    expect(wholeGroups).toBeTypeOf('function')
   })
 })

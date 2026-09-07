@@ -1,10 +1,23 @@
+import type { NitroRuntimeHooks } from 'nitropack/types'
 import { afterEach, describe, expect, it } from 'vitest'
 import clientPlugin from '../../src/runtime/app/plugins/checked-fetch.client'
 import { EventFetchUnavailableError } from '../../src/runtime/server/lib/event-checked-fetch'
+import type { RawEventFetch } from '../../src/runtime/server/lib/event-checked-fetch'
 import nitroPlugin from '../../src/runtime/server/plugins/checked-fetch'
-import eventPlugin from '../../src/runtime/server/plugins/event-checked-fetch'
+import type {
+  EventFetchSlots,
+  RequestHookHost,
+} from '../../src/runtime/server/plugins/event-checked-fetch'
+import eventPlugin, {
+  installEventCheckedFetch,
+  registerEventCheckedFetch,
+} from '../../src/runtime/server/plugins/event-checked-fetch'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
-import { $checkedFetch } from '../../src/runtime/shared/checked-fetch'
+import {
+  $checkedFetch,
+  installCheckedFetchGlobal,
+} from '../../src/runtime/shared/checked-fetch'
+import type { CheckedFetch } from '../../src/runtime/types'
 import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { settled } from '../fetch-channel'
 
@@ -13,93 +26,109 @@ import { settled } from '../fetch-channel'
 // wiring, and its own test.
 
 afterEach(() => {
-  delete (globalThis as { $checkedFetch?: unknown }).$checkedFetch
+  Reflect.deleteProperty(globalThis, '$checkedFetch')
 })
 
 describe('the global installers', () => {
-  it.each([
-    ['the client app plugin', clientPlugin],
-    ['the Nitro plugin', nitroPlugin],
-  ])('%s assigns the module’s own $checkedFetch', (_name, plugin) => {
+  it('assigns the module’s own $checkedFetch', () => {
     // Identity, not shape: a lookalike would be a second instance.
     expect(globalThis.$checkedFetch).toBeUndefined()
 
-    ;(plugin as () => void)()
+    installCheckedFetchGlobal()
 
     expect(globalThis.$checkedFetch).toBe($checkedFetch)
   })
+
+  it.each([
+    ['the client app plugin', clientPlugin],
+    ['the Nitro plugin', nitroPlugin],
+  ])('%s is that installer, on its own side', (_name, plugin) => {
+    expect(plugin).toBe(installCheckedFetchGlobal)
+  })
 })
 
-/** Nitro's app, reduced to the one hook this plugin registers on. */
-function fakeNitroApp() {
-  const hooks: Record<string, (event: never) => void> = {}
+/**
+ * An event reduced to the two members the installer touches: it reads
+ * `$fetch` and writes `$checkedFetch`. `fetch` is live - a later assignment
+ * shows through, which is what the thunk test needs.
+ */
+function fakeEvent(fetch: RawEventFetch<string> | undefined) {
+  const state = { fetch }
 
-  return {
-    app: {
-      hooks: {
-        hook: (name: string, handler: (event: never) => void) => {
-          hooks[name] = handler
-        },
-      },
+  const event: EventFetchSlots = {
+    get $fetch() {
+      return state.fetch
     },
-    hooks,
   }
+
+  return { event, state }
+}
+
+/** The instance the installer wrote, or a failure naming its absence. */
+function installedOn(event: EventFetchSlots): CheckedFetch {
+  if (event.$checkedFetch === undefined) {
+    throw new Error('event.$checkedFetch was not installed')
+  }
+
+  return event.$checkedFetch
 }
 
 describe('the event installer', () => {
-  it('installs event.$checkedFetch from the request hook', () => {
+  it('registers the installer on the request hook, and nothing else', () => {
     // The `request` hook is the earliest point `event.$fetch` exists.
-    const nitro = fakeNitroApp()
+    const registered: {
+      name: string
+      callback: NitroRuntimeHooks['request']
+    }[] = []
+    const host: RequestHookHost = {
+      hooks: {
+        hook: (name, callback) => {
+          registered.push({ name, callback })
+        },
+      },
+    }
 
-    ;(eventPlugin as (app: unknown) => void)(nitro.app)
+    registerEventCheckedFetch(host)
 
-    expect(Object.keys(nitro.hooks)).toEqual(['request'])
+    expect(registered).toEqual([
+      { name: 'request', callback: installEventCheckedFetch },
+    ])
+    // The plugin's setup is the registrar itself.
+    expect(eventPlugin).toBe(registerEventCheckedFetch)
+  })
 
-    const event = { $fetch: () => Promise.resolve('ok') } as never
+  it('installs event.$checkedFetch as a callable', () => {
+    const { event } = fakeEvent(() => Promise.resolve('ok'))
 
-    nitro.hooks.request?.(event)
+    installEventCheckedFetch(event)
 
-    expect(typeof (event as { $checkedFetch: unknown }).$checkedFetch).toBe(
-      'function'
-    )
+    expect(event.$checkedFetch).toBeTypeOf('function')
   })
 
   it('reads event.$fetch through a thunk, not at install time', async () => {
     // So the wrapper composes with anything that replaces `event.$fetch` later
     // in the same hook chain.
-    const nitro = fakeNitroApp()
+    const { event, state } = fakeEvent(undefined)
 
-    ;(eventPlugin as (app: unknown) => void)(nitro.app)
+    installEventCheckedFetch(event)
 
-    const event: { $fetch?: unknown; $checkedFetch?: unknown } = {}
-
-    nitro.hooks.request?.(event as never)
-
-    const installed = event.$checkedFetch as (r: string) => Promise<unknown>
+    const installed = installedOn(event)
 
     expect(await settled(() => installed('/api/anything'))).toMatchObject({
       threw: true,
     })
 
-    event.$fetch = (request: unknown) => Promise.resolve(request)
+    state.fetch = (request) => Promise.resolve(String(request))
 
     expect(await installed('/api/anything')).toBe('/api/anything')
   })
 
   it('names the skew when event.$fetch is not there at all', async () => {
-    const nitro = fakeNitroApp()
+    const { event } = fakeEvent(undefined)
 
-    ;(eventPlugin as (app: unknown) => void)(nitro.app)
+    installEventCheckedFetch(event)
 
-    const event = {} as never
-
-    nitro.hooks.request?.(event)
-
-    const installed = (
-      event as { $checkedFetch: (r: string) => Promise<unknown> }
-    ).$checkedFetch
-
-    const result = await settled(() => installed('/api/anything'))
+    const result = await settled(() => installedOn(event)('/api/anything'))
 
     expect(result.value).toBeInstanceOf(EventFetchUnavailableError)
   })
@@ -115,31 +144,16 @@ describe('the channel tag the event installer supplies', () => {
   it('hands the configured token to the per-request wrapper', async () => {
     setConfiguredChannelToken('first-party')
 
-    const hooks: Record<string, (event: never) => void> = {}
-    const app = {
-      hooks: {
-        hook: (name: string, handler: (event: never) => void) => {
-          hooks[name] = handler
-        },
-      },
-    }
+    const sent: (HeadersInit | undefined)[] = []
+    const { event } = fakeEvent((_request, init) => {
+      sent.push(init?.headers)
 
-    ;(eventPlugin as (app: unknown) => void)(app)
+      return Promise.resolve('ok')
+    })
 
-    const sent: unknown[] = []
-    const event = {
-      $fetch: (_request: unknown, init?: { headers?: unknown }) => {
-        sent.push(init?.headers)
+    installEventCheckedFetch(event)
 
-        return Promise.resolve('ok')
-      },
-    }
-
-    hooks.request?.(event as never)
-
-    await (
-      event as unknown as { $checkedFetch: (r: string) => Promise<unknown> }
-    ).$checkedFetch('/api/anything')
+    await installedOn(event)('/api/anything')
 
     expect(sent).toEqual([
       { accept: 'application/json', [CHANNEL_HEADER]: 'first-party' },
