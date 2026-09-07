@@ -1,4 +1,6 @@
 import { CHANNEL_HEADER } from '@dphonys/nuxt-handler-errors/internals/shared'
+import type { $Fetch as OfetchInstance } from 'ofetch'
+import { createFetch } from 'ofetch'
 import { afterEach, describe, expect, it } from 'vitest'
 import { toValue } from 'vue'
 import { useRequestTypedFetch } from '../../src/runtime/app/composables/use-request-typed-fetch'
@@ -11,7 +13,6 @@ import {
   useTypedFetch,
 } from '../../src/runtime/app/composables/use-typed-fetch'
 import { $typedFetch } from '../../src/runtime/shared/typed-fetch'
-import type { TypedFetch } from '../../src/runtime/types'
 import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { asyncDataCalls, calls, setRequestEvent } from '../doubles/nuxt-app'
 
@@ -32,17 +33,17 @@ describe('useTypedFetch and its lazy twin', () => {
     ['useTypedFetch', useTypedFetch, 'useFetch'],
     ['useLazyTypedFetch', useLazyTypedFetch, 'useLazyFetch'],
   ] as const)('%s delegates to vanilla’s %s', (_name, composable, vanilla) => {
-    ;(composable as (request: unknown) => unknown)('/api/anything')
+    composable('/api/anything')
 
     expect(calls.map((call) => call.name)).toEqual([vanilla])
   })
 
   it('hands vanilla the umbrella’s configured token on every call', () => {
     setConfiguredChannelToken('umbrella-channel')
-    ;(useTypedFetch as (request: unknown) => unknown)('/api/anything')
+    useTypedFetch('/api/anything')
 
     setConfiguredChannelToken(undefined)
-    ;(useTypedFetch as (request: unknown) => unknown)('/api/anything')
+    useTypedFetch('/api/anything')
 
     expect(calls.map((call) => toValue(call.opts?.headers))).toEqual([
       { accept: 'application/json', [CHANNEL_HEADER]: 'umbrella-channel' },
@@ -56,9 +57,7 @@ describe('useTypedAsyncData and its lazy twin', () => {
     ['useTypedAsyncData', useTypedAsyncData, 'useAsyncData'],
     ['useLazyTypedAsyncData', useLazyTypedAsyncData, 'useLazyAsyncData'],
   ] as const)('%s delegates to vanilla’s %s', (_name, composable, vanilla) => {
-    ;(composable as (handler: unknown) => unknown)(() =>
-      Promise.resolve({ data: 'ok', error: undefined })
-    )
+    composable(() => Promise.resolve({ data: 'ok', error: undefined }))
 
     expect(asyncDataCalls.map((call) => call.name)).toEqual([vanilla])
   })
@@ -69,11 +68,21 @@ describe('useRequestTypedFetch', () => {
   // server branch - the only one with a choice to make.
 
   it('hands back the event’s own instance while rendering', () => {
-    const bound = (() => Promise.resolve('ok')) as unknown as TypedFetch
+    // A second real instance, derived from the global: `create` resolves the
+    // `$fetch` global at the call, so one has to be there.
+    const globals: { $fetch?: typeof globalThis.$fetch | OfetchInstance } =
+      globalThis
+    globals.$fetch = createFetch({})
+    try {
+      const bound = $typedFetch.create({})
 
-    setRequestEvent({ $typedFetch: bound })
+      setRequestEvent({ $typedFetch: bound })
 
-    expect(useRequestTypedFetch()).toBe(bound)
+      expect(bound).not.toBe($typedFetch)
+      expect(useRequestTypedFetch()).toBe(bound)
+    } finally {
+      delete globals.$fetch
+    }
   })
 
   it('falls back to the global when there is no request event', () => {

@@ -220,13 +220,17 @@ export async function tryResults(): Promise<void> {
   })
 
   if (both.error) {
-    const variant = both.error.data!.data.__knownError__
-    type _tags = Assert<
-      Equal<typeof variant.tag, 'user-exists' | 'validation-failed'>
-    >
+    const { data } = both.error
 
-    if (variant.tag === 'user-exists') {
-      type _payload = Assert<Equal<typeof variant.email, string>>
+    if (data) {
+      const variant = data.data.__knownError__
+      type _tags = Assert<
+        Equal<typeof variant.tag, 'user-exists' | 'validation-failed'>
+      >
+
+      if (variant.tag === 'user-exists') {
+        type _payload = Assert<Equal<typeof variant.email, string>>
+      }
     }
   } else {
     // Narrowed by the sibling guard alone - no second check and no `!`.

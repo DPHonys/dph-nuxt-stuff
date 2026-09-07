@@ -2,13 +2,15 @@ import { readFloor } from '@dphonys/nuxt-handler-errors/internals/shared'
 import { KNOWN_ERROR_KEY } from '@dphonys/nuxt-handler-errors/shared'
 import { readValidationMarker } from '@dphonys/nuxt-handler-validation/internals/shared'
 import type { ValidationIssue } from '@dphonys/nuxt-handler-validation/types'
-import type { H3Error } from 'h3'
 import { describe, expect, it } from 'vitest'
 import {
   recognizeKnownError,
   recognizeValidationError,
 } from '../../src/runtime/server'
-import { onInvalid } from '../../src/runtime/server/lib/on-invalid'
+import {
+  onInvalid,
+  validationFailedError,
+} from '../../src/runtime/server/lib/on-invalid'
 
 // The built-in variant's shape, off the live error the hook throws.
 
@@ -17,18 +19,14 @@ const issues: ValidationIssue[] = [
   { source: 'query', message: 'sort must be asc or desc', path: ['sort'] },
 ]
 
-function thrownBy(run: () => never): H3Error {
-  try {
-    run()
-  } catch (error) {
-    return error as H3Error
-  }
-
-  throw new Error('expected a throw')
-}
-
 describe('the built-in validation-failed variant', () => {
-  const error = thrownBy(() => onInvalid('query', issues))
+  const error = validationFailedError(issues)
+
+  it('is what the hook throws', () => {
+    expect(() => onInvalid('query', issues)).toThrow(
+      expect.objectContaining({ statusCode: 400, message: 'validation-failed' })
+    )
+  })
 
   it('is a known error: 400, message === tag, no reason phrase', () => {
     expect(error).toBeInstanceOf(Error)
@@ -51,14 +49,11 @@ describe('the built-in validation-failed variant', () => {
   })
 
   it('shares no issue object between the two copies and the hook’s input', () => {
-    const data = error.data as {
-      issues: ValidationIssue[]
-      [KNOWN_ERROR_KEY]: { issues: ValidationIssue[] }
-    }
+    const data = error.data
 
-    expect(data.issues).not.toBe(issues)
-    expect(data[KNOWN_ERROR_KEY].issues).not.toBe(issues)
-    expect(data.issues).not.toBe(data[KNOWN_ERROR_KEY].issues)
+    expect(data?.issues).not.toBe(issues)
+    expect(data?.[KNOWN_ERROR_KEY].issues).not.toBe(issues)
+    expect(data?.issues).not.toBe(data?.[KNOWN_ERROR_KEY].issues)
   })
 
   it('answers both parents’ recognizers and both markers', () => {
@@ -91,7 +86,7 @@ describe('the built-in validation-failed variant', () => {
       { source: 'body', message: 'Request body could not be parsed', path: [] },
     ]
 
-    const bodyError = thrownBy(() => onInvalid('body', unparseable))
+    const bodyError = validationFailedError(unparseable)
 
     expect(bodyError.statusCode).toBe(400)
     expect(bodyError.message).toBe('validation-failed')
