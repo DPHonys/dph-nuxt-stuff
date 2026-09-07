@@ -1,6 +1,8 @@
 import { defineConfig } from 'oxfmt'
 
 export default defineConfig({
+  // Vendored plugin keeps upstream formatting so it stays diffable.
+  ignorePatterns: ['tools/oxlint/anti-slop/**'],
   semi: false,
   singleQuote: true,
   tabWidth: 2,
