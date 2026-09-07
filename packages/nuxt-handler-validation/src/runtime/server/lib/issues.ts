@@ -40,18 +40,21 @@ function isPathKey(value: unknown): value is string | number {
   return PATH_KEY.safeParse(value).success
 }
 
-// A segment is a key or an object carrying one. `instanceof Object` rather than
-// a `typeof` test is what keeps a `null` segment - which the interface forbids
-// and a hand-written schema can still produce - on the key side, where it
-// stringifies instead of being dereferenced from inside the `400` this is
-// building, which would turn a validation failure into an unhandled `500`.
+// A segment is a key or an object carrying one. The explicit `null` guard keeps
+// a `null` segment - which the interface forbids and a hand-written schema can
+// still produce - on the key side, where it stringifies instead of being
+// dereferenced from inside the `400` this is building. `typeof` rather than
+// `instanceof Object` is what keeps a null-prototype segment on the object side:
+// it is a valid carrier of `key`, and `String()` on it would throw. Either slip
+// would turn a validation failure into an unhandled `500`.
 function projectPath(
   path: StandardSchemaV1.Issue['path']
 ): Array<string | number> {
   if (path === undefined) return []
 
   return Array.from(path, (segment) => {
-    const key = segment instanceof Object ? segment.key : segment
+    const key =
+      segment !== null && typeof segment === 'object' ? segment.key : segment
 
     return isPathKey(key) ? key : String(key)
   })

@@ -878,4 +878,33 @@ describe('the projected issues', () => {
       },
     ])
   })
+
+  it('reads the key off a null-prototype path segment', async () => {
+    // `Object.create(null)` is a valid segment - it carries `key` - yet it is
+    // not an `instanceof Object`, and `String()` on it throws. It must land on
+    // the object side and project its key like any other segment.
+    const segment: StandardSchemaV1.PathSegment = Object.assign(
+      Object.create(null),
+      { key: 'page' }
+    )
+
+    const handler = defineValidatedEventHandler(
+      {
+        validate: {
+          query: schemaReturning({
+            issues: [{ message: 'Expected a number', path: [segment] }],
+          }),
+        },
+      },
+      () => 'the body never runs'
+    )
+
+    const response = await request(handler, '/api/test')
+    const body = await failureBodyOf(response)
+
+    expect(response.status).toBe(400)
+    expect(body.data.issues).toEqual([
+      { source: 'query', message: 'Expected a number', path: ['page'] },
+    ])
+  })
 })
