@@ -160,6 +160,9 @@ function declaration(tag: string, def: VariantDef | undefined): DeclaredError {
  * )
  * ```
  */
+// `Response` has no default type parameter on purpose: an explicit type
+// argument becomes an arity error instead of silently collapsing the
+// success type to `any`.
 export function defineCheckedEventHandler<
   const A extends ReadonlyArray<AnyKnownError>,
   Response extends EventHandlerResponse,

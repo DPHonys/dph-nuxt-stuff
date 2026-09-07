@@ -1,6 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Error } from 'h3'
 import { createError } from 'h3'
+import type { PlainObject } from '../../shared/plain-object'
 import { knownErrorMarker } from '../../shared/wire'
 import type { KnownRaiseInput } from '../../shared/wire'
 import type {
@@ -86,12 +87,10 @@ export function factoryName(tag: string): string {
 // server-to-server throw untouched, so the tag must not ride it.
 // `fatal`/`unhandled` are left alone, so the production serializer keeps
 // `data` and Nuxt never escalates a known failure to the error page.
-// Generic over the payload: the fields are whatever the caller's schema
-// produced, and nothing here reads them.
-export function createKnownError<Fields extends Record<string, unknown>>(
+export function createKnownError(
   tag: string,
   status: number,
-  fields: Fields
+  fields: PlainObject
 ): H3Error {
   const input: KnownRaiseInput<KnownVariant> = {
     statusCode: status,

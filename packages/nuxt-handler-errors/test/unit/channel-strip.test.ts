@@ -44,15 +44,6 @@ function prodBody(data: ErrorData): BuiltinJsonBody {
   }
 }
 
-/** The thrown error as h3 makes it - the shape the chain entry receives. */
-function thrown(input: {
-  statusCode: number
-  message?: string
-  data: ErrorData
-}): H3Error {
-  return createError(input)
-}
-
 /** The marker as the raise site builds it. */
 const marker = { [KNOWN_ERROR_KEY]: { tag: 'forbidden', status: 403 } }
 
@@ -120,7 +111,11 @@ function parseBody(response: PlainResponse) {
 
 describe('the tokenless, marked request', () => {
   it('answers the builtin’s body with the marker gone and the status line intact', async () => {
-    const error = thrown({ statusCode: 403, message: 'nope', data: marker })
+    const error = createError({
+      statusCode: 403,
+      message: 'nope',
+      data: marker,
+    })
 
     const { response } = await run(error, prodBody(marker))
 
@@ -150,7 +145,7 @@ describe('the tokenless, marked request', () => {
     // `captureError` has already fired by the time this runs - so the obvious
     // `delete body.data[KNOWN_ERROR_KEY]` implementation would break Sentry.
     const data = { [KNOWN_ERROR_KEY]: { tag: 'forbidden', status: 403 } }
-    const error = thrown({ statusCode: 403, message: 'nope', data })
+    const error = createError({ statusCode: 403, message: 'nope', data })
 
     await run(error, prodBody(data))
 
@@ -164,7 +159,7 @@ describe('the tokenless, marked request', () => {
     const data = { ...marker, trace: 'abc' }
 
     const { response } = await run(
-      thrown({ statusCode: 403, data }),
+      createError({ statusCode: 403, data }),
       prodBody(data)
     )
 
@@ -177,7 +172,7 @@ describe('the tokenless, marked request', () => {
     const data = { error: true, statusCode: 403, data: marker }
 
     const { response } = await run(
-      thrown({ statusCode: 403, data }),
+      createError({ statusCode: 403, data }),
       prodBody(data)
     )
 
@@ -187,10 +182,13 @@ describe('the tokenless, marked request', () => {
   it('forwards dev’s stack, because dev is what the developer asked for', async () => {
     const stack = ['at handler (server/api/x.ts:3:9)']
 
-    const { response } = await run(thrown({ statusCode: 403, data: marker }), {
-      ...prodBody(marker),
-      stack,
-    })
+    const { response } = await run(
+      createError({ statusCode: 403, data: marker }),
+      {
+        ...prodBody(marker),
+        stack,
+      }
+    )
 
     expect(parseBody(response)).toMatchObject({ stack })
   })
@@ -205,7 +203,7 @@ function expectDeferred(response: PlainResponse): void {
 describe('what the entry defers', () => {
   it('a request carrying the token - the app’s own call gets the full wire', async () => {
     const { builtinCalls, response } = await run(
-      thrown({ statusCode: 403, data: marker }),
+      createError({ statusCode: 403, data: marker }),
       prodBody(marker),
       { headers: { [CHANNEL_HEADER]: TOKEN } }
     )
@@ -217,7 +215,7 @@ describe('what the entry defers', () => {
 
   it('a foreign error, marked by nobody', async () => {
     const { builtinCalls, response } = await run(
-      thrown({ statusCode: 500, data: { detail: 'boom' } }),
+      createError({ statusCode: 500, data: { detail: 'boom' } }),
       prodBody({ detail: 'boom' })
     )
 
@@ -229,7 +227,7 @@ describe('what the entry defers', () => {
     const data = { [KNOWN_ERROR_KEY]: { tag: 7 } }
 
     const { response } = await run(
-      thrown({ statusCode: 403, data }),
+      createError({ statusCode: 403, data }),
       prodBody(data)
     )
 
@@ -238,7 +236,7 @@ describe('what the entry defers', () => {
 
   it('every request when no token is configured - gating off is today’s behaviour', async () => {
     const { builtinCalls, response } = await run(
-      thrown({ statusCode: 403, data: marker }),
+      createError({ statusCode: 403, data: marker }),
       prodBody(marker),
       { token: null }
     )
@@ -249,7 +247,7 @@ describe('what the entry defers', () => {
 
   it('a non-object body - the dev builtin’s HTML page has no data field', async () => {
     const { response } = await run(
-      thrown({ statusCode: 403, data: marker }),
+      createError({ statusCode: 403, data: marker }),
       '<html>youch</html>'
     )
 

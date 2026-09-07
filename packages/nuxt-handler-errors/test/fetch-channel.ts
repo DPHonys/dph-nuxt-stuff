@@ -9,12 +9,10 @@ import type { KnownErrorBody } from '../src/runtime/shared/wire'
 import type { KnownVariant } from '../src/runtime/types'
 
 /** ofetch's `FetchError`, reduced to what the wire suites read off it. */
-export interface FetchedFailure<
-  E extends KnownVariant = KnownVariant,
-> extends Error {
+export interface FetchedFailure extends Error {
   statusCode: number
   statusMessage: string
-  data: KnownErrorBody<E>
+  data: KnownErrorBody<KnownVariant>
 }
 
 /**
@@ -22,9 +20,7 @@ export interface FetchedFailure<
  * ofetch's `FetchError.data` is the whole response body, and Nitro's
  * serializer puts the thrown error's `data` inside it.
  */
-export function knownFailure<E extends KnownVariant>(
-  variant: E
-): FetchedFailure<E> {
+export function knownFailure(variant: KnownVariant): FetchedFailure {
   return Object.assign(new Error('nope'), {
     statusCode: 404,
     statusMessage: 'Not Found',

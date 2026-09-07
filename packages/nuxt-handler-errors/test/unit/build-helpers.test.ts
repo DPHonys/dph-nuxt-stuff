@@ -11,7 +11,7 @@ import {
 } from '../../src/build/channel-token'
 import type { ErrorHandlerHost } from '../../src/build/error-handler-warning'
 import { warnCustomErrorHandler } from '../../src/build/error-handler-warning'
-import { templateData } from '../template-data'
+import { renderTemplate } from '../template-data'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
 
@@ -118,10 +118,9 @@ describe('addChannelToken', () => {
       )
 
       expect(template?.write).toBe(true)
-      expect(template).toBeDefined()
-      expect(template?.getContents?.(templateData(nuxt, template))).toBe(
-        'export const configuredChannelToken = "tok"\n'
-      )
+      await expect(
+        renderTemplate(nuxt, 'other-name/channel-token.mjs')
+      ).resolves.toBe('export const configuredChannelToken = "tok"\n')
 
       const dst = nuxt.options.alias['#other-name/channel-token']
       expect(dst).toMatch(/\/other-name\/channel-token\.mjs$/)
@@ -137,14 +136,9 @@ describe('addChannelToken', () => {
     })
 
     try {
-      const template = nuxt.options.build.templates.find(
-        (entry) => entry.filename === 'other-name/channel-token.mjs'
-      )
-
-      expect(template).toBeDefined()
-      expect(template?.getContents?.(templateData(nuxt, template))).toBe(
-        'export const configuredChannelToken = undefined\n'
-      )
+      await expect(
+        renderTemplate(nuxt, 'other-name/channel-token.mjs')
+      ).resolves.toBe('export const configuredChannelToken = undefined\n')
     } finally {
       await nuxt.close()
     }

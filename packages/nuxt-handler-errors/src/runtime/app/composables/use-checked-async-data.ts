@@ -1,5 +1,4 @@
 import type { MaybeRefOrGetter } from 'vue'
-import { z } from 'zod'
 import type { AsyncData, AsyncDataOptions, NuxtError } from '#app'
 import { useAsyncData, useLazyAsyncData } from '#app'
 import type {
@@ -8,7 +7,8 @@ import type {
   KeysOf,
   PickFrom,
 } from '#app/composables/asyncData'
-import { functionSchema } from '../../shared/primitives'
+import { isPlainObject } from '../../shared/plain-object'
+import { isFunction, isString } from '../../shared/primitives'
 
 /**
  * What a handler must return: any try-shape. A bare `$checkedFetch` call
@@ -130,23 +130,16 @@ export type VanillaAsyncDataArg = Parameters<typeof useAsyncData>[number]
 /** What vanilla hands back; the module layer that binds it owns the typed face. */
 export type VanillaAsyncDataResult = ReturnType<typeof useAsyncData>
 
-// A string key, or a ref key - what vanilla's `_isAutoKeyNeeded` reads as
-// "the first argument is a key".
-const keySchema = z.union([z.string(), z.looseObject({})])
-
 // Decided by vanilla's own `_isAutoKeyNeeded` rule rather than "is argument 0
 // a function": a getter key is a function too, and the compiler appends the
 // injected auto-key LAST.
 function handlerIndex(args: readonly VanillaAsyncDataArg[]): 0 | 1 {
   const [first, second] = args
 
-  if (keySchema.safeParse(first).success) return 1
-  if (
-    functionSchema.safeParse(first).success &&
-    functionSchema.safeParse(second).success
-  ) {
-    return 1
-  }
+  // A string key, or a ref key - what vanilla's `_isAutoKeyNeeded` reads as
+  // "the first argument is a key".
+  if (isString(first) || isPlainObject(first)) return 1
+  if (isFunction(first) && isFunction(second)) return 1
 
   return 0
 }
@@ -156,7 +149,7 @@ function handlerIndex(args: readonly VanillaAsyncDataArg[]): 0 | 1 {
 function isHandler(
   arg: VanillaAsyncDataArg
 ): arg is AsyncDataHandler<TrySource> {
-  return functionSchema.safeParse(arg).success
+  return isFunction(arg)
 }
 
 export type RawUseAsyncData = (

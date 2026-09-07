@@ -12,7 +12,7 @@ import {
   useLazyCheckedAsyncData,
   wrapRawAsyncData,
 } from '../../src/runtime/app/composables/use-checked-async-data'
-import { functionSchema } from '../../src/runtime/shared/primitives'
+import { isFunction } from '../../src/runtime/shared/primitives'
 
 // The wrapper must replace the right argument (vanilla's own split, not
 // "argument 0"), forward everything else by reference, and the substituted
@@ -40,7 +40,7 @@ const signal = { signal: new AbortController().signal }
 function isSubstituted(
   arg: (typeof asyncDataCalls)[number]['args'][number]
 ): arg is AsyncDataHandler<User> {
-  return functionSchema.safeParse(arg).success
+  return isFunction(arg)
 }
 
 /** The handler the wrapper substituted, from the last recorded call. */

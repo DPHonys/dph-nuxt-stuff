@@ -4,23 +4,7 @@ import type {
   EventHandlerResponse,
   H3Event,
 } from 'h3'
-import type {
-  AnyKnownError,
-  ConflictGuard,
-  Defs,
-  ErrorFactories,
-  InputOfDef,
-  InputsOfDefs,
-  KnownError,
-  KnownErrorGroup,
-  KnownErrorsOf,
-  ValidDef,
-  ValidDefs,
-  ValidTag,
-  VariantDef,
-  VariantOfDef,
-  VariantsOf,
-} from './known-error'
+import type { AnyKnownError, ErrorFactories } from './known-error'
 import type { IsAny } from './utils'
 
 /**
@@ -57,31 +41,3 @@ export type CheckedHandlerFn<
   Response,
   A extends readonly AnyKnownError[],
 > = (event: H3Event<Request>, ctx: HandlerContext<A>) => Response
-
-/** Declare single errors or spreadable groups. */
-export interface DefineError {
-  /** One definition → one error value. */
-  <Tag extends string, const D extends VariantDef>(
-    tag: Tag & ValidTag<Tag>,
-    def: ValidDef<D> & D
-  ): KnownError<VariantOfDef<Tag, D>, InputOfDef<Tag, D>>
-
-  /** Several definitions → a spreadable group. */
-  <const D extends Defs>(
-    defs: ValidDefs<D> & D
-  ): KnownErrorGroup<VariantsOf<D>, InputsOfDefs<D>>
-}
-
-// `Response` has no default type parameter on purpose: an explicit type
-// argument becomes an arity error instead of silently collapsing the
-// success type to `any`.
-export interface DefineCheckedEventHandler {
-  <
-    const A extends ReadonlyArray<AnyKnownError>,
-    Response extends EventHandlerResponse,
-    Request extends EventHandlerRequest = EventHandlerRequest,
-  >(
-    options: ConflictGuard<A> & { errors: A },
-    handler: CheckedHandlerFn<Request, Response, A>
-  ): CheckedEventHandler<Request, Response, KnownErrorsOf<A>>
-}

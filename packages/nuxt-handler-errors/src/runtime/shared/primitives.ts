@@ -9,6 +9,10 @@ export function isString(value: unknown): value is string {
 
 /**
  * Anything callable. `z.function()` builds a typed wrapper rather than a
- * plain guard in zod 4, so the guard is an `instanceof` check instead.
+ * plain guard in zod 4, so the schema is an `instanceof` check instead.
  */
 export const functionSchema = z.instanceof(Function)
+
+export function isFunction(value: unknown): value is Function {
+  return functionSchema.safeParse(value).success
+}

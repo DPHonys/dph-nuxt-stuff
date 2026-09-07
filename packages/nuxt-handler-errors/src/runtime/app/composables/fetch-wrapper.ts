@@ -171,18 +171,18 @@ export type VanillaFetchArgs = Parameters<typeof useFetch>
 /** What vanilla hands back; the module layer that binds it owns the typed face. */
 export type VanillaFetchResult = ReturnType<typeof useFetch>
 
-type VanillaOptions = Exclude<VanillaFetchArgs[1], string>
-
 /** The `headers` option as vanilla types it: refs and getters at every level. */
-type HeadersOption = NonNullable<VanillaOptions>['headers']
+type HeadersOption = NonNullable<
+  Exclude<VanillaFetchArgs[1], string>
+>['headers']
 
-/** The option with its outer ref or getter read - what `toValue` leaves. */
-type RawHeaders = ReturnType<typeof toValue<HeadersOption>>
-
-// Unwraps refs at every level - vanilla's option type is
+// Takes the option with its outer ref or getter already read, and unwraps
+// refs at every level below - vanilla's option type is
 // `ComputedOptions<HeadersInit>`, and reading the raw object without
 // unwrapping stringifies a ref to `[object Object]`.
-function resolveHeadersInit(raw: RawHeaders): HeadersInit | undefined {
+function resolveHeadersInit(
+  raw: ReturnType<typeof toValue<HeadersOption>>
+): HeadersInit | undefined {
   if (raw === undefined) return undefined
 
   if (raw instanceof Headers) return raw

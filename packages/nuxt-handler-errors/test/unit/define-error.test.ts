@@ -5,7 +5,7 @@ import {
   defineCheckedEventHandler,
   defineError,
 } from '../../src/runtime/server'
-import type { ErrorFactory } from '../../src/runtime/server/lib/error-context'
+import { factory } from '../error-factory'
 import { createTestEvent } from '../h3-event'
 
 // The handlers under test never read the event - only the second argument,
@@ -199,11 +199,7 @@ describe('defined errors at runtime', () => {
     const withArgument = defineCheckedEventHandler(
       { errors: [empty] },
       (_event, { errors }) => {
-        // Widened to the factory's runtime face, where any argument list is
-        // callable - the arity check under test is what refuses it.
-        const loose: ErrorFactory = errors.empty
-
-        throw loose({})
+        throw factory(errors, 'empty')({})
       }
     )
     await expect(withArgument(event)).rejects.toThrow(
