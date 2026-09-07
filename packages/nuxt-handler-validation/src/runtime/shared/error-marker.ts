@@ -5,6 +5,7 @@ import type {
   ValidationIssue,
   ValidationSource,
 } from '../types'
+import { VALIDATION_SOURCES } from './sources'
 
 // `Symbol.for` rather than `Symbol()`, so two physical copies of this package
 // in one dependency graph still recognize each other's failures. Versioning is
@@ -40,23 +41,6 @@ export function markValidationError(
   })
 }
 
-// The four sources, spelled out for the marker's parser. `satisfies` refuses a
-// name that is not a source; the alias below refuses a source left out.
-const VALIDATION_SOURCES = [
-  'routerParams',
-  'query',
-  'headers',
-  'body',
-] as const satisfies readonly ValidationSource[]
-
-type _EverySourceListed = [
-  Exclude<ValidationSource, (typeof VALIDATION_SOURCES)[number]>,
-] extends [never]
-  ? true
-  : 'a validation source is missing from VALIDATION_SOURCES'
-
-const _everySourceListed: _EverySourceListed = true
-
 /** The marker's shape, as `markValidationError` writes it. */
 const MARKER = z.object({
   issues: z.array(
@@ -85,7 +69,5 @@ export function readValidationMarker(
     return undefined
   }
 
-  const marker = MARKER.safeParse(error[VALIDATION_ERROR_KEY])
-
-  return marker.success ? marker.data : undefined
+  return MARKER.safeParse(error[VALIDATION_ERROR_KEY]).data
 }

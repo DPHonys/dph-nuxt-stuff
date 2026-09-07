@@ -6,6 +6,7 @@ import {
   isError,
   readBody,
 } from 'h3'
+import { VALIDATION_SOURCES } from '../../shared/sources'
 import type { ValidationSource } from '../../types'
 import type { OnInvalid } from './issues'
 
@@ -100,28 +101,23 @@ async function readBodyForValidation(
   }
 }
 
-// Every source exactly once, paired with its reader. The annotation is
-// load-bearing: a source left out of the walk would type-check everywhere and
-// then silently never validate, so omitting one fails to compile here instead.
-type SourceWalk<Remaining extends ValidationSource = ValidationSource> = [
-  Remaining,
-] extends [never]
-  ? readonly []
-  : {
-      [S in Remaining]: readonly [
-        readonly [source: S, read: SourceReader<S>],
-        ...SourceWalk<Exclude<Remaining, S>>,
-      ]
-    }[Remaining]
+/**
+ * One reader per source, keyed so a source left out fails to compile here
+ * instead of type-checking everywhere and then silently never validating.
+ */
+type SourceReaders = { readonly [S in ValidationSource]: SourceReader<S> }
+
+const SOURCE_READERS: SourceReaders = {
+  routerParams: (event) => getRouterParams(event, { decode: true }),
+  query: (event) => getQuery(event),
+  headers: (event) => getRequestHeaders(event),
+  body: readBodyForValidation,
+}
 
 /**
- * The four sources in the order they validate - the promise that a bad route
- * param means the body is never read. Each reaches its schema exactly as h3
- * yields it, as `RawSources` spells out.
+ * Every source paired with its reader, in `VALIDATION_SOURCES` order. Each
+ * reaches its schema exactly as h3 yields it, as `RawSources` spells out.
  */
-export const SOURCE_WALK: SourceWalk = [
-  ['routerParams', (event) => getRouterParams(event, { decode: true })],
-  ['query', (event) => getQuery(event)],
-  ['headers', (event) => getRequestHeaders(event)],
-  ['body', readBodyForValidation],
-]
+export const SOURCE_WALK: ReadonlyArray<
+  readonly [source: ValidationSource, read: SourceReader]
+> = VALIDATION_SOURCES.map((source) => [source, SOURCE_READERS[source]])
