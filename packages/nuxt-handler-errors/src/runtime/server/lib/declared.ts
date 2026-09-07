@@ -3,7 +3,11 @@ import type { H3Error } from 'h3'
 import { createError } from 'h3'
 import { knownErrorMarker } from '../../shared/wire'
 import type { KnownRaiseInput } from '../../shared/wire'
-import type { AnyKnownError, KnownVariant } from '../../types/known-error'
+import type {
+  AnyKnownError,
+  KnownVariant,
+  VARIANT,
+} from '../../types/known-error'
 
 /** What a `defineError` value resolves to once declared on a handler. */
 export interface DeclaredError {
@@ -12,17 +16,22 @@ export interface DeclaredError {
   readonly schema: StandardSchemaV1 | undefined
 }
 
-// Per module instance on purpose - a value from a second physical copy of
-// this module must fail `internalsOf`. Never a `Symbol.for`.
-const INTERNALS: unique symbol = Symbol('nuxt-handler-errors:internals')
+// One class per module instance on purpose - a value from a second physical
+// copy of this module fails `instanceof`, so `internalsOf` rejects it.
+class KnownErrorValue implements AnyKnownError {
+  // Phantom: the brand exists only in the type. `declare` emits nothing, so
+  // the runtime object carries the declaration and nothing else.
+  declare readonly [VARIANT]: AnyKnownError[typeof VARIANT]
 
-export function internalsOf(error: AnyKnownError): DeclaredError | undefined {
-  return (error as { [INTERNALS]?: DeclaredError } | null)?.[INTERNALS]
+  constructor(readonly declared: DeclaredError) {}
 }
 
-// Cast because the `[VARIANT]` brand is phantom and exists only in the type.
+export function internalsOf(error: AnyKnownError): DeclaredError | undefined {
+  return error instanceof KnownErrorValue ? error.declared : undefined
+}
+
 export function knownErrorValue(internals: DeclaredError): AnyKnownError {
-  return { [INTERNALS]: internals } as unknown as AnyKnownError
+  return new KnownErrorValue(internals)
 }
 
 // Throwing at module evaluation is the point - skipping the entry would hide
@@ -77,10 +86,12 @@ export function factoryName(tag: string): string {
 // server-to-server throw untouched, so the tag must not ride it.
 // `fatal`/`unhandled` are left alone, so the production serializer keeps
 // `data` and Nuxt never escalates a known failure to the error page.
-export function createKnownError(
+// Generic over the payload: the fields are whatever the caller's schema
+// produced, and nothing here reads them.
+export function createKnownError<Fields extends Record<string, unknown>>(
   tag: string,
   status: number,
-  fields: Record<string, unknown>
+  fields: Fields
 ): H3Error {
   const input: KnownRaiseInput<KnownVariant> = {
     statusCode: status,

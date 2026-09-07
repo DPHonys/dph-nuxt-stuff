@@ -1,4 +1,5 @@
 import { createError } from 'h3'
+import type { H3Error } from 'h3'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import {
@@ -7,7 +8,7 @@ import {
   recognizeKnownError,
   recognizeValidationError,
 } from '../../src/runtime/server'
-import { postJson, request } from '../h3-app'
+import { firstError, postJson, request } from '../h3-app'
 
 describe('handler-local error factories', () => {
   it('provides only local factories, without reading an undeclared body', async () => {
@@ -21,7 +22,7 @@ describe('handler-local error factories', () => {
         throw ctx.errors.missing()
       }
     )
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     for (let i = 0; i < 2; i++) {
       const response = await request(handler, '/api/test', {
         init: postJson('{ invalid'),
@@ -29,7 +30,7 @@ describe('handler-local error factories', () => {
       })
       expect(response.status).toBe(404)
     }
-    expect(recognizeKnownError(seen[0])).toEqual({
+    expect(recognizeKnownError(firstError(seen))).toEqual({
       tag: 'missing',
       status: 404,
     })
@@ -44,12 +45,12 @@ describe('handler-local error factories', () => {
         throw errors.conflict('3')
       }
     )
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     const response = await request(handler, '/api/test', {
       onError: (error) => seen.push(error),
     })
     expect(response.status).toBe(409)
-    expect(recognizeKnownError(seen[0])).toEqual({
+    expect(recognizeKnownError(firstError(seen))).toEqual({
       tag: 'conflict',
       status: 409,
       count: 3,
@@ -68,12 +69,12 @@ describe('handler-local error factories', () => {
         throw errors.bad('short')
       }
     )
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     const response = await request(handler, '/api/test', {
       onError: (error) => seen.push(error),
     })
     expect(response.status).toBe(500)
-    expect(recognizeKnownError(seen[0])).toBeUndefined()
+    expect(recognizeKnownError(firstError(seen))).toBeUndefined()
   })
 
   it('combines all validated sources with factories and preserves success', async () => {
@@ -117,13 +118,13 @@ describe('handler-local error factories', () => {
       id: '42',
       token: 'secret',
     })
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     const failure = await request(handler, '/api/test/42?page=2', {
       ...options,
       onError: (error) => seen.push(error),
     })
     expect(failure.status).toBe(409)
-    expect(recognizeKnownError(seen[0])).toEqual({
+    expect(recognizeKnownError(firstError(seen))).toEqual({
       tag: 'conflict',
       status: 409,
       page: 2,
@@ -159,19 +160,19 @@ describe('handler-local error factories', () => {
       },
       body
     )
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     const response = await request(handler, '/api/test', {
       init: postJson('{}'),
       onError: (error) => seen.push(error),
     })
     expect(response.status).toBe(400)
     expect(body).not.toHaveBeenCalled()
-    expect(recognizeKnownError(seen[0])).toMatchObject({
+    expect(recognizeKnownError(firstError(seen))).toMatchObject({
       tag: 'validation-failed',
       status: 400,
       issues: [{ source: 'body' }],
     })
-    expect(recognizeValidationError(seen[0])).toMatchObject({
+    expect(recognizeValidationError(firstError(seen))).toMatchObject({
       issues: [{ source: 'body' }],
     })
   })
@@ -187,11 +188,11 @@ describe('handler-local error factories', () => {
         { errors: [defineError('missing', { status: 404 })] },
         asyncHandler ? async () => throwError() : throwError
       )
-      const seen: unknown[] = []
+      const seen: H3Error[] = []
       await request(handler, '/api/test', {
         onError: (value) => seen.push(value),
       })
-      expect(seen[0]).toBe(error)
+      expect(firstError(seen)).toBe(error)
     }
   )
 
@@ -209,15 +210,15 @@ describe('handler-local error factories', () => {
         throw errors.bad('input')
       }
     )
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     const response = await request(handler, '/api/test', {
       onError: (value) => seen.push(value),
     })
     expect(response.status).toBe(500)
-    expect(seen[0]).toMatchObject({
+    expect(firstError(seen)).toMatchObject({
       message: expect.stringContaining('validates asynchronously'),
     })
-    expect(recognizeKnownError(seen[0])).toBeUndefined()
+    expect(recognizeKnownError(firstError(seen))).toBeUndefined()
   })
 
   it('rejects reserved tags before planning validation, including without validation', () => {

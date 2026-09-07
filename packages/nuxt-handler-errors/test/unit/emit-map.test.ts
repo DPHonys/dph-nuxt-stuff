@@ -1,3 +1,4 @@
+import { eventHandler } from 'h3'
 import type { NitroEventHandler } from 'nitropack/types'
 import { describe, expect, it } from 'vitest'
 import {
@@ -170,7 +171,7 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
       [
         {
           route: '/api/blank',
-          method: '' as NonNullable<NitroEventHandler['method']>,
+          method: '',
           handler: '/app/server/api/blank.ts',
         },
       ],
@@ -189,7 +190,7 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
       [
         {
           route: '/api/programmatic',
-          method: 'POST' as NonNullable<NitroEventHandler['method']>,
+          method: 'POST',
           handler: '/app/server/api/programmatic.ts',
         },
       ],
@@ -248,16 +249,20 @@ describe('route and method keys, re-derived from Nitro’s own arrays', () => {
   it('skips middleware and any handler that is not a path', () => {
     // Nitro's own guard: a route-less entry is middleware, and a dev handler
     // carries a function rather than a path.
+    // Nitro's own entry for middleware, flag and all: its handler types are
+    // what the emitter admits.
+    const middleware: NitroEventHandler = {
+      route: '',
+      handler: '/app/server/middleware/auth.ts',
+      middleware: true,
+    }
+
     const emitted = emitMap(
       [
-        {
-          route: '',
-          handler: '/app/server/middleware/auth.ts',
-          middleware: true,
-        },
+        middleware,
         {
           route: '/api/live',
-          handler: (() => {}) as unknown as string,
+          handler: eventHandler(() => {}),
         },
         {
           route: '/api/real',

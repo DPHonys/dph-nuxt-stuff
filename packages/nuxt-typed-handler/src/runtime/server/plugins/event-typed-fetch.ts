@@ -7,7 +7,7 @@ import type { TypedEventFetch } from '../../types/fetch'
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', (event) => {
     event.$typedFetch = createCheckedEventFetch(
-      () => event.$fetch as RawEventFetch | undefined,
+      () => event.$fetch as RawEventFetch<unknown> | undefined,
       configuredChannelToken
     ) as TypedEventFetch
   })

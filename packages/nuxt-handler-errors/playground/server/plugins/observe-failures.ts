@@ -16,8 +16,9 @@ export default defineNitroPlugin((nitro) => {
     observedFailures.push({
       tag: variant.tag,
       status: variant.status,
-      // Nitro types the hook's error as `Error`; `unhandled` is h3's own flag.
-      unhandled: (error as { unhandled?: boolean }).unhandled === true,
+      // Nitro types the hook's error as `Error`; `unhandled` is h3's own flag,
+      // read through h3's own guard.
+      unhandled: isError(error) && error.unhandled,
     })
   })
 })

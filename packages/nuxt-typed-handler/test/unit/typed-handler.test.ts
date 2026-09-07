@@ -1,5 +1,6 @@
 import { defineError } from '@dphonys/nuxt-handler-errors/server'
 import { KNOWN_ERROR_KEY } from '@dphonys/nuxt-handler-errors/shared'
+import type { H3Error } from 'h3'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import {
@@ -7,7 +8,7 @@ import {
   recognizeKnownError,
   recognizeValidationError,
 } from '../../src/runtime/server'
-import { postJson, request } from '../h3-app'
+import { firstError, postJson, request } from '../h3-app'
 
 // The real internals, with the one seam the errors-only case asserts on
 // observed through a spy: `validatedContext` is the only door to a body read.
@@ -104,7 +105,7 @@ describe('a route declaring only validation', () => {
       () => 'the body never runs'
     )
 
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     const response = await request(handler, '/api/test?page=nope', {
       onError: (error) => seen.push(error),
     })
@@ -126,11 +127,11 @@ describe('a route declaring only validation', () => {
     })
 
     // The live error is what an observability hook sees: both recognizers.
-    expect(recognizeKnownError(seen[0])).toMatchObject({
+    expect(recognizeKnownError(firstError(seen))).toMatchObject({
       tag: 'validation-failed',
       status: 400,
     })
-    expect(recognizeValidationError(seen[0])).toMatchObject({ issues })
+    expect(recognizeValidationError(firstError(seen))).toMatchObject({ issues })
   })
 
   it('answers an unparseable body with the same variant and the parent’s issue', async () => {
@@ -291,7 +292,7 @@ describe('declaration-time misuse', () => {
       }
     )
 
-    const seen: unknown[] = []
+    const seen: H3Error[] = []
     const response = await request(handler, '/api/test', {
       onError: (error) => seen.push(error),
     })

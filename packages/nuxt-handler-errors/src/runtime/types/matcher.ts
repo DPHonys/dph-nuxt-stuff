@@ -3,10 +3,15 @@ import type { MaybeRef } from 'vue'
 import type { KnownErrorBody } from '../shared/wire'
 import type { KnownVariant } from './known-error'
 
-/** An error carrying a route's declared union - what the matcher accepts. */
-export interface KnownErrorCarrier<E extends KnownVariant> {
-  data?: KnownErrorBody<E> | undefined
-}
+/**
+ * An error carrying a route's declared union - what the matcher accepts.
+ * Every surface hands over Nuxt's error object: `useCheckedFetch`'s ref,
+ * `.try`'s failure arm and `useCheckedAsyncData`'s ref all go through h3's
+ * `createError`.
+ */
+export type KnownErrorCarrier<E extends KnownVariant> = NuxtError<
+  KnownErrorBody<E>
+>
 
 /** The declared union recovered from a carrier. Distributes over unions. */
 export type VariantOf<C> = C extends KnownErrorCarrier<infer E> ? E : never
@@ -34,8 +39,12 @@ export interface MatchError {
     fallback: Fallback
   ): void
 
-  // Degraded: a vanilla `useFetch`, an undeclared route, an `unknown` in a
-  // `catch`. Arms must be `{}` - anything more permissive silently disables
-  // exhaustiveness on typed calls missing an arm.
-  (error: unknown, arms: Record<string, never>, fallback: Fallback): void
+  // Degraded: a vanilla `useFetch`, an undeclared route, a `catch` narrowed
+  // with `isNuxtError`. Arms must be `{}` - anything more permissive silently
+  // disables exhaustiveness on typed calls missing an arm.
+  (
+    error: MaybeRef<NuxtError | null | undefined>,
+    arms: Record<string, never>,
+    fallback: Fallback
+  ): void
 }

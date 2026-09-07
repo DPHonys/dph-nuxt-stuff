@@ -13,21 +13,24 @@ const bound: FetchWrapperOptions = {
   },
 }
 
+// The one place the route-typed face goes on: vanilla's runtime signature
+// wrapped, then read through the checked overloads.
+function checkedFace(vanilla: typeof useFetch): UseCheckedFetch {
+  // SAFETY: the overloads are vanilla's own with the error ref retyped by
+  // route; the wrapper forwards every argument and only merges headers, so
+  // vanilla's runtime honours each of them.
+  return wrapVanillaFetch(vanilla, bound) as UseCheckedFetch
+}
+
 /**
  * Drop-in `useFetch` with the route's declared error union typed on the
  * `error` ref: `data` is what it always was, `error` still holds Nuxt's error
  * object, and `matchError(error, …)` is the one read path.
  */
-export const useCheckedFetch = wrapVanillaFetch(
-  useFetch,
-  bound
-) as UseCheckedFetch
+export const useCheckedFetch = checkedFace(useFetch)
 
 /**
  * The lazy twin. Delegates to Nuxt's own `useLazyFetch` rather than passing
  * `lazy: true`, so Nuxt's dev-mode data diagnostics tag the call correctly.
  */
-export const useLazyCheckedFetch = wrapVanillaFetch(
-  useLazyFetch,
-  bound
-) as UseCheckedFetch
+export const useLazyCheckedFetch = checkedFace(useLazyFetch)

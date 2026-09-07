@@ -4,28 +4,43 @@
  * simulates nothing; the composables running for real is the e2e tier.
  */
 
+import { shallowRef } from 'vue'
+import type {
+  VanillaFetchArgs,
+  VanillaFetchResult,
+} from '../../src/runtime/app/composables/fetch-wrapper'
+import type {
+  VanillaAsyncDataArg,
+  VanillaAsyncDataResult,
+} from '../../src/runtime/app/composables/use-checked-async-data'
+import { isString } from '../../src/runtime/shared/primitives'
 import type { CheckedFetch } from '../../src/runtime/types'
 
-/** One recorded call, in vanilla's own three-argument runtime shape. */
+/** One recorded call, split as vanilla's own runtime splits its three arguments. */
 export interface RecordedCall {
   readonly name: 'useFetch' | 'useLazyFetch'
-  readonly request: unknown
-  readonly opts: Record<string, unknown> | undefined
-  readonly autoKey: unknown
+  readonly request: VanillaFetchArgs[0]
+  readonly opts: Exclude<VanillaFetchArgs[1], string>
+  readonly autoKey: string | undefined
 }
 
 export const calls: RecordedCall[] = []
 
-function record(name: RecordedCall['name']) {
-  return (request: unknown, arg1?: unknown, arg2?: unknown): unknown => {
-    calls.push({
-      name,
-      request,
-      opts: arg1 as Record<string, unknown> | undefined,
-      autoKey: arg2,
-    })
+// What the double hands back: the two refs a caller destructures, empty.
+// The wrappers never read the result; the shape is vanilla's for the
+// module layer that types the composable over it.
+const emptyResult = (): Pick<VanillaFetchResult, 'data' | 'error'> => ({
+  data: shallowRef(undefined),
+  error: shallowRef(undefined),
+})
 
-    return { data: { value: undefined }, error: { value: undefined } }
+function record(name: RecordedCall['name']) {
+  return (...[request, arg1, arg2]: VanillaFetchArgs) => {
+    const [opts, autoKey] = isString(arg1) ? [undefined, arg1] : [arg1, arg2]
+
+    calls.push({ name, request, opts, autoKey })
+
+    return emptyResult()
   }
 }
 
@@ -38,16 +53,24 @@ export const useLazyFetch = record('useLazyFetch')
  */
 export interface RecordedAsyncDataCall {
   readonly name: 'useAsyncData' | 'useLazyAsyncData'
-  readonly args: readonly unknown[]
+  readonly args: readonly VanillaAsyncDataArg[]
 }
 
 export const asyncDataCalls: RecordedAsyncDataCall[] = []
 
+const emptyAsyncDataResult = (): Pick<
+  VanillaAsyncDataResult,
+  'data' | 'error'
+> => ({
+  data: shallowRef(undefined),
+  error: shallowRef(undefined),
+})
+
 function recordAsyncData(name: RecordedAsyncDataCall['name']) {
-  return (...args: unknown[]): unknown => {
+  return (...args: readonly VanillaAsyncDataArg[]) => {
     asyncDataCalls.push({ name, args })
 
-    return { data: { value: undefined }, error: { value: undefined } }
+    return emptyAsyncDataResult()
   }
 }
 

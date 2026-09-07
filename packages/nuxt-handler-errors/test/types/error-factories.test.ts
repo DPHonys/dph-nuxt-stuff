@@ -139,7 +139,7 @@ export function declarationGuards(): void {
     bad: { status: 404, payload: z.object({ status: z.number() }) },
   })
   // @ts-expect-error the payload must be a Standard Schema, not a plain type
-  defineError('bad', { status: 404, payload: {} as { until: string } })
+  defineError('bad', { status: 404, payload: { until: '' } })
   // @ts-expect-error `__invalidTag__` names the camelCase tag on a single
   defineError('notFound', { status: 404 })
   // @ts-expect-error `__invalidTag__` names the camelCase tag in a group
@@ -263,6 +263,6 @@ it('preserves output brands, success inference, and the generic composition seam
   expectTypeOf<Awaited<ReturnType<typeof umbrella>>>().toEqualTypeOf<{
     ok: boolean
   }>()
-  expect(typeof handler).toBe('function')
-  expect(typeof umbrella).toBe('function')
+  expect(handler).toBeTypeOf('function')
+  expect(umbrella).toBeTypeOf('function')
 })

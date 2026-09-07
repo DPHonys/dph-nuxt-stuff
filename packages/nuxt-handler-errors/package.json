@@ -106,7 +106,8 @@
     "h3": "catalog:",
     "nitropack": "catalog:",
     "pathe": "catalog:",
-    "vue": "catalog:"
+    "vue": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@nuxt/devtools": "catalog:",
@@ -119,8 +120,7 @@
     "typescript": "catalog:",
     "unbuild": "catalog:",
     "vitest": "catalog:",
-    "vue-tsc": "catalog:",
-    "zod": "catalog:"
+    "vue-tsc": "catalog:"
   },
   "peerDependencies": {
     "nuxt": ">=4.5.1 <5.0.0"
