@@ -11,13 +11,24 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineValidatedEventHandler } from '../../src/runtime/server'
 import type { ValidationSource } from '../../src/runtime/types'
-import { postJson, request, schemaReturning, sourcesOfIssues } from '../h3-app'
+import {
+  failureBodyOf,
+  postJson,
+  request,
+  schemaReturning,
+  sourcesOfIssues,
+  wire,
+} from '../h3-app'
 
 // Handlers built by `defineValidatedEventHandler`, driven by real requests
 // through a real h3 app; the mounting tools live in `test/h3-app.ts`.
 
-/** A POST whose body stream errors part-way through, rejecting with `reason`. */
-function bodyFailingWith(reason: unknown): RequestInit {
+/**
+ * A POST whose body stream errors part-way through, rejecting with `reason`.
+ * `duplex` is what Node's fetch demands of a streamed body; the DOM lib's
+ * `RequestInit` does not know it, so it is named beside it.
+ */
+function bodyFailingWith(reason: Error): RequestInit & { duplex: 'half' } {
   return {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -28,25 +39,24 @@ function bodyFailingWith(reason: unknown): RequestInit {
       },
     }),
     duplex: 'half',
-  } as RequestInit
+  }
 }
 
 describe('a handler declaring a routerParams schema', () => {
   it('hands the body the schema output, coercions applied', async () => {
     const handler = defineValidatedEventHandler(
       { validate: { routerParams: z.object({ id: z.coerce.number() }) } },
-      (event, { routerParams }) => ({
-        id: routerParams.id,
-        type: typeof routerParams.id,
-      })
+      (event, { routerParams }) => ({ id: routerParams.id })
     )
 
     const response = await request(handler, '/users/42', {
       route: '/users/:id',
     })
 
+    // `toEqual` is strict about `42` against `'42'`: the coercion is observed
+    // in the JSON shape itself.
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ id: 42, type: 'number' })
+    await expect(response.json()).resolves.toEqual({ id: 42 })
   })
 
   it('validates decoded params, not percent-escapes', async () => {
@@ -98,16 +108,13 @@ describe('a handler declaring a query schema', () => {
   it('hands the body the schema output, coercions applied', async () => {
     const handler = defineValidatedEventHandler(
       { validate: { query: z.object({ page: z.coerce.number() }) } },
-      (event, { query }) => ({ page: query.page, type: typeof query.page })
+      (event, { query }) => ({ page: query.page })
     )
 
     const response = await request(handler, '/api/test?page=2')
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      page: 2,
-      type: 'number',
-    })
+    await expect(response.json()).resolves.toEqual({ page: 2 })
   })
 
   it('delivers query as h3 yields it: strings, arrays for repeated keys', async () => {
@@ -143,7 +150,7 @@ describe('a handler declaring a query schema', () => {
     )
 
     const response = await request(handler, '/api/test?page=not-a-number')
-    const body = (await response.json()) as Record<string, unknown>
+    const body = await failureBodyOf(response)
 
     expect(bodyRan).toBe(false)
     expect(response.status).toBe(400)
@@ -170,9 +177,7 @@ describe('a handler declaring a query schema', () => {
     )
 
     const response = await request(handler, '/api/test?page=x&sort=sideways')
-    const body = (await response.json()) as {
-      data: { issues: Array<{ source: string; path: unknown[] }> }
-    }
+    const body = await failureBodyOf(response)
 
     expect(body.data.issues).toHaveLength(2)
     expect(body.data.issues.map((issue) => issue.source)).toEqual([
@@ -194,8 +199,8 @@ describe('a handler declaring a query schema', () => {
     const quiet = await request(handler, '/api/test?page=x')
     const verbose = await request(handler, '/api/test?page=x', { debug: true })
 
-    const quietBody = (await quiet.json()) as Record<string, unknown>
-    const verboseBody = (await verbose.json()) as Record<string, unknown>
+    const quietBody = await failureBodyOf(quiet)
+    const verboseBody = await failureBodyOf(verbose)
 
     // The stack the verbose server adds is h3's; the payload this package
     // raises has no environment branch, so it is the same object under both.
@@ -286,7 +291,7 @@ describe('a handler declaring a body schema', () => {
   it('validates an empty body as undefined', async () => {
     const handler = defineValidatedEventHandler(
       { validate: { body: z.object({ name: z.string() }).optional() } },
-      (event, { body }) => ({ type: typeof body })
+      (event, { body }) => ({ bodyIsUndefined: body === undefined })
     )
 
     const response = await request(handler, '/api/test', {
@@ -295,7 +300,7 @@ describe('a handler declaring a body schema', () => {
 
     // No special case anywhere: "optional body" is expressed in the schema.
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ type: 'undefined' })
+    await expect(response.json()).resolves.toEqual({ bodyIsUndefined: true })
   })
 })
 
@@ -420,19 +425,17 @@ describe('any Standard Schema', () => {
   it('discriminates on `issues`, so a value-less success stays a success', async () => {
     // What `'value' in result` would misread as a failure: a successful result
     // whose output is `undefined` and which carries no `value` key at all.
-    const valueless = {
-      issues: undefined,
-    } as unknown as StandardSchemaV1.Result<undefined>
+    const valueless: StandardSchemaV1.Result<undefined> = wire('{}')
 
     const handler = defineValidatedEventHandler(
       { validate: { query: schemaReturning(valueless) } },
-      (event, { query }) => ({ received: query, type: typeof query })
+      (event, { query }) => ({ valueless: query === undefined })
     )
 
     const response = await request(handler, '/api/test')
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ type: 'undefined' })
+    await expect(response.json()).resolves.toEqual({ valueless: true })
   })
 
   it('refuses a result that reports neither an output nor an issue', async () => {
@@ -597,7 +600,7 @@ describe('a body the read itself refuses', () => {
       expect(response.status).toBe(400)
       expect(response.statusText).toBe('Validation Error')
 
-      const body = (await response.json()) as { data: { issues: unknown[] } }
+      const body = await failureBodyOf(response)
 
       // `toEqual`: the message is this package's own, never h3's "Invalid JSON
       // body" - which would make h3's wording part of this wire contract.
@@ -617,8 +620,8 @@ describe('a body the read itself refuses', () => {
     const quiet = await request(handler, '/api/test', { init })
     const verbose = await request(handler, '/api/test', { init, debug: true })
 
-    const quietBody = (await quiet.json()) as Record<string, unknown>
-    const verboseBody = (await verbose.json()) as Record<string, unknown>
+    const quietBody = await failureBodyOf(quiet)
+    const verboseBody = await failureBodyOf(verbose)
 
     expect(verbose.status).toBe(quiet.status)
     expect(verboseBody.data).toEqual(quietBody.data)
@@ -792,7 +795,7 @@ describe("h3's body memoization", () => {
         body: new Blob(['{ not json at all']),
       })
     )
-    const body = (await response.json()) as { data: { issues: unknown[] } }
+    const body = await failureBodyOf(response)
 
     // Only the message drifts from ours to the schema's, which is no worse for
     // the client.
@@ -829,7 +832,7 @@ describe('the projected issues', () => {
     )
 
     const response = await request(handler, '/api/test')
-    const body = (await response.json()) as { data: { issues: unknown[] } }
+    const body = await failureBodyOf(response)
 
     // `toEqual`, not `toMatchObject`: an extra key on an issue is the failure
     // this asserts against.
@@ -850,16 +853,20 @@ describe('the projected issues', () => {
     const handler = defineValidatedEventHandler(
       {
         validate: {
-          query: schemaReturning({
-            issues: [{ message: 'Expected a number', path: [null, 'page'] }],
-          } as unknown as StandardSchemaV1.Result<unknown>),
+          // Hand-written, so typed as it would arrive: the interface refuses
+          // a `null` segment, and a JSON answer carries one anyway.
+          query: schemaReturning(
+            wire(
+              '{"issues":[{"message":"Expected a number","path":[null,"page"]}]}'
+            )
+          ),
         },
       },
       () => 'the body never runs'
     )
 
     const response = await request(handler, '/api/test')
-    const body = (await response.json()) as { data: { issues: unknown[] } }
+    const body = await failureBodyOf(response)
 
     expect(response.status).toBe(400)
     expect(response.statusText).toBe('Validation Error')

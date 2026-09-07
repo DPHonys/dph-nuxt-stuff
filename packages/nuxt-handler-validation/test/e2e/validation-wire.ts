@@ -1,6 +1,7 @@
 import { $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { expect, it } from 'vitest'
 import { VALIDATION_ERROR_KEY } from '../../src/runtime/shared/error-marker'
+import type { ValidationIssue } from '../../src/runtime/types'
 
 /**
  * The whole wire contract, in one copy, run by `wire.test.ts` against a
@@ -20,25 +21,39 @@ import { VALIDATION_ERROR_KEY } from '../../src/runtime/shared/error-marker'
 const MARKER_KEY: string = VALIDATION_ERROR_KEY.description ?? ''
 
 /** What `/api/search?page=nope` and the composed `/api/reports` produce. */
-const BAD_PAGE = {
+const BAD_PAGE: ValidationIssue = {
   source: 'query',
   message: 'page must be a whole number',
   path: ['page'],
 }
 
 /** This package's own wording for a body the request made unreadable. */
-const UNPARSEABLE_BODY = {
+const UNPARSEABLE_BODY: ValidationIssue = {
   source: 'body',
   message: 'Request body could not be parsed',
   path: [],
 }
 
 /** Keys Nitro adds to an error body that this package does not own. */
-type NitroExtras = Record<string, unknown>
+export interface NitroExtras {
+  /** The dev server's stack frames; a production build sends none. */
+  stack?: readonly string[]
+}
+
+/** Nitro's error envelope around this package's one fixed payload. */
+interface FailureEnvelope extends NitroExtras {
+  error: true
+  url: string
+  statusCode: 400
+  statusMessage: 'Validation Error'
+  message: string
+  data: { issues: readonly ValidationIssue[] }
+}
 
 export function theValidationWire(nitroExtras: NitroExtras): void {
-  /** Nitro's error envelope around this package's one fixed payload. */
-  const failureBody = (issues: unknown[]): Record<string, unknown> => ({
+  const failureBody = (
+    issues: readonly ValidationIssue[]
+  ): FailureEnvelope => ({
     ...nitroExtras,
     error: true,
     url: expect.any(String),
@@ -191,18 +206,20 @@ interface ObservedError {
   statusCode: number | undefined
   message: string
   recognized: boolean
-  issues: unknown
+  issues: ValidationIssue[] | null
 }
 
 /**
  * A POST carrying an already-serialized payload. Typed structurally rather than
  * as `RequestInit`, because it is handed to both `fetch` and ofetch's `$fetch`.
  */
-function jsonPost(body: string): {
+interface JsonPost {
   method: 'POST'
   headers: Record<string, string>
   body: string
-} {
+}
+
+function jsonPost(body: string): JsonPost {
   return {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

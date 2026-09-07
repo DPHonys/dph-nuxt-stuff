@@ -1,5 +1,10 @@
 import type { H3Error } from 'h3'
-import type { ValidationErrorData, ValidationIssue } from '../types'
+import { z } from 'zod'
+import type {
+  ValidationErrorData,
+  ValidationIssue,
+  ValidationSource,
+} from '../types'
 
 // `Symbol.for` rather than `Symbol()`, so two physical copies of this package
 // in one dependency graph still recognize each other's failures. Versioning is
@@ -35,18 +40,52 @@ export function markValidationError(
   })
 }
 
-// The shape check is what `Symbol.for` costs: a version-skewed copy sharing the
-// registry key can put anything behind it, and that must read as unrecognized.
-export function readValidationMarker(
-  error: unknown
-): ValidationErrorData | undefined {
-  const marker = (error as Record<symbol, unknown> | null | undefined)?.[
-    VALIDATION_ERROR_KEY
-  ]
+// The four sources, spelled out for the marker's parser. `satisfies` refuses a
+// name that is not a source; the alias below refuses a source left out.
+const VALIDATION_SOURCES = [
+  'routerParams',
+  'query',
+  'headers',
+  'body',
+] as const satisfies readonly ValidationSource[]
 
-  return typeof marker === 'object' &&
-    marker !== null &&
-    Array.isArray((marker as ValidationErrorData).issues)
-    ? (marker as ValidationErrorData)
-    : undefined
+type _EverySourceListed = [
+  Exclude<ValidationSource, (typeof VALIDATION_SOURCES)[number]>,
+] extends [never]
+  ? true
+  : 'a validation source is missing from VALIDATION_SOURCES'
+
+const _everySourceListed: _EverySourceListed = true
+
+/** The marker's shape, as `markValidationError` writes it. */
+const MARKER = z.object({
+  issues: z.array(
+    z.object({
+      source: z.enum(VALIDATION_SOURCES),
+      message: z.string(),
+      path: z.array(z.union([z.string(), z.number()])),
+    })
+  ),
+})
+
+/**
+ * The marker a validation failure carries, or `undefined` for anything else.
+ *
+ * Parsed rather than trusted, which is what `Symbol.for` costs: a
+ * version-skewed copy sharing the registry key can put anything behind it,
+ * and that must read as unrecognized. What comes back is the parse's own
+ * copy, so a hook editing it edits no marker.
+ */
+export function readValidationMarker(
+  error: Error
+): ValidationErrorData | undefined {
+  // Typed as the `Error` every hook is handed; tolerated as anything, because
+  // a JavaScript hook passes on whatever it was given.
+  if (!(error instanceof Object) || !(VALIDATION_ERROR_KEY in error)) {
+    return undefined
+  }
+
+  const marker = MARKER.safeParse(error[VALIDATION_ERROR_KEY])
+
+  return marker.success ? marker.data : undefined
 }

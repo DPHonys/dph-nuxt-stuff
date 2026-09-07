@@ -1,9 +1,13 @@
 import { z } from 'zod'
 
-/** Declares an object output; only the parse reveals a string. */
-const claimsAnObject = z
-  .unknown()
-  .transform(() => 'not an object at all' as unknown as { tag: string })
+/**
+ * Declares an object output; only the parse reveals a string. `z.custom` is
+ * how a library lets an author claim an output it does not check.
+ */
+const claimsAnObject = z.preprocess(
+  () => 'not an object at all',
+  z.custom<{ tag: string }>(() => true)
+)
 
 /** A deliberate mistake: the package answers `500`, and marks nothing. */
 export default defineValidatedEventHandler(

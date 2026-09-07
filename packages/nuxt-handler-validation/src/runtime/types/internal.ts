@@ -54,7 +54,7 @@ type IsMergeableOutput<O> =
   IsAny<O> extends true
     ? true
     : O extends object
-      ? O extends readonly unknown[] | ((...args: never[]) => unknown)
+      ? O extends readonly unknown[] | ((...args: never[]) => void)
         ? false
         : true
       : false

@@ -87,8 +87,8 @@ export function unionOutput(): void {
 
 // --- Observability predicate ----------------------------------------------
 
-export function observabilityHook(unknownError: unknown): void {
-  const _recognized = recognizeValidationError(unknownError)
+export function observabilityHook(error: Error): void {
+  const _recognized = recognizeValidationError(error)
   type _predicate = Assert<
     Equal<typeof _recognized, ValidationErrorData | undefined>
   >
