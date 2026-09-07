@@ -109,14 +109,11 @@ export function resolveWithin(root: string, requestedPath: string): string {
 }
 
 function summarize(definition: TemplateDefinition): TemplateSummary {
-  const summary: TemplateSummary = {
+  return {
     id: definition.id,
     label: definition.label,
+    scaffoldNameInitialValue: definition.scaffoldNameInitialValue,
   }
-  if (definition.scaffoldNameInitialValue) {
-    summary.scaffoldNameInitialValue = definition.scaffoldNameInitialValue
-  }
-  return summary
 }
 
 function assertRelativePath(path: string, label: string): void {

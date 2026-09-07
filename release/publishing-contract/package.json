@@ -5,12 +5,10 @@
   "scripts": {
     "test": "vitest run tests"
   },
-  "dependencies": {
-    "zod": "catalog:"
-  },
   "devDependencies": {
     "@dphonys/test-utils": "workspace:*",
     "vitest": "catalog:",
-    "yaml": "catalog:"
+    "yaml": "catalog:",
+    "zod": "catalog:"
   }
 }

@@ -21,10 +21,10 @@ interface FixtureManifest {
   repository?: { type?: string; url?: string; directory?: string }
   files?: string[]
   main?: string
-  typesVersions?: Record<string, Record<string, string[]>>
-  exports?: Record<string, Record<string, string>>
+  typesVersions?: { '*': { '.': string[] } }
+  exports?: { '.': { types: string; import: string } }
   publishConfig?: { access?: string }
-  scripts?: Record<string, string>
+  scripts?: { prepack?: string }
 }
 type ManifestMutation = (manifest: FixtureManifest) => void
 

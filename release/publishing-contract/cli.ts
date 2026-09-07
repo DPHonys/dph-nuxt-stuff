@@ -3,107 +3,79 @@ import { join, relative, resolve, sep } from 'node:path'
 import process from 'node:process'
 import { z } from 'zod'
 
-type Workspace =
-  | { directory: string; publication: 'private' }
-  | { directory: string; publication: 'public'; violations: readonly string[] }
-
-function validatePublishingContract(workspaces: Workspace[]): string[] {
-  return workspaces.flatMap((workspace) => {
-    if (workspace.publication === 'private') return []
-    if (!/^packages\/[^/]+$/.test(workspace.directory)) {
-      return [
-        `${workspace.directory}: only non-private direct children of packages/ may be published`,
-      ]
-    }
-    return workspace.violations.map(
-      (violation) => `${workspace.directory}: ${violation}`
-    )
-  })
-}
-
 /** Every manifest, publishable or not, must at least say whether it is private. */
 const admissionSchema = z.object({ private: z.boolean().optional() })
 
 /**
- * The publication contract for a package admitted under `packages/`. The
- * schema describes the shape; `diagnostic` phrases each failing rule.
+ * The publication contract for a package admitted under `packages/`. Each
+ * rule carries one diagnostic, repeated on every node of the rule's shape so
+ * a missing key and a malformed value read the same.
  */
-function publishableManifestSchema(directory: string): z.ZodType {
+function publishableManifestSchema(directory: string) {
   const expectedName = `@dphonys/${directory.slice('packages/'.length)}`
+  const version = 'version must be a valid semantic version'
+  const engines = 'engines.node must be a non-empty string'
+  const repository = `repository must be an object with type git, url identifying DPHonys/dph-nuxt-stuff, and directory ${directory}`
+  const files = 'files must declare distribution-only contents'
+  const main = 'main must declare a distribution runtime entry point'
+  const typesVersions = 'typesVersions must declare the public type entry point'
+  const exports = 'exports must declare the public package entry point'
+  const publishConfig = 'publishConfig.access must be public'
+  const scripts = 'scripts.prepack must run the package build'
+
   return z.object({
-    name: z.literal(expectedName),
-    version: z.string().refine(isSemanticVersion),
-    license: nonEmptyString(),
-    engines: z.object({ node: nonEmptyString() }),
-    repository: z.object({
-      type: z.literal('git'),
-      url: z.literal('git+https://github.com/DPHonys/dph-nuxt-stuff.git'),
-      directory: z.literal(directory),
-    }),
+    name: z.literal(expectedName, `name must be ${expectedName}`),
+    version: z.string(version).refine(isSemanticVersion, version),
+    license: nonEmptyString('license must be a non-empty string'),
+    engines: z.object({ node: nonEmptyString(engines) }, engines),
+    repository: z.object(
+      {
+        type: z.literal('git', 'repository.type must be git'),
+        url: z.literal(
+          'git+https://github.com/DPHonys/dph-nuxt-stuff.git',
+          'repository.url must identify DPHonys/dph-nuxt-stuff'
+        ),
+        directory: z.literal(
+          directory,
+          `repository.directory must be ${directory}`
+        ),
+      },
+      repository
+    ),
     files: z
-      .array(z.string())
+      .array(z.string(files), files)
       .refine(
         (entries) =>
           entries.length > 0 &&
-          entries.every((file) => file === 'dist' || file.startsWith('dist/'))
+          entries.every((file) => file === 'dist' || file.startsWith('dist/')),
+        files
       ),
-    main: z.string().startsWith('./dist/'),
+    main: z.string(main).startsWith('./dist/', main),
     typesVersions: z
-      .record(z.string(), z.record(z.string(), z.array(z.string())))
-      .refine((entries) => Object.keys(entries).length > 0),
-    exports: z.object({ '.': z.looseObject({}) }),
-    publishConfig: z.object({ access: z.literal('public') }),
-    scripts: z.object({
-      prepack: z.string().regex(/\bbuild\b/),
-    }),
+      .record(
+        z.string(),
+        z.record(
+          z.string(),
+          z.array(z.string(typesVersions), typesVersions),
+          typesVersions
+        ),
+        typesVersions
+      )
+      .refine((entries) => Object.keys(entries).length > 0, typesVersions),
+    exports: z.object({ '.': z.looseObject({}, exports) }, exports),
+    publishConfig: z.object(
+      { access: z.literal('public', publishConfig) },
+      publishConfig
+    ),
+    scripts: z.object(
+      { prepack: z.string(scripts).regex(/\bbuild\b/, scripts) },
+      scripts
+    ),
   })
 }
 
-function nonEmptyString(): z.ZodType<string> {
-  return z.string().refine((value) => value.trim().length > 0)
-}
-
-/**
- * One actionable diagnostic per contract rule, keyed by where in the manifest
- * the schema issue arose. A missing key and a malformed value share a rule.
- */
-function diagnostic(directory: string, issue: z.core.$ZodIssue): string {
-  const [field, subfield] = issue.path.map((segment) => String(segment))
-  switch (field) {
-    case 'name':
-      return `name must be @dphonys/${directory.slice('packages/'.length)}`
-    case 'version':
-      return 'version must be a valid semantic version'
-    case 'license':
-      return 'license must be a non-empty string'
-    case 'engines':
-      return 'engines.node must be a non-empty string'
-    case 'repository':
-      switch (subfield) {
-        case 'type':
-          return 'repository.type must be git'
-        case 'url':
-          return 'repository.url must identify DPHonys/dph-nuxt-stuff'
-        case 'directory':
-          return `repository.directory must be ${directory}`
-        default:
-          return `repository must be an object with type git, url identifying DPHonys/dph-nuxt-stuff, and directory ${directory}`
-      }
-    case 'files':
-      return 'files must declare distribution-only contents'
-    case 'main':
-      return 'main must declare a distribution runtime entry point'
-    case 'typesVersions':
-      return 'typesVersions must declare the public type entry point'
-    case 'exports':
-      return 'exports must declare the public package entry point'
-    case 'publishConfig':
-      return 'publishConfig.access must be public'
-    case 'scripts':
-      return 'scripts.prepack must run the package build'
-    default:
-      return `manifest ${issue.message}`
-  }
+function nonEmptyString(message: string) {
+  return z.string(message).trim().min(1, message)
 }
 
 function isSemanticVersion(value: string): boolean {
@@ -117,7 +89,7 @@ function isSemanticVersion(value: string): boolean {
     .some((identifier) => /^\d+$/.test(identifier) && /^0\d+/.test(identifier))
 }
 
-async function discoverWorkspaces(root: string): Promise<Workspace[]> {
+async function discoverWorkspaces(root: string): Promise<string[][]> {
   const patterns = await readWorkspacePatterns(root)
   const manifestPaths = await findManifestPaths(root)
   const workspacePaths = manifestPaths.filter((path) => {
@@ -137,16 +109,21 @@ async function discoverWorkspaces(root: string): Promise<Workspace[]> {
   )
 }
 
-function readWorkspace(directory: string, manifestSource: string): Workspace {
+/** The violations one workspace carries, each prefixed with its directory. */
+function readWorkspace(directory: string, manifestSource: string): string[] {
   const manifest = JSON.parse(manifestSource)
-  const admission = admissionSchema.parse(manifest)
-  if (admission.private === true) return { directory, publication: 'private' }
+  if (admissionSchema.parse(manifest).private === true) return []
+  if (!/^packages\/[^/]+$/.test(directory)) {
+    return [
+      `${directory}: only non-private direct children of packages/ may be published`,
+    ]
+  }
 
   const contract = publishableManifestSchema(directory).safeParse(manifest)
   const violations = new Set(
-    contract.error?.issues.map((issue) => diagnostic(directory, issue))
+    contract.error?.issues.map((issue) => issue.message)
   )
-  return { directory, publication: 'public', violations: [...violations] }
+  return [...violations].map((violation) => `${directory}: ${violation}`)
 }
 
 async function readWorkspacePatterns(root: string): Promise<string[]> {
@@ -235,7 +212,7 @@ const repositoryRoot = resolve(
 
 try {
   const workspaces = await discoverWorkspaces(repositoryRoot)
-  const violations = validatePublishingContract(workspaces)
+  const violations = workspaces.flat()
   if (violations.length) {
     for (const violation of violations) {
       console.error(`Publishing contract violation: ${violation}`)

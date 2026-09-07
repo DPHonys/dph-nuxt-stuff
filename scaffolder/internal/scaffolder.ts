@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, open, rename, rm } from 'node:fs/promises'
 import process from 'node:process'
 import { resolve } from 'pathe'
+import { asError, isAlreadyExists, isNotFound } from './errors'
 import { prepareTemplate, resolveWithin } from './registry'
 import { renderPreparedTemplate } from './render'
 import type {
@@ -64,15 +65,11 @@ export function createScaffolder(
 
       try {
         throwIfAborted(options.signal)
-        const interactionOptions = options.signal
-          ? {
-              repositoryRoot,
-              signal: options.signal,
-              templates: dependencies.registry.list(),
-            }
-          : { repositoryRoot, templates: dependencies.registry.list() }
-        const interaction =
-          await dependencies.interaction.request(interactionOptions)
+        const interaction = await dependencies.interaction.request({
+          repositoryRoot,
+          signal: options.signal,
+          templates: dependencies.registry.list(),
+        })
 
         if (interaction.status === 'declined') {
           return { status: 'declined', exitCode: 0 }
@@ -189,13 +186,11 @@ export function createScaffolder(
         lockOwned = false
 
         throwIfAborted(options.signal)
-        const postCommitContext: PostCommitContext = options.signal
-          ? {
-              repositoryRoot,
-              destination,
-              signal: options.signal,
-            }
-          : { repositoryRoot, destination }
+        const postCommitContext: PostCommitContext = {
+          repositoryRoot,
+          destination,
+          signal: options.signal,
+        }
 
         phase = 'install'
         dependencies.interaction.progress({
@@ -370,25 +365,4 @@ function throwIfAborted(signal?: AbortSignal): void {
   throw signal.reason instanceof Error
     ? signal.reason
     : new Error('Scaffolding interrupted')
-}
-
-function isAlreadyExists(
-  error: unknown
-): error is NodeJS.ErrnoException & { code: 'EEXIST' } {
-  return isNodeError(error) && error.code === 'EEXIST'
-}
-
-function isNotFound(
-  error: unknown
-): error is NodeJS.ErrnoException & { code: 'ENOENT' } {
-  return isNodeError(error) && error.code === 'ENOENT'
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error
-}
-
-/** Wraps a non-Error rejection so the outcome always carries an Error. */
-function asError(cause: unknown): Error {
-  return cause instanceof Error ? cause : new Error(String(cause), { cause })
 }

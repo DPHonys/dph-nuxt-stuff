@@ -7,6 +7,8 @@ import {
 import { cp, lstat, readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
 import { readPackageJSON, sortPackage, writePackageJSON } from 'pkg-types'
+import type { z } from 'zod'
+import { asError } from './errors'
 import { resolveWithin } from './registry'
 import type {
   NuxtModuleIdentityRecipe,
@@ -110,7 +112,7 @@ async function applyMagicastRecipe(
     await writeMagicastFile(module, file)
   } catch (error) {
     throw new TemplateInvariantError(
-      `Unexpected TypeScript structure in ${displayFile}: ${error instanceof Error ? error.message : String(error)}`,
+      `Unexpected TypeScript structure in ${displayFile}: ${asError(error).message}`,
       { cause: error }
     )
   }
@@ -247,17 +249,11 @@ async function listRegularFiles(
 }
 
 /** The values `JSON.parse` can produce, which is what package manifests hold. */
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | readonly JsonValue[]
-  | { readonly [key: string]: JsonValue }
+type JsonValue = z.infer<ReturnType<typeof z.json>>
 
 function isJsonObject(
   value: JsonValue | undefined
-): value is { readonly [key: string]: JsonValue } {
+): value is { [key: string]: JsonValue } {
   return value instanceof Object && !Array.isArray(value)
 }
 

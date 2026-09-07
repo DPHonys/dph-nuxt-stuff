@@ -7,17 +7,16 @@ import { z } from 'zod'
 const repositoryRoot = resolve(import.meta.dirname, '../../..')
 const workflowPath = join(repositoryRoot, '.github', 'workflows', 'publish.yml')
 
-const scalarSchema = z.union([z.string(), z.number(), z.boolean()])
+/** Only the fields the suite reads are shaped; the rest are asserted wholesale. */
 const stepSchema = z.object({
-  name: z.string().optional(),
   uses: z.string().optional(),
   if: z.string().optional(),
   run: z.string().optional(),
-  with: z.record(z.string(), scalarSchema).optional(),
-  env: z.record(z.string(), scalarSchema).optional(),
+  with: z.unknown().optional(),
+  env: z.unknown().optional(),
 })
 const workflowSchema = z.object({
-  on: z.record(z.string(), z.looseObject({}).nullable()),
+  on: z.looseObject({}),
   concurrency: z.object({
     group: z.string(),
     'cancel-in-progress': z.boolean(),
@@ -26,8 +25,8 @@ const workflowSchema = z.object({
   jobs: z.record(
     z.string(),
     z.object({
-      environment: z.union([z.string(), z.looseObject({})]).optional(),
-      permissions: z.record(z.string(), z.string()).optional(),
+      environment: z.unknown().optional(),
+      permissions: z.unknown().optional(),
       'runs-on': z.string().optional(),
       steps: z.array(stepSchema),
     })
@@ -40,7 +39,6 @@ const rootManifestSchema = z.object({
 })
 
 type WorkflowStep = z.infer<typeof stepSchema>
-type PublishWorkflow = z.infer<typeof workflowSchema>
 
 describe('trusted publication workflow', () => {
   it('is manual-only, main-only, serialized, and least-privileged', async () => {
@@ -130,7 +128,7 @@ describe('trusted publication workflow', () => {
   })
 })
 
-async function readWorkflow(): Promise<PublishWorkflow> {
+async function readWorkflow() {
   return workflowSchema.parse(parse(await readFile(workflowPath, 'utf8')))
 }
 
