@@ -6,6 +6,7 @@
     "test": "vitest run tests"
   },
   "devDependencies": {
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

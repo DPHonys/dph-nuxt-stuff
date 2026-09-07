@@ -5,6 +5,7 @@ import type {
   TemplateDefinition,
   TemplatePreparationInput,
   TemplateRegistry,
+  TemplateSummary,
   ValidationRule,
 } from './types'
 
@@ -25,13 +26,7 @@ export function createTemplateRegistry(
   }
 
   const summaries = Object.freeze(
-    definitions.map(({ id, label, scaffoldNameInitialValue }) =>
-      Object.freeze({
-        id,
-        label,
-        ...(scaffoldNameInitialValue ? { scaffoldNameInitialValue } : {}),
-      })
-    )
+    definitions.map((definition) => Object.freeze(summarize(definition)))
   )
 
   return Object.freeze({
@@ -87,13 +82,7 @@ export function prepareTemplate(
   }
 
   const plan: PreparedTemplate = {
-    template: {
-      id: definition.id,
-      label: definition.label,
-      ...(definition.scaffoldNameInitialValue
-        ? { scaffoldNameInitialValue: definition.scaffoldNameInitialValue }
-        : {}),
-    },
+    template: summarize(definition),
     sourceDirectory: definition.sourceDirectory,
     destination: naming.destination,
     requiredFiles: [...definition.requiredFiles],
@@ -119,6 +108,17 @@ export function resolveWithin(root: string, requestedPath: string): string {
   return target
 }
 
+function summarize(definition: TemplateDefinition): TemplateSummary {
+  const summary: TemplateSummary = {
+    id: definition.id,
+    label: definition.label,
+  }
+  if (definition.scaffoldNameInitialValue) {
+    summary.scaffoldNameInitialValue = definition.scaffoldNameInitialValue
+  }
+  return summary
+}
+
 function assertRelativePath(path: string, label: string): void {
   const normalized = normalize(path)
   if (
@@ -133,7 +133,7 @@ function assertRelativePath(path: string, label: string): void {
 }
 
 function deepFreeze<T>(value: T): T {
-  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+  if (value instanceof Object && !Object.isFrozen(value)) {
     Object.freeze(value)
     for (const child of Object.values(value)) {
       deepFreeze(child)

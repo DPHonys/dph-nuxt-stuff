@@ -5,6 +5,9 @@
   "scripts": {
     "test": "vitest run tests"
   },
+  "dependencies": {
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "vitest": "catalog:",
     "yaml": "catalog:"

@@ -1,4 +1,9 @@
-import { loadFile, writeFile as writeMagicastFile } from 'magicast'
+import {
+  loadFile,
+  type ProxifiedFunctionCall,
+  type ProxifiedValue,
+  writeFile as writeMagicastFile,
+} from 'magicast'
 import { cp, lstat, readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
 import { readPackageJSON, sortPackage, writePackageJSON } from 'pkg-types'
@@ -74,6 +79,14 @@ async function copyTemplateContents(
   }
 }
 
+/**
+ * The `defineNuxtModule({ meta: { ... } })` call as magicast proxies it, once
+ * `isNuxtModuleDefinitionCall` has verified that shape on the AST.
+ */
+type NuxtModuleDefinitionCall = ProxifiedFunctionCall<
+  [{ meta: { name: string; configKey: string } }]
+>
+
 async function applyMagicastRecipe(
   file: string,
   displayFile: string,
@@ -81,29 +94,15 @@ async function applyMagicastRecipe(
 ): Promise<void> {
   try {
     const module = await loadFile(file)
-    const defaultExport: unknown = module.exports.default
-
-    if (!hasProxyType(defaultExport, 'function-call')) {
-      throw new Error('default export is not a function call')
-    }
-    if (defaultExport.$callee !== 'defineNuxtModule') {
-      throw new Error('default export does not call defineNuxtModule')
-    }
-    if (!Array.isArray(defaultExport.$args)) {
-      throw new TypeError('defineNuxtModule arguments are not inspectable')
-    }
-
-    const options: unknown = defaultExport.$args[0]
-    if (!hasProxyType(options, 'object')) {
-      throw new TypeError('defineNuxtModule argument is not an object')
-    }
-
-    const meta: unknown = options.meta
-    if (!hasProxyType(meta, 'object')) {
-      throw new Error('defineNuxtModule meta is not an object')
+    const defaultExport: ProxifiedValue = module.exports.default
+    if (!isNuxtModuleDefinitionCall(defaultExport)) {
+      throw new Error(
+        'default export is not a defineNuxtModule call with an object meta'
+      )
     }
 
     if (recipe.name === 'set-nuxt-module-identities') {
+      const meta = defaultExport.$args[0].meta
       meta.name = recipe.moduleName
       meta.configKey = recipe.configKey
     }
@@ -111,10 +110,37 @@ async function applyMagicastRecipe(
     await writeMagicastFile(module, file)
   } catch (error) {
     throw new TemplateInvariantError(
-      `Unexpected TypeScript structure in ${displayFile}: ${errorMessage(error)}`,
+      `Unexpected TypeScript structure in ${displayFile}: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error }
     )
   }
+}
+
+/**
+ * Magicast proxies forward `in` and `Object.keys` to their AST-less targets,
+ * so the shape is established on the typed Babel AST behind the proxy: a call
+ * to `defineNuxtModule` whose first argument is an object literal with an
+ * object-literal `meta` property. That is exactly the structure the proxied
+ * `$args[0].meta` assignments then write through.
+ */
+function isNuxtModuleDefinitionCall(
+  value: ProxifiedValue
+): value is NuxtModuleDefinitionCall {
+  if (value.$type !== 'function-call' || value.$callee !== 'defineNuxtModule') {
+    return false
+  }
+  const call = value.$ast
+  if (call.type !== 'CallExpression') return false
+  const [definition] = call.arguments
+  if (definition?.type !== 'ObjectExpression') return false
+
+  return definition.properties.some(
+    (property) =>
+      property.type === 'ObjectProperty' &&
+      property.key.type === 'Identifier' &&
+      property.key.name === 'meta' &&
+      property.value.type === 'ObjectExpression'
+  )
 }
 
 async function validate(root: string, rule: ValidationRule): Promise<void> {
@@ -220,18 +246,29 @@ async function listRegularFiles(
   return files
 }
 
-function hasProxyType(
-  value: unknown,
-  type: 'function-call' | 'object'
-): value is Record<string, unknown> & { $type: string } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as Record<string, unknown>).$type === type
-  )
+/** The values `JSON.parse` can produce, which is what package manifests hold. */
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue }
+
+function isJsonObject(
+  value: JsonValue | undefined
+): value is { readonly [key: string]: JsonValue } {
+  return value instanceof Object && !Array.isArray(value)
 }
 
-function containsExpected(actual: unknown, expected: unknown): boolean {
+/**
+ * Deep subset check: every entry of `expected` must be present in `actual`
+ * with the same value; arrays must match element for element.
+ */
+function containsExpected(
+  actual: JsonValue | undefined,
+  expected: JsonValue
+): boolean {
   if (Array.isArray(expected)) {
     return (
       Array.isArray(actual) &&
@@ -239,16 +276,11 @@ function containsExpected(actual: unknown, expected: unknown): boolean {
       expected.every((value, index) => containsExpected(actual[index], value))
     )
   }
-  if (typeof expected === 'object' && expected !== null) {
-    if (typeof actual !== 'object' || actual === null) return false
-    const actualRecord = actual as Record<string, unknown>
+  if (isJsonObject(expected)) {
+    if (!isJsonObject(actual)) return false
     return Object.entries(expected).every(([key, value]) =>
-      containsExpected(actualRecord[key], value)
+      containsExpected(actual[key], value)
     )
   }
   return Object.is(actual, expected)
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }

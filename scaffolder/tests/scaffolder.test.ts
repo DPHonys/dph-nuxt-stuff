@@ -24,6 +24,7 @@ import type {
   InteractionAdapter,
   OwnedScaffoldArtifact,
   PostCommitContext,
+  ScaffoldDependencies,
   ScaffoldProgressEvent,
   ScaffoldTransactionOperations,
   TemplateDefinition,
@@ -657,7 +658,7 @@ function createTestScaffolder(
   progress: ScaffoldProgressEvent[] = [],
   options: TestScaffolderOptions = {}
 ) {
-  return createScaffolder({
+  const dependencies: ScaffoldDependencies = {
     registry: createTemplateRegistry([definition]),
     interaction: {
       request: options.request ?? (async () => confirmedRequest()),
@@ -681,8 +682,9 @@ function createTestScaffolder(
     },
     now: () => new Date('2042-06-15T00:00:00.000Z'),
     nonce: () => 'fixed',
-    ...(options.transaction ? { transaction: options.transaction } : {}),
-  })
+  }
+  if (options.transaction) dependencies.transaction = options.transaction
+  return createScaffolder(dependencies)
 }
 
 function confirmedRequest() {

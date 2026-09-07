@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'pathe'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
+import { z } from 'zod'
 import { createNaming, validateScaffoldName } from '../internal/naming'
 import {
   createProductionTemplateRegistry,
@@ -396,9 +397,13 @@ describe('nuxt module Template contract', () => {
   })
 
   it('claims no Nuxt beyond the one the catalog installs', async () => {
-    const workspace = parse(
-      await readFile(join(workspaceRoot, 'pnpm-workspace.yaml'), 'utf8')
-    ) as { catalog: Record<string, string | undefined> }
+    const workspace = z
+      .object({ catalog: z.record(z.string(), z.string()) })
+      .parse(
+        parse(
+          await readFile(join(workspaceRoot, 'pnpm-workspace.yaml'), 'utf8')
+        )
+      )
     const catalogNuxt = workspace.catalog.nuxt ?? ''
     const [, floor = '', major = ''] =
       /^\^((\d+)\.\d+\.\d+)$/.exec(catalogNuxt) ?? []
@@ -465,8 +470,17 @@ async function listFiles(root: string, current = ''): Promise<string[]> {
   return files.toSorted()
 }
 
-async function readJson(file: string): Promise<Record<string, unknown>> {
-  return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>
+/** The values `JSON.parse` can produce. */
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+async function readJson(file: string): Promise<JsonValue> {
+  return JSON.parse(await readFile(file, 'utf8'))
 }
 
 async function readGeneratedContents(
