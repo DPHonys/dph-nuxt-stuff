@@ -192,7 +192,7 @@ describe('handler-local error factories', () => {
       await request(handler, '/api/test', {
         onError: (value) => seen.push(value),
       })
-      expect(firstError(seen)).toBe(error)
+      expect(seen[0]).toBe(error)
     }
   )
 
@@ -215,20 +215,24 @@ describe('handler-local error factories', () => {
       onError: (value) => seen.push(value),
     })
     expect(response.status).toBe(500)
-    expect(firstError(seen)).toMatchObject({
+    expect(seen[0]).toMatchObject({
       message: expect.stringContaining('validates asynchronously'),
     })
     expect(recognizeKnownError(firstError(seen))).toBeUndefined()
   })
+
+  // Every declaration the compile guards refuse below is what a JavaScript
+  // caller can still write, so the runtime answers too.
 
   it('rejects reserved tags before planning validation, including without validation', () => {
     for (const validate of [undefined, { body: 42 }]) {
       expect(() =>
         defineTypedEventHandler(
           {
+            // @ts-expect-error - not a schema, and the reserved tag
             validate,
             errors: [defineError('validation-failed', { status: 400 })],
-          } as never,
+          },
           () => null
         )
       ).toThrow('"validation-failed" is reserved')
@@ -238,7 +242,8 @@ describe('handler-local error factories', () => {
   it('rejects inline records', () => {
     expect(() =>
       defineTypedEventHandler(
-        { errors: { missing: { status: 404 } } } as never,
+        // @ts-expect-error - a record where the array belongs
+        { errors: { missing: { status: 404 } } },
         () => null
       )
     ).toThrow(TypeError)
@@ -246,10 +251,12 @@ describe('handler-local error factories', () => {
 
   it('requires a nonempty declaration, but allows empty arrays alongside validation', async () => {
     expect(() =>
-      defineTypedEventHandler({ errors: [] } as never, () => null)
+      // @ts-expect-error - declares nothing
+      defineTypedEventHandler({ errors: [] }, () => null)
     ).toThrow('needs validate, errors, or both')
     expect(() =>
-      defineTypedEventHandler({ validate: {}, errors: [] } as never, () => null)
+      // @ts-expect-error - declares nothing
+      defineTypedEventHandler({ validate: {}, errors: [] }, () => null)
     ).toThrow('needs validate, errors, or both')
     const handler = defineTypedEventHandler(
       { validate: { query: z.object({}) }, errors: [] },

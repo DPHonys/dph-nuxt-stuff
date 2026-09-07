@@ -1,5 +1,6 @@
 import { CHANNEL_HEADER } from '@dphonys/nuxt-handler-errors/internals/shared'
 import { VALIDATION_ERROR_KEY } from '@dphonys/nuxt-handler-validation/internals/shared'
+import type { ValidationIssue } from '@dphonys/nuxt-handler-validation/types'
 import { $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { expect, it } from 'vitest'
 import { KNOWN_ERROR_KEY } from '../../src/runtime/shared'
@@ -27,25 +28,47 @@ const thirdParty = { accept: 'application/json' }
 const VALIDATION_MARKER: string = VALIDATION_ERROR_KEY.description ?? ''
 
 /** What `/api/search?page=nope` produces. */
-const BAD_PAGE = {
+const BAD_PAGE: ValidationIssue = {
   source: 'query',
   message: 'page must be a whole number',
   path: ['page'],
 }
 
 /** The validation parent's own wording for a body the request made unreadable. */
-const UNPARSEABLE_BODY = {
+const UNPARSEABLE_BODY: ValidationIssue = {
   source: 'body',
   message: 'Request body could not be parsed',
   path: [],
 }
 
-/** Keys Nitro adds to an error body that this package does not own. */
-type NitroExtras = Record<string, unknown>
+/**
+ * Keys Nitro adds to an error body that this package does not own: a dev
+ * server's trimmed stack lines, nothing in production.
+ */
+export interface NitroExtras {
+  stack?: string[]
+}
+
+/** Nitro's production error envelope, as `toEqual` sees it. */
+interface ErrorEnvelope extends NitroExtras {
+  error: true
+  url: string
+  statusCode: number
+  statusMessage: string
+  message: string
+  data: {
+    issues: ValidationIssue[]
+    [KNOWN_ERROR_KEY]: {
+      tag: string
+      status: number
+      issues: ValidationIssue[]
+    }
+  }
+}
 
 export function theTypedWire(nitroExtras: NitroExtras): void {
   /** Nitro's envelope around the built-in variant, as a first party sees it. */
-  const variantBody = (issues: unknown[]): Record<string, unknown> => ({
+  const variantBody = (issues: ValidationIssue[]): ErrorEnvelope => ({
     ...nitroExtras,
     error: true,
     url: expect.any(String),
@@ -224,16 +247,19 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
 /**
  * A POST carrying an already-serialized payload. Typed structurally rather
  * than as `RequestInit`, because it is handed to both `fetch` and ofetch's
- * `$fetch`. The caller's headers land last.
+ * `$fetch`.
  */
-function jsonPost(
-  body: string,
-  headers: Record<string, string> = {}
-): {
+interface JsonPost {
   method: 'POST'
   headers: Record<string, string>
   body: string
-} {
+}
+
+/** The caller's headers land last. */
+function jsonPost(
+  body: string,
+  headers: Record<string, string> = {}
+): JsonPost {
   return {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },

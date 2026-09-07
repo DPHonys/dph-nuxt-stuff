@@ -3,8 +3,11 @@ import validationModule from '@dphonys/nuxt-handler-validation'
 import { loadNuxt, logger } from '@nuxt/kit'
 import type {
   Nuxt,
+  NuxtApp,
   NuxtConfig,
   NuxtHooks,
+  NuxtPlugin,
+  NuxtTemplate,
   ResolvedNuxtTemplate,
 } from '@nuxt/schema'
 import { fileURLToPath } from 'node:url'
@@ -29,27 +32,27 @@ interface Booted {
 }
 
 /**
- * Everything the kit logger warns while `run` executes. The reporter seam
- * rather than a console spy: consola's default reporter writes to stdout
- * directly, so a `console.warn` spy never sees it.
+ * `run`'s result, with everything the kit logger warned while it executed.
+ * The reporter seam rather than a console spy: consola's default reporter
+ * writes to stdout directly, so a `console.warn` spy never sees it.
  */
-async function warningsDuring(run: () => Promise<void>): Promise<string[]> {
-  const captured: string[] = []
-  const reporter = {
-    log: (entry: { type: string; args: unknown[] }) => {
-      if (entry.type === 'warn') captured.push(entry.args.map(String).join(' '))
+async function warningsDuring<T>(
+  run: () => Promise<T>
+): Promise<{ result: T; warnings: string[] }> {
+  const warnings: string[] = []
+  const reporter: Parameters<typeof logger.addReporter>[0] = {
+    log: (entry) => {
+      if (entry.type === 'warn') warnings.push(entry.args.map(String).join(' '))
     },
   }
 
   logger.addReporter(reporter)
 
   try {
-    await run()
+    return { result: await run(), warnings }
   } finally {
     logger.removeReporter(reporter)
   }
-
-  return captured
 }
 
 /**
@@ -58,20 +61,60 @@ async function warningsDuring(run: () => Promise<void>): Promise<string[]> {
  * hands over is the only public route to the resolved Nitro options.
  */
 async function boot(overrides?: NuxtConfig): Promise<Booted> {
-  let nuxt: Nuxt | undefined
   let nitro: NitroInstance | undefined
 
-  const warnings = await warningsDuring(async () => {
-    nuxt = await loadNuxt({ cwd: FIXTURE, ready: false, overrides })
+  const { result: nuxt, warnings } = await warningsDuring(async () => {
+    const loaded = await loadNuxt({ cwd: FIXTURE, ready: false, overrides })
 
-    nuxt.hook('nitro:init', (instance) => {
+    loaded.hook('nitro:init', (instance) => {
       nitro = instance
     })
 
-    await nuxt.ready()
+    await loaded.ready()
+
+    return loaded
   })
 
-  return { nuxt: nuxt as unknown as Nuxt, nitro, warnings }
+  return { nuxt, nitro, warnings }
+}
+
+/** Whether Nuxt has resolved a template: both generated fields present. */
+function isResolved(template: NuxtTemplate): template is ResolvedNuxtTemplate {
+  return template.filename !== undefined && template.dst !== undefined
+}
+
+/** Kit registers every plugin as an object; a string entry is the app's own. */
+function isPluginObject(entry: NuxtPlugin | string): entry is NuxtPlugin {
+  return entry instanceof Object
+}
+
+/** A template's contents, rendered with the booted app in scope. */
+function contentsOf(
+  booted: Booted,
+  filename: string
+): string | Promise<string> | undefined {
+  const template = booted.nuxt.options.build.templates.find(
+    (entry) => entry.filename === filename
+  )
+
+  // An app nothing has been scanned into: `loadNuxt` builds none, and the
+  // templates under test read only what they captured.
+  const app: NuxtApp = {
+    dir: booted.nuxt.options.srcDir,
+    extensions: booted.nuxt.options.extensions,
+    plugins: [],
+    components: [],
+    layouts: {},
+    middleware: [],
+    templates: [],
+    configs: [],
+  }
+
+  return template?.getContents?.({
+    nuxt: booted.nuxt,
+    app,
+    options: template.options ?? {},
+  })
 }
 
 /** The §4.2 text, verbatim. */
@@ -191,10 +234,8 @@ describe('module setup wiring', () => {
     expect(renders).toHaveLength(1)
 
     const selected = booted.nuxt.options.build.templates
-      .filter(
-        (template) =>
-          renders[0]?.filter?.(template as ResolvedNuxtTemplate) ?? false
-      )
+      .filter(isResolved)
+      .filter((template) => renders[0]?.filter?.(template) ?? false)
       .map((template) => template.filename)
 
     expect(selected).toEqual([TEMPLATE_FILENAME])
@@ -213,9 +254,9 @@ describe('module setup wiring', () => {
     )
 
     expect(template?.write).toBe(true)
-    expect(
-      (template as { getContents?: () => string } | undefined)?.getContents?.()
-    ).toBe('export const configuredChannelToken = "nuxt-typed-handler"\n')
+    expect(contentsOf(booted, 'nuxt-typed-handler/channel-token.mjs')).toBe(
+      'export const configuredChannelToken = "nuxt-typed-handler"\n'
+    )
   })
 
   it('prepends its own stripper to the errorHandler chain, keeping Nuxt’s own', () => {
@@ -292,11 +333,13 @@ describe('module setup wiring', () => {
   it('registers the app $typedFetch plugin, client-only', () => {
     // `mode: 'client'` is load-bearing - an all-modes app plugin writes the
     // same `globalThis` during SSR and masks the Nitro plugin's deletion.
-    const entries = booted.nuxt.options.plugins.filter((plugin) =>
-      /\/runtime\/app\/plugins\/typed-fetch\.client(?:\.\w+)?$/.test(
-        typeof plugin === 'string' ? plugin : plugin.src
+    const entries = booted.nuxt.options.plugins
+      .filter(isPluginObject)
+      .filter((plugin) =>
+        /\/runtime\/app\/plugins\/typed-fetch\.client(?:\.\w+)?$/.test(
+          plugin.src
+        )
       )
-    )
 
     // `toMatchObject` because kit stamps each entry with a marker symbol.
     expect(entries).toHaveLength(1)
@@ -349,14 +392,8 @@ describe('the channel token', () => {
           entries.filter((entry) => /channel-strip/.test(String(entry)))
         ).toEqual([])
 
-        const template = disabled.nuxt.options.build.templates.find(
-          (entry) => entry.filename === 'nuxt-typed-handler/channel-token.mjs'
-        )
-
         expect(
-          (
-            template as { getContents?: () => string } | undefined
-          )?.getContents?.()
+          contentsOf(disabled, 'nuxt-typed-handler/channel-token.mjs')
         ).toBe('export const configuredChannelToken = undefined\n')
 
         expect(disabled.warnings).toEqual(expectedWarnings)
@@ -374,12 +411,12 @@ describe('the leftover parent config keys', () => {
 
     try {
       // `false` is a value too: the parent's off-switch has nothing to switch.
-      // Cast because neither key exists on this app's config any more - which
-      // is the point.
+      // Neither key exists on this app's config any more - which is the point.
       booted = await boot({
+        // @ts-expect-error - the parents' keys, gone from this app's config
         handlerErrors: { channelToken: 'moved-me' },
         handlerValidation: false,
-      } as NuxtConfig)
+      })
 
       expect(booted.warnings).toEqual([
         leftoverKeyWarning('handlerErrors'),
@@ -392,15 +429,23 @@ describe('the leftover parent config keys', () => {
 })
 
 describe('the sibling guard', () => {
-  /** The boot that must not complete, with whatever it rejected with. */
-  async function rejectionOf(overrides: NuxtConfig): Promise<unknown> {
+  /**
+   * The boot that must not complete, with the error it rejected with. A
+   * rejection that is not an error is reported as one, so the assertion on
+   * the message names it.
+   */
+  async function rejectionOf(
+    overrides: NuxtConfig
+  ): Promise<Error | undefined> {
     let nuxt: Nuxt | undefined
 
     try {
       nuxt = await loadNuxt({ cwd: FIXTURE, ready: false, overrides })
       await nuxt.ready()
-    } catch (error) {
-      return error
+    } catch (cause) {
+      return cause instanceof Error
+        ? cause
+        : new TypeError('the boot rejected with a non-error', { cause })
     } finally {
       await nuxt?.close()
     }
@@ -420,7 +465,7 @@ describe('the sibling guard', () => {
       const error = await rejectionOf({ modules: [parent] })
 
       expect(error).toBeInstanceOf(Error)
-      expect((error as Error).message).toBe(siblingMessage(parent))
+      expect(error?.message).toBe(siblingMessage(parent))
     },
     120_000
   )
@@ -444,7 +489,7 @@ describe('the sibling guard', () => {
       const error = await rejectionOf({ modules: [module] })
 
       expect(error).toBeInstanceOf(Error)
-      expect((error as Error).message).toBe(siblingMessage(parent))
+      expect(error?.message).toBe(siblingMessage(parent))
     },
     120_000
   )
@@ -457,8 +502,6 @@ describe('the sibling guard', () => {
       ],
     })
 
-    expect((error as Error).message).toBe(
-      siblingMessage('@dphonys/nuxt-handler-errors')
-    )
+    expect(error?.message).toBe(siblingMessage('@dphonys/nuxt-handler-errors'))
   }, 120_000)
 })

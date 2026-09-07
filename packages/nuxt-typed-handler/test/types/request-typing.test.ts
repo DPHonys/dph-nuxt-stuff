@@ -137,7 +137,7 @@ export async function defaultHandler(): Promise<void> {
   await $typedFetch('/api/items/42', { method: 'put', body: { qty: 1, x: 1 } })
 
   // A template-literal route resolves through `MatchedRoutes` just the same.
-  const id = '42' as string
+  const id: string = '42'
   await $typedFetch(`/api/items/${id}`, { method: 'post', body: { qty: 1 } })
 }
 
@@ -249,14 +249,18 @@ export async function tryResults(): Promise<void> {
   })
 
   if (result.error) {
-    const variant = result.error.data!.data.__knownError__
-    // The built-in variant rides the errors map: the wrapper's slot carries it.
-    type _union = Assert<Equal<typeof variant, Forbidden | ValidationFailed>>
+    const { data } = result.error
 
-    if (variant.tag === 'validation-failed') {
-      type _issues = Assert<
-        Equal<typeof variant.issues, ValidationFailed['issues']>
-      >
+    if (data) {
+      const variant = data.data.__knownError__
+      // The built-in variant rides the errors map: the wrapper's slot carries it.
+      type _union = Assert<Equal<typeof variant, Forbidden | ValidationFailed>>
+
+      if (variant.tag === 'validation-failed') {
+        type _issues = Assert<
+          Equal<typeof variant.issues, ValidationFailed['issues']>
+        >
+      }
     }
   } else {
     // Narrowed by the sibling guard alone - no second check and no `!`.

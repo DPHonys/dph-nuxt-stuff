@@ -15,7 +15,16 @@ const bound: CheckedFetchFactoryOptions = {
 }
 
 /** The value the module installs on `globalThis` - one object on every side. */
+// SAFETY: `$CheckedFetch` and `$TypedFetch` are one runtime object - the
+// call, `.try`, `.raw`, `.native` and `.create` the parent factory returns,
+// every one forwarding to vanilla untouched. `$TypedFetch` only re-types
+// their options and responses from the route map.
 export const $typedFetch = createCheckedFetch(
   lazyGlobalFetch,
   bound
 ) as $TypedFetch
+
+/** What both installing plugins do: the one global, on their own side. */
+export function installTypedFetchGlobal(): void {
+  globalThis.$typedFetch = $typedFetch
+}

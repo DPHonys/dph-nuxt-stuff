@@ -14,15 +14,13 @@ import type { UseTypedAsyncData } from '../../types/composables'
  * )
  * ```
  */
-export const useTypedAsyncData = wrapVanillaAsyncData(
-  useAsyncData
-) as UseTypedAsyncData
+export const useTypedAsyncData: UseTypedAsyncData =
+  wrapVanillaAsyncData(useAsyncData)
 
 /**
  * The lazy twin. Delegates to Nuxt's own `useLazyAsyncData` rather than
  * passing `lazy: true`, so Nuxt's dev-mode data diagnostics tag the call
  * correctly.
  */
-export const useLazyTypedAsyncData = wrapVanillaAsyncData(
-  useLazyAsyncData
-) as UseTypedAsyncData
+export const useLazyTypedAsyncData: UseTypedAsyncData =
+  wrapVanillaAsyncData(useLazyAsyncData)
