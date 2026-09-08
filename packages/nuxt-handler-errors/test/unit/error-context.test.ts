@@ -10,24 +10,12 @@ import {
   defineCheckedEventHandler,
   defineError,
 } from '../../src/runtime/server'
-import type { ErrorFactory } from '../../src/runtime/server/lib/error-context'
+import { factory } from '../error-factory'
 import { createTestEvent } from '../h3-event'
 
 // The handlers under test never read the event - only the second argument,
 // the factories, is exercised.
 const event = createTestEvent()
-
-/** The factory the context built under `name`; the test fails if it is missing. */
-function factory(
-  errors: Record<string, ErrorFactory>,
-  name: string
-): ErrorFactory {
-  const found = errors[name]
-
-  if (found === undefined) throw new Error(`no factory named ${name}`)
-
-  return found
-}
 
 const schema = (
   validate: StandardSchemaV1<
@@ -112,12 +100,12 @@ describe('handler-local factories', () => {
         expect(context.errors.notFound().data).toEqual({
           __knownError__: { tag: 'not-found', status: 404 },
         })
-        // Widened to the factories' runtime face, where any argument list is
-        // callable - the arity check under test is what refuses them.
-        const looseNotFound: ErrorFactory = context.errors.notFound
-        const looseEmpty: ErrorFactory = context.errors.empty
-        expect(() => looseNotFound({})).toThrow('invalid arguments')
-        expect(() => looseEmpty()).toThrow('invalid arguments')
+        expect(() => factory(context.errors, 'notFound')({})).toThrow(
+          'invalid arguments'
+        )
+        expect(() => factory(context.errors, 'empty')()).toThrow(
+          'invalid arguments'
+        )
         expect(context.errors.empty({})).toBeInstanceOf(H3Error)
         return { ok: true }
       }

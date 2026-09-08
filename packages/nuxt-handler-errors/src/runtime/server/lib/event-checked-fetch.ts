@@ -58,12 +58,6 @@ export class EventFetchUnavailableError extends Error {
   }
 }
 
-// What a verified wrapper calls when its base has since gone: the same
-// TypeError the bare `event.$fetch()` would raise, deliberately not the
-// skew error - skew was ruled out at verification.
-const failMissingBase: RawEventFetch<never> = () =>
-  Promise.reject(new TypeError('event.$fetch is not a function'))
-
 /**
  * Build the event-bound instance over the event's own fetch. `getBase` is a
  * thunk so the wrapper composes with later `event.$fetch` replacements, and
@@ -80,14 +74,19 @@ export function createCheckedEventFetch<Body>(
   const verifiedBase = (): RawEventFetch<Body> => {
     const base = getBase()
 
-    if (!verified) {
-      if (base === undefined) throw new EventFetchUnavailableError()
-      verified = true
+    // A verified wrapper does not re-police later replacements: past the
+    // first call, a missing base is the replacement's failure to report, as
+    // the same TypeError the bare `event.$fetch()` would raise - skew was
+    // ruled out at verification.
+    if (base === undefined) {
+      throw verified
+        ? new TypeError('event.$fetch is not a function')
+        : new EventFetchUnavailableError()
     }
 
-    // A verified wrapper does not re-police later replacements: past the
-    // first call, a missing base is the replacement's failure to report.
-    return base ?? failMissingBase
+    verified = true
+
+    return base
   }
 
   const call = (request: NitroFetchRequest, init?: RawInit): Promise<Body> =>

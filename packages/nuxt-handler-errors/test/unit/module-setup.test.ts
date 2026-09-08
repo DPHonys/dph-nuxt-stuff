@@ -9,7 +9,7 @@ import type { Nitro } from 'nitropack/types'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { isString } from '../../src/runtime/shared/primitives'
-import { templateData } from '../template-data'
+import { renderTemplate } from '../template-data'
 
 // A registered template with both resolved paths - what a generateApp
 // filter is handed. Every template a booted Nuxt registers has them.
@@ -196,7 +196,7 @@ describe('module setup wiring', () => {
     ).toHaveLength(1)
   })
 
-  it('writes the channel token as a template, aliased into both builds', () => {
+  it('writes the channel token as a template, aliased into both builds', async () => {
     // One written template, one alias, no runtime config. The fixture
     // configures nothing, and nothing means the default tag - gating is on
     // out of the box.
@@ -214,8 +214,9 @@ describe('module setup wiring', () => {
     // `write: true` is load-bearing: Nitro resolves the alias from disk, not
     // from Nuxt's virtual file system.
     expect(template?.write).toBe(true)
-    expect(template).toBeDefined()
-    expect(template?.getContents?.(templateData(nuxt, template))).toBe(
+    await expect(
+      renderTemplate(nuxt, 'nuxt-handler-errors/channel-token.mjs')
+    ).resolves.toBe(
       'export const configuredChannelToken = "nuxt-handler-errors"\n'
     )
 
@@ -261,14 +262,9 @@ describe('module setup wiring', () => {
         entries.filter((entry) => /channel-strip/.test(String(entry)))
       ).toEqual([])
 
-      const template = optedOut.options.build.templates.find(
-        (entry) => entry.filename === 'nuxt-handler-errors/channel-token.mjs'
-      )
-
-      expect(template).toBeDefined()
-      expect(template?.getContents?.(templateData(optedOut, template))).toBe(
-        'export const configuredChannelToken = undefined\n'
-      )
+      await expect(
+        renderTemplate(optedOut, 'nuxt-handler-errors/channel-token.mjs')
+      ).resolves.toBe('export const configuredChannelToken = undefined\n')
     } finally {
       await optedOut?.close()
     }

@@ -19,7 +19,23 @@ function emptyApp(nuxt: Nuxt): NuxtApp {
   }
 }
 
-/** A render context over a booted Nuxt, for a template it registered. */
-export function templateData(nuxt: Nuxt, template: NuxtTemplate): TemplateData {
+// A render context over a booted Nuxt, for a template it registered.
+function templateData(nuxt: Nuxt, template: NuxtTemplate): TemplateData {
   return { nuxt, app: emptyApp(nuxt), options: template.options ?? {} }
+}
+
+/** Render the template `filename` a booted Nuxt registered; fails if it is missing. */
+export async function renderTemplate(
+  nuxt: Nuxt,
+  filename: string
+): Promise<string> {
+  const template = nuxt.options.build.templates.find(
+    (entry) => entry.filename === filename
+  )
+
+  if (template?.getContents === undefined) {
+    throw new Error(`no renderable template named ${filename}`)
+  }
+
+  return template.getContents(templateData(nuxt, template))
 }

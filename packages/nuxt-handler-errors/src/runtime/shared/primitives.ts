@@ -9,6 +9,13 @@ export function isString(value: unknown): value is string {
 
 /**
  * Anything callable. `z.function()` builds a typed wrapper rather than a
- * plain guard in zod 4, so the guard is an `instanceof` check instead.
+ * plain guard in zod 4, so the schema is an `instanceof` check instead.
  */
 export const functionSchema = z.instanceof(Function)
+
+/** Any callable: a `void` return accepts every signature without `Function`'s untyped call. */
+export type AnyFunction = (...args: never[]) => void
+
+export function isFunction(value: unknown): value is AnyFunction {
+  return functionSchema.safeParse(value).success
+}

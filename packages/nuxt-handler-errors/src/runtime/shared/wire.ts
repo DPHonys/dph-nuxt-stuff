@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { KnownVariant } from '../types/known-error'
+import type { PlainObject } from './plain-object'
 
 /**
  * The reserved key a known failure travels under, inside the error body's
@@ -61,13 +62,15 @@ export const variantSchema = z.looseObject({
   status: z.number(),
 })
 
-// `data` at the depth that holds the marker.
-const markerHostSchema = z.object({ [KNOWN_ERROR_KEY]: variantSchema })
+// `data` at the depth that holds the marker. Loose at every level: the
+// payload fields ride beside the reserved names, and a serialized body keeps
+// a consumer's own sibling keys and dev's `stack`.
+const markerHostSchema = z.looseObject({ [KNOWN_ERROR_KEY]: variantSchema })
 
 // The raise-site depth first: a well-formed marker there wins over a nested
 // one, which is the order the recognizer has always read them in.
-const markedErrorSchema = z.object({
-  data: z.union([markerHostSchema, z.object({ data: markerHostSchema })]),
+const markedErrorSchema = z.looseObject({
+  data: z.union([markerHostSchema, z.looseObject({ data: markerHostSchema })]),
 })
 
 /**
@@ -80,10 +83,12 @@ export function isMarkedError(
   return markedErrorSchema.safeParse(error).success
 }
 
-// The raise-site depth, told apart from a carrier body by the schema rather
-// than by key presence: a body is loose, and a consumer's own sibling keys
-// may include `data`.
-function isRaisedData(
+/**
+ * The raise-site depth, told apart from a carrier body by the schema rather
+ * than by key presence: a body is loose, and a consumer's own sibling keys
+ * may include `data`.
+ */
+export function isRaisedData(
   data: MarkedError<KnownVariant>['data']
 ): data is KnownErrorMarker<KnownVariant> {
   return markerHostSchema.safeParse(data).success
@@ -98,12 +103,11 @@ export function markerOf(error: MarkedError<KnownVariant>): KnownVariant {
 
 // Reserved names spread LAST so a payload field cannot displace the floor;
 // the marker's `status` copy is authoritative (h3 rewrites an out-of-range
-// HTTP status). Generic so a caller's payload keeps its own type: the fields
-// are whatever its schema produced, and this module reads none of them.
-export function knownErrorMarker<Fields extends Record<string, unknown>>(
+// HTTP status).
+export function knownErrorMarker(
   tag: string,
   status: number,
-  fields: Fields
+  fields: PlainObject
 ): KnownErrorMarker<KnownVariant> {
   return { [KNOWN_ERROR_KEY]: { ...fields, tag, status } }
 }
