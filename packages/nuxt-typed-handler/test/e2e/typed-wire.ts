@@ -35,6 +35,13 @@ const BAD_PAGE: ValidationIssue = {
   path: ['page'],
 }
 
+/** What `/api/orders/nope` produces - the first source in the fail-fast order. */
+const BAD_ORDER_ID: ValidationIssue = {
+  source: 'route',
+  message: 'order id must be a whole number',
+  path: ['id'],
+}
+
 /** The validation parent's own wording for a body the request made unreadable. */
 const UNPARSEABLE_BODY: ValidationIssue = {
   source: 'body',
@@ -95,6 +102,17 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     // reason phrase.
     expect(body).toEqual(variantBody([BAD_PAGE]))
     expect(body.statusMessage).not.toBe('validation-failed')
+  })
+
+  it('carries a rejected route param through under the source name `route`', async () => {
+    const response = await fetch('/api/orders/nope', { headers: firstParty })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual(variantBody([BAD_ORDER_ID]))
+  })
+
+  it('hands the validated route params over as `route`', async () => {
+    expect(await $fetch('/api/orders/42')).toEqual({ id: 42 })
   })
 
   it('strips the marker for a third party and leaves data.issues', async () => {

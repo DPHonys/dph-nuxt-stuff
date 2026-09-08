@@ -214,6 +214,37 @@ export async function vanillaDegradation(): Promise<void> {
   })
 }
 
+/**
+ * `route` is a Validation source but never a Request-typing one: a route that
+ * declares `route` and nothing else types exactly as vanilla on the client,
+ * key for key, and grows no `route` option of its own.
+ */
+export function routeIsNotRequestTyped(): void {
+  type RouteOnly = TypedRequestOptions<'/api/params-only/:slug', 'post'>
+
+  type _keys = Assert<
+    Equal<
+      keyof RouteOnly,
+      Exclude<keyof NitroFetchOptions<'/api/params-only/:slug'>, 'params'>
+    >
+  >
+  type _body = Assert<
+    Equal<
+      RouteOnly['body'],
+      NitroFetchOptions<'/api/params-only/:slug'>['body']
+    >
+  >
+  type _query = Assert<
+    Equal<
+      RouteOnly['query'],
+      NitroFetchOptions<'/api/params-only/:slug'>['query']
+    >
+  >
+
+  // The path carries the params; the options never do.
+  type _noRouteOption = Assert<Equal<Extract<keyof RouteOnly, 'route'>, never>>
+}
+
 /** Two handlers on one (route, method): every map answers a union. */
 export async function multiHandlerRoute(): Promise<void> {
   await $typedFetch('/api/multi', { method: 'post', body: { qty: 1 } })

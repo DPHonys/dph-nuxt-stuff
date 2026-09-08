@@ -78,7 +78,7 @@ describe('handler-local error factories', () => {
         input: {
           body: z.object({ name: z.string() }),
           query: z.object({ page: z.string().transform(Number) }),
-          routerParams: z.object({ id: z.string() }),
+          route: z.object({ id: z.string() }),
           headers: z.object({ token: z.string() }),
         },
         errors: [
@@ -96,7 +96,7 @@ describe('handler-local error factories', () => {
           keys: Object.keys(ctx).toSorted(),
           name: ctx.body.name,
           page: ctx.query.page,
-          id: ctx.routerParams.id,
+          id: ctx.route.id,
           token: ctx.headers.token,
         }
       }
@@ -107,7 +107,7 @@ describe('handler-local error factories', () => {
     }
     const success = await request(handler, '/api/test/42?page=1', options)
     await expect(success.json()).resolves.toEqual({
-      keys: ['body', 'errors', 'headers', 'query', 'routerParams'],
+      keys: ['body', 'errors', 'headers', 'query', 'route'],
       name: 'Ada',
       page: 1,
       id: '42',

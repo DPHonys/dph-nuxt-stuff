@@ -59,18 +59,14 @@ export function combined() {
       input: {
         body: z.object({ name: z.string() }),
         query: z.object({ page: z.string().transform(Number) }),
-        routerParams: z.object({ id: z.string() }),
+        route: z.object({ id: z.string() }),
         headers: z.object({ token: z.string() }),
       },
       errors: definitions,
     },
     async (_event, ctx) => {
       const page: number = ctx.query.page
-      const sources: string[] = [
-        ctx.body.name,
-        ctx.routerParams.id,
-        ctx.headers.token,
-      ]
+      const sources: string[] = [ctx.body.name, ctx.route.id, ctx.headers.token]
       // @ts-expect-error The built-in error is not a user factory.
       ctx.errors.validationFailed()
       if (page > 1) throw ctx.errors.conflict({ count: String(page) })
@@ -151,7 +147,7 @@ type _input = Assert<
     {
       body: { name: string }
       query: { page: string }
-      routerParams: { id: string }
+      route: { id: string }
       headers: { token: string }
     }
   >

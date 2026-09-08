@@ -175,17 +175,17 @@ Rationale, and the full model: [Declaring what a route can fail with][errors-dec
 export default defineTypedEventHandler(
   {
     input: {
-      routerParams: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
+      route: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
       query: [pagination, sorting],
       body: z.object({ name: z.string() }),
     },
   },
-  async (event, { routerParams, query, body }) => update(routerParams.id, body)
+  async (event, { route, query, body }) => update(route.id, body)
 )
 ```
 
 - **Schemas nest under `input`**, keyed by source. The four sources are
-  `routerParams`, `query`, `headers` and `body`, validated in exactly that
+  `route`, `query`, `headers` and `body`, validated in exactly that
   order, **fail-fast**, before the handler body runs.
 - Values arrive typed as their schema's **output**, so coercions and transforms
   land already applied. Undeclared sources are **absent** from the context.
@@ -211,7 +211,7 @@ receives][validation-sources].
 The wrapper's second parameter is one flat object, built fresh per request:
 
 ```text
-(event, { routerParams, query, headers, body, errors }) => …
+(event, { route, query, headers, body, errors }) => …
 ```
 
 - **Only what was declared is there.** Each validated source appears iff

@@ -35,7 +35,7 @@ describe('the declaration guards’ diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(7)
+    expect(diagnostics).toHaveLength(8)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -103,11 +103,21 @@ describe('the declaration guards’ diagnostics', () => {
   it('still fires the validation parent’s stray-key sentence at the call', () => {
     const [stray] = saying(
       diagnostics,
-      "'boyd' is not a validation source - the sources are routerParams, query, headers and body"
+      "'boyd' is not a validation source - the sources are route, query, headers and body"
     )
 
     expect(stray?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
     expect(stray?.line).toBe(lineContaining(FIXTURE, '      boyd:'))
+  })
+
+  it('names the pre-rename `routerParams` source a stray key, through the umbrella', () => {
+    const [legacy] = saying(
+      diagnostics,
+      "'routerParams' is not a validation source - the sources are route, query, headers and body"
+    )
+
+    expect(legacy?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
+    expect(legacy?.line).toBe(lineContaining(FIXTURE, '      routerParams:'))
   })
 
   it('still fires the errors parent’s kebab-tag guard at the declaration', () => {

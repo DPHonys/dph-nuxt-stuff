@@ -72,3 +72,17 @@ export const legacyValidateKey = defineTypedEventHandler(
   { validate: { query: z.object({ page: z.coerce.number() }) } },
   () => null
 )
+
+// --- The old `routerParams` source name is gone, with no alias ------------
+
+// The rename to `route` is a clean break too: the validation parent's
+// stray-key sentence fires at the old name, through the umbrella.
+export const legacyRouterParamsKey = defineTypedEventHandler(
+  {
+    input: {
+      query: z.object({ page: z.coerce.number() }),
+      routerParams: z.object({ id: z.string() }),
+    },
+  },
+  () => null
+)

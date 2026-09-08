@@ -42,7 +42,7 @@ export interface UserList {
 
 /** `/api/items/:id`: a `default` (method-less) handler declaring `body`. */
 export interface ItemInput {
-  routerParams: { id: string }
+  route: { id: string }
   body: { qty: number }
 }
 
@@ -51,9 +51,9 @@ export interface Item {
   qty: number
 }
 
-/** `/api/params-only/:slug`: branded, but `body`/`query` are undeclared. */
+/** `/api/params-only/:slug`: declares `route` alone - `body`/`query` are undeclared. */
 export interface SlugInput {
-  routerParams: { slug: string }
+  route: { slug: string }
 }
 
 /** `/api/errors-only`: declares `errors` only, so its input is the empty
