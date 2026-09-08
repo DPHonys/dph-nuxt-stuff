@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import process from 'node:process'
 
 export interface RunOptions {
   cwd?: string

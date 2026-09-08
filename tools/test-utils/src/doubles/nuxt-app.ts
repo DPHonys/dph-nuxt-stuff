@@ -12,6 +12,7 @@ import type {
   useFetch as vanillaUseFetch,
 } from 'nuxt/app'
 import { shallowRef } from 'vue'
+import type { ShallowRef } from 'vue'
 import { z } from 'zod'
 
 type VanillaFetchArgs = Parameters<typeof vanillaUseFetch>
@@ -30,7 +31,12 @@ export const calls: RecordedCall[] = []
 // What the double hands back: the two refs a caller destructures, empty.
 // The wrappers never read the result; the shape is vanilla's for the module
 // layer that types the composable over it, and the same for both families.
-const emptyResult = () => ({
+interface EmptyResult {
+  data: ShallowRef<undefined>
+  error: ShallowRef<undefined>
+}
+
+const emptyResult = (): EmptyResult => ({
   data: shallowRef(undefined),
   error: shallowRef(undefined),
 })
