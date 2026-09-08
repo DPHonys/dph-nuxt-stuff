@@ -43,12 +43,14 @@ export function resolveScaffoldCliRequest(flags: {
     }
   }
 
-  const request: ScaffoldRequest = {
-    templateKind: flags.template,
-    scaffoldName: flags.name,
+  return {
+    mode: 'non-interactive',
+    request: {
+      templateKind: flags.template,
+      scaffoldName: flags.name,
+      description: flags.description,
+    },
   }
-  if (flags.description !== undefined) request.description = flags.description
-  return { mode: 'non-interactive', request }
 }
 
 export function createNonInteractiveAdapter(

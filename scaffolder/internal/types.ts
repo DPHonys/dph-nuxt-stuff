@@ -16,7 +16,7 @@ export interface ScaffoldNaming {
 export interface ScaffoldRequest {
   templateKind: string
   scaffoldName: string
-  description?: string
+  description?: string | undefined
 }
 
 export type InteractionResult =
@@ -27,7 +27,7 @@ export type InteractionResult =
 export interface InteractionAdapter {
   request: (options: {
     repositoryRoot: string
-    signal?: AbortSignal
+    signal?: AbortSignal | undefined
     templates: readonly TemplateSummary[]
   }) => Promise<InteractionResult>
   progress: (event: ScaffoldProgressEvent) => void
@@ -44,12 +44,12 @@ export type ScaffoldProgressEvent =
 export interface TemplateSummary {
   id: string
   label: string
-  scaffoldNameInitialValue?: string
+  scaffoldNameInitialValue?: string | undefined
 }
 
 export interface TemplatePreparationInput {
   scaffoldName: string
-  description?: string
+  description?: string | undefined
   year: number
 }
 
@@ -119,7 +119,7 @@ export type ValidationRule =
 export interface PostCommitContext {
   repositoryRoot: string
   destination: string
-  signal?: AbortSignal
+  signal?: AbortSignal | undefined
 }
 
 export interface InstallerAdapter {

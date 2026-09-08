@@ -9,11 +9,11 @@ import {
 } from '@clack/prompts'
 import { lstatSync } from 'node:fs'
 import { resolve } from 'pathe'
+import { isNotFound } from './errors'
 import { createNaming, validateScaffoldName } from './naming'
 import type {
   InteractionAdapter,
   ScaffoldProgressEvent,
-  ScaffoldRequest,
   TemplateSummary,
 } from './types'
 
@@ -23,21 +23,21 @@ export interface SelectPromptOptions {
   message: string
   options: Array<{ value: string; label: string }>
   initialValue: string
-  signal?: AbortSignal
+  signal: AbortSignal | undefined
 }
 
 export interface TextPromptOptions {
   message: string
   defaultValue?: string
   initialValue?: string
-  signal?: AbortSignal
+  signal: AbortSignal | undefined
   validate?: (value: string | undefined) => string | undefined
 }
 
 export interface ConfirmPromptOptions {
   message: string
   initialValue: boolean
-  signal?: AbortSignal
+  signal: AbortSignal | undefined
 }
 
 export interface InteractionPrompts {
@@ -62,21 +62,18 @@ export function createInteractiveAdapter(
 
       prompts.intro('Scaffold a workspace package')
 
-      const templateKind = await prompts.select(
-        withSignal<SelectPromptOptions>(
-          {
-            message: 'Template kind',
-            options: templates.map(({ id, label }) => ({ value: id, label })),
-            initialValue: firstTemplate.id,
-          },
-          signal
-        )
-      )
+      const templateKind = await prompts.select({
+        message: 'Template kind',
+        options: templates.map(({ id, label }) => ({ value: id, label })),
+        initialValue: firstTemplate.id,
+        signal,
+      })
       if (prompts.isCancel(templateKind)) return { status: 'cancelled' }
       const template = findTemplate(templates, templateKind)
 
       const scaffoldNamePrompt: TextPromptOptions = {
         message: 'Scaffold name',
+        signal,
         validate(value) {
           const name = value ?? ''
           const invalidName = validateScaffoldName(name)
@@ -91,17 +88,14 @@ export function createInteractiveAdapter(
       if (template.scaffoldNameInitialValue) {
         scaffoldNamePrompt.initialValue = template.scaffoldNameInitialValue
       }
-      const scaffoldName = await prompts.text(
-        withSignal(scaffoldNamePrompt, signal)
-      )
+      const scaffoldName = await prompts.text(scaffoldNamePrompt)
       if (prompts.isCancel(scaffoldName)) return { status: 'cancelled' }
 
-      const descriptionInput = await prompts.text(
-        withSignal<TextPromptOptions>(
-          { message: 'Description (optional)', defaultValue: '' },
-          signal
-        )
-      )
+      const descriptionInput = await prompts.text({
+        message: 'Description (optional)',
+        defaultValue: '',
+        signal,
+      })
       if (prompts.isCancel(descriptionInput)) return { status: 'cancelled' }
 
       const naming = createNaming(scaffoldName)
@@ -119,18 +113,22 @@ export function createInteractiveAdapter(
         'Review'
       )
 
-      const confirmed = await prompts.confirm(
-        withSignal<ConfirmPromptOptions>(
-          { message: 'Create this package?', initialValue: false },
-          signal
-        )
-      )
+      const confirmed = await prompts.confirm({
+        message: 'Create this package?',
+        initialValue: false,
+        signal,
+      })
       if (prompts.isCancel(confirmed)) return { status: 'cancelled' }
       if (!confirmed) return { status: 'declined' }
 
-      const request: ScaffoldRequest = { templateKind, scaffoldName }
-      if (description) request.description = description
-      return { status: 'confirmed', request }
+      return {
+        status: 'confirmed',
+        request: {
+          templateKind,
+          scaffoldName,
+          description: description || undefined,
+        },
+      }
     },
     progress(event) {
       prompts.progress(event)
@@ -141,10 +139,10 @@ export function createInteractiveAdapter(
 export function createClackInteraction(): InteractionAdapter {
   return createInteractiveAdapter({
     intro,
-    select,
-    text,
+    select: (options) => select(withoutAbsentSignal(options)),
+    text: (options) => text(withoutAbsentSignal(options)),
     note,
-    confirm,
+    confirm: (options) => confirm(withoutAbsentSignal(options)),
     progress(event) {
       log.step(event.message)
     },
@@ -152,14 +150,13 @@ export function createClackInteraction(): InteractionAdapter {
   })
 }
 
-/**
- * Prompt options carry `signal` only when the caller has one: the prompt
- * option types are exact, so an absent signal is an absent key.
- */
-function withSignal<Options extends { signal?: AbortSignal }>(
-  options: Options,
-  signal: AbortSignal | undefined
-): Options {
+/** Clack's option types are exact: an absent signal must be an absent key. */
+function withoutAbsentSignal<
+  Options extends { signal: AbortSignal | undefined },
+>({
+  signal,
+  ...options
+}: Options): Omit<Options, 'signal'> & { signal?: AbortSignal } {
   return signal ? { ...options, signal } : options
 }
 
@@ -199,11 +196,7 @@ function pathExists(path: string): boolean {
     lstatSync(path)
     return true
   } catch (error) {
-    if (isNodeError(error) && error.code === 'ENOENT') return false
+    if (isNotFound(error)) return false
     throw error
   }
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error
 }

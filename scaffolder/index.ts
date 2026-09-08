@@ -11,7 +11,7 @@ export interface RunScaffolderOptions {
    * request is validated up front and every failure exits non-zero instead of
    * falling back to a prompt.
    */
-  request?: ScaffoldRequest
+  request?: ScaffoldRequest | undefined
 }
 
 /**
@@ -23,5 +23,5 @@ export async function runScaffolder(
   options: RunScaffolderOptions
 ): Promise<ScaffoldOutcome> {
   const { request, ...runOptions } = options
-  return createProductionScaffolder(request ? { request } : {}).run(runOptions)
+  return createProductionScaffolder({ request }).run(runOptions)
 }

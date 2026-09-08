@@ -34,9 +34,10 @@ const packageManifestSchema = z.object({
 type PackageManifest = z.infer<typeof packageManifestSchema>
 
 const packedFileSchema = z.object({ filename: z.string() })
+/** `pnpm pack --json` wraps the file in an array when run through a filter. */
 const packOutputSchema = z.union([
   packedFileSchema,
-  z.tuple([packedFileSchema], packedFileSchema),
+  z.tuple([packedFileSchema], packedFileSchema).transform(([first]) => first),
 ])
 
 interface CommandResult {
@@ -433,8 +434,7 @@ async function packManifest(
     '--pack-destination',
     destination,
   ])
-  const result = packOutputSchema.parse(JSON.parse(packed.stdout))
-  const filename = Array.isArray(result) ? result[0].filename : result.filename
+  const { filename } = packOutputSchema.parse(JSON.parse(packed.stdout))
   const tarball = resolve(packageDirectory(root, packageName), filename)
   const extracted = await run(
     'tar',

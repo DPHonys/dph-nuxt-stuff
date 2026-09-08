@@ -13,7 +13,7 @@ import type {
 
 export interface ProductionScaffolderOptions {
   /** When present, answers the interaction from flags instead of prompts. */
-  request?: ScaffoldRequest
+  request?: ScaffoldRequest | undefined
 }
 
 export function createProductionScaffolder(
