@@ -23,6 +23,7 @@ const rootManifest = z
   )
 const pinnedPnpmVersion = rootManifest.packageManager.replace(/^pnpm@/, '')
 const pnpmExecutable = process.env.npm_execpath ?? 'pnpm'
+const commandTimeoutMs = 30_000
 const temporaryRoots: string[] = []
 
 const packageManifestSchema = z.object({
@@ -491,35 +492,38 @@ async function run(
   arguments_: string[],
   cwd: string
 ): Promise<CommandResult> {
-  const result = await new Promise<CommandResult & { exitCode: number | null }>(
-    (settle, reject) => {
-      const child = spawn(executable, arguments_, {
-        cwd,
-        env: {
-          ...process.env,
-          CI: 'true',
-          FORCE_COLOR: '0',
-          NO_COLOR: '1',
-        },
-        timeout: 30_000,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      let stdout = ''
-      let stderr = ''
-      child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
-        stdout += chunk
-      })
-      child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
-        stderr += chunk
-      })
-      child.once('error', reject)
-      child.once('close', (exitCode) => settle({ exitCode, stdout, stderr }))
-    }
-  )
+  const startedAt = Date.now()
+  const result = await new Promise<
+    CommandResult & { exitCode: number | null; signal: NodeJS.Signals | null }
+  >((settle, reject) => {
+    const child = spawn(executable, arguments_, {
+      cwd,
+      env: {
+        ...process.env,
+        CI: 'true',
+        FORCE_COLOR: '0',
+        NO_COLOR: '1',
+      },
+      timeout: commandTimeoutMs,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr += chunk
+    })
+    child.once('error', reject)
+    child.once('close', (exitCode, signal) =>
+      settle({ exitCode, signal, stdout, stderr })
+    )
+  })
   if (result.exitCode !== 0) {
     throw new Error(
       [
-        `${executable} ${arguments_.join(' ')} exited with ${result.exitCode ?? 'a signal'}`,
+        `${executable} ${arguments_.join(' ')} ${describeTermination(result, Date.now() - startedAt)}`,
         result.stdout,
         result.stderr,
       ]
@@ -528,4 +532,17 @@ async function run(
     )
   }
   return { stdout: result.stdout, stderr: result.stderr }
+}
+
+function describeTermination(
+  result: { exitCode: number | null; signal: NodeJS.Signals | null },
+  elapsedMs: number
+): string {
+  if (result.exitCode !== null) {
+    return `exited with ${result.exitCode}`
+  }
+  if (result.signal === 'SIGTERM' && elapsedMs >= commandTimeoutMs) {
+    return `timed out after ${commandTimeoutMs} ms`
+  }
+  return `was terminated by ${result.signal ?? 'an unknown signal'}`
 }
