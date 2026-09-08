@@ -1,6 +1,6 @@
 {
   "name": "@dphonys/nuxt-typed-handler",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Declare a Nitro handler's request schemas and expected failures once, and get both typed at every call site.",
   "keywords": [
     "nuxt",

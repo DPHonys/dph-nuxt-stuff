@@ -1,6 +1,6 @@
 {
   "name": "@dphonys/nuxt-handler-errors",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Declare a Nitro handler’s expected failures once and infer them at every call site from the route path.",
   "keywords": [
     "nuxt",

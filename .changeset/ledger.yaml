@@ -1,46 +1,59 @@
-'@dphonys/nuxt-handler-errors@0.1.0':
+"@dphonys/nuxt-handler-errors@0.1.0":
   dir: packages/nuxt-handler-errors
   intents:
     - four-adults-trade
-'@dphonys/nuxt-handler-errors@0.2.0':
+"@dphonys/nuxt-handler-errors@0.2.0":
   dir: packages/nuxt-handler-errors
   intents:
     - shaggy-steaks-stand
-'@dphonys/nuxt-handler-errors@0.3.0':
+"@dphonys/nuxt-handler-errors@0.3.0":
   dir: packages/nuxt-handler-errors
   intents:
     - server-helpers-auto-import
-'@dphonys/nuxt-handler-errors@0.3.1':
+"@dphonys/nuxt-handler-errors@0.3.1":
   dir: packages/nuxt-handler-errors
   intents:
     - errors-declares-side-effect-free
-'@dphonys/nuxt-handler-errors@0.4.0':
+"@dphonys/nuxt-handler-errors@0.4.0":
   dir: packages/nuxt-handler-errors
   intents:
     - every-peaches-dream
-'@dphonys/nuxt-handler-errors@0.5.0':
+"@dphonys/nuxt-handler-errors@0.5.0":
   dir: packages/nuxt-handler-errors
   intents:
     - local-error-factories
     - nuxt-declared-as-peer
-'@dphonys/nuxt-handler-validation@0.1.0':
+"@dphonys/nuxt-handler-errors@0.6.0":
+  dir: packages/nuxt-handler-errors
+  intents:
+    - errors-boundary-parsing
+"@dphonys/nuxt-handler-validation@0.1.0":
   dir: packages/nuxt-handler-validation
   intents:
     - gold-doors-fly
-'@dphonys/nuxt-handler-validation@0.1.1':
+"@dphonys/nuxt-handler-validation@0.1.1":
   dir: packages/nuxt-handler-validation
   intents:
     - validation-declares-side-effect-free
-'@dphonys/nuxt-handler-validation@0.2.0':
+"@dphonys/nuxt-handler-validation@0.2.0":
   dir: packages/nuxt-handler-validation
   intents:
     - validation-internals-entries
-'@dphonys/nuxt-handler-validation@0.2.1':
+"@dphonys/nuxt-handler-validation@0.2.1":
   dir: packages/nuxt-handler-validation
   intents:
     - nuxt-declared-as-peer
-'@dphonys/nuxt-typed-handler@0.1.0':
+"@dphonys/nuxt-handler-validation@0.3.0":
+  dir: packages/nuxt-handler-validation
+  intents:
+    - validation-boundary-parsing
+"@dphonys/nuxt-typed-handler@0.1.0":
   dir: packages/nuxt-typed-handler
   intents:
     - dull-pens-love
     - local-error-factories
+"@dphonys/nuxt-typed-handler@0.2.0":
+  dir: packages/nuxt-typed-handler
+  intents:
+    - errors-boundary-parsing
+    - validation-boundary-parsing

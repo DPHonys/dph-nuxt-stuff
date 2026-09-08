@@ -1,8 +1,14 @@
 import { defineConfig } from 'oxfmt'
 
 export default defineConfig({
-  // Vendored plugin keeps upstream formatting so it stays diffable.
-  ignorePatterns: ['tools/oxlint/anti-slop/**'],
+  ignorePatterns: [
+    // Vendored plugin keeps upstream formatting so it stays diffable.
+    'tools/oxlint/anti-slop/**',
+    // `pnpm version -r` rewrites the ledger on every release and quotes its
+    // keys its own way. Formatting it here only makes the release gate fail
+    // on generated output, so the generator keeps ownership of the file.
+    '.changeset/ledger.yaml',
+  ],
   semi: false,
   singleQuote: true,
   tabWidth: 2,
