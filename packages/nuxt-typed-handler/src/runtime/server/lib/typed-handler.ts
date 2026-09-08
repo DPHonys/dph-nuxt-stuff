@@ -10,6 +10,9 @@ import {
 import type { ValidatedContextOptions } from '@dphonys/nuxt-handler-validation/internals/server'
 import type {
   RequestInput,
+  ResponseBody,
+  ResponseOutput,
+  ResponseOutputs,
   ValidatedContext,
   ValidationSchemas,
 } from '@dphonys/nuxt-handler-validation/types'
@@ -28,13 +31,20 @@ import { assertNoReservedTag } from './reserved-tag'
 
 const VALIDATION_OPTIONS: ValidatedContextOptions = { onInvalid }
 
-/** What a declaration of `S` and `A` builds, spelled once. */
+/** What a declaration of `S`, `A` and `O` builds, spelled once. */
 type Handler<
   S extends ValidationSchemas,
   A extends ReadonlyArray<AnyKnownError>,
+  O extends ResponseOutput | undefined,
   Request extends EventHandlerRequest,
   Response extends EventHandlerResponse,
-> = TypedEventHandler<Request, Response, TypedErrors<S, A>, RequestInput<S>>
+> = TypedEventHandler<
+  Request,
+  Response,
+  TypedErrors<S, A>,
+  RequestInput<S>,
+  ResponseOutputs<O>
+>
 
 /**
  * Declare what a route validates and what it can fail with, and get both in
@@ -45,7 +55,8 @@ type Handler<
  * export default defineTypedEventHandler(
  *   {
  *     input: { body: createUser },
- *     errors: [defineError('user-exists', { status: 409 })]
+ *     errors: [defineError('user-exists', { status: 409 })],
+ *     output: user
  *   },
  *   async (event, { body, errors }) => {
  *     if (await exists(body.email)) throw errors.userExists()
@@ -56,7 +67,9 @@ type Handler<
  *
  * A rejected request answers the built-in `validation-failed` variant rather
  * than the validation parent's own `400`; everything else about each half is
- * the parent's, unchanged. Reading the body again with `readBody` yields h3's
+ * the parent's, unchanged. `output` is the parent's too: a bare schema
+ * declares one `200` the handler returns plainly, checked by the compiler and
+ * run by nothing. Reading the body again with `readBody` yields h3's
  * memoized unvalidated parse.
  * Error payload schemas accept their input type and expose their validated
  * output as flat fields on the variant.
@@ -64,12 +77,13 @@ type Handler<
 export const defineTypedEventHandler: DefineTypedEventHandler = <
   const S extends ValidationSchemas,
   const A extends ReadonlyArray<AnyKnownError>,
-  Response extends EventHandlerResponse,
+  O extends ResponseOutput | undefined,
+  Response extends EventHandlerResponse<ResponseBody<O>>,
   Request extends EventHandlerRequest,
 >(
-  options: TypedHandlerOptions<S, A>,
+  options: TypedHandlerOptions<S, A, O>,
   handler: TypedHandlerFn<S, A, Request, Response>
-): Handler<S, A, Request, Response> => {
+): Handler<S, A, O, Request, Response> => {
   // In this order, so each declaration fault reports with its owner's message.
   const declared = resolveDeclared(options.errors ?? [])
   assertNoReservedTag(declared)
@@ -79,9 +93,13 @@ export const defineTypedEventHandler: DefineTypedEventHandler = <
 
   // The compile guard's answer for a JavaScript caller - `input: {}` plans
   // nothing, so it counts for nothing here either.
-  if ((plan === undefined || plan.length === 0) && errorContext === undefined) {
+  if (
+    (plan === undefined || plan.length === 0) &&
+    errorContext === undefined &&
+    options.output === undefined
+  ) {
     throw new Error(
-      '[nuxt-typed-handler] defineTypedEventHandler needs input, errors, or both.'
+      '[nuxt-typed-handler] defineTypedEventHandler must declare input, errors, output, or any combination.'
     )
   }
 
@@ -107,5 +125,5 @@ export const defineTypedEventHandler: DefineTypedEventHandler = <
       : validatedContext(event, plan, VALIDATION_OPTIONS).then((validated) =>
           handler(event, contextFor(validated))
         )
-  ) as Handler<S, A, Request, Response>
+  ) as Handler<S, A, O, Request, Response>
 }

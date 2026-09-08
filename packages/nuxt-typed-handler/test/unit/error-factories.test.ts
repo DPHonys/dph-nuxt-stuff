@@ -240,11 +240,11 @@ describe('handler-local error factories', () => {
     expect(() =>
       // @ts-expect-error - declares nothing
       defineTypedEventHandler({ errors: [] }, () => null)
-    ).toThrow('needs input, errors, or both')
+    ).toThrow('must declare input, errors, output, or any combination')
     expect(() =>
       // @ts-expect-error - declares nothing
       defineTypedEventHandler({ input: {}, errors: [] }, () => null)
-    ).toThrow('needs input, errors, or both')
+    ).toThrow('must declare input, errors, output, or any combination')
     const handler = defineTypedEventHandler(
       { input: { query: z.object({}) }, errors: [] },
       (_event, ctx) => Object.keys(ctx).sort()

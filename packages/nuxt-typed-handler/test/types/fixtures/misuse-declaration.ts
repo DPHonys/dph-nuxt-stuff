@@ -64,6 +64,15 @@ export const divergentTag = defineTypedEventHandler(
   () => null
 )
 
+// --- A return that is not the declared output is refused ------------------
+
+// The forwarded `output` constrains the handler's plain return to the schema's
+// output type; the parent owns the rule, and it fires through the umbrella.
+export const wrongResponse = defineTypedEventHandler(
+  { output: z.object({ id: z.string() }) },
+  () => Number(42)
+)
+
 // --- The old `validate` key is gone, with no alias ------------------------
 
 // The rename to `input` is a clean break: `validate` declares nothing, so the

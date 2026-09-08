@@ -254,7 +254,7 @@ describe('declaration-time misuse', () => {
   it('throws on a bare `{}` - the compile guard’s answer for a JavaScript caller', () => {
     // @ts-expect-error - declares nothing
     expect(() => defineTypedEventHandler({}, () => null)).toThrow(
-      '[nuxt-typed-handler] defineTypedEventHandler needs input, errors, or both.'
+      '[nuxt-typed-handler] defineTypedEventHandler must declare input, errors, output, or any combination.'
     )
   })
 
@@ -263,7 +263,7 @@ describe('declaration-time misuse', () => {
       // @ts-expect-error - declares nothing
       defineTypedEventHandler({ input: {} }, () => null)
     ).toThrow(
-      '[nuxt-typed-handler] defineTypedEventHandler needs input, errors, or both.'
+      '[nuxt-typed-handler] defineTypedEventHandler must declare input, errors, output, or any combination.'
     )
   })
 
@@ -283,5 +283,74 @@ describe('declaration-time misuse', () => {
 
     expect(response.status).toBe(204)
     expect(seen).toEqual([])
+  })
+})
+
+describe('a route declaring a Response output', () => {
+  it('sends what the handler returned, untouched by the schema', async () => {
+    // The declared schema coerces and strips; nothing runs it, so the answer
+    // is the handler's own object, extra key and string page included.
+    // What a plain-JavaScript route file hands over: parsed, so the value is
+    // honestly untyped rather than cast into place.
+    const untyped: unknown = JSON.parse('{"page":"2","extra":true}')
+
+    const handler = defineTypedEventHandler(
+      { output: z.object({ page: z.coerce.number() }) },
+      // @ts-expect-error - `unknown` is not the declared output type
+      () => untyped
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      page: '2',
+      extra: true,
+    })
+  })
+
+  it('hands an output-only route an empty Handler context', async () => {
+    // No source and no error declaration: no validated keys, no factories.
+    const handler = defineTypedEventHandler(
+      { output: z.object({ keys: z.array(z.string()) }) },
+      (_event, ctx) => ({ keys: Object.keys(ctx) })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    await expect(response.json()).resolves.toEqual({ keys: [] })
+  })
+
+  it('never reads the body of an output-only route', async () => {
+    const handler = defineTypedEventHandler(
+      { output: z.object({ reached: z.boolean() }) },
+      () => ({ reached: true })
+    )
+
+    const response = await request(handler, '/api/test', {
+      init: postJson('{ not json at all'),
+    })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ reached: true })
+  })
+
+  it('validates the declared sources beside the output, as ever', async () => {
+    const handler = defineTypedEventHandler(
+      {
+        input: { query: z.object({ page: z.coerce.number() }) },
+        output: z.object({ page: z.number() }),
+      },
+      (_event, { query }) => ({ page: query.page })
+    )
+
+    const ok = await request(handler, '/api/test?page=2')
+    const bad = await request(handler, '/api/test?page=nope')
+
+    await expect(ok.json()).resolves.toEqual({ page: 2 })
+    expect(bad.status).toBe(400)
+    await expect(bad.json()).resolves.toMatchObject({
+      data: { [KNOWN_ERROR_KEY]: { tag: 'validation-failed', status: 400 } },
+    })
   })
 })

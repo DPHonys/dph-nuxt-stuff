@@ -15,6 +15,9 @@ import ts from 'typescript'
 /** TS18003 - "No inputs were found in config file". */
 const NO_INPUTS_FOUND = 18003
 
+/** TS2322 - a value that does not fit the type it was written against. */
+export const NOT_ASSIGNABLE = 2322
+
 /**
  * TS2375 - the `exactOptionalPropertyTypes` flavour of TS2322. Every key of
  * `ValidationSchemas` is optional, so a stray key lands here rather than on the

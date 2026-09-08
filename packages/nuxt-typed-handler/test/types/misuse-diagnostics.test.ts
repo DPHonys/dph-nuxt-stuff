@@ -4,6 +4,7 @@ import {
   fixturePath,
   FIXTURE_TSCONFIG,
   lineContaining,
+  NOT_ASSIGNABLE,
   NOT_ASSIGNABLE_EXACT_OPTIONAL,
   saying,
 } from './compile-harness'
@@ -29,13 +30,13 @@ const UNKNOWN_OPTION_KEY = 2353
 const RESERVED_TAG = 'validation-failed is reserved for the built-in variant'
 
 /** The bare-`{}` sentence, verbatim. */
-const DECLARE_SOMETHING = 'declare input, errors, or both'
+const DECLARE_SOMETHING = 'declare input, errors, output, or any combination'
 
 describe('the declaration guards’ diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(8)
+    expect(diagnostics).toHaveLength(9)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -79,13 +80,25 @@ describe('the declaration guards’ diagnostics', () => {
     // alias, no deprecation shim, just an unknown key on the options object.
     const [legacy] = saying(
       diagnostics,
-      "Object literal may only specify known properties, and 'validate' does not exist in type 'TypedHandlerOptions<{}, []>'."
+      "Object literal may only specify known properties, and 'validate' does not exist in type 'TypedHandlerOptions<{}, [], undefined>'."
     )
 
     expect(legacy?.code).toBe(UNKNOWN_OPTION_KEY)
     expect(legacy?.line).toBe(
       lineContaining(FIXTURE, '{ validate: { query: z.object({ page:')
     )
+  })
+
+  it('refuses a return that is not the declared Response output', () => {
+    // The validation parent's rule, fired through the umbrella: nothing runs
+    // the declared schema, so the compiler is the whole of the promise.
+    const [wrongResponse] = saying(
+      diagnostics,
+      "Type 'number' is not assignable to type 'EventHandlerResponse<{ id: string; }>'"
+    )
+
+    expect(wrongResponse?.code).toBe(NOT_ASSIGNABLE)
+    expect(wrongResponse?.line).toBe(lineContaining(FIXTURE, 'Number(42)'))
   })
 
   it('refuses a factory for the built-in validation variant', () => {

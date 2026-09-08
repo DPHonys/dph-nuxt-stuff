@@ -5,7 +5,7 @@
  * merges - two suites declaring the same key would merge into the same
  * interface.
  *
- * Fifty-one routes: the six the contract rows read, plus forty-five synthetic
+ * Fifty-two routes: the seven the contract rows read, plus forty-five synthetic
  * ones, so the stack-depth rules are exercised at the size the ticket 10
  * prototype measured (no `TS2321`, no `TS2589`).
  */
@@ -61,6 +61,11 @@ export interface SlugInput {
 
 export interface ErrorsOnlyInput {}
 
+/** `/api/output-only`: declares `output` only, so it validates nothing - the
+ * empty Request input of a route with no sources, and no built-in variant. */
+
+export interface OutputOnlyInput {}
+
 export interface Forbidden {
   tag: 'forbidden'
   status: 403
@@ -86,6 +91,9 @@ declare module 'nitropack/types' {
     }
     '/api/errors-only': {
       post: { ok: true }
+    }
+    '/api/output-only': {
+      post: { id: string; name: string }
     }
     '/api/params-only/:slug': {
       post: { slug: string }
@@ -294,6 +302,9 @@ declare module '@dphonys/nuxt-handler-errors/types' {
     '/api/errors-only': {
       post: Gone
     }
+    '/api/output-only': {
+      post: never
+    }
     '/api/params-only/:slug': {
       post: ValidationFailed
     }
@@ -499,6 +510,9 @@ declare module '../../src/runtime/types' {
     }
     '/api/errors-only': {
       post: ErrorsOnlyInput
+    }
+    '/api/output-only': {
+      post: OutputOnlyInput
     }
     '/api/params-only/:slug': {
       post: SlugInput
