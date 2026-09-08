@@ -25,8 +25,7 @@ export default defineEventHandler(async () => {
     (error) => error
   )
 
-  const parsed = REJECTION.safeParse(thrown)
-  const rejection = parsed.success ? parsed.data : undefined
+  const rejection = REJECTION.safeParse(thrown).data
 
   return {
     rejected: thrown !== undefined,

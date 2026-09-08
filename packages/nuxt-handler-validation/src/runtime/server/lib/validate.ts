@@ -182,39 +182,41 @@ function mergeOutputs<Slot extends SourceSchemas>(
   source: ValidationSource,
   outputs: readonly StandardSchemaV1.SuccessResult<unknown>[]
 ): SourceValue<Slot> {
-  const [lone] = outputs
+  const [lone, ...rest] = outputs
 
   if (lone === undefined) raiseUnvalidatedSource(source)
 
+  if (rest.length === 0) {
+    // SAFETY: a lone element's success carries its own `InferOutput`, which
+    // is `SourceValue<Slot>` as it stands.
+    return lone.value as SourceValue<Slot>
+  }
+
   const merged = {}
 
-  if (outputs.length > 1) {
-    for (const [position, output] of outputs.entries()) {
-      if (!isPlainObject(output.value)) {
-        raiseUnmergeableOutput(source, position, output)
-      }
+  for (const [position, output] of outputs.entries()) {
+    if (!isPlainObject(output.value)) {
+      raiseUnmergeableOutput(source, position, output)
+    }
 
-      // Defined rather than assigned, so a `__proto__` key lands as an own
-      // property instead of calling the setter that would swap the merged
-      // object's prototype. h3's readers drop that key before this point; the
-      // guarantee is held here rather than borrowed from them.
-      for (const [key, entry] of Object.entries(output.value)) {
-        Object.defineProperty(merged, key, {
-          value: entry,
-          writable: true,
-          enumerable: true,
-          configurable: true,
-        })
-      }
+    // Defined rather than assigned, so a `__proto__` key lands as an own
+    // property instead of calling the setter that would swap the merged
+    // object's prototype. h3's readers drop that key before this point; the
+    // guarantee is held here rather than borrowed from them.
+    for (const [key, entry] of Object.entries(output.value)) {
+      Object.defineProperty(merged, key, {
+        value: entry,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      })
     }
   }
 
   // SAFETY: `outputs` holds one success per element of `Slot`, in tuple
-  // order, and a Standard Schema's success carries its own `InferOutput`. A
-  // lone element's output is `SourceValue<Slot>` as it stands; for a tuple,
-  // every output was a plain object (refused otherwise), and their later-wins
-  // merge in tuple order is what `MergedOutput` spells for `Slot`.
-  return (outputs.length === 1 ? lone.value : merged) as SourceValue<Slot>
+  // order; every output was a plain object (refused otherwise), and their
+  // later-wins merge in tuple order is what `MergedOutput` spells for `Slot`.
+  return merged as SourceValue<Slot>
 }
 
 // Anything with a prototype of its own (an array, a `Date`, a class instance)

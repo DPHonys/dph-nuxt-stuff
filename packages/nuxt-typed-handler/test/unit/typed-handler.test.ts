@@ -1,37 +1,14 @@
 import { defineError } from '@dphonys/nuxt-handler-errors/server'
 import { KNOWN_ERROR_KEY } from '@dphonys/nuxt-handler-errors/shared'
-import { validatedContext } from '@dphonys/nuxt-handler-validation/internals/server'
 import { postJson, request, requestReporting } from '@dphonys/test-utils/h3-app'
 import type { H3Error } from 'h3'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
   defineTypedEventHandler,
   recognizeKnownError,
   recognizeValidationError,
 } from '../../src/runtime/server'
-import type { TypedHandlerInternals } from '../../src/runtime/server/lib/typed-handler'
-import { createDefineTypedEventHandler } from '../../src/runtime/server/lib/typed-handler'
-
-// The real internals, with the one seam the errors-only case asserts on
-// counted on its way through: `validatedContext` is the only door to a body
-// read, and the factory takes it injected. A plain delegating function
-// rather than `vi.fn`, which cannot carry the seam's generic signature.
-let validatedContextCalls = 0
-
-const observed: TypedHandlerInternals = {
-  validatedContext: (event, plan, options) => {
-    validatedContextCalls += 1
-
-    return validatedContext(event, plan, options)
-  },
-}
-
-const defineObserved = createDefineTypedEventHandler(observed)
-
-afterEach(() => {
-  validatedContextCalls = 0
-})
 
 // Handlers built by `defineTypedEventHandler`, driven by real requests through
 // a real h3 app, with both parents' internals imported for real.
@@ -60,19 +37,20 @@ describe('a route declaring only errors', () => {
     })
   })
 
-  it('never calls the validation seam, so the body is never read', async () => {
-    // Observed at the seam the internals expose rather than by a body spy:
-    // `validatedContext` is the one door to a body read, and it is never
-    // opened for a route that declares nothing to validate.
-    const handler = defineObserved({ errors: [...userErrors] }, () => ({
-      reached: true,
-    }))
+  it('never reads the body', async () => {
+    // Observable, not spied: a body that would fail to parse reaches the
+    // handler untouched, so the read was never attempted.
+    const handler = defineTypedEventHandler(
+      { errors: [...userErrors] },
+      () => ({
+        reached: true,
+      })
+    )
 
     const response = await request(handler, '/api/test', {
       init: postJson('{ not json at all'),
     })
 
-    expect(validatedContextCalls).toBe(0)
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ reached: true })
   })
@@ -80,7 +58,7 @@ describe('a route declaring only errors', () => {
 
 describe('a route declaring only validation', () => {
   it('hands the handler exactly the validation parent’s context without factories', async () => {
-    const handler = defineObserved(
+    const handler = defineTypedEventHandler(
       { validate: { query: z.object({ page: z.coerce.number() }) } },
       (_event, context) => ({
         keys: Object.keys(context),
@@ -95,7 +73,6 @@ describe('a route declaring only validation', () => {
       keys: ['query'],
       page: 2,
     })
-    expect(validatedContextCalls).toBe(1)
   })
 
   it('answers a rejected source with the built-in variant, both markers on', async () => {
