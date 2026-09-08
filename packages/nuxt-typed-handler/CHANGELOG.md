@@ -1,5 +1,19 @@
 # @dphonys/nuxt-typed-handler
 
+## 0.2.0
+
+### Minor Changes
+
+- Error recognition takes an `Error`. `recognizeKnownError` and the degraded `matchError` overload accept a value already narrowed with `instanceof Error` or Nuxt's `isNuxtError`, instead of `unknown`; a bare `catch` value is narrowed at the call site first. `KnownErrorCarrier<E>` is now `NuxtError<KnownErrorBody<E>>`. The known-error wire marker is parsed with a schema, so `zod` becomes a runtime dependency of the errors module. The umbrella module re-exports the narrowed surface.
+
+- `recognizeValidationError` takes an `Error` instead of `unknown`; narrow a bare `catch` value with `instanceof Error` or Nuxt's `isNuxtError` first. Request sources, issue paths and the validation marker are parsed with a schema, so `zod` becomes a runtime dependency of the validation module. The umbrella module re-exports the narrowed surface.
+
+### Patch Changes
+
+- Updated dependencies:
+  - @dphonys/nuxt-handler-errors@0.6.0
+  - @dphonys/nuxt-handler-validation@0.3.0
+
 ## 0.1.0
 
 ### Minor Changes
