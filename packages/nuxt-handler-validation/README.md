@@ -39,7 +39,7 @@ import { z } from 'zod'
 
 export default defineValidatedEventHandler(
   {
-    validate: {
+    input: {
       routerParams: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
       query: z.object({ page: z.coerce.number() }),
       body: z.object({
@@ -57,7 +57,7 @@ export default defineValidatedEventHandler(
 )
 ```
 
-- **Schemas nest under `validate`**, keyed by source. The four sources are
+- **Schemas nest under `input`**, keyed by source. The four sources are
   `routerParams`, `query`, `headers` and `body`.
 - **Validated values arrive eagerly and fully typed in the second parameter**,
   each typed as its schema's _output_ - so coercions and transforms land in the
@@ -113,7 +113,7 @@ import { pagination, sorting } from '~~/server/validation/listing'
 import { profileBody } from '~~/server/validation/profile'
 
 export default defineValidatedEventHandler(
-  { validate: { query: [pagination, sorting], body: profileBody } },
+  { input: { query: [pagination, sorting], body: profileBody } },
   async (event, { query, body }) => {
     // query: { page: number, size: number, sort: 'asc' | 'desc' }
     return listUsers(query, body)
@@ -375,8 +375,8 @@ element actually contributed to.**
   class instance _is_ structurally an object, so the declaration is accepted;
   the runtime merge refuses it with the `500` above, because its meaning lives
   outside its own enumerable keys.
-- **A malformed `validate` object itself is an untyped `TypeError`.** The guard
-  covers what is _inside_ `validate`, not a `null` in the object's place.
+- **A malformed `input` object itself is an untyped `TypeError`.** The guard
+  covers what is _inside_ `input`, not a `null` in the object's place.
 
 ## Turning the module off
 
@@ -389,10 +389,10 @@ such as `handlerValidation: { channelToken: 'x' }` is a compile error.
 Runtime, from `@dphonys/nuxt-handler-validation/server`, both auto-imported
 inside `server/`:
 
-| Export                                          | Role                                                                                         |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `defineValidatedEventHandler({ validate }, fn)` | The wrapper. One signature. Returns a `ValidatedEventHandler`, an h3 `EventHandler` subtype. |
-| `recognizeValidationError(error)`               | Observability predicate, process-side only. Returns `ValidationErrorData \| undefined`.      |
+| Export                                       | Role                                                                                         |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `defineValidatedEventHandler({ input }, fn)` | The wrapper. One signature. Returns a `ValidatedEventHandler`, an h3 `EventHandler` subtype. |
+| `recognizeValidationError(error)`            | Observability predicate, process-side only. Returns `ValidationErrorData \| undefined`.      |
 
 Types, from `@dphonys/nuxt-handler-validation/types` - type-only, safe to
 import from app code: `ValidationSchemas`, `SourceSchemas`, `ValidationSource`,

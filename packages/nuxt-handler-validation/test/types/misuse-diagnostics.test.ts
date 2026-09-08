@@ -15,6 +15,9 @@ import {
 // below are public surface - a broken declaration is told what it did, at the
 // key it did it - so each is asserted verbatim and at the offending key's line.
 
+/** TS2353 - an object literal key the parameter type does not declare. */
+const UNKNOWN_OPTION_KEY = 2353
+
 const FIXTURE = fixturePath('misuse-declaration.ts')
 
 const diagnostics = compileFixture(FIXTURE_TSCONFIG, FIXTURE)
@@ -35,7 +38,7 @@ describe('the declaration guard’s diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(10)
+    expect(diagnostics).toHaveLength(11)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -139,6 +142,20 @@ describe('the declaration guard’s diagnostics', () => {
     )
 
     expect(arity?.message).toContain('Expected 2-3 type arguments, but got 1')
+  })
+
+  it('refuses the pre-rename `validate` key, with no alias behind it', () => {
+    // The option key is `input` now, and the rename is a clean break: no
+    // alias, no deprecation shim, just an unknown key on the options object.
+    const [legacy] = saying(
+      diagnostics,
+      "Object literal may only specify known properties, and 'validate' does not exist in type '{ input: ValidationSchemas & ValidationSchemasGuard<ValidationSchemas>; }'."
+    )
+
+    expect(legacy?.code).toBe(UNKNOWN_OPTION_KEY)
+    expect(legacy?.line).toBe(
+      lineContaining(FIXTURE, '{ validate: { query: pagination } }')
+    )
   })
 
   it('fires the same sentence at the same key on a handler read back through the brand', () => {

@@ -45,7 +45,7 @@ function bodyFailingWith(reason: Error): RequestInit & { duplex: 'half' } {
 describe('a handler declaring a routerParams schema', () => {
   it('hands the body the schema output, coercions applied', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { routerParams: z.object({ id: z.coerce.number() }) } },
+      { input: { routerParams: z.object({ id: z.coerce.number() }) } },
       (event, { routerParams }) => ({ id: routerParams.id })
     )
 
@@ -61,7 +61,7 @@ describe('a handler declaring a routerParams schema', () => {
 
   it('validates decoded params, not percent-escapes', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { routerParams: z.object({ id: z.string() }) } },
+      { input: { routerParams: z.object({ id: z.string() }) } },
       (event, { routerParams }) => ({ id: routerParams.id })
     )
 
@@ -75,7 +75,7 @@ describe('a handler declaring a routerParams schema', () => {
 
   it('delivers a catch-all as one slash-joined string under `_`', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { routerParams: z.object({ _: z.string() }) } },
+      { input: { routerParams: z.object({ _: z.string() }) } },
       (event, { routerParams }) => ({ rest: routerParams._ })
     )
 
@@ -89,7 +89,7 @@ describe('a handler declaring a routerParams schema', () => {
 
   it('answers 400 tagged `routerParams` when the params fail', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { routerParams: z.object({ id: z.coerce.number() }) } },
+      { input: { routerParams: z.object({ id: z.coerce.number() }) } },
       () => 'the body never runs'
     )
 
@@ -107,7 +107,7 @@ describe('a handler declaring a routerParams schema', () => {
 describe('a handler declaring a query schema', () => {
   it('hands the body the schema output, coercions applied', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { query: z.object({ page: z.coerce.number() }) } },
+      { input: { query: z.object({ page: z.coerce.number() }) } },
       (event, { query }) => ({ page: query.page })
     )
 
@@ -120,7 +120,7 @@ describe('a handler declaring a query schema', () => {
   it('delivers query as h3 yields it: strings, arrays for repeated keys', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: z.object({ tag: z.array(z.string()), page: z.string() }),
         },
       },
@@ -142,7 +142,7 @@ describe('a handler declaring a query schema', () => {
     let bodyRan = false
 
     const handler = defineValidatedEventHandler(
-      { validate: { query: z.object({ page: z.coerce.number() }) } },
+      { input: { query: z.object({ page: z.coerce.number() }) } },
       () => {
         bodyRan = true
         return 'the body never runs'
@@ -169,7 +169,7 @@ describe('a handler declaring a query schema', () => {
   it('reports every issue within the source together', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: z.object({ page: z.coerce.number(), sort: z.enum(['asc']) }),
         },
       },
@@ -192,7 +192,7 @@ describe('a handler declaring a query schema', () => {
 
   it('serves one payload whether the server runs verbose errors or not', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { query: z.object({ page: z.coerce.number() }) } },
+      { input: { query: z.object({ page: z.coerce.number() }) } },
       () => 'the body never runs'
     )
 
@@ -213,7 +213,7 @@ describe('a handler declaring a query schema', () => {
 describe('a handler declaring a headers schema', () => {
   it('delivers headers as h3 does: lowercase keys, multi-values joined', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { headers: z.object({ 'x-trace': z.string() }) } },
+      { input: { headers: z.object({ 'x-trace': z.string() }) } },
       (event, { headers }) => ({ trace: headers['x-trace'] })
     )
 
@@ -232,7 +232,7 @@ describe('a handler declaring a headers schema', () => {
 
   it('adds no case-insensitivity: a schema keyed as sent finds nothing', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { headers: z.object({ 'X-Trace': z.string() }) } },
+      { input: { headers: z.object({ 'X-Trace': z.string() }) } },
       () => 'the body never runs'
     )
 
@@ -251,7 +251,7 @@ describe('a handler declaring a body schema', () => {
   it('hands the body the schema output, transforms applied', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           body: z.object({
             name: z.string(),
             tags: z.string().transform((tags) => tags.split(',')),
@@ -274,7 +274,7 @@ describe('a handler declaring a body schema', () => {
 
   it('answers 400 tagged `body` when the body fails', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       () => 'the body never runs'
     )
 
@@ -290,7 +290,7 @@ describe('a handler declaring a body schema', () => {
 
   it('validates an empty body as undefined', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }).optional() } },
+      { input: { body: z.object({ name: z.string() }).optional() } },
       (event, { body }) => ({ bodyIsUndefined: body === undefined })
     )
 
@@ -307,7 +307,7 @@ describe('a handler declaring a body schema', () => {
 describe('the request method and the body read', () => {
   /** One handler serving every verb - the Nitro pattern the skip rule protects. */
   const methodAgnostic = defineValidatedEventHandler(
-    { validate: { body: z.object({ name: z.string() }).optional() } },
+    { input: { body: z.object({ name: z.string() }).optional() } },
     (event, { body }) => ({ method: event.method, body: body ?? null })
   )
 
@@ -362,7 +362,7 @@ describe('the request method and the body read', () => {
     // The accepted cost of the skip rule: a genuine mis-declaration blames the
     // client, because it is indistinguishable from the pattern above.
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       () => 'the body never runs'
     )
 
@@ -382,7 +382,7 @@ describe('any Standard Schema', () => {
   it('validates with valibot exactly as with zod', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: v.object({ page: v.pipe(v.string(), v.transform(Number)) }),
         },
       },
@@ -404,7 +404,7 @@ describe('any Standard Schema', () => {
   it('awaits an async schema', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: v.pipeAsync(
             v.objectAsync({ page: v.string() }),
             v.checkAsync(async ({ page }) => page !== 'nope')
@@ -428,7 +428,7 @@ describe('any Standard Schema', () => {
     const valueless: StandardSchemaV1.Result<undefined> = wire('{}')
 
     const handler = defineValidatedEventHandler(
-      { validate: { query: schemaReturning(valueless) } },
+      { input: { query: schemaReturning(valueless) } },
       (event, { query }) => ({ valueless: query === undefined })
     )
 
@@ -444,7 +444,7 @@ describe('any Standard Schema', () => {
     // invents a value; read as a failure it sends a marked 400 with nothing in
     // it, inviting a hook to skip the route's own bug.
     const handler = defineValidatedEventHandler(
-      { validate: { query: schemaReturning({ issues: [] }) } },
+      { input: { query: schemaReturning({ issues: [] }) } },
       (event, { query }) => ({ received: query })
     )
 
@@ -459,7 +459,7 @@ describe('any Standard Schema', () => {
   it('lets a throwing `validate` be a 500, not a validation failure', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: {
             '~standard': {
               version: 1,
@@ -487,7 +487,7 @@ describe('a handler declaring several sources', () => {
   /** All four declared at once, each with its own schema. */
   const allFour = defineValidatedEventHandler(
     {
-      validate: {
+      input: {
         routerParams: z.object({ id: z.coerce.number() }),
         query: z.object({ page: z.coerce.number() }),
         headers: z.object({ 'x-trace': z.string() }),
@@ -550,7 +550,7 @@ describe('a handler declaring several sources', () => {
   it('never reads the body once an earlier source has failed', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: z.object({ page: z.coerce.number() }),
           body: z.object({ name: z.string() }),
         },
@@ -574,7 +574,7 @@ describe('a handler declaring several sources', () => {
 
 describe('a body the read itself refuses', () => {
   const handler = defineValidatedEventHandler(
-    { validate: { body: z.object({ name: z.string() }) } },
+    { input: { body: z.object({ name: z.string() }) } },
     () => 'the body never runs'
   )
 
@@ -663,7 +663,7 @@ describe("what h3 v1's body read delivers", () => {
   it('parses a form-urlencoded body into an object of string | string[]', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           body: z.object({ name: z.string(), tag: z.array(z.string()) }),
         },
       },
@@ -686,7 +686,7 @@ describe("what h3 v1's body read delivers", () => {
 
   it('delivers a text/* body as the raw string, unparsed', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.string() } },
+      { input: { body: z.string() } },
       (event, { body }) => ({ body })
     )
 
@@ -703,7 +703,7 @@ describe("what h3 v1's body read delivers", () => {
 
   it('parses a body with no content type at all strictly as JSON', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       (event, { body }) => ({ name: body.name })
     )
 
@@ -726,7 +726,7 @@ describe("what h3 v1's body read delivers", () => {
 
   it('parses an unrecognized content type strictly as JSON too', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       (event, { body }) => ({ name: body.name })
     )
 
@@ -747,7 +747,7 @@ describe("h3's body memoization", () => {
   it('hands a later reader the cached, unvalidated parse - the stream is never re-read', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           body: z.object({
             name: z.string().transform((name) => name.toUpperCase()),
           }),
@@ -782,7 +782,7 @@ describe("h3's body memoization", () => {
     app.use(
       '/api/test',
       defineValidatedEventHandler(
-        { validate: { body: z.object({ name: z.string() }) } },
+        { input: { body: z.object({ name: z.string() }) } },
         () => 'the body never runs'
       )
     )
@@ -822,7 +822,7 @@ describe('the projected issues', () => {
 
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: schemaReturning({
             issues: [vendorIssue, { message: 'A pathless issue' }],
           }),
@@ -852,7 +852,7 @@ describe('the projected issues', () => {
     // answer itself. It stringifies instead: never dropped, never `null`.
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           // Hand-written, so typed as it would arrive: the interface refuses
           // a `null` segment, and a JSON answer carries one anyway.
           query: schemaReturning(
@@ -890,7 +890,7 @@ describe('the projected issues', () => {
 
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: schemaReturning({
             issues: [{ message: 'Expected a number', path: [segment] }],
           }),

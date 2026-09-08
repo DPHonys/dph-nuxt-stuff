@@ -30,11 +30,11 @@ export function defineValidatedEventHandler<
   Response extends EventHandlerResponse,
   Request extends EventHandlerRequest = EventHandlerRequest,
 >(
-  options: { validate: S & ValidationSchemasGuard<S> },
+  options: { input: S & ValidationSchemasGuard<S> },
   handler: (event: H3Event<Request>, validated: ValidatedContext<S>) => Response
 ): ValidatedEventHandler<Request, Response, RequestInput<S>> {
   // Planned over `S` alone: the guard is a compile-time refusal, not a slot.
-  const plan = sourcePlan<S>(options.validate)
+  const plan = sourcePlan<S>(options.input)
 
   // SAFETY: `defineEventHandler` types its product by the one promise the
   // wrapper always returns, while the public signature reports the handler's

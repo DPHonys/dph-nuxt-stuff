@@ -89,7 +89,7 @@ export function requestInputKeys(): void {
 
 export function brandedHandler(): void {
   const handler = defineValidatedEventHandler(
-    { validate: declaration },
+    { input: declaration },
     async (_event, { routerParams }) => ({ id: routerParams.id })
   )
 
@@ -133,7 +133,7 @@ export function brandedHandler(): void {
 
 export function routerParamsOnly(): void {
   const _handler = defineValidatedEventHandler(
-    { validate: { routerParams: z.object({ id: z.string() }) } },
+    { input: { routerParams: z.object({ id: z.string() }) } },
     async (_event, { routerParams }) => routerParams.id
   )
 

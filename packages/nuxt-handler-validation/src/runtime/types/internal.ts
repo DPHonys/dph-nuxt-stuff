@@ -72,7 +72,7 @@ type ComposableSlot<T> = T extends readonly [StandardSchemaV1]
     : unknown
 
 /**
- * The guard the `validate` parameter intersects with, so a misspelled key
+ * The guard the `input` parameter intersects with, so a misspelled key
  * beside a valid one is a compile error at that key rather than a source that
  * silently never validates.
  */

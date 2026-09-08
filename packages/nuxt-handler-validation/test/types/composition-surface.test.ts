@@ -26,7 +26,7 @@ const profileBody = z.object({ name: z.string() })
 
 export function composedQuery(): void {
   defineValidatedEventHandler(
-    { validate: { query: [pagination, sorting], body: profileBody } },
+    { input: { query: [pagination, sorting], body: profileBody } },
     async (_event, { query, body }) => {
       // `?page=1&size=20&sort=asc` on the wire: each element parsed the whole
       // of it, and the delivered value is the merge of their outputs.
@@ -62,7 +62,7 @@ const auth = {
 export function multiSourceSet(): void {
   defineValidatedEventHandler(
     {
-      validate: {
+      input: {
         headers: auth.headers,
         query: [auth.query, pagination],
       },
@@ -80,7 +80,7 @@ export function multiSourceSet(): void {
 
 export function singleElementTuple(): void {
   defineValidatedEventHandler(
-    { validate: { query: [pagination] } },
+    { input: { query: [pagination] } },
     async (_event, { query }) => {
       type _same = Assert<Equal<typeof query, { page: number; size: number }>>
       return query
@@ -101,7 +101,7 @@ const filters = z.custom<Filters>()
 
 export function interfaceTypedOutput(): void {
   defineValidatedEventHandler(
-    { validate: { query: [pagination, filters] } },
+    { input: { query: [pagination, filters] } },
     async (_event, { query }) => {
       type _tag = Assert<Equal<typeof query.tag, string>>
       return query.tag
@@ -117,7 +117,7 @@ export function interfaceTypedOutput(): void {
 export function unionElement(): void {
   defineValidatedEventHandler(
     {
-      validate: {
+      input: {
         query: [
           z.union([
             z.object({ kind: z.literal('a'), a: z.coerce.number() }),
@@ -150,7 +150,7 @@ export function unionElement(): void {
 export function passthroughOutput(): void {
   defineValidatedEventHandler(
     {
-      validate: {
+      input: {
         query: [z.looseObject({ page: z.coerce.number() }), sorting],
       },
     },
@@ -167,7 +167,7 @@ export function passthroughOutput(): void {
 
 export function recordOutput(): void {
   defineValidatedEventHandler(
-    { validate: { query: [z.record(z.string(), z.unknown()), sorting] } },
+    { input: { query: [z.record(z.string(), z.unknown()), sorting] } },
     async (_event, { query }) => {
       type _sort = Assert<Equal<typeof query.sort, 'asc' | 'desc'>>
       return query.sort
@@ -184,7 +184,7 @@ declare const untypedSchema: any
 
 export function anyTypedElement(): void {
   defineValidatedEventHandler(
-    { validate: { query: [pagination, untypedSchema] } },
+    { input: { query: [pagination, untypedSchema] } },
     async (_event, { query }) => {
       // `any` is the honest report, not a defect of this fixture: an element
       // that promises nothing takes the whole slot's type with it.
