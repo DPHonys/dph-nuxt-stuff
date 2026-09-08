@@ -40,21 +40,22 @@ function isPathKey(value: unknown): value is string | number {
   return PATH_KEY.safeParse(value).success
 }
 
-// A segment is a key or an object carrying one. The explicit `null` guard keeps
-// a `null` segment - which the interface forbids and a hand-written schema can
-// still produce - on the key side, where it stringifies instead of being
-// dereferenced from inside the `400` this is building. `typeof` rather than
-// `instanceof Object` is what keeps a null-prototype segment on the object side:
-// it is a valid carrier of `key`, and `String()` on it would throw. Either slip
-// would turn a validation failure into an unhandled `500`.
+// The object side of a segment: anything object-shaped carrying `key`. A
+// null-prototype segment is a valid carrier and parses here - `String()` on it
+// would throw - while `null`, which the interface forbids and a hand-written
+// schema can still produce, is rejected and stringifies on the key side instead
+// of being dereferenced. Either slip would turn a validation failure into an
+// unhandled `500` from inside the `400` this is building.
+const KEY_CARRIER = z.object({ key: z.unknown() })
+
 function projectPath(
   path: StandardSchemaV1.Issue['path']
 ): Array<string | number> {
   if (path === undefined) return []
 
   return Array.from(path, (segment) => {
-    const key =
-      segment !== null && typeof segment === 'object' ? segment.key : segment
+    const carrier = KEY_CARRIER.safeParse(segment)
+    const key = carrier.success ? carrier.data.key : segment
 
     return isPathKey(key) ? key : String(key)
   })
