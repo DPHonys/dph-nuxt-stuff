@@ -8,7 +8,6 @@ import {
   NOT_ASSIGNABLE_EXACT_OPTIONAL,
   PROPERTY_DOES_NOT_EXIST,
   saying,
-  WRONG_TYPE_ARGUMENT_COUNT,
 } from './compile-harness'
 
 // What an author reads when they misuse a declaration. The three sentences
@@ -17,6 +16,9 @@ import {
 
 /** TS2353 - an object literal key the parameter type does not declare. */
 const UNKNOWN_OPTION_KEY = 2353
+
+/** TS2345 - an argument that does not fit its parameter. */
+const ARGUMENT_NOT_ASSIGNABLE = 2345
 
 const FIXTURE = fixturePath('misuse-declaration.ts')
 
@@ -34,6 +36,9 @@ const LEGACY_ROUTER_PARAMS_KEY =
 const OVERLAPPING_KEYS =
   'schemas composed on one source must produce disjoint output keys - merge them in your schema library instead'
 
+/** The "declare something" sentence, verbatim - the parent's own two halves. */
+const DECLARE_SOMETHING = 'declare input, output, or both'
+
 /** The object-output sentence, verbatim. */
 const NON_OBJECT_OUTPUT =
   'every schema composed on one source must produce an object output - not a primitive, an array or a function'
@@ -42,7 +47,7 @@ describe('the declaration guard’s diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(12)
+    expect(diagnostics).toHaveLength(13)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -88,7 +93,7 @@ describe('the declaration guard’s diagnostics', () => {
     // No sentence of this package's own: the slot constraint already says it.
     const [notASchema] = saying(
       diagnostics,
-      "Type 'number' is not assignable to type 'SourceSchemas'"
+      "Type 'number' is not assignable to type 'SourceSchemas | undefined'"
     )
 
     expect(notASchema?.code).toBe(NOT_ASSIGNABLE)
@@ -138,14 +143,26 @@ describe('the declaration guard’s diagnostics', () => {
     )
   })
 
-  it('makes an explicit response type argument an arity error', () => {
-    // `Response` has no default, so one explicit type argument cannot silently
-    // collapse the success type to `any`.
-    const [arity] = diagnostics.filter(
-      (diagnostic) => diagnostic.code === WRONG_TYPE_ARGUMENT_COUNT
+  it('refuses a declaration that declares nothing at all', () => {
+    // Both halves are optional, so bare `{}` is what the guard is for: the
+    // author is told the two halves they could have declared.
+    const [bare] = saying(diagnostics, DECLARE_SOMETHING)
+
+    expect(bare?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(bare?.message).toContain('__declareSomething__')
+    expect(bare?.line).toBe(lineContaining(FIXTURE, '  {},'))
+  })
+
+  it('refuses a return that is not the declared Response output', () => {
+    // Nothing runs the declared schema, so the compiler is the whole of the
+    // promise: the return is constrained to the schema's output type.
+    const [wrongResponse] = saying(
+      diagnostics,
+      "Type 'number' is not assignable to type 'EventHandlerResponse<{ id: string; name: string; }>'"
     )
 
-    expect(arity?.message).toContain('Expected 2-3 type arguments, but got 1')
+    expect(wrongResponse?.code).toBe(NOT_ASSIGNABLE)
+    expect(wrongResponse?.line).toBe(lineContaining(FIXTURE, 'Number(42)'))
   })
 
   it('refuses the pre-rename `validate` key, with no alias behind it', () => {
@@ -153,7 +170,7 @@ describe('the declaration guard’s diagnostics', () => {
     // alias, no deprecation shim, just an unknown key on the options object.
     const [legacy] = saying(
       diagnostics,
-      "Object literal may only specify known properties, and 'validate' does not exist in type '{ input: ValidationSchemas & ValidationSchemasGuard<ValidationSchemas>; }'."
+      "Object literal may only specify known properties, and 'validate' does not exist in type 'ValidatedHandlerOptions<{}, undefined>'."
     )
 
     expect(legacy?.code).toBe(UNKNOWN_OPTION_KEY)

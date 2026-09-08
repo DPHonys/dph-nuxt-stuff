@@ -1,5 +1,10 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { OutputOf, ValidationSource } from './index'
+import type {
+  OutputOf,
+  ResponseOutput,
+  ValidationSchemas,
+  ValidationSource,
+} from './index'
 
 /**
  * A rule the declaration broke. Nothing the author wrote can satisfy it, so the
@@ -70,6 +75,33 @@ type ComposableSlot<T> = T extends readonly [StandardSchemaV1]
         : unknown
       : ValidationDeclarationError<'every schema composed on one source must produce an object output - not a primitive, an array or a function'>
     : unknown
+
+/** True when the declaration guarantees at least one Validation source. */
+type HasInput<S extends ValidationSchemas> = [keyof S] extends [never]
+  ? false
+  : true
+
+/** True when a Response output was declared. */
+type HasOutput<O> = [O] extends [ResponseOutput] ? true : false
+
+/**
+ * A route must declare something: bare `{}` is an unsatisfiable property
+ * naming the halves it could have declared. The message is a parameter so the
+ * umbrella, which has a third half of its own, composes this guard with its
+ * own sentence rather than reinventing the rule.
+ */
+export type DeclareSomething<
+  S extends ValidationSchemas,
+  O,
+  Msg extends string = 'declare input, output, or both',
+> =
+  HasInput<S> extends true
+    ? // eslint-disable-next-line ts/no-empty-object-type
+      {}
+    : HasOutput<O> extends true
+      ? // eslint-disable-next-line ts/no-empty-object-type
+        {}
+      : { __declareSomething__: Msg }
 
 /**
  * The guard the `input` parameter intersects with, so a misspelled key

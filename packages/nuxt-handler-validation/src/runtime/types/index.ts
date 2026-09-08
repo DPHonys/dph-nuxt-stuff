@@ -4,9 +4,14 @@ import type {
   EventHandlerRequest,
   EventHandlerResponse,
 } from 'h3'
-import type { IsAny } from './internal'
+import type {
+  DeclareSomething,
+  IsAny,
+  ValidationSchemasGuard,
+} from './internal'
 
 export type {
+  DeclareSomething,
   ValidationDeclarationError,
   ValidationSchemasGuard,
 } from './internal'
@@ -131,23 +136,61 @@ export type RequestInput<S extends ValidationSchemas> = {
     : K]: SourceInput<S[K]>
 }
 
+/**
+ * A declared Response output. One schema, meaning a single `200` reply the
+ * handler returns plainly.
+ */
+export type ResponseOutput = StandardSchemaV1
+
+/**
+ * The body a declaration promises: the declared schema's _output_ type, so a
+ * transform is already applied by the time the value is sent. `unknown` when a
+ * route declares no Response output, which constrains the return to nothing.
+ */
+export type ResponseBody<O> = O extends ResponseOutput ? OutputOf<O> : unknown
+
+/**
+ * What the Response-output slot carries: the status map the declaration means,
+ * which for the bare form is a single `200`. `never` when nothing is declared.
+ */
+export type ResponseOutputs<O> = O extends ResponseOutput
+  ? { 200: OutputOf<O> }
+  : never
+
+/**
+ * What a route declares: its Validation sources, its Response output, or both.
+ * Bare `{}` is refused by the guard the two halves intersect with.
+ */
+export type ValidatedHandlerOptions<
+  S extends ValidationSchemas,
+  O,
+> = DeclareSomething<S, O> & {
+  input?: S & ValidationSchemasGuard<S>
+  output?: O
+}
+
 // Module-private and never exported, so only this package can brand a handler:
-// a structural `__requestInput__` key on a foreign handler must not spoof the
-// reader below.
-declare const validatedRequestInput: unique symbol
+// a structural `__requestInput__` or `__responseOutput__` key on a foreign
+// handler must not spoof the readers below. Named as a pair, because the two
+// slots are the two sides of one declaration.
+declare const requestInput: unique symbol
+declare const responseOutput: unique symbol
 
 /**
  * The handler `defineValidatedEventHandler` returns: an ordinary h3
- * `EventHandler` carrying the computed Request input in a phantom slot. The
- * slot is never assigned at runtime; it exists so a typed client can read what
- * the route expects from `RequestInputOfHandler`.
+ * `EventHandler` carrying the computed Request input and the declared Response
+ * output in phantom slots. Neither slot is ever assigned at runtime; they
+ * exist so a typed client can read what the route expects and what it sends,
+ * from `RequestInputOfHandler` and `ResponseOutputOfHandler`.
  */
 export interface ValidatedEventHandler<
   Request extends EventHandlerRequest = EventHandlerRequest,
   Response extends EventHandlerResponse = EventHandlerResponse,
   Input = never,
+  Output = never,
 > extends EventHandler<Request, Response> {
-  [validatedRequestInput]?: Input
+  [requestInput]?: Input
+  [responseOutput]?: Output
 }
 
 /**
@@ -161,8 +204,20 @@ export interface ValidatedEventHandler<
 export type RequestInputOfHandler<T> =
   IsAny<T> extends true
     ? never
-    : T extends { [validatedRequestInput]?: infer I }
+    : T extends { [requestInput]?: infer I }
       ? Exclude<I, undefined>
+      : never
+
+/**
+ * The Response output a branded handler carries, or `never` for `any` and for
+ * any handler this package did not produce - read the same way, and guarded
+ * the same way, as its Request-input sibling above.
+ */
+export type ResponseOutputOfHandler<T> =
+  IsAny<T> extends true
+    ? never
+    : T extends { [responseOutput]?: infer O }
+      ? Exclude<O, undefined>
       : never
 
 /**

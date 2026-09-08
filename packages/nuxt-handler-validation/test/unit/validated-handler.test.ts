@@ -908,3 +908,63 @@ describe('the projected issues', () => {
     ])
   })
 })
+
+describe('a handler declaring a Response output', () => {
+  it('sends what the handler returned, untouched by the schema', async () => {
+    // The declared schema strips and coerces; nothing runs it, so the answer
+    // is the handler's own object, extra key and string page included.
+    const handler = defineValidatedEventHandler(
+      { output: z.object({ page: z.coerce.number() }) },
+      () => wire('{"page":"2","extra":true}')
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      page: '2',
+      extra: true,
+    })
+  })
+
+  it('hands an output-only route an empty Validated context', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: z.object({ keys: z.array(z.string()) }) },
+      (_event, validated) => ({ keys: Object.keys(validated) })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    await expect(response.json()).resolves.toEqual({ keys: [] })
+  })
+
+  it('validates the declared sources beside the output, as ever', async () => {
+    const handler = defineValidatedEventHandler(
+      {
+        input: { query: z.object({ page: z.coerce.number() }) },
+        output: z.object({ page: z.number() }),
+      },
+      (_event, { query }) => ({ page: query.page })
+    )
+
+    const ok = await request(handler, '/api/test?page=2')
+    const bad = await request(handler, '/api/test?page=nope')
+
+    await expect(ok.json()).resolves.toEqual({ page: 2 })
+    expect(bad.status).toBe(400)
+    await expect(sourcesOfIssues(bad)).resolves.toEqual(['query'])
+  })
+
+  it('refuses a declaration that declares nothing at all', () => {
+    // The compile guard's answer for a JavaScript caller, spelled the same way.
+    expect(() => defineValidatedEventHandler(wire('{}'), () => null)).toThrow(
+      'must declare input, output, or both'
+    )
+  })
+
+  it('refuses an empty `input` with no output beside it', () => {
+    expect(() =>
+      defineValidatedEventHandler(wire('{"input":{}}'), () => null)
+    ).toThrow('must declare input, output, or both')
+  })
+})

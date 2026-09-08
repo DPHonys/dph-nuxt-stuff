@@ -107,18 +107,29 @@ export const annotatedDeclaration = defineValidatedEventHandler(
   })
 )
 
-// --- An explicit response type argument is an arity error -----------------
+// --- A declaration must declare something --------------------------------
 
-// `Response` has no default, so annotating the schemas type argument cannot
-// silently collapse the response type to `any`.
-export const explicitTypeArgument = defineValidatedEventHandler<{
-  query: typeof pagination
-}>({ input: { query: pagination } }, async (_event, _validated) => null)
+// Both halves are optional, so bare `{}` is what the "declare something" guard
+// is for: an unsatisfiable property naming the two halves.
+export const declaresNothing = defineValidatedEventHandler(
+  {},
+  async (_event, _validated) => null
+)
+
+// --- A return that is not the declared output is refused ------------------
+
+const user = z.object({ id: z.string(), name: z.string() })
+
+export const wrongResponse = defineValidatedEventHandler({ output: user }, () =>
+  Number(42)
+)
 
 // --- The old `validate` key is gone, with no alias ------------------------
 
 // The rename to `input` is a clean break: `validate` is an unknown key on the
-// options object and the required `input` is missing.
+// options object, which is what the compiler reports - the "declare something"
+// guard is missing from this literal too, but the unknown key is reported
+// first and alone.
 export const legacyValidateKey = defineValidatedEventHandler(
   { validate: { query: pagination } },
   async (_event, _validated) => null

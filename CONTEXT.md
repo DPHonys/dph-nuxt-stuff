@@ -115,7 +115,7 @@ The Handler's second parameter: output-typed validated values, one key per decla
 _Avoid_: Parsed request, payload
 
 **Response output**:
-A Handler's declared success shape: either a single schema (one `200` reply, returned plainly) or a status map from HTTP success status to schema, where `null` declares a bodiless status. Checked at compile time, and asserted at runtime in development only; the client receives the schemas' _output_ types.
+A Handler's declared success shape: either a single schema (one `200` reply, returned plainly) or a status map from HTTP success status to schema, where `null` declares a bodiless status. Compile-time only: nothing runs the schema on the response, and the client receives the schemas' _output_ types.
 _Avoid_: Response schema, return type
 
 **Respond helper**:
