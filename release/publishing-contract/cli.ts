@@ -109,6 +109,17 @@ async function discoverWorkspaces(root: string): Promise<string[][]> {
   )
 }
 
+/**
+ * pnpm rewrites `workspace:` protocols on publish, so a fixed `workspace:x.y.z`
+ * on a sibling silently goes stale the moment the sibling's version moves. Only
+ * the range forms track the sibling automatically.
+ */
+const workspaceDependencySchema = z.object({
+  dependencies: z.record(z.string(), z.string()).optional(),
+  optionalDependencies: z.record(z.string(), z.string()).optional(),
+})
+type WorkspaceDependencies = z.infer<typeof workspaceDependencySchema>
+
 /** The violations one workspace carries, each prefixed with its directory. */
 function readWorkspace(directory: string, manifestSource: string): string[] {
   const manifest = JSON.parse(manifestSource)
@@ -120,10 +131,28 @@ function readWorkspace(directory: string, manifestSource: string): string[] {
   }
 
   const contract = publishableManifestSchema(directory).safeParse(manifest)
-  const violations = new Set(
-    contract.error?.issues.map((issue) => issue.message)
-  )
+  const violations = new Set([
+    ...(contract.error?.issues.map((issue) => issue.message) ?? []),
+    ...readSiblingPins(workspaceDependencySchema.parse(manifest)),
+  ])
   return [...violations].map((violation) => `${directory}: ${violation}`)
+}
+
+function readSiblingPins(manifest: WorkspaceDependencies): string[] {
+  const specifiers = {
+    ...manifest.dependencies,
+    ...manifest.optionalDependencies,
+  }
+  return Object.entries(specifiers)
+    .filter(
+      ([, specifier]) =>
+        specifier.startsWith('workspace:') &&
+        !['workspace:^', 'workspace:~', 'workspace:*'].includes(specifier)
+    )
+    .map(
+      ([name, specifier]) =>
+        `dependencies.${name} must use workspace:^, workspace:~, or workspace:* rather than ${specifier}`
+    )
 }
 
 async function readWorkspacePatterns(root: string): Promise<string[]> {
