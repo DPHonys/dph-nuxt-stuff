@@ -1,0 +1,19 @@
+name: Setup
+description: Check out, install the pinned toolchain, restore caches, and install dependencies.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 26
+        cache: pnpm
+    - uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: turbo-${{ runner.os }}-${{ github.sha }}
+        restore-keys: |
+          turbo-${{ runner.os }}-
+    - run: pnpm install --frozen-lockfile
+      shell: bash
