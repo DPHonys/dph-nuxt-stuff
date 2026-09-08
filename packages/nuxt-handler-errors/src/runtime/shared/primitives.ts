@@ -13,6 +13,9 @@ export function isString(value: unknown): value is string {
  */
 export const functionSchema = z.instanceof(Function)
 
-export function isFunction(value: unknown): value is Function {
+/** Any callable: a `void` return accepts every signature without `Function`'s untyped call. */
+export type AnyFunction = (...args: never[]) => void
+
+export function isFunction(value: unknown): value is AnyFunction {
   return functionSchema.safeParse(value).success
 }
