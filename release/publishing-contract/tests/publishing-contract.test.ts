@@ -1,4 +1,5 @@
-import { spawn } from 'node:child_process'
+import type { RunResult } from '@dphonys/test-utils/run'
+import { run as runCommand } from '@dphonys/test-utils/run'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -294,30 +295,7 @@ async function writeJson(path: string, value: FixtureManifest): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, undefined, 2)}\n`, 'utf8')
 }
 
-async function run(repositoryRoot: string): Promise<{
-  exitCode: number
-  stdout: string
-  stderr: string
-}> {
-  return new Promise((settle, reject) => {
-    const child = spawn('node', [command, repositoryRoot], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    let stdout = ''
-    let stderr = ''
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
-      stdout += chunk
-    })
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
-      stderr += chunk
-    })
-    child.once('error', reject)
-    child.once('close', (exitCode, signal) => {
-      if (exitCode === null) {
-        reject(new Error(`publishing-contract was terminated by ${signal}`))
-        return
-      }
-      settle({ exitCode, stdout, stderr })
-    })
-  })
+/** The contract over one repository; a non-zero exit is a finding, not a failure. */
+function run(repositoryRoot: string): Promise<RunResult> {
+  return runCommand('node', [command, repositoryRoot])
 }

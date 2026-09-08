@@ -4,6 +4,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
+import { PARENT_SPECIFIERS } from '../parent-specifiers'
 
 // The parents' `/types` specifiers, resolved from an app that installed the
 // umbrella alone. `typescript.hoist` resolves from the app's `modulesDir`
@@ -29,11 +30,6 @@ const GENERATED_TSCONFIGS = [
   'tsconfig.node.json',
   'tsconfig.shared.json',
   'tsconfig.server.json',
-]
-
-const PARENT_SPECIFIERS = [
-  '@dphonys/nuxt-handler-errors/types',
-  '@dphonys/nuxt-handler-validation/types',
 ]
 
 /** The slice of a generated tsconfig the entries are read off. */

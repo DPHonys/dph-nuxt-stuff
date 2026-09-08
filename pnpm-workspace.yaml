@@ -12,6 +12,7 @@ packages:
   - release/*
   - packages/*
   - packages/*/playground
+  - tools/test-utils
 
 versioning:
   changelog:

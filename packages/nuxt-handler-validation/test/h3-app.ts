@@ -1,86 +1,16 @@
 /**
- * Shared mounting tools for the handler suites. Not a Vitest test file, so it
- * is not matched as a suite; knip reaches it through the suites importing it.
+ * This package's additions to the shared mounting tools. Not a Vitest test
+ * file, so it is not matched as a suite; knip reaches it through the suites
+ * importing it.
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { AppOptions, EventHandler, H3Error } from 'h3'
-import { createApp, createRouter, toWebHandler } from 'h3'
+import type { H3Error } from 'h3'
 import { z } from 'zod'
 
-/**
- * Mount one handler and send it a request.
- *
- * `debug` is h3's verbose-errors switch, the knob a Nitro dev build turns on.
- * `route` mounts on h3's own router rather than the plain prefix, which is the
- * only way to get real route params. `onError` is h3's error hook, the only
- * place a suite sees the thrown error rather than its serialized body - and h3
- * wraps whatever was thrown into an `H3Error` before the hook sees it.
- */
-export function request(
-  handler: EventHandler,
-  path: string,
-  options: {
-    init?: RequestInit
-    debug?: boolean
-    route?: string
-    onError?: (error: H3Error) => void
-  } = {}
-): Promise<Response> {
-  const appOptions: AppOptions = { debug: options.debug ?? false }
-
-  if (options.onError !== undefined) appOptions.onError = options.onError
-
-  const app = createApp(appOptions)
-
-  if (options.route === undefined) {
-    app.use('/api/test', handler)
-  } else {
-    app.use(createRouter().use(options.route, handler))
-  }
-
-  return toWebHandler(app)(
-    new Request(`http://test.local${path}`, options.init)
-  )
-}
-
-/**
- * Mount one handler, send it a request, and report the error h3's hook saw
- * beside the response - for the suites whose subject is the thrown error.
- */
-export async function requestReporting(
-  handler: EventHandler,
-  path: string,
-  options: { init?: RequestInit; route?: string } = {}
-): Promise<{ response: Response; thrown: H3Error }> {
-  let thrown: H3Error | undefined
-
-  const response = await request(handler, path, {
-    ...options,
-    onError: (error) => void (thrown = error),
-  })
-
-  if (thrown === undefined) {
-    throw new Error(`no error reached h3's hook for ${path}`)
-  }
-
-  return { response, thrown }
-}
-
-/**
- * A POST carrying an already-serialized JSON payload, so a malformed one is as
- * easy to send as a valid one. The caller's headers land last.
- */
-export function postJson(
-  payload: string,
-  headers: Record<string, string> = {}
-): RequestInit {
-  return {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
-    body: payload,
-  }
-}
+// The mounting itself is the shared harness; what stays here is this
+// package's own failure shape.
+export { postJson, request, requestReporting } from '@dphonys/test-utils/h3-app'
 
 /**
  * A schema handing back one fixed result - the door to the shapes the Standard
@@ -105,28 +35,37 @@ export function wire(json: string): any {
 }
 
 /**
- * The failure envelope as it reaches a client, parsed loosely: every key an
- * issue or the envelope carries is kept, so a suite asserting that nothing
- * extra crossed the wire still sees the extra.
+ * The issues payload as the error carries it and as it crosses the wire,
+ * parsed loosely: every key an issue or the payload carries is kept, so a
+ * suite asserting that nothing extra crossed still sees the extra.
  */
+const ISSUES_PAYLOAD = z.looseObject({
+  issues: z.array(
+    z.looseObject({
+      source: z.string(),
+      message: z.string(),
+      path: z.array(z.union([z.string(), z.number()])),
+    })
+  ),
+})
+
+/** Narrows an error's `data` in place - no copy, so identity claims hold. */
+export function isIssuesPayload(
+  value: H3Error['data']
+): value is z.infer<typeof ISSUES_PAYLOAD> {
+  return ISSUES_PAYLOAD.safeParse(value).success
+}
+
+/** The failure envelope around that payload, as it reaches a client. */
 const FAILURE_BODY = z.looseObject({
   statusCode: z.number(),
   statusMessage: z.string(),
-  data: z.looseObject({
-    issues: z.array(
-      z.looseObject({
-        source: z.string(),
-        message: z.string(),
-        path: z.array(z.union([z.string(), z.number()])),
-      })
-    ),
-  }),
+  data: ISSUES_PAYLOAD,
 })
 
-/** What a failure answer said, parsed off the response. */
-export type FailureBody = z.infer<typeof FAILURE_BODY>
-
-export async function failureBodyOf(response: Response): Promise<FailureBody> {
+export async function failureBodyOf(
+  response: Response
+): Promise<z.infer<typeof FAILURE_BODY>> {
   return FAILURE_BODY.parse(await response.json())
 }
 

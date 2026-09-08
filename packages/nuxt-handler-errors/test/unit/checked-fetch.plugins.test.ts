@@ -1,3 +1,4 @@
+import { setConfiguredChannelToken } from '@dphonys/test-utils/doubles/channel-token'
 import type { NitroRuntimeHooks } from 'nitropack/types'
 import { afterEach, describe, expect, it } from 'vitest'
 import clientPlugin from '../../src/runtime/app/plugins/checked-fetch.client'
@@ -18,7 +19,6 @@ import {
   installCheckedFetchGlobal,
 } from '../../src/runtime/shared/checked-fetch'
 import type { CheckedFetch } from '../../src/runtime/types'
-import { setConfiguredChannelToken } from '../doubles/channel-token'
 import { settled } from '../fetch-channel'
 
 // What each of the three plugins does, not how it is registered - the aliased

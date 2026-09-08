@@ -1,6 +1,9 @@
 import { readFloor } from '@dphonys/nuxt-handler-errors/internals/shared'
 import { KNOWN_ERROR_KEY } from '@dphonys/nuxt-handler-errors/shared'
-import { readValidationMarker } from '@dphonys/nuxt-handler-validation/internals/shared'
+import {
+  readValidationMarker,
+  VALIDATION_ERROR_KEY,
+} from '@dphonys/nuxt-handler-validation/internals/shared'
 import type { ValidationIssue } from '@dphonys/nuxt-handler-validation/types'
 import { describe, expect, it } from 'vitest'
 import {
@@ -75,9 +78,7 @@ describe('the built-in validation-failed variant', () => {
   it('keeps the validation marker off the enumerable surface', () => {
     // Non-enumerable and symbol-keyed, so it survives none of the copies the
     // error takes on its way out - the parent's rule, inherited.
-    expect(Object.keys(error)).not.toContain(
-      Symbol.for('@dphonys/nuxt-handler-validation:error').toString()
-    )
+    expect(Object.keys(error)).not.toContain(VALIDATION_ERROR_KEY.description)
     expect(JSON.stringify(error)).not.toContain('nuxt-handler-validation:error')
   })
 

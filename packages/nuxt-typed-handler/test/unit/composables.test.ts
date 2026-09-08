@@ -1,5 +1,10 @@
 import { CHANNEL_HEADER } from '@dphonys/nuxt-handler-errors/internals/shared'
-import type { $Fetch as OfetchInstance } from 'ofetch'
+import { setConfiguredChannelToken } from '@dphonys/test-utils/doubles/channel-token'
+import {
+  asyncDataCalls,
+  calls,
+  setRequestEvent,
+} from '@dphonys/test-utils/doubles/nuxt-app'
 import { createFetch } from 'ofetch'
 import { afterEach, describe, expect, it } from 'vitest'
 import { toValue } from 'vue'
@@ -13,8 +18,7 @@ import {
   useTypedFetch,
 } from '../../src/runtime/app/composables/use-typed-fetch'
 import { $typedFetch } from '../../src/runtime/shared/typed-fetch'
-import { setConfiguredChannelToken } from '../doubles/channel-token'
-import { asyncDataCalls, calls, setRequestEvent } from '../doubles/nuxt-app'
+import { globals } from '../doubles/fetch-globals'
 
 // The umbrella's bindings of the parent's app internals: which vanilla
 // composable each one delegates to, and that the channel header carries the
@@ -70,8 +74,6 @@ describe('useRequestTypedFetch', () => {
   it('hands back the event’s own instance while rendering', () => {
     // A second real instance, derived from the global: `create` resolves the
     // `$fetch` global at the call, so one has to be there.
-    const globals: { $fetch?: typeof globalThis.$fetch | OfetchInstance } =
-      globalThis
     globals.$fetch = createFetch({})
     try {
       const bound = $typedFetch.create({})

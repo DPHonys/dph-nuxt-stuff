@@ -1,9 +1,10 @@
+import { setConfiguredChannelToken } from '@dphonys/test-utils/doubles/channel-token'
 import type { NitroFetchRequest } from 'nitropack/types'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CHANNEL_HEADER } from '../../src/runtime/shared/channel'
 import { createCheckedFetch } from '../../src/runtime/shared/checked-fetch'
 import type { RawFetch } from '../../src/runtime/shared/checked-fetch-factory'
-import { setConfiguredChannelToken } from '../doubles/channel-token'
+import type { Body, Outcome } from '../fetch-channel'
 import { knownFailure, settled } from '../fetch-channel'
 
 // The run-time half of `$checkedFetch`. No `#app` double needed: the value is
@@ -27,11 +28,8 @@ interface Recorded {
 
 const calls: Recorded[] = []
 
-/** What the fake resolves with: a body, as the fetcher underneath decided. */
-type Body = string | { id: string }
-
-/** What the fake fetcher does next: resolve with this, or reject with it. */
-let outcome: { resolve: Body } | { reject: unknown } = { resolve: 'ok' }
+/** What the fake does next. */
+let outcome: Outcome = { resolve: 'ok' }
 
 /**
  * ofetch's own header merge, verbatim (`ofetch@1.5.1`): instance defaults
