@@ -11,7 +11,7 @@ const admissionSchema = z.object({ private: z.boolean().optional() })
  * rule carries one diagnostic, repeated on every node of the rule's shape so
  * a missing key and a malformed value read the same.
  */
-function publishableManifestSchema(directory: string) {
+function publishableManifestSchema(directory: string): z.ZodType {
   const expectedName = `@dphonys/${directory.slice('packages/'.length)}`
   const version = 'version must be a valid semantic version'
   const engines = 'engines.node must be a non-empty string'
@@ -74,7 +74,7 @@ function publishableManifestSchema(directory: string) {
   })
 }
 
-function nonEmptyString(message: string) {
+function nonEmptyString(message: string): z.ZodString {
   return z.string(message).trim().min(1, message)
 }
 
