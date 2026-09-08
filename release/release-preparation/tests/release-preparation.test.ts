@@ -23,6 +23,7 @@ const rootManifest = z
   )
 const pinnedPnpmVersion = rootManifest.packageManager.replace(/^pnpm@/, '')
 const pnpmExecutable = process.env.npm_execpath ?? 'pnpm'
+const commandTimeoutMs = 30_000
 const temporaryRoots: string[] = []
 
 const packageManifestSchema = z.object({
@@ -494,7 +495,7 @@ async function run(
   const { stdout, stderr } = await runSucceeding(executable, arguments_, {
     cwd,
     env: { CI: 'true', FORCE_COLOR: '0', NO_COLOR: '1' },
-    timeout: 30_000,
+    timeout: commandTimeoutMs,
   })
   return { stdout, stderr }
 }

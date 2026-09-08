@@ -16,14 +16,16 @@ export interface RunResult {
 
 /**
  * Run a command to completion and hand back how it exited, whatever that was;
- * only a spawn failure or a signal termination rejects. For the suites whose
- * subject is a non-zero exit.
+ * only a spawn failure or a signal termination rejects, and a `timeout` that
+ * elapses is reported as such rather than as the SIGTERM it sends. For the
+ * suites whose subject is a non-zero exit.
  */
 export function run(
   command: string,
   args: readonly string[],
   options: RunOptions = {}
 ): Promise<RunResult> {
+  const startedAt = Date.now()
   return new Promise((settle, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
@@ -42,7 +44,11 @@ export function run(
     child.once('error', reject)
     child.once('close', (exitCode, signal) => {
       if (exitCode === null) {
-        reject(new Error(`${command} was terminated by ${signal}`))
+        reject(
+          new Error(
+            `${command} ${describeSignal(signal, options.timeout, Date.now() - startedAt)}`
+          )
+        )
         return
       }
       settle({ exitCode, stdout, stderr })
@@ -69,4 +75,15 @@ export async function runSucceeding(
     )
   }
   return result
+}
+
+function describeSignal(
+  signal: NodeJS.Signals | null,
+  timeout: number | undefined,
+  elapsedMs: number
+): string {
+  if (signal === 'SIGTERM' && timeout !== undefined && elapsedMs >= timeout) {
+    return `timed out after ${timeout} ms`
+  }
+  return `was terminated by ${signal ?? 'an unknown signal'}`
 }
