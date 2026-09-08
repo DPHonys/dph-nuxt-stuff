@@ -1,0 +1,16 @@
+{
+  "name": "@dphonys/oxlint-plugins",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Oxlint plugins the root oxlint.config.ts loads by path; nothing is built or published.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@oxlint/plugins": "catalog:",
+    "@types/node": "catalog:",
+    "oxlint": "catalog:",
+    "vitest": "catalog:"
+  }
+}

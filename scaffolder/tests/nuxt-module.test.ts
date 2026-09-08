@@ -213,12 +213,8 @@ describe('nuxt module Template contract', () => {
         build: 'nuxt-module-build build',
         prepack: 'pnpm run build',
         dev: 'pnpm run dev:prepare && nuxt dev playground',
-        'dev:build': 'nuxt build playground',
         'dev:prepare':
           'nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground',
-        lint: 'eslint .',
-        pretest: 'nuxt-module-build prepare',
-        pretypecheck: 'pnpm run build',
         typecheck:
           'nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json',
         test: 'vitest run',

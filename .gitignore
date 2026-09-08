@@ -10,3 +10,6 @@ dist/
 **/.nuxt/
 **/.nitro/
 **/.output/
+
+# Vitest junit output for the CI reporter
+test-results/

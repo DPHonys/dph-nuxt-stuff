@@ -12,7 +12,7 @@ packages:
   - release/*
   - packages/*
   - packages/*/playground
-  - tools/test-utils
+  - tools/*
 
 versioning:
   changelog:
@@ -34,15 +34,21 @@ catalog:
   '@nuxt/module-builder': ^1.0.3
   '@nuxt/schema': ^4.5.1
   '@nuxt/test-utils': ^4.1.0
+  # Oxlint, its plugin API, and eslint-plugin-oxlint share one version: the
+  # plugin ABI must match, and the ESLint bridge disables rules by the Oxlint
+  # version it knows. Bump all three together.
+  '@oxlint/plugins': 1.76.0
   '@standard-schema/spec': ^1.1.0
   '@types/node': latest
   citty: ^0.2.2
+  eslint-plugin-oxlint: 1.76.0
   h3: ^1.15.11
   magicast: ^0.5.3
   nitropack: ^2.13.4
   nuxt: ^4.5.1
   nypm: ^0.6.9
   ofetch: ^1.5.1
+  oxlint: 1.76.0
   pathe: ^2.0.3
   pkg-types: ^2.3.0
   publint: ^0.3.22

@@ -1,7 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalDependencies": ["templates/**"],
+  "globalDependencies": [
+    "templates/**",
+    "tsconfig.json",
+    "*.config.ts",
+    "pnpm-workspace.yaml"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -13,13 +18,12 @@
       "cache": false
     },
     "typecheck": {
-      "dependsOn": ["build", "^typecheck"]
-    },
-    "lint": {
-      "outputs": []
+      "dependsOn": ["build", "^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "!README.md", "!CHANGELOG.md"]
     },
     "test": {
       "dependsOn": ["^build", "build"],
+      "inputs": ["$TURBO_DEFAULT$", "!README.md", "!CHANGELOG.md"],
       "outputs": []
     },
     "publint": {
