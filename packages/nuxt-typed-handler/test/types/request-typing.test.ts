@@ -268,14 +268,14 @@ export async function tryResults(): Promise<void> {
   }
 }
 
-/** A `validate`-only route can still only fail one way; an unbranded one is untyped. */
+/** An `input`-only route can still only fail one way; an unbranded one is untyped. */
 export async function tryUnionEdges(): Promise<void> {
-  const validateOnly = await $typedFetch.try('/api/users')
+  const inputOnly = await $typedFetch.try('/api/users')
 
-  if (validateOnly.error) {
-    type _validateOnly = Assert<
+  if (inputOnly.error) {
+    type _inputOnly = Assert<
       Equal<
-        NonNullable<typeof validateOnly.error.data>['data']['__knownError__'],
+        NonNullable<typeof inputOnly.error.data>['data']['__knownError__'],
         ValidationFailed
       >
     >

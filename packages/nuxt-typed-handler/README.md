@@ -63,7 +63,7 @@ const userErrors = defineError({
 
 export default defineTypedEventHandler(
   {
-    validate: { body: createUser },
+    input: { body: createUser },
     errors: [...userErrors],
   },
   async (event, { body, errors }) => {
@@ -95,8 +95,8 @@ matchError(
 </script>
 ```
 
-- **`validate` alone and `errors` alone are both valid**, and the context
-  carries only what was declared: no `validate`, no source keys; no `errors`,
+- **`input` alone and `errors` alone are both valid**, and the context
+  carries only what was declared: no `input`, no source keys; no `errors`,
   no factories. Declaring neither is a compile error, and a runtime one for a
   JavaScript caller.
 - **Your return type flows to Nitro's typed routes unchanged.** The wrapper
@@ -174,7 +174,7 @@ Rationale, and the full model: [Declaring what a route can fail with][errors-dec
 ```ts
 export default defineTypedEventHandler(
   {
-    validate: {
+    input: {
       routerParams: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
       query: [pagination, sorting],
       body: z.object({ name: z.string() }),
@@ -184,7 +184,7 @@ export default defineTypedEventHandler(
 )
 ```
 
-- **Schemas nest under `validate`**, keyed by source. The four sources are
+- **Schemas nest under `input`**, keyed by source. The four sources are
   `routerParams`, `query`, `headers` and `body`, validated in exactly that
   order, **fail-fast**, before the handler body runs.
 - Values arrive typed as their schema's **output**, so coercions and transforms
@@ -215,7 +215,7 @@ The wrapper's second parameter is one flat object, built fresh per request:
 ```
 
 - **Only what was declared is there.** Each validated source appears iff
-  `validate` declared it; `errors` appears when an error array is declared.
+  `input` declared it; `errors` appears when an error array is declared.
   Reading an undeclared key is a compile error naming the key.
 - **It is the only door to validated values.** Calling `readBody(event)` in the
   handler hands back h3's memoized _unvalidated_ parse - not what your schema
@@ -295,7 +295,7 @@ validation variant keeps its top-level `issues`. `matchError` is imported from
 
 ### The built-in `validation-failed` variant
 
-Every route that declares any `validate` source implicitly declares one extra
+Every route that declares any `input` source implicitly declares one extra
 variant, `validation-failed`, `400`, carrying the rejected source's issues.
 It is always on, it has no local factory, and the wire is a known
 error rather than the validation parent's own `400`:
@@ -323,7 +323,7 @@ Issues are the validation parent's projection - `{ source, message, path }` and
 nothing else - and one failure's issues all share one `source`, because
 validation is fail-fast. The unparseable-body case arrives as the same variant.
 
-### A `validate`-only route is still typed
+### An `input`-only route is still typed
 
 ```ts
 const { data, error } = await $typedFetch.try('/api/search', {
@@ -495,7 +495,7 @@ Already on `@dphonys/nuxt-handler-errors` or
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `modules: ['@dphonys/nuxt-handler-errors', '@dphonys/nuxt-handler-validation']`                                                                                                          | `modules: ['@dphonys/nuxt-typed-handler']`                                                                                                             |
 | `handlerErrors: { channelToken }` / `handlerValidation: …`                                                                                                                               | `typedHandler: { channelToken }`                                                                                                                       |
-| `defineCheckedEventHandler({ errors }, …)` / `defineValidatedEventHandler({ validate }, …)`                                                                                              | `defineTypedEventHandler({ errors \| validate }, …)`                                                                                                   |
+| `defineCheckedEventHandler({ errors }, …)` / `defineValidatedEventHandler({ input }, …)`                                                                                                 | `defineTypedEventHandler({ errors \| input }, …)`                                                                                                      |
 | `useCheckedFetch`, `useLazyCheckedFetch`, `useRequestCheckedFetch`, `useCheckedAsyncData`, `useLazyCheckedAsyncData`, `$checkedFetch`(`.try`), `event.$checkedFetch`                     | `useTypedFetch`, `useLazyTypedFetch`, `useRequestTypedFetch`, `useTypedAsyncData`, `useLazyTypedAsyncData`, `$typedFetch`(`.try`), `event.$typedFetch` |
 | imports from `@dphonys/nuxt-handler-errors/{shared,types}` and `@dphonys/nuxt-handler-validation/types`                                                                                  | the same names from `@dphonys/nuxt-typed-handler/{shared,types}`                                                                                       |
 | **Unchanged:** `defineError`, `matchError`, `recognizeKnownError`, `recognizeValidationError`, `KnownErrorsOfRoute`, `ValidationErrorData`, `ValidationSchemas`, every other parent name | same name, new specifier only                                                                                                                          |
@@ -535,7 +535,7 @@ export default defineCheckedEventHandler(
   },
   (event, { errors }) =>
     defineValidatedEventHandler(
-      { validate: { body: createUser } },
+      { input: { body: createUser } },
       (_event, { body }) => {
         if (taken(body.email)) throw errors.userExists({ email: body.email })
         return create(body)
@@ -548,7 +548,7 @@ export default defineCheckedEventHandler(
 // After - one wrapper, one flat Handler context.
 export default defineTypedEventHandler(
   {
-    validate: { body: createUser },
+    input: { body: createUser },
     errors: [...userErrors],
   },
   (event, { body, errors }) => {
@@ -566,7 +566,7 @@ the composables, the globals and `event.$typedFetch` all send the new value.
 Only a **non-Nuxt client that hard-coded** the old `x-known-error-channel`
 value has to change. Pinning your own `channelToken` makes this a non-event.
 
-### Not a rename: `validate`-only routes gain a typed failure
+### Not a rename: `input`-only routes gain a typed failure
 
 Under the validation parent a rejected request answered its own `400` and the
 call site saw an untyped `FetchError`. Under the umbrella every validating
@@ -611,7 +611,7 @@ from components.
 
 | Export                                                          | Role                                                                                                                              |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `defineTypedEventHandler({ validate, errors }, fn)`             | The two-argument wrapper; at least one of the two keys. `errors` selects an array of declarations. Returns a `TypedEventHandler`. |
+| `defineTypedEventHandler({ input, errors }, fn)`                | The two-argument wrapper; at least one of the two keys. `errors` selects an array of declarations. Returns a `TypedEventHandler`. |
 | `useTypedFetch` / `useLazyTypedFetch`                           | `useFetch` with the route's Request input on the options and its error union on the `error` ref.                                  |
 | `useTypedAsyncData` / `useLazyTypedAsyncData`                   | `useAsyncData` over a handler returning `.try` results.                                                                           |
 | `useRequestTypedFetch()`                                        | The request-bound instance for SSR-safe imperative calls; the global on the client.                                               |

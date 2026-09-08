@@ -33,7 +33,7 @@ export const bare = defineTypedEventHandler({}, () => null)
 
 export const failReserved = defineTypedEventHandler(
   {
-    validate: { query: z.object({ page: z.coerce.number() }) },
+    input: { query: z.object({ page: z.coerce.number() }) },
     errors: [...userErrors],
   },
   (_event, { errors }) => {
@@ -45,7 +45,7 @@ export const failReserved = defineTypedEventHandler(
 
 export const strayKey = defineTypedEventHandler(
   {
-    validate: {
+    input: {
       query: z.object({ page: z.coerce.number() }),
       boyd: z.object({ name: z.string() }),
     },
@@ -61,5 +61,14 @@ export const camelTag = defineError({ userGone: { status: 410 } })
 
 export const divergentTag = defineTypedEventHandler(
   { errors: [...userErrors, ...conflicting] },
+  () => null
+)
+
+// --- The old `validate` key is gone, with no alias ------------------------
+
+// The rename to `input` is a clean break: `validate` declares nothing, so the
+// "declare something" guard is what turns this away.
+export const legacyValidateKey = defineTypedEventHandler(
+  { validate: { query: z.object({ page: z.coerce.number() }) } },
   () => null
 )

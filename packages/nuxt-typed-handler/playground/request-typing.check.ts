@@ -237,16 +237,16 @@ export async function tryResults(): Promise<void> {
     type _data = Assert<Equal<typeof both.data, { created: string }>>
   }
 
-  // A `validate`-only route can still only fail one way.
-  const validateOnly = await $typedFetch.try('/api/search', {
+  // An `input`-only route can still only fail one way.
+  const inputOnly = await $typedFetch.try('/api/search', {
     query: { page: 'nope' },
   })
 
-  if (validateOnly.error) {
+  if (inputOnly.error) {
     type _onlyVariant = Assert<
       Equal<
         NonNullable<
-          typeof validateOnly.error.data
+          typeof inputOnly.error.data
         >['data']['__knownError__']['tag'],
         'validation-failed'
       >

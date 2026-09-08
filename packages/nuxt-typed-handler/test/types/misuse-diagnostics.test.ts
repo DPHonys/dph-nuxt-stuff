@@ -22,17 +22,20 @@ const ARGUMENT_NOT_ASSIGNABLE = 2345
 /** TS2339 - a property read that the type does not have. */
 const PROPERTY_MISSING = 2339
 
+/** TS2353 - an object literal key the parameter type does not declare. */
+const UNKNOWN_OPTION_KEY = 2353
+
 /** The reserved-tag sentence, verbatim. */
 const RESERVED_TAG = 'validation-failed is reserved for the built-in variant'
 
 /** The bare-`{}` sentence, verbatim. */
-const DECLARE_SOMETHING = 'declare validate, errors, or both'
+const DECLARE_SOMETHING = 'declare input, errors, or both'
 
 describe('the declaration guards’ diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(6)
+    expect(diagnostics).toHaveLength(7)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -69,6 +72,20 @@ describe('the declaration guards’ diagnostics', () => {
     expect(bare?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
     expect(bare?.message).toContain('__declareSomething__')
     expect(bare?.line).toBe(lineContaining(FIXTURE, '({}, () => null)'))
+  })
+
+  it('refuses the pre-rename `validate` key, with no alias behind it', () => {
+    // The option key is `input` now, and the rename is a clean break: no
+    // alias, no deprecation shim, just an unknown key on the options object.
+    const [legacy] = saying(
+      diagnostics,
+      "Object literal may only specify known properties, and 'validate' does not exist in type 'TypedHandlerOptions<{}, []>'."
+    )
+
+    expect(legacy?.code).toBe(UNKNOWN_OPTION_KEY)
+    expect(legacy?.line).toBe(
+      lineContaining(FIXTURE, '{ validate: { query: z.object({ page:')
+    )
   })
 
   it('refuses a factory for the built-in validation variant', () => {

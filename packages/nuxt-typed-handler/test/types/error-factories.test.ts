@@ -56,7 +56,7 @@ export function errorsOnly() {
 export function combined() {
   return defineTypedEventHandler(
     {
-      validate: {
+      input: {
         body: z.object({ name: z.string() }),
         query: z.object({ page: z.string().transform(Number) }),
         routerParams: z.object({ id: z.string() }),
@@ -89,7 +89,7 @@ export function requestAnnotation() {
 export function composedSources() {
   return defineTypedEventHandler(
     {
-      validate: {
+      input: {
         query: [
           z.object({ page: z.string().transform(Number) }),
           z.object({ search: z.string() }),
@@ -188,7 +188,7 @@ export function misuse() {
   defineTypedEventHandler(
     // @ts-expect-error Reserved with validation, too.
     {
-      validate: { body: z.string() },
+      input: { body: z.string() },
       errors: [defineError('validation-failed', { status: 400 })],
     },
     () => null
@@ -196,23 +196,23 @@ export function misuse() {
   // @ts-expect-error Nothing declared.
   defineTypedEventHandler({ errors: [] }, () => null)
   // @ts-expect-error Empty validation still declares nothing.
-  defineTypedEventHandler({ validate: {}, errors: [] }, () => null)
+  defineTypedEventHandler({ input: {}, errors: [] }, () => null)
   // @ts-expect-error Inline records are not supported.
   defineTypedEventHandler({ errors: { bad: { status: 400 } } }, () => null)
   defineTypedEventHandler(
     // @ts-expect-error Request schemas retain their guard.
-    { validate: { body: 42 }, errors: definitions },
+    { input: { body: 42 }, errors: definitions },
     () => null
   )
   defineTypedEventHandler(
-    { validate: { body: z.string() }, errors: [] },
+    { input: { body: z.string() }, errors: [] },
     (_event, ctx) => {
       // @ts-expect-error Empty declarations do not add a factories slot.
       void ctx.errors
       return ctx.body
     }
   )
-  defineTypedEventHandler({ validate: { body: z.string() } }, (_event, ctx) => {
+  defineTypedEventHandler({ input: { body: z.string() } }, (_event, ctx) => {
     // @ts-expect-error Validation-only context has no factories.
     void ctx.errors
     return ctx.body

@@ -36,7 +36,7 @@ const { data: searched } = await useTypedFetch('/api/search', {
 
 const page = computed(() => searched.value?.page ?? 0)
 
-// --- `.try` on a `validate`-only route, matched over the built-in variant --
+// --- `.try` on an `input`-only route, matched over the built-in variant --
 
 async function describeSearch(): Promise<string> {
   const { data, error } = await $typedFetch.try('/api/search', {

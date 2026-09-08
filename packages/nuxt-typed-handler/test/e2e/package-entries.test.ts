@@ -110,7 +110,7 @@ const TYPES_PRIVATE = [
   'Declared',
   'DefaultMethod',
   'HasErrors',
-  'HasValidate',
+  'HasInput',
   'InputFor',
   'MethodArg',
   'QueryOption',

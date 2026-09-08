@@ -40,9 +40,9 @@ const APP_PROBE_SOURCE = [
   `export type BothErrors = KnownApiErrors['/api/users']['post']`,
   `export type BothInput = KnownApiRequestInputs['/api/users']['post']`,
   ``,
-  // The `validate`-only route, whose query is composed from two schemas.
+  // The `input`-only route, whose query is composed from two schemas.
   `export type TupleQueryInput = KnownApiRequestInputs['/api/search']['get']`,
-  `export type ValidateOnlyErrors = KnownApiErrors['/api/search']['get']`,
+  `export type InputOnlyErrors = KnownApiErrors['/api/search']['get']`,
   ``,
   // Unbranded, and keyed anyway - what makes both lookups total.
   `export type UnbrandedErrors = KnownApiErrors['/api/legacy']['get']`,
@@ -172,8 +172,8 @@ describe('both maps, rendered in the app program', () => {
     expect(compilation.renderHover('BothInput')).not.toContain('tag:')
   })
 
-  it('answers a `validate`-only route with the built-in variant alone', () => {
-    const rendered = appProgram().renderHover('ValidateOnlyErrors')
+  it('answers an `input`-only route with the built-in variant alone', () => {
+    const rendered = appProgram().renderHover('InputOnlyErrors')
 
     expect(rendered).toContain('"validation-failed"')
     expect(rendered).not.toContain('"user-exists"')

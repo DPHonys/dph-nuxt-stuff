@@ -24,7 +24,7 @@ export interface ValidationFailed {
 
 export type { AnyKnownError } from '@dphonys/nuxt-handler-errors/types'
 
-type HasValidate<S extends ValidationSchemas> = [keyof S] extends [never]
+type HasInput<S extends ValidationSchemas> = [keyof S] extends [never]
   ? false
   : true
 
@@ -63,7 +63,7 @@ export type TypedContext<
 export type TypedErrors<
   S extends ValidationSchemas,
   A extends readonly AnyKnownError[],
-> = KnownErrorsOf<A> | (HasValidate<S> extends true ? ValidationFailed : never)
+> = KnownErrorsOf<A> | (HasInput<S> extends true ? ValidationFailed : never)
 
 export type TypedHandlerFn<
   S extends ValidationSchemas,
@@ -80,13 +80,13 @@ export type AtLeastOne<
   S extends ValidationSchemas,
   A extends readonly AnyKnownError[],
 > =
-  HasValidate<S> extends true
+  HasInput<S> extends true
     ? // eslint-disable-next-line ts/no-empty-object-type
       {}
     : HasErrors<A> extends true
       ? // eslint-disable-next-line ts/no-empty-object-type
         {}
-      : { __declareSomething__: 'declare validate, errors, or both' }
+      : { __declareSomething__: 'declare input, errors, or both' }
 
 /** `validation-failed` belongs to the built-in variant on every umbrella route. */
 export type ReservedTagGuard<A extends readonly AnyKnownError[]> =
@@ -103,7 +103,7 @@ export type TypedHandlerOptions<
 > = AtLeastOne<S, A> &
   ReservedTagGuard<A> &
   ConflictGuard<A> & {
-    validate?: S & ValidationSchemasGuard<S>
+    input?: S & ValidationSchemasGuard<S>
     errors?: A
   }
 

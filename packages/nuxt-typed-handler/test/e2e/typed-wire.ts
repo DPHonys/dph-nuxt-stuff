@@ -110,7 +110,7 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     expect(body.data).toEqual({ issues: [BAD_PAGE] })
   })
 
-  it('serves a `validate`-only route the parent’s context', async () => {
+  it('serves an `input`-only route the parent’s context', async () => {
     expect(await $fetch('/api/search?page=3')).toEqual({ page: 3, hits: [] })
   })
 

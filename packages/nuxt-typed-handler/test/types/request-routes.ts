@@ -57,7 +57,7 @@ export interface SlugInput {
 }
 
 /** `/api/errors-only`: declares `errors` only, so its input is the empty
- * record the emitter computes from an absent `validate`. */
+ * record the emitter computes from an absent `input`. */
 
 export interface ErrorsOnlyInput {}
 

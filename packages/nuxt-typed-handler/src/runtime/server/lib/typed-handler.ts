@@ -44,7 +44,7 @@ type Handler<
  * ```ts
  * export default defineTypedEventHandler(
  *   {
- *     validate: { body: createUser },
+ *     input: { body: createUser },
  *     errors: [defineError('user-exists', { status: 409 })]
  *   },
  *   async (event, { body, errors }) => {
@@ -75,13 +75,13 @@ export const defineTypedEventHandler: DefineTypedEventHandler = <
   assertNoReservedTag(declared)
   const errorContext =
     declared.length === 0 ? undefined : createErrorContext(declared)
-  const plan = options.validate ? sourcePlan<S>(options.validate) : undefined
+  const plan = options.input ? sourcePlan<S>(options.input) : undefined
 
-  // The compile guard's answer for a JavaScript caller - `validate: {}` plans
+  // The compile guard's answer for a JavaScript caller - `input: {}` plans
   // nothing, so it counts for nothing here either.
   if ((plan === undefined || plan.length === 0) && errorContext === undefined) {
     throw new Error(
-      '[nuxt-typed-handler] defineTypedEventHandler needs validate, errors, or both.'
+      '[nuxt-typed-handler] defineTypedEventHandler needs input, errors, or both.'
     )
   }
 
@@ -91,7 +91,7 @@ export const defineTypedEventHandler: DefineTypedEventHandler = <
   const contextFor = (
     validated: ValidatedContext<S> | undefined
   ): TypedContext<S, A> =>
-    // SAFETY: the plan is `sourcePlan(options.validate)`, so `validated`
+    // SAFETY: the plan is `sourcePlan(options.input)`, so `validated`
     // holds exactly the sources `S` declares, each its schema's output; and
     // `errorContext.errors` holds one factory per tag `A` declares. Those
     // two halves are `TypedContext<S, A>` by definition.

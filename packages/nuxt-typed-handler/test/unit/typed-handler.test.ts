@@ -59,7 +59,7 @@ describe('a route declaring only errors', () => {
 describe('a route declaring only validation', () => {
   it('hands the handler exactly the validation parent’s context without factories', async () => {
     const handler = defineTypedEventHandler(
-      { validate: { query: z.object({ page: z.coerce.number() }) } },
+      { input: { query: z.object({ page: z.coerce.number() }) } },
       (_event, context) => ({
         keys: Object.keys(context),
         page: context.query.page,
@@ -77,7 +77,7 @@ describe('a route declaring only validation', () => {
 
   it('answers a rejected source with the built-in variant, both markers on', async () => {
     const handler = defineTypedEventHandler(
-      { validate: { query: z.object({ page: z.coerce.number() }) } },
+      { input: { query: z.object({ page: z.coerce.number() }) } },
       () => 'the body never runs'
     )
 
@@ -112,7 +112,7 @@ describe('a route declaring only validation', () => {
 
   it('answers an unparseable body with the same variant and the parent’s issue', async () => {
     const handler = defineTypedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       () => 'the body never runs'
     )
 
@@ -139,7 +139,7 @@ describe('a route declaring only validation', () => {
 describe('a route declaring both', () => {
   const both = defineTypedEventHandler(
     {
-      validate: { query: z.object({ page: z.coerce.number() }) },
+      input: { query: z.object({ page: z.coerce.number() }) },
       errors: [...userErrors],
     },
     (_event, context) => {
@@ -216,7 +216,7 @@ describe('declaration-time misuse', () => {
     expect(() =>
       defineTypedEventHandler(
         // @ts-expect-error - not a schema, and the reserved tag
-        { validate: notASchema, errors: [foreign, reserved] },
+        { input: notASchema, errors: [foreign, reserved] },
         () => null
       )
     ).toThrow(
@@ -231,7 +231,7 @@ describe('declaration-time misuse', () => {
     expect(() =>
       defineTypedEventHandler(
         // @ts-expect-error - not a schema, and the reserved tag
-        { validate: notASchema, errors: [reserved] },
+        { input: notASchema, errors: [reserved] },
         () => null
       )
     ).toThrow(
@@ -242,7 +242,7 @@ describe('declaration-time misuse', () => {
     expect(() =>
       defineTypedEventHandler(
         // @ts-expect-error - not a schema
-        { validate: notASchema, errors: [...userErrors] },
+        { input: notASchema, errors: [...userErrors] },
         () => null
       )
     ).toThrow(
@@ -254,16 +254,16 @@ describe('declaration-time misuse', () => {
   it('throws on a bare `{}` - the compile guard’s answer for a JavaScript caller', () => {
     // @ts-expect-error - declares nothing
     expect(() => defineTypedEventHandler({}, () => null)).toThrow(
-      '[nuxt-typed-handler] defineTypedEventHandler needs validate, errors, or both.'
+      '[nuxt-typed-handler] defineTypedEventHandler needs input, errors, or both.'
     )
   })
 
-  it('throws on an empty `validate` just the same - it plans nothing', () => {
+  it('throws on an empty `input` just the same - it plans nothing', () => {
     expect(() =>
       // @ts-expect-error - declares nothing
-      defineTypedEventHandler({ validate: {} }, () => null)
+      defineTypedEventHandler({ input: {} }, () => null)
     ).toThrow(
-      '[nuxt-typed-handler] defineTypedEventHandler needs validate, errors, or both.'
+      '[nuxt-typed-handler] defineTypedEventHandler needs input, errors, or both.'
     )
   })
 

@@ -75,7 +75,7 @@ describe('handler-local error factories', () => {
   it('combines all validated sources with factories and preserves success', async () => {
     const handler = defineTypedEventHandler(
       {
-        validate: {
+        input: {
           body: z.object({ name: z.string() }),
           query: z.object({ page: z.string().transform(Number) }),
           routerParams: z.object({ id: z.string() }),
@@ -129,7 +129,7 @@ describe('handler-local error factories', () => {
   it('preserves composed source merging alongside factories', async () => {
     const handler = defineTypedEventHandler(
       {
-        validate: {
+        input: {
           query: [
             z.object({ page: z.string().transform(Number) }),
             z.object({ search: z.string() }),
@@ -150,7 +150,7 @@ describe('handler-local error factories', () => {
     const body = vi.fn(() => null)
     const handler = defineTypedEventHandler(
       {
-        validate: { body: z.string() },
+        input: { body: z.string() },
         errors: [defineError('missing', { status: 404 })],
       },
       body
@@ -240,13 +240,13 @@ describe('handler-local error factories', () => {
     expect(() =>
       // @ts-expect-error - declares nothing
       defineTypedEventHandler({ errors: [] }, () => null)
-    ).toThrow('needs validate, errors, or both')
+    ).toThrow('needs input, errors, or both')
     expect(() =>
       // @ts-expect-error - declares nothing
-      defineTypedEventHandler({ validate: {}, errors: [] }, () => null)
-    ).toThrow('needs validate, errors, or both')
+      defineTypedEventHandler({ input: {}, errors: [] }, () => null)
+    ).toThrow('needs input, errors, or both')
     const handler = defineTypedEventHandler(
-      { validate: { query: z.object({}) }, errors: [] },
+      { input: { query: z.object({}) }, errors: [] },
       (_event, ctx) => Object.keys(ctx).sort()
     )
     await expect((await request(handler, '/api/test')).json()).resolves.toEqual(
