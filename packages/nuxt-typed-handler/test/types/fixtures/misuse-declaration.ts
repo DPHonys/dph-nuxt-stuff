@@ -75,8 +75,10 @@ export const wrongResponse = defineTypedEventHandler(
 
 // --- The old `validate` key is gone, with no alias ------------------------
 
-// The rename to `input` is a clean break: `validate` declares nothing, so the
-// "declare something" guard is what turns this away.
+// The rename to `input` is a clean break: `validate` is an unknown key on the
+// options object, and that unknown key is what the compiler reports here - the
+// "declare something" guard goes unsatisfied too, but only the unknown key is
+// reported, which is what the suite next door asserts.
 export const legacyValidateKey = defineTypedEventHandler(
   { validate: { query: z.object({ page: z.coerce.number() }) } },
   () => null
