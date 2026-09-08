@@ -43,6 +43,20 @@ export default {
   },
 
   workspaces: {
+    // Run by CI through `node`, imported by nothing.
+    '.': {
+      entry: ['.github/scripts/*.ts'],
+    },
+
+    // The plugin is loaded by path from `oxlint.config.ts`, which knip cannot
+    // follow; its test reaches `index.ts`, and the fixture is linted by path.
+    'tools/oxlint': {
+      entry: ['anti-slop/test/fixtures/*.ts'],
+      // The smoke test spawns the `oxlint` binary it resolves by manifest path,
+      // which is not an import knip can follow.
+      ignoreDependencies: ['oxlint'],
+    },
+
     'packages/*': nuxtModuleWorkspace,
 
     'packages/*/playground': playgroundWorkspace,

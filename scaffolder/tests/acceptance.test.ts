@@ -195,7 +195,18 @@ describe('disposable Acceptance fixture', () => {
     expect(compareVersions(nuxtVersion, `${ceilingMajor}.0.0`)).toBeLessThan(0)
 
     await run('pnpm', ['run', 'build'], { cwd: repositoryRoot })
-    for (const script of ['lint', 'test', 'typecheck', 'publint']) {
+    // Linting runs from the repository root, so the package has no script of
+    // its own: point both linters at the generated tree.
+    for (const linter of ['oxlint', 'eslint']) {
+      await run(
+        'pnpm',
+        ['exec', linter, relative(repositoryRoot, destination)],
+        {
+          cwd: repositoryRoot,
+        }
+      )
+    }
+    for (const script of ['test', 'typecheck', 'publint']) {
       await run('pnpm', ['--filter', '@dphonys/api-2-client', 'run', script], {
         cwd: repositoryRoot,
       })
@@ -257,12 +268,8 @@ async function assertPreInstallContract(
       build: 'nuxt-module-build build',
       prepack: 'pnpm run build',
       dev: 'pnpm run dev:prepare && nuxt dev playground',
-      'dev:build': 'nuxt build playground',
       'dev:prepare':
         'nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground',
-      lint: 'eslint .',
-      pretest: 'nuxt-module-build prepare',
-      pretypecheck: 'pnpm run build',
       typecheck:
         'nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json',
       test: 'vitest run',
@@ -389,6 +396,15 @@ async function createDisposableRepository(): Promise<string> {
     join(workspaceRoot, 'templates/nuxt-module'),
     join(repositoryRoot, 'templates/nuxt-module'),
     { recursive: true }
+  )
+  // `oxlint.config.ts` loads the vendored plugin by path.
+  await cp(
+    join(workspaceRoot, 'tools/oxlint'),
+    join(repositoryRoot, 'tools/oxlint'),
+    {
+      recursive: true,
+      filter: (source) => !source.includes('node_modules'),
+    }
   )
 
   return repositoryRoot

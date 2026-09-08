@@ -109,6 +109,19 @@ async function discoverWorkspaces(root: string): Promise<string[][]> {
   )
 }
 
+/**
+ * pnpm rewrites `workspace:` protocols on publish. `workspace:^`, `workspace:~`
+ * and `workspace:*` take the sibling's version at publish time, so they track it
+ * automatically. Every other form carries its own version — `workspace:1.2.3`
+ * publishes as `1.2.3` and `workspace:^1.2.3` as `^1.2.3` — and silently goes
+ * stale the moment the sibling's version moves, so the contract rejects them.
+ */
+const workspaceDependencySchema = z.object({
+  dependencies: z.record(z.string(), z.string()).optional(),
+  optionalDependencies: z.record(z.string(), z.string()).optional(),
+})
+type WorkspaceDependencies = z.infer<typeof workspaceDependencySchema>
+
 /** The violations one workspace carries, each prefixed with its directory. */
 function readWorkspace(directory: string, manifestSource: string): string[] {
   const manifest = JSON.parse(manifestSource)
@@ -120,10 +133,30 @@ function readWorkspace(directory: string, manifestSource: string): string[] {
   }
 
   const contract = publishableManifestSchema(directory).safeParse(manifest)
-  const violations = new Set(
-    contract.error?.issues.map((issue) => issue.message)
-  )
+  const violations = new Set([
+    ...(contract.error?.issues.map((issue) => issue.message) ?? []),
+    ...readSiblingPins(workspaceDependencySchema.parse(manifest)),
+  ])
   return [...violations].map((violation) => `${directory}: ${violation}`)
+}
+
+function readSiblingPins(manifest: WorkspaceDependencies): string[] {
+  const sections = [
+    ['dependencies', manifest.dependencies],
+    ['optionalDependencies', manifest.optionalDependencies],
+  ] as const
+  return sections.flatMap(([section, specifiers]) =>
+    Object.entries(specifiers ?? {})
+      .filter(
+        ([, specifier]) =>
+          specifier.startsWith('workspace:') &&
+          !['workspace:^', 'workspace:~', 'workspace:*'].includes(specifier)
+      )
+      .map(
+        ([name, specifier]) =>
+          `${section}.${name} must use workspace:^, workspace:~, or workspace:* rather than ${specifier}`
+      )
+  )
 }
 
 async function readWorkspacePatterns(root: string): Promise<string[]> {

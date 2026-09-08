@@ -67,13 +67,9 @@
   "scripts": {
     "build": "nuxt-module-build build",
     "dev": "pnpm run dev:prepare && nuxt dev playground",
-    "dev:build": "nuxt build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
-    "lint": "eslint .",
     "prebuild": "nuxt-module-build prepare",
     "prepack": "pnpm run build",
-    "pretest": "nuxt-module-build prepare",
-    "pretypecheck": "pnpm run build",
     "publint": "publint",
     "test": "vitest run",
     "test:watch": "vitest watch",

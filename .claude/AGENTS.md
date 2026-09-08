@@ -8,7 +8,8 @@ A monorepo for Nuxt modules and plugins development.
 dph-nuxt-stuff/
 ├── packages/          # Publishable Nuxt modules and plugins
 ├── .github/
-│   └── workflows/     # CI/CD: ci, autofix, release, semantic-pr
+│   ├── actions/setup/ # Shared checkout, toolchain, cache, and install steps
+│   └── workflows/     # CI/CD: ci, publish, semantic-pull-requests
 ├── turbo.json         # Turborepo task pipeline
 ├── package.json       # Root workspace (pnpm)
 ├── tsconfig.json      # Base TypeScript config (strictest)
@@ -62,7 +63,7 @@ pnpm run check
 # Detect unused exports/deps
 pnpm run knip
 
-# Record consumer-visible Release intent
+# Record consumer-visible Release intent (a native pnpm command, not a script)
 pnpm change
 
 # Inspect and preview all pending Independent package releases
@@ -121,6 +122,13 @@ before publishing missing package versions through npm trusted publishing.
 
 ## CI
 
-- **ci.yml** — typecheck + format + lint on push/PR
-- **release.yml** — triggered manually or on `v*` tag push
+- **ci.yml** — on push to `main` and on PRs. Runs the pieces of `pnpm check` as
+  parallel jobs: publishing contract, format, lint, typecheck, knip, test, and
+  build + publint. Lint failures land as inline PR annotations; test results
+  land as a `Vitest` check with the junit summary.
+- **publish.yml** — manual dispatch from `main` only. Reruns `pnpm check`, then
+  publishes missing package versions through npm trusted publishing.
 - **semantic-pull-requests.yml** — validates PR title follows conventional commits
+
+`pnpm check` remains the single local gate and the publish gate. CI splits it
+only so each failure reports on its own.

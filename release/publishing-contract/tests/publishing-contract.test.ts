@@ -25,6 +25,8 @@ interface FixtureManifest {
   exports?: { '.': { types: string; import: string } }
   publishConfig?: { access?: string }
   scripts?: { prepack?: string }
+  dependencies?: Record<string, string>
+  optionalDependencies?: Record<string, string>
 }
 type ManifestMutation = (manifest: FixtureManifest) => void
 
@@ -97,6 +99,26 @@ const invalidMetadataCases = [
     'prepack build',
     (manifest) => (manifest.scripts = {}),
     'scripts.prepack must run the package build',
+  ],
+  [
+    'fixed sibling pin',
+    (manifest) =>
+      (manifest.dependencies = { '@dphonys/sibling': 'workspace:1.2.3' }),
+    'dependencies.@dphonys/sibling must use workspace:^, workspace:~, or workspace:* rather than workspace:1.2.3',
+  ],
+  [
+    'versioned sibling range',
+    (manifest) =>
+      (manifest.dependencies = { '@dphonys/sibling': 'workspace:^1.2.3' }),
+    'dependencies.@dphonys/sibling must use workspace:^, workspace:~, or workspace:* rather than workspace:^1.2.3',
+  ],
+  [
+    'fixed optional sibling pin',
+    (manifest) =>
+      (manifest.optionalDependencies = {
+        '@dphonys/sibling': 'workspace:1.2.3',
+      }),
+    'optionalDependencies.@dphonys/sibling must use workspace:^, workspace:~, or workspace:* rather than workspace:1.2.3',
   ],
 ] satisfies ReadonlyArray<readonly [string, ManifestMutation, string]>
 

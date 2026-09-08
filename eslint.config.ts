@@ -9,6 +9,9 @@ export default antfuConfig(
     // Oxfmt owns formatting.
     stylistic: false,
     formatters: false,
+    // Mirror the Oxlint and Oxfmt ignores: the vendored plugin keeps upstream
+    // conventions, and the agent notes are not source.
+    ignores: ['tools/oxlint/anti-slop/**', '.claude/**'],
   },
 
   {
