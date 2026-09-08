@@ -1,18 +1,26 @@
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 const repositoryRoot = resolve(import.meta.dirname, '../../..')
 const bootstrapPath = join(repositoryRoot, 'docs', 'first-release-bootstrap.md')
 
 describe('first-release bootstrap contract', () => {
   it('preserves private seeded Generated packages until explicit admission', async () => {
-    const templateManifest = JSON.parse(
-      await readFile(
-        join(repositoryRoot, 'templates', 'nuxt-module', 'package.json'),
-        'utf8'
+    const templateManifest = z
+      .object({
+        private: z.boolean().optional(),
+        version: z.string().optional(),
+      })
+      .parse(
+        JSON.parse(
+          await readFile(
+            join(repositoryRoot, 'templates', 'nuxt-module', 'package.json'),
+            'utf8'
+          )
+        )
       )
-    ) as { private?: boolean; version?: string }
     const guide = await readFile(bootstrapPath, 'utf8')
 
     expect(templateManifest).toMatchObject({
@@ -63,7 +71,7 @@ describe('first-release bootstrap contract', () => {
       (indexes: number[]) =>
         indexes.every((index) => index >= 0) &&
         indexes.every((index, position) =>
-          position === 0 ? true : index > indexes[position - 1]!
+          indexes.slice(0, position).every((earlier) => earlier < index)
         )
     )
     expect(guide).not.toContain('pnpm publish -r')

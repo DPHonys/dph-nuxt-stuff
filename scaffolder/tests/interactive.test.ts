@@ -433,6 +433,15 @@ describe('production post-commit adapters', () => {
   })
 })
 
+/** What the scripted `text` prompt records: which optional inputs it saw. */
+interface TextPromptEvent {
+  type: 'text'
+  message: string
+  hasDefault: boolean
+  initialValue?: string
+  defaultValue?: string
+}
+
 function createScriptedPrompts(options: {
   events: unknown[]
   nameInputs: string[]
@@ -455,17 +464,14 @@ function createScriptedPrompts(options: {
       return prompt.initialValue
     },
     async text(prompt) {
-      options.events.push({
+      const event: TextPromptEvent = {
         type: 'text',
         message: prompt.message,
         hasDefault: 'defaultValue' in prompt,
-        ...('initialValue' in prompt
-          ? { initialValue: prompt.initialValue }
-          : {}),
-        ...('defaultValue' in prompt
-          ? { defaultValue: prompt.defaultValue }
-          : {}),
-      })
+      }
+      if ('initialValue' in prompt) event.initialValue = prompt.initialValue
+      if ('defaultValue' in prompt) event.defaultValue = prompt.defaultValue
+      options.events.push(event)
 
       if (prompt.message === 'Description (optional)') {
         return options.description

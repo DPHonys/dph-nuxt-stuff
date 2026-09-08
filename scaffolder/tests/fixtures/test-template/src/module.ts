@@ -1,4 +1,10 @@
-declare function defineNuxtModule(options: object): object
+interface NuxtModuleDefinition {
+  meta: { name: string; configKey: string }
+}
+
+declare function defineNuxtModule(
+  definition: NuxtModuleDefinition
+): NuxtModuleDefinition
 
 export default defineNuxtModule({
   meta: {

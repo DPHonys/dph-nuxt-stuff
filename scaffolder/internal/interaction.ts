@@ -13,6 +13,7 @@ import { createNaming, validateScaffoldName } from './naming'
 import type {
   InteractionAdapter,
   ScaffoldProgressEvent,
+  ScaffoldRequest,
   TemplateSummary,
 } from './types'
 
@@ -61,20 +62,21 @@ export function createInteractiveAdapter(
 
       prompts.intro('Scaffold a workspace package')
 
-      const templateKind = await prompts.select({
-        message: 'Template kind',
-        options: templates.map(({ id, label }) => ({ value: id, label })),
-        initialValue: firstTemplate.id,
-        ...(signal ? { signal } : {}),
-      })
+      const templateKind = await prompts.select(
+        withSignal<SelectPromptOptions>(
+          {
+            message: 'Template kind',
+            options: templates.map(({ id, label }) => ({ value: id, label })),
+            initialValue: firstTemplate.id,
+          },
+          signal
+        )
+      )
       if (prompts.isCancel(templateKind)) return { status: 'cancelled' }
       const template = findTemplate(templates, templateKind)
 
-      const scaffoldName = await prompts.text({
+      const scaffoldNamePrompt: TextPromptOptions = {
         message: 'Scaffold name',
-        ...(template.scaffoldNameInitialValue
-          ? { initialValue: template.scaffoldNameInitialValue }
-          : {}),
         validate(value) {
           const name = value ?? ''
           const invalidName = validateScaffoldName(name)
@@ -85,15 +87,21 @@ export function createInteractiveAdapter(
             return `${destination} already exists. Choose a different scaffold name.`
           }
         },
-        ...(signal ? { signal } : {}),
-      })
+      }
+      if (template.scaffoldNameInitialValue) {
+        scaffoldNamePrompt.initialValue = template.scaffoldNameInitialValue
+      }
+      const scaffoldName = await prompts.text(
+        withSignal(scaffoldNamePrompt, signal)
+      )
       if (prompts.isCancel(scaffoldName)) return { status: 'cancelled' }
 
-      const descriptionInput = await prompts.text({
-        message: 'Description (optional)',
-        defaultValue: '',
-        ...(signal ? { signal } : {}),
-      })
+      const descriptionInput = await prompts.text(
+        withSignal<TextPromptOptions>(
+          { message: 'Description (optional)', defaultValue: '' },
+          signal
+        )
+      )
       if (prompts.isCancel(descriptionInput)) return { status: 'cancelled' }
 
       const naming = createNaming(scaffoldName)
@@ -111,22 +119,18 @@ export function createInteractiveAdapter(
         'Review'
       )
 
-      const confirmed = await prompts.confirm({
-        message: 'Create this package?',
-        initialValue: false,
-        ...(signal ? { signal } : {}),
-      })
+      const confirmed = await prompts.confirm(
+        withSignal<ConfirmPromptOptions>(
+          { message: 'Create this package?', initialValue: false },
+          signal
+        )
+      )
       if (prompts.isCancel(confirmed)) return { status: 'cancelled' }
       if (!confirmed) return { status: 'declined' }
 
-      return {
-        status: 'confirmed',
-        request: {
-          templateKind,
-          scaffoldName,
-          ...(description ? { description } : {}),
-        },
-      }
+      const request: ScaffoldRequest = { templateKind, scaffoldName }
+      if (description) request.description = description
+      return { status: 'confirmed', request }
     },
     progress(event) {
       prompts.progress(event)
@@ -146,6 +150,17 @@ export function createClackInteraction(): InteractionAdapter {
     },
     isCancel,
   })
+}
+
+/**
+ * Prompt options carry `signal` only when the caller has one: the prompt
+ * option types are exact, so an absent signal is an absent key.
+ */
+function withSignal<Options extends { signal?: AbortSignal }>(
+  options: Options,
+  signal: AbortSignal | undefined
+): Options {
+  return signal ? { ...options, signal } : options
 }
 
 function formatReview(options: {
@@ -189,8 +204,6 @@ function pathExists(path: string): boolean {
   }
 }
 
-function isNodeError(
-  error: unknown
-): error is Error & { code: string | undefined } {
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error
 }

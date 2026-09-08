@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import {
   mkdtemp,
@@ -9,25 +9,35 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
-const execFileAsync = promisify(execFile)
 const repositoryRoot = resolve(import.meta.dirname, '../../..')
-const rootManifest = JSON.parse(
-  await readFile(join(repositoryRoot, 'package.json'), 'utf8')
-) as { packageManager: string }
+const rootManifest = z
+  .object({ packageManager: z.string() })
+  .parse(
+    JSON.parse(await readFile(join(repositoryRoot, 'package.json'), 'utf8'))
+  )
 const pinnedPnpmVersion = rootManifest.packageManager.replace(/^pnpm@/, '')
 const pnpmExecutable = process.env.npm_execpath ?? 'pnpm'
+const commandTimeoutMs = 30_000
 const temporaryRoots: string[] = []
 
-interface PackageManifest {
-  name: string
-  version: string
-  dependencies?: Record<string, string>
-}
+const packageManifestSchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  dependencies: z.record(z.string(), z.string()).optional(),
+})
+type PackageManifest = z.infer<typeof packageManifestSchema>
+
+const packedFileSchema = z.object({ filename: z.string() })
+const packOutputSchema = z.union([
+  packedFileSchema,
+  z.tuple([packedFileSchema], packedFileSchema),
+])
 
 interface CommandResult {
   stdout: string
@@ -79,7 +89,7 @@ class LocalRegistry {
     this.server.listen(0, '127.0.0.1')
     await once(this.server, 'listening')
     const address = this.server.address()
-    if (!address || typeof address === 'string') {
+    if (!isTcpAddress(address)) {
       throw new Error('Local registry did not bind a TCP port')
     }
     this.url = `http://127.0.0.1:${address.port}/`
@@ -90,6 +100,13 @@ class LocalRegistry {
     this.server.close()
     await once(this.server, 'close')
   }
+}
+
+/** A listening TCP server reports an `AddressInfo`; pipes report a path. */
+function isTcpAddress(
+  address: AddressInfo | string | null
+): address is AddressInfo {
+  return address instanceof Object
 }
 
 const registry = new LocalRegistry()
@@ -385,7 +402,11 @@ async function recordIntent(
     (name) => !before.has(name)
   )
   expect(created).toHaveLength(1)
-  return created[0]!
+  const [file] = created
+
+  if (file === undefined) throw new Error('no changeset was recorded')
+
+  return file
 }
 
 async function changesetMarkdownFiles(root: string): Promise<string[]> {
@@ -412,23 +433,21 @@ async function packManifest(
     '--pack-destination',
     destination,
   ])
-  const result = JSON.parse(packed.stdout) as
-    | { filename: string }
-    | Array<{ filename: string }>
-  const filename = Array.isArray(result) ? result[0]!.filename : result.filename
+  const result = packOutputSchema.parse(JSON.parse(packed.stdout))
+  const filename = Array.isArray(result) ? result[0].filename : result.filename
   const tarball = resolve(packageDirectory(root, packageName), filename)
   const extracted = await run(
     'tar',
     ['-xOf', tarball, 'package/package.json'],
     root
   )
-  return JSON.parse(extracted.stdout) as PackageManifest
+  return packageManifestSchema.parse(JSON.parse(extracted.stdout))
 }
 
 async function packageVersion(root: string, name: string): Promise<string> {
-  const manifest = JSON.parse(
-    await readFile(packagePath(root, name, 'package.json'), 'utf8')
-  ) as PackageManifest
+  const manifest = packageManifestSchema.parse(
+    JSON.parse(await readFile(packagePath(root, name, 'package.json'), 'utf8'))
+  )
   return manifest.version
 }
 
@@ -473,27 +492,57 @@ async function run(
   arguments_: string[],
   cwd: string
 ): Promise<CommandResult> {
-  try {
-    const result = await execFileAsync(executable, arguments_, {
+  const startedAt = Date.now()
+  const result = await new Promise<
+    CommandResult & { exitCode: number | null; signal: NodeJS.Signals | null }
+  >((settle, reject) => {
+    const child = spawn(executable, arguments_, {
       cwd,
-      encoding: 'utf8',
       env: {
         ...process.env,
         CI: 'true',
         FORCE_COLOR: '0',
         NO_COLOR: '1',
       },
-      maxBuffer: 1024 * 1024,
-      timeout: 30_000,
+      timeout: commandTimeoutMs,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
-    return { stdout: result.stdout, stderr: result.stderr }
-  } catch (error) {
-    const failure = error as Error & { stdout?: string; stderr?: string }
+    let stdout = ''
+    let stderr = ''
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr += chunk
+    })
+    child.once('error', reject)
+    child.once('close', (exitCode, signal) =>
+      settle({ exitCode, signal, stdout, stderr })
+    )
+  })
+  if (result.exitCode !== 0) {
     throw new Error(
-      [failure.message, failure.stdout, failure.stderr]
-        .filter((part) => part?.trim())
-        .join('\n'),
-      { cause: error }
+      [
+        `${executable} ${arguments_.join(' ')} ${describeTermination(result, Date.now() - startedAt)}`,
+        result.stdout,
+        result.stderr,
+      ]
+        .filter((part) => part.trim())
+        .join('\n')
     )
   }
+  return { stdout: result.stdout, stderr: result.stderr }
+}
+
+function describeTermination(
+  result: { exitCode: number | null; signal: NodeJS.Signals | null },
+  elapsedMs: number
+): string {
+  if (result.exitCode !== null) {
+    return `exited with ${result.exitCode}`
+  }
+  if (result.signal === 'SIGTERM' && elapsedMs >= commandTimeoutMs) {
+    return `timed out after ${commandTimeoutMs} ms`
+  }
+  return `was terminated by ${result.signal ?? 'an unknown signal'}`
 }

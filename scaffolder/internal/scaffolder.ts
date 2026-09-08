@@ -372,20 +372,23 @@ function throwIfAborted(signal?: AbortSignal): void {
     : new Error('Scaffolding interrupted')
 }
 
-function isAlreadyExists(error: unknown): boolean {
+function isAlreadyExists(
+  error: unknown
+): error is NodeJS.ErrnoException & { code: 'EEXIST' } {
   return isNodeError(error) && error.code === 'EEXIST'
 }
 
-function isNotFound(error: unknown): boolean {
+function isNotFound(
+  error: unknown
+): error is NodeJS.ErrnoException & { code: 'ENOENT' } {
   return isNodeError(error) && error.code === 'ENOENT'
 }
 
-function isNodeError(
-  error: unknown
-): error is Error & { code: string | undefined } {
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error
 }
 
-function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error))
+/** Wraps a non-Error rejection so the outcome always carries an Error. */
+function asError(cause: unknown): Error {
+  return cause instanceof Error ? cause : new Error(String(cause), { cause })
 }

@@ -64,10 +64,15 @@ export function createProductionInstaller(
   }
 }
 
+interface CommandOptions {
+  cwd: string
+  signal: AbortSignal | undefined
+}
+
 type RunFormatter = (
   command: string,
   arguments_: readonly string[],
-  options: { cwd: string; signal?: AbortSignal }
+  options: CommandOptions
 ) => Promise<void>
 
 export function createProductionFormatter(
@@ -77,7 +82,7 @@ export function createProductionFormatter(
     async format(context) {
       await runFormatter('pnpm', ['exec', 'oxfmt', context.destination], {
         cwd: context.repositoryRoot,
-        ...(context.signal ? { signal: context.signal } : {}),
+        signal: context.signal,
       })
     },
   }
@@ -86,13 +91,13 @@ export function createProductionFormatter(
 async function runCommand(
   command: string,
   arguments_: readonly string[],
-  options: { cwd: string; signal?: AbortSignal }
+  options: CommandOptions
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, arguments_, {
       cwd: options.cwd,
       stdio: 'inherit',
-      ...(options.signal ? { signal: options.signal } : {}),
+      signal: options.signal,
     })
 
     child.once('error', reject)

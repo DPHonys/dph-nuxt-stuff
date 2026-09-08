@@ -1,14 +1,31 @@
-import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 
-const executeFile = promisify(execFile)
 const command = resolve(import.meta.dirname, '../cli.ts')
 const temporaryRoots: string[] = []
-type ManifestMutation = (manifest: Record<string, unknown>) => void
+
+/**
+ * The manifest fields the contract inspects. Every field but `name` is
+ * optional so a mutation can delete it to exercise the missing-field path.
+ */
+interface FixtureManifest {
+  name: string
+  private?: boolean
+  version?: string
+  license?: string
+  engines?: { node?: string }
+  repository?: { type?: string; url?: string; directory?: string }
+  files?: string[]
+  main?: string
+  typesVersions?: Record<string, Record<string, string[]>>
+  exports?: Record<string, Record<string, string>>
+  publishConfig?: { access?: string }
+  scripts?: Record<string, string>
+}
+type ManifestMutation = (manifest: FixtureManifest) => void
 
 const invalidMetadataCases = [
   [
@@ -29,21 +46,25 @@ const invalidMetadataCases = [
   [
     'repository type',
     (manifest) =>
-      ((manifest.repository as Record<string, unknown>).type = 'svn'),
+      (manifest.repository = { ...manifest.repository, type: 'svn' }),
     'repository.type must be git',
   ],
   [
     'repository identity',
     (manifest) =>
-      ((manifest.repository as Record<string, unknown>).url =
-        'https://github.com/somewhere/else.git'),
+      (manifest.repository = {
+        ...manifest.repository,
+        url: 'https://github.com/somewhere/else.git',
+      }),
     'repository.url must identify DPHonys/dph-nuxt-stuff',
   ],
   [
     'repository directory',
     (manifest) =>
-      ((manifest.repository as Record<string, unknown>).directory =
-        'packages/somewhere-else'),
+      (manifest.repository = {
+        ...manifest.repository,
+        directory: 'packages/somewhere-else',
+      }),
     'repository.directory must be packages/example',
   ],
   [
@@ -215,8 +236,8 @@ describe('publishing contract command', () => {
 })
 
 async function createRepository(
-  workspaces: Record<string, Record<string, unknown>>,
-  rootManifest: Record<string, unknown> = {
+  workspaces: Record<string, FixtureManifest>,
+  rootManifest: FixtureManifest = {
     name: 'fixture-root',
     private: true,
   },
@@ -243,7 +264,7 @@ async function createRepository(
   return repositoryRoot
 }
 
-function validPublishableManifest(name: string): Record<string, unknown> {
+function validPublishableManifest(name: string): FixtureManifest {
   return {
     name: `@dphonys/${name}`,
     version: '1.2.3',
@@ -268,10 +289,7 @@ function validPublishableManifest(name: string): Record<string, unknown> {
   }
 }
 
-async function writeJson(
-  path: string,
-  value: Record<string, unknown>
-): Promise<void> {
+async function writeJson(path: string, value: FixtureManifest): Promise<void> {
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, `${JSON.stringify(value, undefined, 2)}\n`, 'utf8')
 }
@@ -281,29 +299,25 @@ async function run(repositoryRoot: string): Promise<{
   stdout: string
   stderr: string
 }> {
-  const stdoutPath = join(repositoryRoot, '.publishing-contract.stdout')
-  const stderrPath = join(repositoryRoot, '.publishing-contract.stderr')
-  try {
-    await executeFile('/bin/sh', [
-      '-c',
-      'node "$1" "$2" >"$3" 2>"$4"',
-      'publishing-contract-test',
-      command,
-      repositoryRoot,
-      stdoutPath,
-      stderrPath,
-    ])
-    return {
-      exitCode: 0,
-      stdout: await readFile(stdoutPath, 'utf8'),
-      stderr: await readFile(stderrPath, 'utf8'),
-    }
-  } catch (error) {
-    const failure = error as Error & { code: number }
-    return {
-      exitCode: failure.code,
-      stdout: await readFile(stdoutPath, 'utf8'),
-      stderr: await readFile(stderrPath, 'utf8'),
-    }
-  }
+  return new Promise((settle, reject) => {
+    const child = spawn('node', [command, repositoryRoot], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr += chunk
+    })
+    child.once('error', reject)
+    child.once('close', (exitCode, signal) => {
+      if (exitCode === null) {
+        reject(new Error(`publishing-contract was terminated by ${signal}`))
+        return
+      }
+      settle({ exitCode, stdout, stderr })
+    })
+  })
 }

@@ -4,6 +4,12 @@ export interface ModuleOptions {
   message?: string
 }
 
+declare module 'nuxt/schema' {
+  interface PublicRuntimeConfig {
+    SCAFFOLD_CONFIG_KEY_TOKEN: { message: string }
+  }
+}
+
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-module-template',
