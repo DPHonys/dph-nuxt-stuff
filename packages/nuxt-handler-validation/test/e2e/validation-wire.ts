@@ -28,6 +28,13 @@ const BAD_PAGE: ValidationIssue = {
   path: ['page'],
 }
 
+/** What `/api/orders/nope` produces - the first source in the fail-fast order. */
+const BAD_ORDER_ID: ValidationIssue = {
+  source: 'route',
+  message: 'order id must be a whole number',
+  path: ['id'],
+}
+
 /** This package's own wording for a body the request made unreadable. */
 const UNPARSEABLE_BODY: ValidationIssue = {
   source: 'body',
@@ -70,6 +77,24 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
 
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual(failureBody([BAD_PAGE]))
+  })
+
+  it('answers a bad route param under the source name `route`', async () => {
+    const response = await fetch('/api/orders/nope')
+
+    expect(response.status).toBe(400)
+
+    const body = await response.json()
+
+    expect(body).toEqual(failureBody([BAD_ORDER_ID]))
+
+    // The one assertion on the human summary anywhere: nothing may parse it,
+    // but it names the source, so a half-landed rename shows up here.
+    expect(body.message).toBe('Validation failed for route')
+  })
+
+  it('hands the validated route params over as `route`', async () => {
+    expect(await $fetch('/api/orders/42')).toEqual({ id: 42 })
   })
 
   it('answers a bad body with every issue that source had', async () => {

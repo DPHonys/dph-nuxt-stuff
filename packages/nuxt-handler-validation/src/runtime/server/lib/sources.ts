@@ -33,7 +33,7 @@ export type RequestBody = JsonValue | undefined
  * it.
  */
 export interface RawSources {
-  routerParams: ReturnType<typeof getRouterParams>
+  route: ReturnType<typeof getRouterParams>
   query: ReturnType<typeof getQuery>
   headers: RequestHeaders
   body: RequestBody
@@ -108,7 +108,7 @@ async function readBodyForValidation(
 type SourceReaders = { readonly [S in ValidationSource]: SourceReader<S> }
 
 const SOURCE_READERS: SourceReaders = {
-  routerParams: (event) => getRouterParams(event, { decode: true }),
+  route: (event) => getRouterParams(event, { decode: true }),
   query: (event) => getQuery(event),
   headers: (event) => getRequestHeaders(event),
   body: readBodyForValidation,

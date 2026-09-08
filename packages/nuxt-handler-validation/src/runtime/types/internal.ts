@@ -80,6 +80,6 @@ export type ValidationSchemasGuard<S> = {
   [K in keyof S]: K extends ValidationSource
     ? ComposableSlot<S[K]>
     : K extends string
-      ? ValidationDeclarationError<`'${K}' is not a validation source - the sources are routerParams, query, headers and body`>
+      ? ValidationDeclarationError<`'${K}' is not a validation source - the sources are route, query, headers and body`>
       : never
 }

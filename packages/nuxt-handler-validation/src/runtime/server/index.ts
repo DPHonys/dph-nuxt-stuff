@@ -17,7 +17,7 @@ import { sourcePlan, validatedContext } from './lib/validate'
  * `unknown`, and the returned handler is an ordinary h3 `EventHandler` that
  * additionally carries the computed Request input as a phantom type slot.
  *
- * Sources validate in the order `routerParams -> query -> headers -> body`,
+ * Sources validate in the order `route -> query -> headers -> body`,
  * fail-fast across sources: the first failure answers `400` and no later source
  * is read, while issues within one source arrive together. The second parameter
  * is the only door to the validated values - reading the body again with

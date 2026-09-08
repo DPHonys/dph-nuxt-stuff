@@ -42,11 +42,11 @@ function bodyFailingWith(reason: Error): RequestInit & { duplex: 'half' } {
   }
 }
 
-describe('a handler declaring a routerParams schema', () => {
+describe('a handler declaring a route schema', () => {
   it('hands the body the schema output, coercions applied', async () => {
     const handler = defineValidatedEventHandler(
-      { input: { routerParams: z.object({ id: z.coerce.number() }) } },
-      (event, { routerParams }) => ({ id: routerParams.id })
+      { input: { route: z.object({ id: z.coerce.number() }) } },
+      (event, { route }) => ({ id: route.id })
     )
 
     const response = await request(handler, '/users/42', {
@@ -61,8 +61,8 @@ describe('a handler declaring a routerParams schema', () => {
 
   it('validates decoded params, not percent-escapes', async () => {
     const handler = defineValidatedEventHandler(
-      { input: { routerParams: z.object({ id: z.string() }) } },
-      (event, { routerParams }) => ({ id: routerParams.id })
+      { input: { route: z.object({ id: z.string() }) } },
+      (event, { route }) => ({ id: route.id })
     )
 
     const response = await request(handler, '/users/a%2Fb', {
@@ -75,8 +75,8 @@ describe('a handler declaring a routerParams schema', () => {
 
   it('delivers a catch-all as one slash-joined string under `_`', async () => {
     const handler = defineValidatedEventHandler(
-      { input: { routerParams: z.object({ _: z.string() }) } },
-      (event, { routerParams }) => ({ rest: routerParams._ })
+      { input: { route: z.object({ _: z.string() }) } },
+      (event, { route }) => ({ rest: route._ })
     )
 
     const response = await request(handler, '/files/a/b%20c/d.txt', {
@@ -87,9 +87,9 @@ describe('a handler declaring a routerParams schema', () => {
     await expect(response.json()).resolves.toEqual({ rest: 'a/b c/d.txt' })
   })
 
-  it('answers 400 tagged `routerParams` when the params fail', async () => {
+  it('answers 400 tagged `route` when the params fail', async () => {
     const handler = defineValidatedEventHandler(
-      { input: { routerParams: z.object({ id: z.coerce.number() }) } },
+      { input: { route: z.object({ id: z.coerce.number() }) } },
       () => 'the body never runs'
     )
 
@@ -99,7 +99,7 @@ describe('a handler declaring a routerParams schema', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({
-      data: { issues: [{ source: 'routerParams', path: ['id'] }] },
+      data: { issues: [{ source: 'route', path: ['id'] }] },
     })
   })
 })
@@ -488,14 +488,14 @@ describe('a handler declaring several sources', () => {
   const allFour = defineValidatedEventHandler(
     {
       input: {
-        routerParams: z.object({ id: z.coerce.number() }),
+        route: z.object({ id: z.coerce.number() }),
         query: z.object({ page: z.coerce.number() }),
         headers: z.object({ 'x-trace': z.string() }),
         body: z.object({ name: z.string() }),
       },
     },
-    (event, { routerParams, query, headers, body }) => ({
-      id: routerParams.id,
+    (event, { route, query, headers, body }) => ({
+      id: route.id,
       page: query.page,
       trace: headers['x-trace'],
       name: body.name,
@@ -508,7 +508,7 @@ describe('a handler declaring several sources', () => {
 
     return request(
       allFour,
-      `/users/${spoiled('routerParams') ? 'nope' : '42'}?page=${
+      `/users/${spoiled('route') ? 'nope' : '42'}?page=${
         spoiled('query') ? 'nope' : '2'
       }`,
       {
@@ -536,12 +536,12 @@ describe('a handler declaring several sources', () => {
   it('stops at the first failing source, in the promised order', async () => {
     // Each request is spoiled only in the sources *after* the one it fails on,
     // so the source named in the answer is the order itself.
-    const allBad = await send('routerParams', 'query', 'headers', 'body')
+    const allBad = await send('route', 'query', 'headers', 'body')
     const fromQuery = await send('query', 'headers', 'body')
     const fromHeaders = await send('headers', 'body')
     const fromBody = await send('body')
 
-    await expect(sourcesOfIssues(allBad)).resolves.toEqual(['routerParams'])
+    await expect(sourcesOfIssues(allBad)).resolves.toEqual(['route'])
     await expect(sourcesOfIssues(fromQuery)).resolves.toEqual(['query'])
     await expect(sourcesOfIssues(fromHeaders)).resolves.toEqual(['headers'])
     await expect(sourcesOfIssues(fromBody)).resolves.toEqual(['body'])

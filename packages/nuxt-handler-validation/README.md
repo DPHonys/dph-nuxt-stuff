@@ -40,7 +40,7 @@ import { z } from 'zod'
 export default defineValidatedEventHandler(
   {
     input: {
-      routerParams: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
+      route: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
       query: z.object({ page: z.coerce.number() }),
       body: z.object({
         name: z.string(),
@@ -48,17 +48,17 @@ export default defineValidatedEventHandler(
       }),
     },
   },
-  async (event, { routerParams, query, body }) => {
-    // routerParams: { id: number }
-    // query:        { page: number }
-    // body:         { name: string, tags: string[] }
-    return updateUser(routerParams.id, body)
+  async (event, { route, query, body }) => {
+    // route: { id: number }
+    // query: { page: number }
+    // body:  { name: string, tags: string[] }
+    return updateUser(route.id, body)
   }
 )
 ```
 
 - **Schemas nest under `input`**, keyed by source. The four sources are
-  `routerParams`, `query`, `headers` and `body`.
+  `route`, `query`, `headers` and `body`.
 - **Validated values arrive eagerly and fully typed in the second parameter**,
   each typed as its schema's _output_ - so coercions and transforms land in the
   handler already applied. Undeclared sources are **absent** from that
@@ -165,7 +165,7 @@ normalized or coerced on the way, because every conversion belongs in the
 schema where the rest of your parsing rules live.
 
 - **Order is guaranteed and fail-fast:
-  `routerParams -> query -> headers -> body`.** Cheap-and-sync first,
+  `route -> query -> headers -> body`.** Cheap-and-sync first,
   stream-consuming last, so an invalid route param spares the body parse. There
   is no aggregate mode. Multiple issues _within_ one source still arrive
   together, so a form with two bad fields needs one round trip.
@@ -327,7 +327,7 @@ key that caused it. Three sentences are the whole surface:
 ```text
 every schema composed on one source must produce an object output - not a primitive, an array or a function
 schemas composed on one source must produce disjoint output keys - merge them in your schema library instead
-'boyd' is not a validation source - the sources are routerParams, query, headers and body
+'boyd' is not a validation source - the sources are route, query, headers and body
 ```
 
 A value that is not a schema is rejected at the offending property, and reading

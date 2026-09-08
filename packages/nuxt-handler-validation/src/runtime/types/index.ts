@@ -13,13 +13,13 @@ export type {
 
 /** The four sources, in the settled fail-fast order. Every key is optional. */
 export interface ValidationSchemas {
-  routerParams?: SourceSchemas
+  route?: SourceSchemas
   query?: SourceSchemas
   headers?: SourceSchemas
   body?: SourceSchemas
 }
 
-/** `'routerParams' | 'query' | 'headers' | 'body'`. */
+/** `'route' | 'query' | 'headers' | 'body'`. */
 export type ValidationSource = keyof ValidationSchemas
 
 /**

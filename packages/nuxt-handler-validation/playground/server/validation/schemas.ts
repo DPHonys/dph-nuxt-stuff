@@ -15,3 +15,11 @@ export const pagination = z.object({
 export const sorting = z.object({
   sort: z.enum(['asc', 'desc'], 'sort must be asc or desc'),
 })
+
+/** A route param, coerced from the string the path always carries. */
+export const orderRef = z.object({
+  id: z
+    .string()
+    .regex(/^\d+$/, 'order id must be a whole number')
+    .transform(Number),
+})

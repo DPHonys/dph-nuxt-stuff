@@ -123,3 +123,17 @@ export const legacyValidateKey = defineValidatedEventHandler(
   { validate: { query: pagination } },
   async (_event, _validated) => null
 )
+
+// --- The old `routerParams` source name is gone, with no alias ------------
+
+// The rename to `route` is a clean break too: the old name is a stray key like
+// any other, told the four sources by their current names.
+export const legacyRouterParamsKey = defineValidatedEventHandler(
+  {
+    input: {
+      query: z.object({ page: z.coerce.number() }),
+      routerParams: z.object({ id: z.string() }),
+    },
+  },
+  async (_event, _validated) => null
+)

@@ -24,7 +24,11 @@ const diagnostics = compileFixture(FIXTURE_TSCONFIG, FIXTURE)
 
 /** The stray-key sentence, verbatim - one of the three locked messages. */
 const STRAY_KEY =
-  "'boyd' is not a validation source - the sources are routerParams, query, headers and body"
+  "'boyd' is not a validation source - the sources are route, query, headers and body"
+
+/** The same sentence at the pre-rename name for the route source. */
+const LEGACY_ROUTER_PARAMS_KEY =
+  "'routerParams' is not a validation source - the sources are route, query, headers and body"
 
 /** The overlap sentence, verbatim. */
 const OVERLAPPING_KEYS =
@@ -38,7 +42,7 @@ describe('the declaration guard’s diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(11)
+    expect(diagnostics).toHaveLength(12)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -156,6 +160,15 @@ describe('the declaration guard’s diagnostics', () => {
     expect(legacy?.line).toBe(
       lineContaining(FIXTURE, '{ validate: { query: pagination } }')
     )
+  })
+
+  it('refuses the pre-rename `routerParams` source, with no alias behind it', () => {
+    // `route` is the name now, and the stray-key sentence lists the four
+    // sources as they read today - the old name is not one of them.
+    const [legacy] = saying(diagnostics, LEGACY_ROUTER_PARAMS_KEY)
+
+    expect(legacy?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
+    expect(legacy?.line).toBe(lineContaining(FIXTURE, 'routerParams:'))
   })
 
   it('fires the same sentence at the same key on a handler read back through the brand', () => {
