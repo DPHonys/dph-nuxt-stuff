@@ -89,13 +89,9 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: Vitest
-          # Non-recursive globs on purpose: `**` follows pnpm's workspace
-          # symlinks under node_modules into a loop.
-          path: |
-            packages/*/test-results/junit.xml
-            release/*/test-results/junit.xml
-            scaffolder/test-results/junit.xml
-            tools/*/test-results/junit.xml
+          # Comma-separated, and non-recursive on purpose: `**` follows pnpm's
+          # workspace symlinks under node_modules into a loop.
+          path: packages/*/test-results/junit.xml,release/*/test-results/junit.xml,scaffolder/test-results/junit.xml,tools/*/test-results/junit.xml
           reporter: java-junit
           fail-on-error: false
       - name: Upload test results
