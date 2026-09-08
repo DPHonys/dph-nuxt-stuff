@@ -5,6 +5,10 @@ export interface RunOptions {
   cwd?: string
   /** Laid over the inherited environment. */
   env?: NodeJS.ProcessEnv
+  /**
+   * Milliseconds after which the child is sent SIGTERM and the run rejects as
+   * timed out, whatever the child then exits with.
+   */
   timeout?: number
 }
 
@@ -16,23 +20,28 @@ export interface RunResult {
 
 /**
  * Run a command to completion and hand back how it exited, whatever that was;
- * only a spawn failure or a signal termination rejects, and a `timeout` that
- * elapses is reported as such rather than as the SIGTERM it sends. For the
- * suites whose subject is a non-zero exit.
+ * only a spawn failure, a signal termination, or an elapsed `timeout` rejects.
+ * For the suites whose subject is a non-zero exit.
  */
 export function run(
   command: string,
   args: readonly string[],
   options: RunOptions = {}
 ): Promise<RunResult> {
-  const startedAt = Date.now()
   return new Promise((settle, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
-      timeout: options.timeout,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
+    let timedOut = false
+    const timer =
+      options.timeout === undefined
+        ? undefined
+        : setTimeout(() => {
+            timedOut = true
+            child.kill('SIGTERM')
+          }, options.timeout)
     let stdout = ''
     let stderr = ''
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
@@ -41,14 +50,18 @@ export function run(
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
       stderr += chunk
     })
-    child.once('error', reject)
+    child.once('error', (error) => {
+      clearTimeout(timer)
+      reject(error)
+    })
     child.once('close', (exitCode, signal) => {
+      clearTimeout(timer)
+      if (timedOut) {
+        reject(new Error(`${command} timed out after ${options.timeout} ms`))
+        return
+      }
       if (exitCode === null) {
-        reject(
-          new Error(
-            `${command} ${describeSignal(signal, options.timeout, Date.now() - startedAt)}`
-          )
-        )
+        reject(new Error(`${command} was terminated by ${signal}`))
         return
       }
       settle({ exitCode, stdout, stderr })
@@ -75,15 +88,4 @@ export async function runSucceeding(
     )
   }
   return result
-}
-
-function describeSignal(
-  signal: NodeJS.Signals | null,
-  timeout: number | undefined,
-  elapsedMs: number
-): string {
-  if (signal === 'SIGTERM' && timeout !== undefined && elapsedMs >= timeout) {
-    return `timed out after ${timeout} ms`
-  }
-  return `was terminated by ${signal ?? 'an unknown signal'}`
 }

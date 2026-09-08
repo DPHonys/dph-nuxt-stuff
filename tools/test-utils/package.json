@@ -12,10 +12,14 @@
     "./doubles/nitro-runtime": "./src/doubles/nitro-runtime.ts",
     "./doubles/nuxt-app": "./src/doubles/nuxt-app.ts"
   },
+  "scripts": {
+    "test": "vitest run tests"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
     "h3": "catalog:",
     "nuxt": "catalog:",
+    "vitest": "catalog:",
     "vue": "catalog:",
     "zod": "catalog:"
   }
