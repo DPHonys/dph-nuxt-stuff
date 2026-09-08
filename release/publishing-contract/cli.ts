@@ -110,9 +110,11 @@ async function discoverWorkspaces(root: string): Promise<string[][]> {
 }
 
 /**
- * pnpm rewrites `workspace:` protocols on publish, so a fixed `workspace:x.y.z`
- * on a sibling silently goes stale the moment the sibling's version moves. Only
- * the range forms track the sibling automatically.
+ * pnpm rewrites `workspace:` protocols on publish. `workspace:^`, `workspace:~`
+ * and `workspace:*` take the sibling's version at publish time, so they track it
+ * automatically. Every other form carries its own version — `workspace:1.2.3`
+ * publishes as `1.2.3` and `workspace:^1.2.3` as `^1.2.3` — and silently goes
+ * stale the moment the sibling's version moves, so the contract rejects them.
  */
 const workspaceDependencySchema = z.object({
   dependencies: z.record(z.string(), z.string()).optional(),
@@ -139,20 +141,22 @@ function readWorkspace(directory: string, manifestSource: string): string[] {
 }
 
 function readSiblingPins(manifest: WorkspaceDependencies): string[] {
-  const specifiers = {
-    ...manifest.dependencies,
-    ...manifest.optionalDependencies,
-  }
-  return Object.entries(specifiers)
-    .filter(
-      ([, specifier]) =>
-        specifier.startsWith('workspace:') &&
-        !['workspace:^', 'workspace:~', 'workspace:*'].includes(specifier)
-    )
-    .map(
-      ([name, specifier]) =>
-        `dependencies.${name} must use workspace:^, workspace:~, or workspace:* rather than ${specifier}`
-    )
+  const sections = [
+    ['dependencies', manifest.dependencies],
+    ['optionalDependencies', manifest.optionalDependencies],
+  ] as const
+  return sections.flatMap(([section, specifiers]) =>
+    Object.entries(specifiers ?? {})
+      .filter(
+        ([, specifier]) =>
+          specifier.startsWith('workspace:') &&
+          !['workspace:^', 'workspace:~', 'workspace:*'].includes(specifier)
+      )
+      .map(
+        ([name, specifier]) =>
+          `${section}.${name} must use workspace:^, workspace:~, or workspace:* rather than ${specifier}`
+      )
+  )
 }
 
 async function readWorkspacePatterns(root: string): Promise<string[]> {
