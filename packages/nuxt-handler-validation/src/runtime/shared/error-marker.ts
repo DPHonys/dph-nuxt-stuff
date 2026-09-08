@@ -1,10 +1,6 @@
 import type { H3Error } from 'h3'
 import { z } from 'zod'
-import type {
-  ValidationErrorData,
-  ValidationIssue,
-  ValidationSource,
-} from '../types'
+import type { ValidationErrorData, ValidationIssue } from '../types'
 import { VALIDATION_SOURCES } from './sources'
 
 // `Symbol.for` rather than `Symbol()`, so two physical copies of this package
