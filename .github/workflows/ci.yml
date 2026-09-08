@@ -42,16 +42,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      - run: mkdir -p reports
       # `--format=github` emits workflow commands, which surface as inline
       # annotations on the pull request diff.
       - name: Oxlint
-        run: pnpm lint:oxlint --format=github
+        run: pnpm exec oxlint . --format=github
       # setup-node registers the eslint-stylish problem matcher, so the default
       # output is annotated the same way. Runs even when Oxlint fails so both
       # reports land in one round trip.
       - name: ESLint
         if: ${{ !cancelled() }}
-        run: pnpm lint:eslint
+        shell: bash
+        run: pnpm exec eslint . 2>&1 | tee reports/eslint.txt
+      - name: Summarize for the pull request
+        if: ${{ always() }}
+        run: |
+          pnpm exec oxlint . --format=json > reports/oxlint.json || true
+          node .github/scripts/pr-report.ts lint reports/oxlint.json reports/eslint.txt > reports/lint.md
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: report-lint
+          path: reports/lint.md
 
   typecheck:
     name: Typecheck
@@ -84,7 +96,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: pnpm test -- --reporter=default --reporter=junit --outputFile=test-results/junit.xml
-      - name: Report test results
+      - name: Publish the Vitest check
         uses: dorny/test-reporter@v2
         if: ${{ !cancelled() }}
         with:
@@ -94,7 +106,19 @@ jobs:
           path: packages/*/test-results/junit.xml,release/*/test-results/junit.xml,scaffolder/test-results/junit.xml,tools/*/test-results/junit.xml
           reporter: java-junit
           fail-on-error: false
-      - name: Upload test results
+          use-actions-summary: false
+      - name: Summarize for the pull request
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p reports
+          node .github/scripts/pr-report.ts junit packages/*/test-results/junit.xml release/*/test-results/junit.xml scaffolder/test-results/junit.xml tools/*/test-results/junit.xml > reports/test.md
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: report-test
+          path: reports/test.md
+      - name: Upload raw test results
         uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
@@ -115,3 +139,43 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm build
       - run: pnpm publint
+
+  report:
+    name: Pull request report
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [contract, format, lint, typecheck, knip, test, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: report-*
+          path: reports
+          merge-multiple: true
+      - name: Compose the report
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          {
+            echo "## CI report"
+            echo
+            node .github/scripts/pr-report.ts jobs "$NEEDS"
+            echo
+            echo "### Lint"
+            echo
+            cat reports/lint.md 2>/dev/null || echo "_No lint summary was produced._"
+            echo
+            echo "### Tests"
+            echo
+            cat reports/test.md 2>/dev/null || echo "_No test summary was produced._"
+            echo
+            echo "[Workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } > report.md
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: ci-report
+          path: report.md

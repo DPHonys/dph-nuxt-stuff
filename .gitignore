@@ -13,3 +13,4 @@ dist/
 
 # Vitest junit output for the CI reporter
 test-results/
+reports/

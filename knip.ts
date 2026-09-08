@@ -43,6 +43,11 @@ export default {
   },
 
   workspaces: {
+    // Run by CI through `node`, imported by nothing.
+    '.': {
+      entry: ['.github/scripts/*.ts'],
+    },
+
     // The plugin is loaded by path from `oxlint.config.ts`, which knip cannot
     // follow; its test reaches `index.ts`, and the fixture is linted by path.
     'tools/oxlint': {
