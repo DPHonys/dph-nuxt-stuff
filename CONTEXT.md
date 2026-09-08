@@ -107,12 +107,20 @@ The fields of a Known error beside its tag and status. A schema-backed payload v
 _Avoid_: Nested data, response envelope
 
 **Validation source**:
-One of the four request inputs a Handler may validate: `routerParams`, `query`, `headers`, `body`.
+One of the four request inputs a Handler may validate: `route`, `query`, `headers`, `body`.
 _Avoid_: Input, field
 
 **Validated context**:
-The Handler's second parameter: output-typed validated values, one key per declared Validation source, undeclared sources absent.
+The Handler's second parameter: output-typed validated values, one key per declared Validation source, undeclared sources absent, plus the Respond helper when the Response output is a status map.
 _Avoid_: Parsed request, payload
+
+**Response output**:
+A Handler's declared success shape: either a single schema (one `200` reply, returned plainly) or a status map from HTTP success status to schema, where `null` declares a bodiless status. Checked at compile time, and asserted at runtime in development only; the client receives the schemas' _output_ types.
+_Avoid_: Response schema, return type
+
+**Respond helper**:
+The Validated-context function a Handler with a status-map Response output must return through; it pairs one declared status with a value of that status's shape and rejects any other pairing at compile time.
+_Avoid_: Reply, send, status setter
 
 **Handler context**:
 The Umbrella Handler's second parameter: the Validated context's keys plus `errors` factories when Known errors are declared; the door to validated values and to creating a Known error.
