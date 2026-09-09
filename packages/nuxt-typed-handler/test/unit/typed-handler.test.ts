@@ -258,6 +258,18 @@ describe('declaration-time misuse', () => {
     )
   })
 
+  it('throws the validation parent’s sentence for a key that names no source', () => {
+    expect(() =>
+      defineTypedEventHandler(
+        // @ts-expect-error - `routerParams` is not a validation source
+        { input: { routerParams: z.object({ id: z.string() }) } },
+        () => null
+      )
+    ).toThrow(
+      "[nuxt-handler-validation] 'routerParams' is not a validation source - the sources are route, query, headers and body"
+    )
+  })
+
   it('throws on an empty `input` just the same - it plans nothing', () => {
     expect(() =>
       // @ts-expect-error - declares nothing
