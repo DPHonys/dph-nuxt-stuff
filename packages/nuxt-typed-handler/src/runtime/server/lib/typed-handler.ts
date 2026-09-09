@@ -4,9 +4,7 @@ import {
 } from '@dphonys/nuxt-handler-errors/internals/server'
 import type { AnyKnownError } from '@dphonys/nuxt-handler-errors/types'
 import {
-  declaresStatusMap,
-  RESPOND_SLOT,
-  sendResponded,
+  responseDelivery,
   sourcePlan,
   validatedContext,
 } from '@dphonys/nuxt-handler-validation/internals/server'
@@ -109,8 +107,9 @@ export const defineTypedEventHandler: DefineTypedEventHandler = <
   }
 
   // Read once, when the route file is evaluated: a route the helper was never
-  // offered to pays nothing per request for it.
-  const respondsWithStatus = declaresStatusMap(options.output)
+  // offered to pays nothing per request for it, and an `output` naming no reply
+  // at all is refused here rather than served.
+  const delivery = responseDelivery(options.output)
 
   // A fresh object per request, so a handler may decorate its own context.
   // Validation-only routes keep the parent's context without a factories slot.
@@ -125,7 +124,7 @@ export const defineTypedEventHandler: DefineTypedEventHandler = <
     ({
       ...validated,
       ...errorContext,
-      ...(respondsWithStatus ? RESPOND_SLOT : undefined),
+      ...delivery.respondSlot,
     }) as TypedContext<S, A, O>
 
   // SAFETY: h3 awaits every handler's result and Nitro types the route
@@ -140,6 +139,6 @@ export const defineTypedEventHandler: DefineTypedEventHandler = <
         : await validatedContext(event, plan, VALIDATION_OPTIONS)
     const returned = await handler(event, contextFor(validated))
 
-    return respondsWithStatus ? sendResponded(event, returned) : returned
+    return delivery.send(event, returned)
   }) as Handler<S, A, O, Request, Response>
 }
