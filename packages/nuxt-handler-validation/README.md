@@ -21,8 +21,19 @@ export default defineNuxtConfig({
 })
 ```
 
-That is the only setup step - the module has **zero options**. Nothing about a
-route's validation is configured; it is declared, in the route.
+That is very nearly the whole setup. The module has **one option**, the
+development-only [response check](#the-development-only-response-check), which
+is on by default:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['@dphonys/nuxt-handler-validation'],
+  handlerValidation: { checkResponses: false },
+})
+```
+
+Nothing about a route's request validation or its Response output is
+configured; both are declared, in the route.
 
 Bring your own schema library. Anything implementing Standard Schema works -
 [zod](https://zod.dev), [valibot](https://valibot.dev),
@@ -47,6 +58,7 @@ export default defineValidatedEventHandler(
         tags: z.string().transform((s) => s.split(',')),
       }),
     },
+    output: z.object({ id: z.number(), name: z.string() }),
   },
   async (event, { route, query, body }) => {
     // route: { id: number }
@@ -59,6 +71,10 @@ export default defineValidatedEventHandler(
 
 - **Schemas nest under `input`**, keyed by source. The four sources are
   `route`, `query`, `headers` and `body`.
+- **`output` types the success response** - one schema for a single `200`, or a
+  status map for a route that answers under several statuses. See [Response
+  output](#response-output). It is optional, independent of `input`, and a
+  declaration in its own right: a route may declare `output` alone.
 - **Validated values arrive eagerly and fully typed in the second parameter**,
   each typed as its schema's _output_ - so coercions and transforms land in the
   handler already applied. Undeclared sources are **absent** from that
@@ -68,8 +84,12 @@ export default defineValidatedEventHandler(
   in one composed tuple. Async schemas are supported; the wrapper awaits them.
 - **Your return type flows to Nitro's typed routes unchanged.** The wrapper
   returns a `ValidatedEventHandler` - still assignable to h3's `EventHandler`,
-  carrying the `RequestInput` brand - so `$fetch('/api/users/1')` infers the
-  response exactly as it would with `defineEventHandler`. Nothing to unwrap.
+  carrying the route's Request input and its declared Response output as
+  phantom brands - so `$fetch('/api/users/1')` infers the response exactly as
+  it would with `defineEventHandler`. Nothing to unwrap. On a route that
+  declares `output`, the return is additionally constrained to the schema's
+  output type, and a status map's route infers as the union of its mapped
+  bodies.
 - `defineValidatedEventHandler` and `recognizeValidationError` are
   **auto-imported inside `server/`**, the same ambient position as
   `defineEventHandler`. Import them from
@@ -195,6 +215,139 @@ The body is read through h3's own validated-body door
 everything else parses strictly as JSON. **That branching is h3's, described
 here rather than promised** - h3 v2 keeps none of it.
 
+## Response output
+
+`output` declares what a route answers with when it succeeds. It is optional
+and independent of `input`: declare both, or either one alone.
+
+### The bare form: one `200`
+
+```ts
+// server/api/users/[id].get.ts
+import { z } from 'zod'
+
+const user = z.object({ id: z.number(), name: z.string() })
+
+export default defineValidatedEventHandler(
+  {
+    input: { route: z.object({ id: z.coerce.number() }) },
+    output: user,
+  },
+  async (event, { route }) => findUser(route.id)
+)
+```
+
+A bare schema is shorthand for a single `200`. The handler returns the value
+plainly, constrained to the schema's **output** type - the side the wire sees,
+so a transform is already applied where the type is concerned. No helper is
+offered on this form.
+
+### The map form: one status per reply
+
+```ts
+// server/api/users.post.ts
+const existing = z.object({ id: z.string() })
+const created = z.object({ id: z.string(), createdAt: z.string() })
+
+export default defineValidatedEventHandler(
+  {
+    input: { body: z.object({ email: z.email() }) },
+    output: { 200: existing, 201: created },
+  },
+  async (event, { body, respond }) => {
+    const found = await findByEmail(body.email)
+
+    if (found) return respond(200, { id: found.id })
+
+    const user = await create(body)
+
+    return respond(201, { id: user.id, createdAt: user.createdAt })
+  }
+)
+```
+
+A status map puts `respond` in the second parameter, and a map-form route
+answers through it and nothing else. It pairs **status and value, checked
+together**: `status` is the union of the declared statuses, and the value is
+that status's output type.
+
+```ts
+respond(404, { id: '1' }) // 404 is not one of `200 | 201`
+respond(201, { id: '1' }) // the 201 body is missing `createdAt`
+return { id: '1' } // a bare value names no status
+```
+
+All three are compile errors, at the line that wrote them. **One key is still a
+map**: `output: { 201: created }` has no plain-return shortcut, because the
+status is the thing being declared.
+
+The helper sets the status and sends the value; nothing else about the response
+is touched, so `setResponseHeader` and friends work as they always did.
+
+### `null`: a status with no body
+
+```ts
+export default defineValidatedEventHandler(
+  { output: { 202: queued, 204: null } },
+  async (event, { respond }) => {
+    const job = await enqueue()
+
+    return job === undefined ? respond(204) : respond(202, { job })
+  }
+)
+```
+
+Any status may map to `null`. `respond(204)` takes no second argument, and
+`respond(204, value)` is `Expected 1 arguments, but got 2`. On the wire the
+status is what the helper named, with no body.
+
+### What the client sees
+
+Fetch still infers the response from the handler's return, exactly as it does
+without `output`: the schema's output type for the bare form, and the **union
+of the mapped bodies** for the map form. The status the handler chose is not
+part of that type; read it from `$fetch.raw` where it matters.
+
+### `output` alone is a declaration
+
+A route may declare `output` and nothing else:
+
+```ts
+export default defineValidatedEventHandler({ output: user }, () => loadUser())
+```
+
+`output` is not a Validation source, so such a route has no source keys in its
+second parameter, no `400` of this package's to answer with, and an empty
+Request input. Declaring neither half is refused - see [Compile errors this
+package writes itself](#compile-errors-this-package-writes-itself).
+
+### The development-only response check
+
+On a development server the wrapper additionally runs the declared schema
+against the value the handler handed over - the plain return on the bare form,
+the value inside `respond(status, value)` on the map form - and awaits it. A
+status declared `null` has no schema and nothing to check.
+
+A value the schema rejects is a plain `500` naming the route, the status and
+every issue:
+
+```text
+[nuxt-handler-validation] cannot send the response: GET /api/users/1 answered 200 with a value its declared Response output rejects - id: Invalid input: expected string, received number. Nothing checks the response in production, so this route would send that value as it is: fix the handler or the schema, or set `checkResponses: false`.
+```
+
+- **It is an assertion, never a transform.** The result is discarded, so a
+  development server sends the bytes production sends. An `output` schema that
+  would strip an extra key or coerce a value does neither on the way out -
+  declare a schema that _describes_ the value, not one that would repair it.
+- **Nothing runs in production.** The check is gated on `import.meta.dev`, a
+  build-time constant, so a production build never runs a schema on a response
+  at all - which is exactly why the development server is worth having check.
+- **It is on by default**, and `handlerValidation: { checkResponses: false }`
+  turns it off for an app whose responses a schema cannot describe.
+- **The `500` is unmarked.** It carries no validation marker, so
+  `recognizeValidationError` answers `undefined` for it and an observability
+  hook that skips validation failures still reports it.
+
 ## When validation fails: the wire shape
 
 A failing request answers `400` with one fixed shape - **no options, and
@@ -221,6 +374,11 @@ identical in development and production**:
   vendor extras are dropped and `path` normalizes to `Array<string | number>`.
   The projection **is** the sanitization, which is why there is no redaction
   option and no production branch.
+- **`source` is one of `route`, `query`, `headers` and `body`**, and every
+  issue in one failure carries the same one, because validation is fail-fast.
+  The human summary reads `Validation failed for <source>` - so a rejected
+  route param answers `"source": "route"` under
+  `"message": "Validation failed for route"`.
 - Those four keys are this package's. The envelope around them is Nitro's - it
   adds `url`, and a `stack` in development.
 
@@ -322,17 +480,36 @@ A typo'd or stray key is rejected **even when it sits beside valid ones** -
 `{ query: q, boyd: schema }` is a compile error, not a body that silently never
 validates. The wrapper has one signature, so no rejection collapses into a
 `TS2769: No overload matches this call` paragraph; every diagnostic lands at the
-key that caused it. Three sentences are the whole surface:
+key that caused it. Four sentences are the whole surface:
 
 ```text
 every schema composed on one source must produce an object output - not a primitive, an array or a function
 schemas composed on one source must produce disjoint output keys - merge them in your schema library instead
 'boyd' is not a validation source - the sources are route, query, headers and body
+declare input, output, or both
 ```
+
+The fourth is the guard against a declaration that declares nothing: it arrives
+as an unsatisfiable `__declareSomething__` property on a bare `{}`, and on an
+`output: {}`, which names no status the handler could ever answer under and is
+therefore no more a declaration than no key at all.
 
 A value that is not a schema is rejected at the offending property, and reading
 an undeclared source in the handler reports as
 `Property 'body' does not exist on type 'ValidatedContext<…>'`.
+
+**A misanswered `output` is the compiler's own sentence**, not one of this
+package's: the declaration types the call, so TypeScript already says what
+went wrong.
+
+| what you wrote                                               | what you are told                                                            |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `respond(404, …)` on `output: { 200: …, 201: … }`            | `Argument of type '404' is not assignable to parameter of type '200 \| 201'` |
+| `respond(201, { id })` where `201` also promised `createdAt` | `Property 'createdAt' is missing in type '{ id: string; }'`                  |
+| a plain return on a map form, a one-key map included         | not assignable to `EventHandlerResponse<Responded<…>>`                       |
+| `respond(204, value)` where `204` maps to `null`             | `Expected 1 arguments, but got 2`                                            |
+| `respond` on a bare-form route, which is never offered it    | `Property 'respond' does not exist on type 'ValidatedContext<…>'`            |
+| a plain return that is not the bare form's output type       | not assignable to `EventHandlerResponse<…>`                                  |
 
 ### Runtime errors for what the types cannot see
 
@@ -348,6 +525,12 @@ in a slot from becoming an unattributed
 `TypeError: Cannot read properties of null (reading '~standard')` on every
 request.
 
+Two more plain `Error`s fire there, each a compile guard's answer for a caller
+the types never saw: a declaration that declares **neither** half
+(`defineValidatedEventHandler must declare input, output, or both`), and an
+`output` that **names no reply** the handler could send - an empty status map,
+or a value that is neither a Standard Schema nor a status map.
+
 **Per request**, as a plain unmarked `500` naming the source:
 
 | what happened                                                             | detected                                     |
@@ -360,6 +543,11 @@ These are latent by nature - such a route serves `200`s until a request reaches
 the case, and what a schema answers is unknowable without running it. The rule
 behind all three: **a declared source must be delivered as something every
 element actually contributed to.**
+
+The Response output has one of its own: a route declaring a status map whose
+handler hands back anything but the Respond helper's result answers an unmarked
+`500` naming what it returned instead. The compiler refuses that return, so
+only a JavaScript caller reaches it.
 
 ### Edges the compile-time guard does not catch
 
@@ -377,27 +565,32 @@ element actually contributed to.**
   outside its own enumerable keys.
 - **A malformed `input` object itself is an untyped `TypeError`.** The guard
   covers what is _inside_ `input`, not a `null` in the object's place.
+- **A status map's keys are not checked against HTTP.** The map is keyed by
+  `number`, so `output: { 999: schema }` declares the status `999` as happily
+  as it declares `200`; only the statuses you wrote are answerable.
 
 ## Turning the module off
 
 `handlerValidation: false` disables the module - a real off-switch for the day
-an auto-import collision needs isolating. It is not an options bag: a stray key
-such as `handlerValidation: { channelToken: 'x' }` is a compile error.
+an auto-import collision needs isolating. Short of that, `handlerValidation` is
+a bag with exactly one key, `checkResponses`; a stray key such as
+`handlerValidation: { channelToken: 'x' }` is still a compile error.
 
 ## API reference
 
 Runtime, from `@dphonys/nuxt-handler-validation/server`, both auto-imported
 inside `server/`:
 
-| Export                                       | Role                                                                                         |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `defineValidatedEventHandler({ input }, fn)` | The wrapper. One signature. Returns a `ValidatedEventHandler`, an h3 `EventHandler` subtype. |
-| `recognizeValidationError(error)`            | Observability predicate, process-side only. Returns `ValidationErrorData \| undefined`.      |
+| Export                                               | Role                                                                                                                       |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `defineValidatedEventHandler({ input, output }, fn)` | The wrapper. One signature, at least one of the two keys. Returns a `ValidatedEventHandler`, an h3 `EventHandler` subtype. |
+| `recognizeValidationError(error)`                    | Observability predicate, process-side only. Returns `ValidationErrorData \| undefined`.                                    |
 
 Types, from `@dphonys/nuxt-handler-validation/types` - type-only, safe to
 import from app code: `ValidationSchemas`, `SourceSchemas`, `ValidationSource`,
-`ValidatedContext<S>`, `SourceValue<T>`, `MergedOutput<T>`, `OutputOf<S>`,
-`ValidationIssue`, `ValidationErrorData`, and the request-input family:
+`ValidatedContext<S, O>`, `ValidatedHandlerOptions<S, O>`, `SourceValue<T>`,
+`MergedOutput<T>`, `OutputOf<S>`, `ValidationIssue`, `ValidationErrorData`, and
+the two families below:
 
 | Type                              | Role                                                                                                     |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -409,6 +602,24 @@ import from app code: `ValidationSchemas`, `SourceSchemas`, `ValidationSource`,
 | `RequestInputOfHandler<T>`        | Reads that brand off a handler type; `never` for `any` and for handlers this package did not produce.    |
 | `ValidationSchemasGuard<S>`       | The compile-time guard behind the declaration diagnostics above.                                         |
 | `ValidationDeclarationError<Msg>` | The sentence-shaped type those diagnostics surface.                                                      |
+| `DeclareSomething<S, O, Msg>`     | The "declare something" guard; its sentence is a parameter, so the umbrella composes it with its own.    |
+
+The response-output family:
+
+| Type                         | Role                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| `ResponseOutput`             | What `output` accepts: one schema, or a `StatusMap`.                                              |
+| `StatusMap`                  | The map form - `{ readonly [status: number]: StandardSchemaV1 \| null }`.                         |
+| `ResponseOutputs<O>`         | The declaration as a map of status to _output_ type; the bare form reads `{ 200: … }`.            |
+| `ResponseBodies<O>`          | Every body the declaration can send, as one union - what a client sees.                           |
+| `HandlerReturn<O>`           | What the handler must hand back: the bare form's output type, or `Responded<…>` for the map form. |
+| `SentResponse<O, Response>`  | What the wrapper's product reports as its h3 `Response`.                                          |
+| `Respond<Outputs>`           | The Respond helper's signature, as the map-form second parameter carries it.                      |
+| `Responded<Outputs>`         | Its opaque result. Only `respond` can make one, which is what refuses a hand-written envelope.    |
+| `ResponseOutputOfHandler<T>` | Reads the Response-output brand off a handler type; `never` for `any` and for foreign handlers.   |
+
+And from `@dphonys/nuxt-handler-validation` itself, `ModuleOptions` -
+`{ checkResponses: boolean }`.
 
 **On the name.** `defineValidatedEventHandler` mirrors the _current_ vanilla
 `defineEventHandler`, so its role is obvious on sight. It is deliberately not
