@@ -7,6 +7,7 @@ import type {
 import type {
   DeclareSomething,
   IsAny,
+  IsStatusMap,
   ValidationSchemasGuard,
 } from './internal'
 
@@ -140,7 +141,7 @@ export type ValidatedContext<S extends ValidationSchemas, O = undefined> = {
 }
 
 /** `'respond'` for a status map, and no key at all for anything else. */
-type RespondKey<O> = [O] extends [ResponseOutputMap] ? 'respond' : never
+type RespondKey<O> = IsStatusMap<O> extends true ? 'respond' : never
 
 /**
  * The Request input: keys = declared sources, values = what the client sends.
@@ -158,13 +159,13 @@ export type RequestInput<S extends ValidationSchemas> = {
  * handler returns plainly, or a status map the handler answers through the
  * Respond helper.
  */
-export type ResponseOutput = StandardSchemaV1 | ResponseOutputMap
+export type ResponseOutput = StandardSchemaV1 | StatusMap
 
 /**
  * The map form: one HTTP success status per reply the route can send, each
  * carrying that reply's schema, or `null` for a status with no body at all.
  */
-export interface ResponseOutputMap {
+export interface StatusMap {
   readonly [status: number]: StandardSchemaV1 | null
 }
 
@@ -176,7 +177,7 @@ export interface ResponseOutputMap {
  */
 export type ResponseOutputs<O> = O extends StandardSchemaV1
   ? { 200: OutputOf<O> }
-  : O extends ResponseOutputMap
+  : IsStatusMap<O> extends true
     ? {
         [Status in keyof O]: O[Status] extends StandardSchemaV1
           ? OutputOf<O[Status]>
@@ -190,11 +191,11 @@ export type ResponseBodies<O> = ResponseOutputs<O>[keyof ResponseOutputs<O>]
 /**
  * What the handler must hand back: the schema's output for the bare form, the
  * Respond helper's result for the map form, and `unknown` when a route
- * declares no Response output, which constrains the return to nothing.
+ * declares no Response output, which constrains the return not at all.
  */
 export type HandlerReturn<O> = O extends StandardSchemaV1
   ? OutputOf<O>
-  : O extends ResponseOutputMap
+  : IsStatusMap<O> extends true
     ? Responded<ResponseOutputs<O>>
     : unknown
 
@@ -204,9 +205,8 @@ export type HandlerReturn<O> = O extends StandardSchemaV1
  * families see the bodies rather than the envelope carrying them; the
  * handler's own return for every other form.
  */
-export type SentResponse<O, Response> = [O] extends [ResponseOutputMap]
-  ? Promise<ResponseBodies<O>>
-  : Response
+export type SentResponse<O, Response> =
+  IsStatusMap<O> extends true ? Promise<ResponseBodies<O>> : Response
 
 // Module-private and never exported, so nothing outside this package can
 // fabricate a Respond helper's result: a handler that returns a plain value on

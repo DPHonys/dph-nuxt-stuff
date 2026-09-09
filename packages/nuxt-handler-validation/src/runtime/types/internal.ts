@@ -2,6 +2,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type {
   OutputOf,
   ResponseOutput,
+  StatusMap,
   ValidationSchemas,
   ValidationSource,
 } from './index'
@@ -81,8 +82,32 @@ type HasInput<S extends ValidationSchemas> = [keyof S] extends [never]
   ? false
   : true
 
-/** True when a Response output was declared. */
-type HasOutput<O> = [O] extends [ResponseOutput] ? true : false
+/**
+ * Whether `O` is a status map that declares a status. Bare `{}` satisfies the
+ * map's index signature vacuously, so the key check is what tells the map form
+ * from a declaration naming no reply at all - which is refused rather than
+ * handed an unanswerable `respond` whose status union is `never`. Every reader
+ * of the map form goes through this, so `{}` is the same non-declaration to
+ * `respond`, to the return type and to the guard below.
+ */
+// Exported for `types/index.ts` next door, which does not re-export it:
+// `/types` keeps no `IsStatusMap`.
+export type IsStatusMap<O> = [O] extends [StatusMap]
+  ? [keyof O] extends [never]
+    ? false
+    : true
+  : false
+
+/**
+ * True when a Response output was declared. The empty status map is the one
+ * shape that satisfies `ResponseOutput` while promising nothing; a declaration
+ * annotated with the public union declares an output as it always did.
+ */
+type HasOutput<O> = [O] extends [ResponseOutput]
+  ? [O] extends [StatusMap]
+    ? IsStatusMap<O>
+    : true
+  : false
 
 /**
  * A route must declare something: bare `{}` is an unsatisfiable property

@@ -18,6 +18,7 @@ import {
   requestReporting,
   schemaReturning,
   sourcesOfIssues,
+  untyped,
   wire,
 } from '../h3-app'
 
@@ -1031,12 +1032,12 @@ describe('a handler declaring a Response output as a status map', () => {
     // The declared schema strips and coerces; nothing runs it, so the answer
     // is the handler's own object, extra key included. What a plain-JavaScript
     // route file hands over: parsed, so the value is honestly untyped.
-    const untyped: unknown = wire('{"id":"1","extra":true}')
+    const parsed: unknown = wire('{"id":"1","extra":true}')
 
     const handler = defineValidatedEventHandler(
       { output: { 200: existing } },
       // @ts-expect-error - `unknown` is not the declared status's body type
-      (_event, { respond }) => respond(200, untyped)
+      (_event, { respond }) => respond(200, parsed)
     )
 
     const response = await request(handler, '/api/test')
@@ -1087,6 +1088,70 @@ describe('a handler declaring a Response output as a status map', () => {
     expect(thrown.message).toContain(
       'cannot send the response: a route declaring a status map must return the Respond helper’s result'
     )
+  })
+})
+
+describe('an `output` that names no reply', () => {
+  // Every declaration below is refused by the compile guard too; each is what a
+  // JavaScript caller, or a cast, can still write - and each would otherwise
+  // leave a route nobody could answer, so the runtime refuses it at route
+  // evaluation rather than at the first request.
+  const UNDECLARABLE =
+    '[nuxt-handler-validation] cannot declare the Response output:'
+
+  const source = z.object({ id: z.string() })
+
+  it('refuses an empty status map', () => {
+    // `{}` satisfies the map's index signature while promising no status, so
+    // `respond` would have had nothing to accept.
+    expect(() =>
+      defineValidatedEventHandler(wire('{"output":{}}'), () => null)
+    ).toThrow(`${UNDECLARABLE} an empty object names no reply`)
+  })
+
+  it('refuses an empty status map standing beside a declared source', () => {
+    // The other half being a real declaration is no reason to serve the route
+    // with an `output` the author believed they had declared.
+    expect(() =>
+      defineValidatedEventHandler(
+        { input: { query: source }, output: wire('{}') },
+        () => null
+      )
+    ).toThrow(`${UNDECLARABLE} an empty object names no reply`)
+  })
+
+  it('refuses an array, which is neither a schema nor a status map', () => {
+    expect(() =>
+      defineValidatedEventHandler(wire('{"output":[]}'), () => null)
+    ).toThrow(`${UNDECLARABLE} an array names no reply`)
+  })
+
+  it('refuses a function', () => {
+    expect(() =>
+      defineValidatedEventHandler({ output: untyped(() => null) }, () => null)
+    ).toThrow(`${UNDECLARABLE} a function names no reply`)
+  })
+
+  it('refuses a class instance, which no status map is', () => {
+    expect(() =>
+      defineValidatedEventHandler({ output: untyped(new Map()) }, () => null)
+    ).toThrow(`${UNDECLARABLE} an instance of Map names no reply`)
+  })
+
+  it('refuses a primitive', () => {
+    expect(() =>
+      defineValidatedEventHandler(wire('{"output":42}'), () => null)
+    ).toThrow(`${UNDECLARABLE} the primitive 42 names no reply`)
+  })
+
+  it('accepts a hand-written Standard Schema, plain object and all', () => {
+    // A schema is told apart by its `~standard` property, not by its
+    // prototype: the bare form accepts one written by hand.
+    const handWritten = schemaReturning({ value: undefined })
+
+    expect(() =>
+      defineValidatedEventHandler({ output: handWritten }, () => null)
+    ).not.toThrow()
   })
 })
 

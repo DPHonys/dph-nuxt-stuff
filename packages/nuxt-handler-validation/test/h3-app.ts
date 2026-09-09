@@ -10,7 +10,13 @@ import { z } from 'zod'
 
 // The mounting itself is the shared harness; what stays here is this
 // package's own failure shape.
-export { postJson, request, requestReporting } from '@dphonys/test-utils/h3-app'
+export {
+  postJson,
+  request,
+  requestReporting,
+  untyped,
+  wire,
+} from '@dphonys/test-utils/h3-app'
 
 /**
  * A schema handing back one fixed result - the door to the shapes the Standard
@@ -22,16 +28,6 @@ export function schemaReturning(
   return {
     '~standard': { version: 1, vendor: 'test', validate: () => result },
   }
-}
-
-/**
- * A value the types never saw - what a plain-JavaScript route file or a wire
- * hands over - as its JSON. Parsing is the one honest source of such a value:
- * `any` here is `JSON.parse`'s own answer, where every other spelling would be
- * a cast telling the compiler a lie.
- */
-export function wire(json: string): any {
-  return JSON.parse(json)
 }
 
 /**

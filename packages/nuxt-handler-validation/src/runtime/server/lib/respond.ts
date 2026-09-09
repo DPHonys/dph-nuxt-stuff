@@ -1,6 +1,7 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandlerResponse, H3Event } from 'h3'
 import { createError, setResponseStatus } from 'h3'
-import type { ResponseOutputMap } from '../../types'
+import type { ResponseOutput, StatusMap } from '../../types'
 
 // The runtime key on the envelope below, and the whole of what makes a value
 // the Respond helper's own: a plain object a handler wrote by hand carries no
@@ -38,17 +39,96 @@ export const respond: RespondFn = (status, ...body) => {
 }
 
 /** The context slot a map-form route gets, spread in beside its sources. */
-export const RESPOND_SLOT = { respond }
+const RESPOND_SLOT = { respond }
+
+/**
+ * How a route answers, resolved once when the route file is evaluated: the
+ * context slot the declaration earns, and the step that turns what the handler
+ * handed over into what the client receives.
+ */
+export interface ResponseDelivery {
+  /**
+   * The Respond helper's slot, spread into the Validated context, or
+   * `undefined` for a route the helper was never offered to - spreading
+   * `undefined` is what lets both wrappers build their context unconditionally.
+   */
+  readonly respondSlot: { readonly respond: RespondFn } | undefined
+  /**
+   * Unwrap the handler's return into what the client receives. Never a
+   * transform: what the handler handed over is what goes out.
+   */
+  send: (
+    event: H3Event,
+    returned: EventHandlerResponse
+  ) => Promise<EventHandlerResponse>
+}
+
+// A route that declared no Response output: no helper, and the handler's own
+// return passed straight through.
+const UNDECLARED: ResponseDelivery = {
+  respondSlot: undefined,
+  send: async (_event, returned) => returned,
+}
+
+/**
+ * Read a `output` declaration once, when the route file is evaluated, so a
+ * route pays nothing per request for the form it did not declare. Both
+ * wrappers resolve their declaration through here rather than each spelling
+ * the form test, the context slot and the send step for themselves.
+ *
+ * Refuses, at declaration time, an `output` that names no reply the handler
+ * could ever send: the compile guard's answer for a JavaScript caller.
+ */
+export function responseDelivery(
+  output: ResponseOutput | undefined
+): ResponseDelivery {
+  if (output === undefined) return UNDECLARED
+
+  if (declaresStatusMap(output)) {
+    if (Object.keys(output).length === 0) raiseUndeclarableOutput(output)
+
+    return {
+      respondSlot: RESPOND_SLOT,
+      send: (event, returned) => sendResponded(event, returned),
+    }
+  }
+
+  if (!declaresSchema(output)) raiseUndeclarableOutput(output)
+
+  return { respondSlot: undefined, send: async (_event, returned) => returned }
+}
 
 /**
  * Whether a declared Response output is the map form. The bare form is a
- * Standard Schema, which is what the map is told apart from: a status map
- * carries statuses, never a `~standard` property.
+ * Standard Schema, which is what the map is told apart from: a status map is a
+ * plain object of statuses, never one carrying a `~standard` property.
  */
-export function declaresStatusMap(
-  output: unknown
-): output is ResponseOutputMap {
-  return output instanceof Object && !('~standard' in output)
+// `ResponseOutput | undefined` rather than `unknown`: both callers hold exactly
+// that, and a parameter wider than every call site invites a fifth answer
+// nobody wrote. The prototype test comes first, because `in` on a primitive
+// throws - and it is also what turns away an array, a function and a `Map`,
+// each of which is an object without ever having been a status map.
+function declaresStatusMap(
+  output: ResponseOutput | undefined
+): output is StatusMap {
+  if (output === undefined || output === null) return false
+
+  const prototype: unknown = Object.getPrototypeOf(output)
+
+  if (prototype !== Object.prototype && prototype !== null) return false
+
+  return !('~standard' in output)
+}
+
+/**
+ * The bare form: anything carrying the Standard Schema property. Told apart by
+ * that property rather than by its prototype, because a hand-written Standard
+ * Schema is a plain object too.
+ */
+function declaresSchema(
+  output: ResponseOutput | undefined
+): output is StandardSchemaV1 {
+  return output instanceof Object && '~standard' in output
 }
 
 /**
@@ -56,10 +136,10 @@ export function declaresStatusMap(
  * value as the body. A status declared `null` sends `null`, which is h3's own
  * spelling for "no body" and keeps the status the helper named.
  */
-export function sendResponded(
+async function sendResponded(
   event: H3Event,
   returned: EventHandlerResponse
-): EventHandlerResponse {
+): Promise<EventHandlerResponse> {
   if (!isResponded(returned)) raiseUnrespondedReturn(returned)
 
   setResponseStatus(event, returned.status)
@@ -85,13 +165,32 @@ function raiseUnrespondedReturn(returned: EventHandlerResponse): never {
   })
 }
 
-// The shapes an author is likely to have returned, named as the author would
-// name them: what they believed they were sending.
-function describe(returned: EventHandlerResponse): string {
-  if (returned === null) return 'null'
-  if (returned === undefined) return 'undefined'
-  if (Array.isArray(returned)) return 'an array'
-  if (returned instanceof Object) return 'a plain object'
+// A plain `Error` rather than a `500`: this fires at route evaluation, where
+// there is no request to answer and the route never becomes servable.
+function raiseUndeclarableOutput(output: ResponseOutput): never {
+  throw new Error(
+    `[nuxt-handler-validation] cannot declare the Response output: ${describe(output)} names no reply the handler could send. ` +
+      `\`output\` holds a schema, for one 200 reply returned plainly, or a status map naming at least one status - drop the key instead of declaring it empty.`
+  )
+}
 
-  return `the primitive ${String(returned)}`
+// The shapes an author is likely to have written, named as the author would
+// name them: what they believed they had declared, or were sending.
+function describe(value: EventHandlerResponse | ResponseOutput): string {
+  if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
+  if (Array.isArray(value)) return 'an array'
+  if (value !== Object(value)) return `the primitive ${String(value)}`
+
+  const prototype: unknown = Object.getPrototypeOf(value)
+
+  // A function's own prototype, and every class's, lands here; `Function` is
+  // named on its own because "an instance of Function" reads as nothing.
+  if (prototype === Function.prototype) return 'a function'
+
+  if (prototype !== Object.prototype && prototype !== null) {
+    return `an instance of ${value.constructor.name || 'an anonymous class'}`
+  }
+
+  return Object.keys(value).length === 0 ? 'an empty object' : 'a plain object'
 }

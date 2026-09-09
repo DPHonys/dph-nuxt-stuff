@@ -107,12 +107,12 @@ describe('the published entries', () => {
     const failures = diagnosticsFor(
       [
         `import type { ModuleOptions } from '${MODULE_ENTRY}'`,
-        `import type { DeclareSomething, HandlerReturn, InputOf, MergedInput, MergedOutput, OutputOf, RequestInput, RequestInputOfHandler, Respond, Responded, ResponseBodies, ResponseOutput, ResponseOutputMap, ResponseOutputOfHandler, ResponseOutputs, SentResponse, SourceInput, SourceSchemas, SourceValue, ValidatedContext, ValidatedEventHandler, ValidatedHandlerOptions, ValidationDeclarationError, ValidationErrorData, ValidationIssue, ValidationSchemas, ValidationSchemasGuard, ValidationSource } from '${TYPES_ENTRY}'`,
+        `import type { DeclareSomething, HandlerReturn, InputOf, MergedInput, MergedOutput, OutputOf, RequestInput, RequestInputOfHandler, Respond, Responded, ResponseBodies, ResponseOutput, ResponseOutputOfHandler, ResponseOutputs, SentResponse, SourceInput, SourceSchemas, SourceValue, StatusMap, ValidatedContext, ValidatedEventHandler, ValidatedHandlerOptions, ValidationDeclarationError, ValidationErrorData, ValidationIssue, ValidationSchemas, ValidationSchemasGuard, ValidationSource } from '${TYPES_ENTRY}'`,
         `import { defineValidatedEventHandler, recognizeValidationError } from '${SERVER_ENTRY}'`,
-        `import { declaresStatusMap, raiseValidationError, RESPOND_SLOT, sendResponded, sourcePlan, validatedContext } from '${INTERNALS_SERVER_ENTRY}'`,
-        `import type { OnInvalid, SourcePlan, ValidatedContextOptions } from '${INTERNALS_SERVER_ENTRY}'`,
+        `import { raiseValidationError, responseDelivery, sourcePlan, validatedContext } from '${INTERNALS_SERVER_ENTRY}'`,
+        `import type { OnInvalid, ResponseDelivery, SourcePlan, ValidatedContextOptions } from '${INTERNALS_SERVER_ENTRY}'`,
         `import { markValidationError, readValidationMarker, VALIDATION_ERROR_KEY } from '${INTERNALS_SHARED_ENTRY}'`,
-        `export type Probe = [ModuleOptions, ValidationSchemas, SourceSchemas, ValidationSource, ValidatedContext<ValidationSchemas>, SourceValue<SourceSchemas>, MergedOutput<readonly []>, OutputOf<SourceSchemas>, InputOf<SourceSchemas>, MergedInput<readonly []>, SourceInput<SourceSchemas>, RequestInput<ValidationSchemas>, ValidatedEventHandler, RequestInputOfHandler<unknown>, ResponseOutput, ResponseOutputMap, HandlerReturn<undefined>, ResponseOutputs<undefined>, ResponseBodies<undefined>, SentResponse<undefined, unknown>, Responded<ResponseOutputMap>, Respond<ResponseOutputMap>, ResponseOutputOfHandler<unknown>, ValidatedHandlerOptions<ValidationSchemas, undefined>, DeclareSomething<ValidationSchemas, undefined>, ValidationSchemasGuard<ValidationSchemas>, ValidationDeclarationError<ValidationSource>, ValidationIssue, ValidationErrorData, typeof defineValidatedEventHandler, typeof recognizeValidationError, typeof raiseValidationError, typeof sourcePlan, typeof validatedContext, typeof declaresStatusMap, typeof RESPOND_SLOT, typeof sendResponded, OnInvalid, SourcePlan, ValidatedContextOptions, typeof markValidationError, typeof readValidationMarker, typeof VALIDATION_ERROR_KEY]`,
+        `export type Probe = [ModuleOptions, ValidationSchemas, SourceSchemas, ValidationSource, ValidatedContext<ValidationSchemas>, SourceValue<SourceSchemas>, MergedOutput<readonly []>, OutputOf<SourceSchemas>, InputOf<SourceSchemas>, MergedInput<readonly []>, SourceInput<SourceSchemas>, RequestInput<ValidationSchemas>, ValidatedEventHandler, RequestInputOfHandler<unknown>, ResponseOutput, StatusMap, HandlerReturn<undefined>, ResponseOutputs<undefined>, ResponseBodies<undefined>, SentResponse<undefined, unknown>, Responded<StatusMap>, Respond<StatusMap>, ResponseOutputOfHandler<unknown>, ValidatedHandlerOptions<ValidationSchemas, undefined>, DeclareSomething<ValidationSchemas, undefined>, ValidationSchemasGuard<ValidationSchemas>, ValidationDeclarationError<ValidationSource>, ValidationIssue, ValidationErrorData, typeof defineValidatedEventHandler, typeof recognizeValidationError, typeof raiseValidationError, typeof sourcePlan, typeof validatedContext, typeof responseDelivery, ResponseDelivery, OnInvalid, SourcePlan, ValidatedContextOptions, typeof markValidationError, typeof readValidationMarker, typeof VALIDATION_ERROR_KEY]`,
       ].join('\n')
     )
 
@@ -129,12 +129,8 @@ describe('the published entries', () => {
       ['validatedContext', SERVER_ENTRY],
       ['raiseValidationError', MODULE_ENTRY],
       ['raiseValidationError', SERVER_ENTRY],
-      ['declaresStatusMap', MODULE_ENTRY],
-      ['declaresStatusMap', SERVER_ENTRY],
-      ['RESPOND_SLOT', MODULE_ENTRY],
-      ['RESPOND_SLOT', SERVER_ENTRY],
-      ['sendResponded', MODULE_ENTRY],
-      ['sendResponded', SERVER_ENTRY],
+      ['responseDelivery', MODULE_ENTRY],
+      ['responseDelivery', SERVER_ENTRY],
       ['markValidationError', MODULE_ENTRY],
       ['markValidationError', SERVER_ENTRY],
       ['readValidationMarker', MODULE_ENTRY],
@@ -146,6 +142,8 @@ describe('the published entries', () => {
     const internalTypes = [
       ['OnInvalid', MODULE_ENTRY],
       ['OnInvalid', SERVER_ENTRY],
+      ['ResponseDelivery', MODULE_ENTRY],
+      ['ResponseDelivery', SERVER_ENTRY],
       ['SourcePlan', MODULE_ENTRY],
       ['SourcePlan', SERVER_ENTRY],
       ['ValidatedContextOptions', MODULE_ENTRY],

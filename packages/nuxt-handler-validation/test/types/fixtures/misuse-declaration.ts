@@ -116,6 +116,17 @@ export const declaresNothing = defineValidatedEventHandler(
   async (_event, _validated) => null
 )
 
+// --- An `output` naming no reply declares nothing either ------------------
+
+// `{}` satisfies the status map's index signature while promising no status,
+// so it is no more a declaration than the bare options above - and the same
+// guard turns it away, rather than leaving a route whose `respond` accepts no
+// status at all.
+export const emptyStatusMap = defineValidatedEventHandler(
+  { output: {} },
+  async (_event, _validated) => null
+)
+
 // --- A return that is not the declared output is refused ------------------
 
 const user = z.object({ id: z.string(), name: z.string() })

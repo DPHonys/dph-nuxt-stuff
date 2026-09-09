@@ -47,7 +47,7 @@ describe('the declaration guard’s diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(13)
+    expect(diagnostics).toHaveLength(14)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -153,6 +153,17 @@ describe('the declaration guard’s diagnostics', () => {
     expect(bare?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
     expect(bare?.message).toContain('__declareSomething__')
     expect(bare?.line).toBe(lineContaining(FIXTURE, '  {},'))
+  })
+
+  it('refuses an `output` that names no reply, in the same sentence', () => {
+    // `{}` satisfies the status map's index signature vacuously, so without
+    // the key check it would pass the guard and hand the handler a `respond`
+    // whose status union is `never` - a route nobody could answer.
+    const [, emptyMap] = saying(diagnostics, DECLARE_SOMETHING)
+
+    expect(emptyMap?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(emptyMap?.message).toContain('__declareSomething__')
+    expect(emptyMap?.line).toBe(lineContaining(FIXTURE, '{ output: {} },'))
   })
 
   it('refuses a return that is not the declared Response output', () => {

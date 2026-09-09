@@ -66,6 +66,26 @@ export async function requestReporting(
 }
 
 /**
+ * A value the types never saw - what a plain-JavaScript route file or a wire
+ * hands over - as its JSON. Parsing is the one honest source of such a value:
+ * `any` here is `JSON.parse`'s own answer, where every other spelling would be
+ * a cast telling the compiler a lie.
+ */
+export function wire(json: string): any {
+  return JSON.parse(json)
+}
+
+/**
+ * A value handed over as the types never saw it - what a cast, or a plain
+ * JavaScript route file, produces for a shape `wire` cannot spell as JSON: a
+ * function, a class instance. `any` is the honest spelling; a chained
+ * assertion at every call site would say the same thing, less readably.
+ */
+export function untyped<T>(value: T): any {
+  return value
+}
+
+/**
  * A POST carrying an already-serialized payload. Typed structurally rather
  * than as `RequestInit`, because it is handed to `fetch` and to ofetch's
  * `$fetch` alike.

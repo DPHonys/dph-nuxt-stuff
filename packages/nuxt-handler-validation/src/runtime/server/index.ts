@@ -13,7 +13,7 @@ import type {
   ValidationErrorData,
   ValidationSchemas,
 } from '../types'
-import { declaresStatusMap, RESPOND_SLOT, sendResponded } from './lib/respond'
+import { responseDelivery } from './lib/respond'
 import { sourcePlan, validatedContext } from './lib/validate'
 
 /**
@@ -36,7 +36,7 @@ import { sourcePlan, validatedContext } from './lib/validate'
  * status declared `null`, which sends no body - with the status and the value
  * checked together. Nothing runs the schema either way, so what the handler
  * hands over is what the client receives. Either half alone is a declaration;
- * `{}` is neither, and is refused.
+ * an `output` naming no reply is neither, and is refused.
  */
 // Every type parameter carries a default, because both halves of the
 // declaration are optional: `S` has to read `{}` rather than the whole
@@ -76,8 +76,9 @@ export function defineValidatedEventHandler<
   }
 
   // Read once, when the route file is evaluated: a bare-form or output-less
-  // route pays nothing per request for a helper it was never offered.
-  const respondsWithStatus = declaresStatusMap(options.output)
+  // route pays nothing per request for a helper it was never offered, and an
+  // `output` naming no reply at all is refused here rather than served.
+  const delivery = responseDelivery(options.output)
 
   // SAFETY: `defineEventHandler` types its product by the one promise the
   // wrapper always returns, while the public signature reports the handler's
@@ -94,12 +95,13 @@ export function defineValidatedEventHandler<
     // what lets a handler decorate its own context. `respond` joins them
     // exactly when `O` is the status map that offers it. Those halves are
     // `ValidatedContext<S, O>` by definition.
-    const context = (
-      respondsWithStatus ? { ...sources, ...RESPOND_SLOT } : sources
-    ) as ValidatedContext<S, O>
+    const context = { ...sources, ...delivery.respondSlot } as ValidatedContext<
+      S,
+      O
+    >
     const returned = await handler(event, context)
 
-    return respondsWithStatus ? sendResponded(event, returned) : returned
+    return delivery.send(event, returned)
   }) as ValidatedEventHandler<
     Request,
     SentResponse<O, Response>,
