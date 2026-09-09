@@ -23,8 +23,8 @@ declare function updateUser(
 export function everydayRoute(): void {
   const handler = defineValidatedEventHandler(
     {
-      validate: {
-        routerParams: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
+      input: {
+        route: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
         query: z.object({ page: z.coerce.number() }),
         body: z.object({
           name: z.string(),
@@ -32,12 +32,12 @@ export function everydayRoute(): void {
         }),
       },
     },
-    async (_event, { routerParams, query, body }) => {
-      type _routerParams = Assert<Equal<typeof routerParams, { id: number }>>
+    async (_event, { route, query, body }) => {
+      type _route = Assert<Equal<typeof route, { id: number }>>
       type _query = Assert<Equal<typeof query, { page: number }>>
       type _body = Assert<Equal<typeof body, { name: string; tags: string[] }>>
 
-      const updated = await updateUser(routerParams.id, body)
+      const updated = await updateUser(route.id, body)
       return { ...updated, page: query.page }
     }
   )
@@ -54,7 +54,7 @@ export function everydayRoute(): void {
 
 export function loneSchemaOutput(): void {
   defineValidatedEventHandler(
-    { validate: { body: z.string().transform((s) => s.length) } },
+    { input: { body: z.string().transform((s) => s.length) } },
     async (_event, { body }) => {
       type _primitiveOutput = Assert<Equal<typeof body, number>>
       return body
@@ -67,7 +67,7 @@ export function loneSchemaOutput(): void {
 export function unionOutput(): void {
   defineValidatedEventHandler(
     {
-      validate: {
+      input: {
         body: z.union([
           z.object({ kind: z.literal('a'), a: z.number() }),
           z.object({ kind: z.literal('b'), b: z.string() }),

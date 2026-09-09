@@ -6,7 +6,7 @@ import { z } from 'zod'
  */
 export default defineValidatedEventHandler(
   {
-    validate: {
+    input: {
       body: z.object({
         name: z.string().min(1, 'name is required'),
         age: z.number().min(18, 'age must be at least 18'),

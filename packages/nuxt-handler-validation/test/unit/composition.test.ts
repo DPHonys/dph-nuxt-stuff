@@ -61,11 +61,11 @@ function schemaReportingNothing<Output>(): StandardSchemaV1<unknown, Output> {
  * callers hand over came off the wire, which the types never saw.
  */
 interface Declaring {
-  validate: { query: StandardSchemaV1 }
+  input: { query: StandardSchemaV1 }
 }
 
 function declaring(slot: StandardSchemaV1): Declaring {
-  return { validate: { query: slot } }
+  return { input: { query: slot } }
 }
 
 /** A query both units above reject: a bad `page`, a missing `size`, a bad `sort`. */
@@ -88,7 +88,7 @@ async function sortedIssuesOf(response: Response): Promise<string[]> {
 describe('a source composed from a tuple', () => {
   it('validates every element against the raw source and merges their outputs', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { query: [pagination, sorting] } },
+      { input: { query: [pagination, sorting] } },
       (event, { query }) => ({
         page: query.page,
         size: query.size,
@@ -112,7 +112,7 @@ describe('a source composed from a tuple', () => {
 describe('a failing element of a tuple', () => {
   it('does not stop the elements after it - every issue arrives together', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { query: [pagination, sorting] } },
+      { input: { query: [pagination, sorting] } },
       () => 'the body never runs'
     )
 
@@ -132,14 +132,14 @@ describe('a failing element of a tuple', () => {
   it('reports the same issue set whichever order the tuple was written in', async () => {
     const written = await request(
       defineValidatedEventHandler(
-        { validate: { query: [pagination, sorting] } },
+        { input: { query: [pagination, sorting] } },
         () => 'the body never runs'
       ),
       SPOILED
     )
     const reordered = await request(
       defineValidatedEventHandler(
-        { validate: { query: [sorting, pagination] } },
+        { input: { query: [sorting, pagination] } },
         () => 'the body never runs'
       ),
       SPOILED
@@ -169,14 +169,14 @@ describe('the merge of a tuple’s outputs', () => {
 
     const written = await request(
       defineValidatedEventHandler(
-        { validate: { query: [first, second] } },
+        { input: { query: [first, second] } },
         (event, { query }) => ({ ...query })
       ),
       '/api/test'
     )
     const reordered = await request(
       defineValidatedEventHandler(
-        { validate: { query: [second, first] } },
+        { input: { query: [second, first] } },
         (event, { query }) => ({ ...query })
       ),
       '/api/test'
@@ -205,7 +205,7 @@ describe('the merge of a tuple’s outputs', () => {
     const benign = schemaOutputting<{ size: number }>(() => ({ size: 2 }))
 
     const handler = defineValidatedEventHandler(
-      { validate: { query: [polluting, benign] } },
+      { input: { query: [polluting, benign] } },
       (event, { query }) => ({
         // `in` walks the prototype chain, which is exactly what a swapped
         // prototype would show up on.
@@ -236,7 +236,7 @@ describe('the merge of a tuple’s outputs', () => {
     })
 
     const handler = defineValidatedEventHandler(
-      { validate: { query: [slow, quick] } },
+      { input: { query: [slow, quick] } },
       (event, { query }) => ({ ...query })
     )
 
@@ -253,7 +253,7 @@ describe('an element output the merge cannot take', () => {
   it('is a 500 naming the source and the element position', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: [
             schemaOutputting<{ page: number }>(() => ({ page: 1 })),
             schemaOutputting<{ tag: string }>(() => 'not an object at all'),
@@ -273,7 +273,7 @@ describe('an element output the merge cannot take', () => {
   it('carries no marker, so an observability hook still reports it', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: [
             schemaOutputting<{ page: number }>(() => ({ page: 1 })),
             schemaOutputting<{ tag: string }>(() => 'not an object at all'),
@@ -296,7 +296,7 @@ describe('an element output the merge cannot take', () => {
     // keys, so a spread would drop it silently.
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: [
             schemaOutputting<{ page: number }>(() => ({ page: 1 })),
             schemaOutputting<Date>(() => new Date()),
@@ -317,7 +317,7 @@ describe('an element that reports neither an output nor an issue', () => {
   /** The offending element, composed beside one that behaves. */
   const handler = defineValidatedEventHandler(
     {
-      validate: {
+      input: {
         query: [
           schemaOutputting<{ page: number }>(() => ({ page: 1 })),
           schemaReportingNothing<{ tag: string }>(),
@@ -350,7 +350,7 @@ describe('an element that reports neither an output nor an issue', () => {
     const response = await request(
       defineValidatedEventHandler(
         {
-          validate: {
+          input: {
             query: [schemaReportingNothing<{ page: number }>(), sorting],
           },
         },
@@ -398,7 +398,7 @@ describe('a source slot holding something that is not a schema', () => {
   it('names the offending element of a composed tuple', () => {
     expect(() =>
       defineValidatedEventHandler(
-        { validate: { query: [pagination, wire('{ "parse": "not it" }')] } },
+        { input: { query: [pagination, wire('{ "parse": "not it" }')] } },
         () => 'never evaluated'
       )
     ).toThrowError('cannot validate query: the value at index 1')
@@ -437,14 +437,14 @@ describe('a lone element', () => {
 
     const bare = await request(
       defineValidatedEventHandler(
-        { validate: { query: schema } },
+        { input: { query: schema } },
         (event, { query }) => ({ page: query.page })
       ),
       '/api/test?page=2'
     )
     const tupled = await request(
       defineValidatedEventHandler(
-        { validate: { query: [schema] } },
+        { input: { query: [schema] } },
         (event, { query }) => ({ page: query.page })
       ),
       '/api/test?page=2'
@@ -463,7 +463,7 @@ describe('a lone element', () => {
     ])
 
     const handler = defineValidatedEventHandler(
-      { validate: { query: [pageOrAll] } },
+      { input: { query: [pageOrAll] } },
       (event, { query }) => ({ query })
     )
 

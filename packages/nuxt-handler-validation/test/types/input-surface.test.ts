@@ -23,7 +23,7 @@ const csvTags = z.object({ tags: z.string().transform((s) => s.split(',')) })
 
 /** The everyday declaration: one of each slot shape, with a transform in each. */
 const declaration = {
-  routerParams: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
+  route: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
   query: [pagination, sorting],
   body: csvTags,
 } as const
@@ -68,7 +68,7 @@ export function requestInputKeys(): void {
     Equal<
       RequestInput<typeof declaration>,
       {
-        routerParams: { id: string }
+        route: { id: string }
         query: { page: number; sort: 'asc' | 'desc' }
         body: { tags: string }
       }
@@ -89,8 +89,8 @@ export function requestInputKeys(): void {
 
 export function brandedHandler(): void {
   const handler = defineValidatedEventHandler(
-    { validate: declaration },
-    async (_event, { routerParams }) => ({ id: routerParams.id })
+    { input: declaration },
+    async (_event, { route }) => ({ id: route.id })
   )
 
   // Still the plain h3 `EventHandler` every call site accepted before.
@@ -121,7 +121,7 @@ export function brandedHandler(): void {
     Equal<
       RequestInputOfHandler<typeof handler>,
       {
-        routerParams: { id: string }
+        route: { id: string }
         query: { page: number; sort: 'asc' | 'desc' }
         body: { tags: string }
       }
@@ -129,19 +129,16 @@ export function brandedHandler(): void {
   >
 }
 
-// --- A route validating only routerParams carries no body or query key ----
+// --- A route validating only `route` carries no body or query key ---
 
-export function routerParamsOnly(): void {
+export function routeOnly(): void {
   const _handler = defineValidatedEventHandler(
-    { validate: { routerParams: z.object({ id: z.string() }) } },
-    async (_event, { routerParams }) => routerParams.id
+    { input: { route: z.object({ id: z.string() }) } },
+    async (_event, { route }) => route.id
   )
 
   type _keys = Assert<
-    Equal<
-      RequestInputOfHandler<typeof _handler>,
-      { routerParams: { id: string } }
-    >
+    Equal<RequestInputOfHandler<typeof _handler>, { route: { id: string } }>
   >
 }
 

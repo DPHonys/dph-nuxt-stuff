@@ -12,7 +12,7 @@ const userErrors = defineError({
 /** Both halves declared: the generated map keys this route in both slots. */
 export default defineTypedEventHandler(
   {
-    validate: { body: createUser, query: pagination },
+    input: { body: createUser, query: pagination },
     errors: [...userErrors],
   },
   (_event, { body, query, errors }) => {

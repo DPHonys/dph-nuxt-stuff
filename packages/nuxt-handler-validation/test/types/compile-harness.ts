@@ -25,7 +25,6 @@ export const PROPERTY_DOES_NOT_EXIST = 2339
  * plain assignability code its composed siblings use.
  */
 export const NOT_ASSIGNABLE_EXACT_OPTIONAL = 2375
-export const WRONG_TYPE_ARGUMENT_COUNT = 2558
 
 export interface Diagnostic {
   readonly code: number

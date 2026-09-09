@@ -11,6 +11,6 @@ const claimsAnObject = z.preprocess(
 
 /** A deliberate mistake: the package answers `500`, and marks nothing. */
 export default defineValidatedEventHandler(
-  { validate: { query: [z.object({ q: z.string() }), claimsAnObject] } },
+  { input: { query: [z.object({ q: z.string() }), claimsAnObject] } },
   () => ({ unreachable: true })
 )

@@ -75,10 +75,10 @@ describe('handler-local error factories', () => {
   it('combines all validated sources with factories and preserves success', async () => {
     const handler = defineTypedEventHandler(
       {
-        validate: {
+        input: {
           body: z.object({ name: z.string() }),
           query: z.object({ page: z.string().transform(Number) }),
-          routerParams: z.object({ id: z.string() }),
+          route: z.object({ id: z.string() }),
           headers: z.object({ token: z.string() }),
         },
         errors: [
@@ -96,7 +96,7 @@ describe('handler-local error factories', () => {
           keys: Object.keys(ctx).toSorted(),
           name: ctx.body.name,
           page: ctx.query.page,
-          id: ctx.routerParams.id,
+          id: ctx.route.id,
           token: ctx.headers.token,
         }
       }
@@ -107,7 +107,7 @@ describe('handler-local error factories', () => {
     }
     const success = await request(handler, '/api/test/42?page=1', options)
     await expect(success.json()).resolves.toEqual({
-      keys: ['body', 'errors', 'headers', 'query', 'routerParams'],
+      keys: ['body', 'errors', 'headers', 'query', 'route'],
       name: 'Ada',
       page: 1,
       id: '42',
@@ -129,7 +129,7 @@ describe('handler-local error factories', () => {
   it('preserves composed source merging alongside factories', async () => {
     const handler = defineTypedEventHandler(
       {
-        validate: {
+        input: {
           query: [
             z.object({ page: z.string().transform(Number) }),
             z.object({ search: z.string() }),
@@ -150,7 +150,7 @@ describe('handler-local error factories', () => {
     const body = vi.fn(() => null)
     const handler = defineTypedEventHandler(
       {
-        validate: { body: z.string() },
+        input: { body: z.string() },
         errors: [defineError('missing', { status: 404 })],
       },
       body
@@ -240,13 +240,13 @@ describe('handler-local error factories', () => {
     expect(() =>
       // @ts-expect-error - declares nothing
       defineTypedEventHandler({ errors: [] }, () => null)
-    ).toThrow('needs validate, errors, or both')
+    ).toThrow('must declare input, errors, output, or any combination')
     expect(() =>
       // @ts-expect-error - declares nothing
-      defineTypedEventHandler({ validate: {}, errors: [] }, () => null)
-    ).toThrow('needs validate, errors, or both')
+      defineTypedEventHandler({ input: {}, errors: [] }, () => null)
+    ).toThrow('must declare input, errors, output, or any combination')
     const handler = defineTypedEventHandler(
-      { validate: { query: z.object({}) }, errors: [] },
+      { input: { query: z.object({}) }, errors: [] },
       (_event, ctx) => Object.keys(ctx).sort()
     )
     await expect((await request(handler, '/api/test')).json()).resolves.toEqual(

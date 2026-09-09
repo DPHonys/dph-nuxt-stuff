@@ -15,3 +15,19 @@ export const pagination = z.object({
 export const sorting = z.object({
   sort: z.enum(['asc', 'desc'], 'sort must be asc or desc'),
 })
+
+/** A route param, coerced from the string the path always carries. */
+export const orderRef = z.object({
+  id: z
+    .string()
+    .regex(/^\d+$/, 'order id must be a whole number')
+    .transform(Number),
+})
+
+/** Whether the status-map route should answer with its bodiless status. */
+export const draftIntent = z.object({
+  discard: z.literal('yes').optional(),
+})
+
+/** The body the status-map route's `201` promises. */
+export const draftRef = z.object({ id: z.string() })

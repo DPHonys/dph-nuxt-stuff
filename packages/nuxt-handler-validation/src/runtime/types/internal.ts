@@ -1,5 +1,11 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { OutputOf, ValidationSource } from './index'
+import type {
+  OutputOf,
+  ResponseOutput,
+  StatusMap,
+  ValidationSchemas,
+  ValidationSource,
+} from './index'
 
 /**
  * A rule the declaration broke. Nothing the author wrote can satisfy it, so the
@@ -71,8 +77,59 @@ type ComposableSlot<T> = T extends readonly [StandardSchemaV1]
       : ValidationDeclarationError<'every schema composed on one source must produce an object output - not a primitive, an array or a function'>
     : unknown
 
+/** True when the declaration guarantees at least one Validation source. */
+type HasInput<S extends ValidationSchemas> = [keyof S] extends [never]
+  ? false
+  : true
+
 /**
- * The guard the `validate` parameter intersects with, so a misspelled key
+ * Whether `O` is a status map that declares a status. Bare `{}` satisfies the
+ * map's index signature vacuously, so the key check is what tells the map form
+ * from a declaration naming no reply at all - which is refused rather than
+ * handed an unanswerable `respond` whose status union is `never`. Every reader
+ * of the map form goes through this, so `{}` is the same non-declaration to
+ * `respond`, to the return type and to the guard below.
+ */
+// Exported for `types/index.ts` next door, which does not re-export it:
+// `/types` keeps no `IsStatusMap`.
+export type IsStatusMap<O> = [O] extends [StatusMap]
+  ? [keyof O] extends [never]
+    ? false
+    : true
+  : false
+
+/**
+ * True when a Response output was declared. The empty status map is the one
+ * shape that satisfies `ResponseOutput` while promising nothing; a declaration
+ * annotated with the public union declares an output as it always did.
+ */
+type HasOutput<O> = [O] extends [ResponseOutput]
+  ? [O] extends [StatusMap]
+    ? IsStatusMap<O>
+    : true
+  : false
+
+/**
+ * A route must declare something: bare `{}` is an unsatisfiable property
+ * naming the halves it could have declared. The message is a parameter so the
+ * umbrella, which has a third half of its own, composes this guard with its
+ * own sentence rather than reinventing the rule.
+ */
+export type DeclareSomething<
+  S extends ValidationSchemas,
+  O,
+  Msg extends string = 'declare input, output, or both',
+> =
+  HasInput<S> extends true
+    ? // eslint-disable-next-line ts/no-empty-object-type
+      {}
+    : HasOutput<O> extends true
+      ? // eslint-disable-next-line ts/no-empty-object-type
+        {}
+      : { __declareSomething__: Msg }
+
+/**
+ * The guard the `input` parameter intersects with, so a misspelled key
  * beside a valid one is a compile error at that key rather than a source that
  * silently never validates.
  */
@@ -80,6 +137,6 @@ export type ValidationSchemasGuard<S> = {
   [K in keyof S]: K extends ValidationSource
     ? ComposableSlot<S[K]>
     : K extends string
-      ? ValidationDeclarationError<`'${K}' is not a validation source - the sources are routerParams, query, headers and body`>
+      ? ValidationDeclarationError<`'${K}' is not a validation source - the sources are route, query, headers and body`>
       : never
 }

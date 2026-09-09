@@ -13,7 +13,7 @@ import type { RequestInputOfHandler } from '../../../src/runtime/types'
 
 export const strayKeyBranded = defineValidatedEventHandler(
   {
-    validate: {
+    input: {
       query: z.object({ page: z.coerce.number() }),
       boyd: z.object({ name: z.string() }),
     },

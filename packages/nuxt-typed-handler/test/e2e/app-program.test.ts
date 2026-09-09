@@ -34,15 +34,20 @@ const SERVER_TSCONFIG = join(PLAYGROUND, '.nuxt/tsconfig.server.json')
 const APP_PROBE_SOURCE = [
   `import type { KnownApiErrors } from '@dphonys/nuxt-handler-errors/types'`,
   `import type { KnownApiRequestInputs } from '@dphonys/nuxt-typed-handler/types'`,
+  `import type { InternalApi } from 'nitropack/types'`,
   `import { useTypedFetch } from '#imports'`,
+  ``,
+  // Nitro's own generated route type for a status-map route, read the way
+  // Nitro's typed routes and both fetch families read it.
+  `export type StatusMapRoute = InternalApi['/api/drafts']['post']`,
   ``,
   // The route declaring both halves: one key in each map, read one at a time.
   `export type BothErrors = KnownApiErrors['/api/users']['post']`,
   `export type BothInput = KnownApiRequestInputs['/api/users']['post']`,
   ``,
-  // The `validate`-only route, whose query is composed from two schemas.
+  // The `input`-only route, whose query is composed from two schemas.
   `export type TupleQueryInput = KnownApiRequestInputs['/api/search']['get']`,
-  `export type ValidateOnlyErrors = KnownApiErrors['/api/search']['get']`,
+  `export type InputOnlyErrors = KnownApiErrors['/api/search']['get']`,
   ``,
   // Unbranded, and keyed anyway - what makes both lookups total.
   `export type UnbrandedErrors = KnownApiErrors['/api/legacy']['get']`,
@@ -172,11 +177,23 @@ describe('both maps, rendered in the app program', () => {
     expect(compilation.renderHover('BothInput')).not.toContain('tag:')
   })
 
-  it('answers a `validate`-only route with the built-in variant alone', () => {
-    const rendered = appProgram().renderHover('ValidateOnlyErrors')
+  it('answers an `input`-only route with the built-in variant alone', () => {
+    const rendered = appProgram().renderHover('InputOnlyErrors')
 
     expect(rendered).toContain('"validation-failed"')
     expect(rendered).not.toContain('"user-exists"')
+  })
+
+  it('renders a status-map route as the union of its mapped bodies', () => {
+    const rendered = appProgram().renderHover('StatusMapRoute')
+
+    // The bodies the map declares, the bodiless status's `null` beside them,
+    // and no trace of the envelope the handler answered through.
+    expect(rendered).toContain('id: string')
+    expect(rendered).toContain('createdAt: string')
+    expect(rendered).toContain('null')
+    expect(rendered).not.toContain('Responded')
+    expect(rendered).not.toContain('respondedWith')
   })
 
   it('extracts nothing from an unbranded route in either map', () => {

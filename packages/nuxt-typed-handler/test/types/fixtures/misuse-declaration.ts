@@ -33,7 +33,7 @@ export const bare = defineTypedEventHandler({}, () => null)
 
 export const failReserved = defineTypedEventHandler(
   {
-    validate: { query: z.object({ page: z.coerce.number() }) },
+    input: { query: z.object({ page: z.coerce.number() }) },
     errors: [...userErrors],
   },
   (_event, { errors }) => {
@@ -45,7 +45,7 @@ export const failReserved = defineTypedEventHandler(
 
 export const strayKey = defineTypedEventHandler(
   {
-    validate: {
+    input: {
       query: z.object({ page: z.coerce.number() }),
       boyd: z.object({ name: z.string() }),
     },
@@ -62,4 +62,47 @@ export const camelTag = defineError({ userGone: { status: 410 } })
 export const divergentTag = defineTypedEventHandler(
   { errors: [...userErrors, ...conflicting] },
   () => null
+)
+
+// --- A return that is not the declared output is refused ------------------
+
+// The forwarded `output` constrains the handler's plain return to the schema's
+// output type; the parent owns the rule, and it fires through the umbrella.
+export const wrongResponse = defineTypedEventHandler(
+  { output: z.object({ id: z.string() }) },
+  () => Number(42)
+)
+
+// --- The old `validate` key is gone, with no alias ------------------------
+
+// The rename to `input` is a clean break: `validate` is an unknown key on the
+// options object, and that unknown key is what the compiler reports here - the
+// "declare something" guard goes unsatisfied too, but only the unknown key is
+// reported, which is what the suite next door asserts.
+export const legacyValidateKey = defineTypedEventHandler(
+  { validate: { query: z.object({ page: z.coerce.number() }) } },
+  () => null
+)
+
+// --- The old `routerParams` source name is gone, with no alias ------------
+
+// The rename to `route` is a clean break too: the validation parent's
+// stray-key sentence fires at the old name, through the umbrella.
+export const legacyRouterParamsKey = defineTypedEventHandler(
+  {
+    input: {
+      query: z.object({ page: z.coerce.number() }),
+      routerParams: z.object({ id: z.string() }),
+    },
+  },
+  () => null
+)
+
+// --- A map-form output is answered through `respond`, here too ------------
+
+// The parent's rule, fired through the umbrella: a status map declares how the
+// handler answers, and a bare value names no status.
+export const plainReturnOnMap = defineTypedEventHandler(
+  { output: { 201: z.object({ id: z.string() }) } },
+  () => ({ id: '1' })
 )

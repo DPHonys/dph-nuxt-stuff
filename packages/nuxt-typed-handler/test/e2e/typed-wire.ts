@@ -35,6 +35,13 @@ const BAD_PAGE: ValidationIssue = {
   path: ['page'],
 }
 
+/** What `/api/orders/nope` produces - the first source in the fail-fast order. */
+const BAD_ORDER_ID: ValidationIssue = {
+  source: 'route',
+  message: 'order id must be a whole number',
+  path: ['id'],
+}
+
 /** The validation parent's own wording for a body the request made unreadable. */
 const UNPARSEABLE_BODY: ValidationIssue = {
   source: 'body',
@@ -97,6 +104,17 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     expect(body.statusMessage).not.toBe('validation-failed')
   })
 
+  it('carries a rejected route param through under the source name `route`', async () => {
+    const response = await fetch('/api/orders/nope', { headers: firstParty })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual(variantBody([BAD_ORDER_ID]))
+  })
+
+  it('hands the validated route params over as `route`', async () => {
+    expect(await $fetch('/api/orders/42')).toEqual({ id: 42 })
+  })
+
   it('strips the marker for a third party and leaves data.issues', async () => {
     const response = await fetch('/api/search?page=nope', {
       headers: thirdParty,
@@ -110,7 +128,7 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     expect(body.data).toEqual({ issues: [BAD_PAGE] })
   })
 
-  it('serves a `validate`-only route the parent’s context', async () => {
+  it('serves an `input`-only route the parent’s context', async () => {
     expect(await $fetch('/api/search?page=3')).toEqual({ page: 3, hits: [] })
   })
 
@@ -159,6 +177,25 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
         postJson(JSON.stringify({ name: 'Ada', email: 'ada@example.com' }))
       )
     ).toEqual({ created: 'Ada' })
+  })
+
+  it('answers a status-map route under the status the handler responded with', async () => {
+    const created = await fetch('/api/drafts?answer=created', {
+      method: 'POST',
+    })
+
+    expect(created.status).toBe(201)
+    expect(await created.json()).toEqual({
+      id: 'draft-1',
+      createdAt: '2026-09-09',
+    })
+
+    const discarded = await fetch('/api/drafts?answer=discarded', {
+      method: 'POST',
+    })
+
+    expect(discarded.status).toBe(204)
+    expect(await discarded.text()).toBe('')
   })
 
   it('lets malformed JSON reach an `errors`-only POST untouched', async () => {

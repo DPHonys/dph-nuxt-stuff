@@ -15,7 +15,7 @@ import { isIssuesPayload, postJson, requestReporting, wire } from '../h3-app'
 
 /** A handler that fails validation for any request that reaches it. */
 const failingHandler = defineValidatedEventHandler(
-  { validate: { query: z.object({ page: z.coerce.number() }) } },
+  { input: { query: z.object({ page: z.coerce.number() }) } },
   () => 'the body never runs'
 )
 
@@ -98,7 +98,7 @@ describe('a validation failure at the error hook', () => {
 
   it('is recognized when the body itself could not be read', async () => {
     const bodyHandler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       () => 'the body never runs'
     )
 
@@ -129,7 +129,7 @@ describe('a developer mistake at the error hook', () => {
     }
 
     const handler = defineValidatedEventHandler(
-      { validate: { query: broken } },
+      { input: { query: broken } },
       () => 'the body never runs'
     )
 
@@ -149,7 +149,7 @@ describe('a developer mistake at the error hook', () => {
 
     const handler = defineValidatedEventHandler(
       {
-        validate: { query: [z.object({ archived: z.string() }), notAnObject] },
+        input: { query: [z.object({ archived: z.string() }), notAnObject] },
       },
       () => 'the body never runs'
     )

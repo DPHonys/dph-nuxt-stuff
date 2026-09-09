@@ -15,8 +15,10 @@ import {
   failureBodyOf,
   postJson,
   request,
+  requestReporting,
   schemaReturning,
   sourcesOfIssues,
+  untyped,
   wire,
 } from '../h3-app'
 
@@ -42,11 +44,11 @@ function bodyFailingWith(reason: Error): RequestInit & { duplex: 'half' } {
   }
 }
 
-describe('a handler declaring a routerParams schema', () => {
+describe('a handler declaring a route schema', () => {
   it('hands the body the schema output, coercions applied', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { routerParams: z.object({ id: z.coerce.number() }) } },
-      (event, { routerParams }) => ({ id: routerParams.id })
+      { input: { route: z.object({ id: z.coerce.number() }) } },
+      (event, { route }) => ({ id: route.id })
     )
 
     const response = await request(handler, '/users/42', {
@@ -61,8 +63,8 @@ describe('a handler declaring a routerParams schema', () => {
 
   it('validates decoded params, not percent-escapes', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { routerParams: z.object({ id: z.string() }) } },
-      (event, { routerParams }) => ({ id: routerParams.id })
+      { input: { route: z.object({ id: z.string() }) } },
+      (event, { route }) => ({ id: route.id })
     )
 
     const response = await request(handler, '/users/a%2Fb', {
@@ -75,8 +77,8 @@ describe('a handler declaring a routerParams schema', () => {
 
   it('delivers a catch-all as one slash-joined string under `_`', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { routerParams: z.object({ _: z.string() }) } },
-      (event, { routerParams }) => ({ rest: routerParams._ })
+      { input: { route: z.object({ _: z.string() }) } },
+      (event, { route }) => ({ rest: route._ })
     )
 
     const response = await request(handler, '/files/a/b%20c/d.txt', {
@@ -87,9 +89,9 @@ describe('a handler declaring a routerParams schema', () => {
     await expect(response.json()).resolves.toEqual({ rest: 'a/b c/d.txt' })
   })
 
-  it('answers 400 tagged `routerParams` when the params fail', async () => {
+  it('answers 400 tagged `route` when the params fail', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { routerParams: z.object({ id: z.coerce.number() }) } },
+      { input: { route: z.object({ id: z.coerce.number() }) } },
       () => 'the body never runs'
     )
 
@@ -99,7 +101,7 @@ describe('a handler declaring a routerParams schema', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({
-      data: { issues: [{ source: 'routerParams', path: ['id'] }] },
+      data: { issues: [{ source: 'route', path: ['id'] }] },
     })
   })
 })
@@ -107,7 +109,7 @@ describe('a handler declaring a routerParams schema', () => {
 describe('a handler declaring a query schema', () => {
   it('hands the body the schema output, coercions applied', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { query: z.object({ page: z.coerce.number() }) } },
+      { input: { query: z.object({ page: z.coerce.number() }) } },
       (event, { query }) => ({ page: query.page })
     )
 
@@ -120,7 +122,7 @@ describe('a handler declaring a query schema', () => {
   it('delivers query as h3 yields it: strings, arrays for repeated keys', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: z.object({ tag: z.array(z.string()), page: z.string() }),
         },
       },
@@ -142,7 +144,7 @@ describe('a handler declaring a query schema', () => {
     let bodyRan = false
 
     const handler = defineValidatedEventHandler(
-      { validate: { query: z.object({ page: z.coerce.number() }) } },
+      { input: { query: z.object({ page: z.coerce.number() }) } },
       () => {
         bodyRan = true
         return 'the body never runs'
@@ -169,7 +171,7 @@ describe('a handler declaring a query schema', () => {
   it('reports every issue within the source together', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: z.object({ page: z.coerce.number(), sort: z.enum(['asc']) }),
         },
       },
@@ -192,7 +194,7 @@ describe('a handler declaring a query schema', () => {
 
   it('serves one payload whether the server runs verbose errors or not', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { query: z.object({ page: z.coerce.number() }) } },
+      { input: { query: z.object({ page: z.coerce.number() }) } },
       () => 'the body never runs'
     )
 
@@ -213,7 +215,7 @@ describe('a handler declaring a query schema', () => {
 describe('a handler declaring a headers schema', () => {
   it('delivers headers as h3 does: lowercase keys, multi-values joined', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { headers: z.object({ 'x-trace': z.string() }) } },
+      { input: { headers: z.object({ 'x-trace': z.string() }) } },
       (event, { headers }) => ({ trace: headers['x-trace'] })
     )
 
@@ -232,7 +234,7 @@ describe('a handler declaring a headers schema', () => {
 
   it('adds no case-insensitivity: a schema keyed as sent finds nothing', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { headers: z.object({ 'X-Trace': z.string() }) } },
+      { input: { headers: z.object({ 'X-Trace': z.string() }) } },
       () => 'the body never runs'
     )
 
@@ -251,7 +253,7 @@ describe('a handler declaring a body schema', () => {
   it('hands the body the schema output, transforms applied', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           body: z.object({
             name: z.string(),
             tags: z.string().transform((tags) => tags.split(',')),
@@ -274,7 +276,7 @@ describe('a handler declaring a body schema', () => {
 
   it('answers 400 tagged `body` when the body fails', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       () => 'the body never runs'
     )
 
@@ -290,7 +292,7 @@ describe('a handler declaring a body schema', () => {
 
   it('validates an empty body as undefined', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }).optional() } },
+      { input: { body: z.object({ name: z.string() }).optional() } },
       (event, { body }) => ({ bodyIsUndefined: body === undefined })
     )
 
@@ -307,7 +309,7 @@ describe('a handler declaring a body schema', () => {
 describe('the request method and the body read', () => {
   /** One handler serving every verb - the Nitro pattern the skip rule protects. */
   const methodAgnostic = defineValidatedEventHandler(
-    { validate: { body: z.object({ name: z.string() }).optional() } },
+    { input: { body: z.object({ name: z.string() }).optional() } },
     (event, { body }) => ({ method: event.method, body: body ?? null })
   )
 
@@ -362,7 +364,7 @@ describe('the request method and the body read', () => {
     // The accepted cost of the skip rule: a genuine mis-declaration blames the
     // client, because it is indistinguishable from the pattern above.
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       () => 'the body never runs'
     )
 
@@ -382,7 +384,7 @@ describe('any Standard Schema', () => {
   it('validates with valibot exactly as with zod', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: v.object({ page: v.pipe(v.string(), v.transform(Number)) }),
         },
       },
@@ -404,7 +406,7 @@ describe('any Standard Schema', () => {
   it('awaits an async schema', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: v.pipeAsync(
             v.objectAsync({ page: v.string() }),
             v.checkAsync(async ({ page }) => page !== 'nope')
@@ -428,7 +430,7 @@ describe('any Standard Schema', () => {
     const valueless: StandardSchemaV1.Result<undefined> = wire('{}')
 
     const handler = defineValidatedEventHandler(
-      { validate: { query: schemaReturning(valueless) } },
+      { input: { query: schemaReturning(valueless) } },
       (event, { query }) => ({ valueless: query === undefined })
     )
 
@@ -444,7 +446,7 @@ describe('any Standard Schema', () => {
     // invents a value; read as a failure it sends a marked 400 with nothing in
     // it, inviting a hook to skip the route's own bug.
     const handler = defineValidatedEventHandler(
-      { validate: { query: schemaReturning({ issues: [] }) } },
+      { input: { query: schemaReturning({ issues: [] }) } },
       (event, { query }) => ({ received: query })
     )
 
@@ -459,7 +461,7 @@ describe('any Standard Schema', () => {
   it('lets a throwing `validate` be a 500, not a validation failure', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: {
             '~standard': {
               version: 1,
@@ -487,15 +489,15 @@ describe('a handler declaring several sources', () => {
   /** All four declared at once, each with its own schema. */
   const allFour = defineValidatedEventHandler(
     {
-      validate: {
-        routerParams: z.object({ id: z.coerce.number() }),
+      input: {
+        route: z.object({ id: z.coerce.number() }),
         query: z.object({ page: z.coerce.number() }),
         headers: z.object({ 'x-trace': z.string() }),
         body: z.object({ name: z.string() }),
       },
     },
-    (event, { routerParams, query, headers, body }) => ({
-      id: routerParams.id,
+    (event, { route, query, headers, body }) => ({
+      id: route.id,
       page: query.page,
       trace: headers['x-trace'],
       name: body.name,
@@ -508,7 +510,7 @@ describe('a handler declaring several sources', () => {
 
     return request(
       allFour,
-      `/users/${spoiled('routerParams') ? 'nope' : '42'}?page=${
+      `/users/${spoiled('route') ? 'nope' : '42'}?page=${
         spoiled('query') ? 'nope' : '2'
       }`,
       {
@@ -536,12 +538,12 @@ describe('a handler declaring several sources', () => {
   it('stops at the first failing source, in the promised order', async () => {
     // Each request is spoiled only in the sources *after* the one it fails on,
     // so the source named in the answer is the order itself.
-    const allBad = await send('routerParams', 'query', 'headers', 'body')
+    const allBad = await send('route', 'query', 'headers', 'body')
     const fromQuery = await send('query', 'headers', 'body')
     const fromHeaders = await send('headers', 'body')
     const fromBody = await send('body')
 
-    await expect(sourcesOfIssues(allBad)).resolves.toEqual(['routerParams'])
+    await expect(sourcesOfIssues(allBad)).resolves.toEqual(['route'])
     await expect(sourcesOfIssues(fromQuery)).resolves.toEqual(['query'])
     await expect(sourcesOfIssues(fromHeaders)).resolves.toEqual(['headers'])
     await expect(sourcesOfIssues(fromBody)).resolves.toEqual(['body'])
@@ -550,7 +552,7 @@ describe('a handler declaring several sources', () => {
   it('never reads the body once an earlier source has failed', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: z.object({ page: z.coerce.number() }),
           body: z.object({ name: z.string() }),
         },
@@ -574,7 +576,7 @@ describe('a handler declaring several sources', () => {
 
 describe('a body the read itself refuses', () => {
   const handler = defineValidatedEventHandler(
-    { validate: { body: z.object({ name: z.string() }) } },
+    { input: { body: z.object({ name: z.string() }) } },
     () => 'the body never runs'
   )
 
@@ -663,7 +665,7 @@ describe("what h3 v1's body read delivers", () => {
   it('parses a form-urlencoded body into an object of string | string[]', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           body: z.object({ name: z.string(), tag: z.array(z.string()) }),
         },
       },
@@ -686,7 +688,7 @@ describe("what h3 v1's body read delivers", () => {
 
   it('delivers a text/* body as the raw string, unparsed', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.string() } },
+      { input: { body: z.string() } },
       (event, { body }) => ({ body })
     )
 
@@ -703,7 +705,7 @@ describe("what h3 v1's body read delivers", () => {
 
   it('parses a body with no content type at all strictly as JSON', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       (event, { body }) => ({ name: body.name })
     )
 
@@ -726,7 +728,7 @@ describe("what h3 v1's body read delivers", () => {
 
   it('parses an unrecognized content type strictly as JSON too', async () => {
     const handler = defineValidatedEventHandler(
-      { validate: { body: z.object({ name: z.string() }) } },
+      { input: { body: z.object({ name: z.string() }) } },
       (event, { body }) => ({ name: body.name })
     )
 
@@ -747,7 +749,7 @@ describe("h3's body memoization", () => {
   it('hands a later reader the cached, unvalidated parse - the stream is never re-read', async () => {
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           body: z.object({
             name: z.string().transform((name) => name.toUpperCase()),
           }),
@@ -782,7 +784,7 @@ describe("h3's body memoization", () => {
     app.use(
       '/api/test',
       defineValidatedEventHandler(
-        { validate: { body: z.object({ name: z.string() }) } },
+        { input: { body: z.object({ name: z.string() }) } },
         () => 'the body never runs'
       )
     )
@@ -822,7 +824,7 @@ describe('the projected issues', () => {
 
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: schemaReturning({
             issues: [vendorIssue, { message: 'A pathless issue' }],
           }),
@@ -852,7 +854,7 @@ describe('the projected issues', () => {
     // answer itself. It stringifies instead: never dropped, never `null`.
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           // Hand-written, so typed as it would arrive: the interface refuses
           // a `null` segment, and a JSON answer carries one anyway.
           query: schemaReturning(
@@ -890,7 +892,7 @@ describe('the projected issues', () => {
 
     const handler = defineValidatedEventHandler(
       {
-        validate: {
+        input: {
           query: schemaReturning({
             issues: [{ message: 'Expected a number', path: [segment] }],
           }),
@@ -906,5 +908,280 @@ describe('the projected issues', () => {
     expect(body.data.issues).toEqual([
       { source: 'query', message: 'Expected a number', path: ['page'] },
     ])
+  })
+})
+
+describe('a handler declaring a Response output', () => {
+  it('sends what the handler returned, untouched by the schema', async () => {
+    // The declared schema strips and coerces; nothing runs it, so the answer
+    // is the handler's own object, extra key and string page included.
+    const handler = defineValidatedEventHandler(
+      { output: z.object({ page: z.coerce.number() }) },
+      () => wire('{"page":"2","extra":true}')
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      page: '2',
+      extra: true,
+    })
+  })
+
+  it('hands an output-only route an empty Validated context', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: z.object({ keys: z.array(z.string()) }) },
+      (_event, validated) => ({ keys: Object.keys(validated) })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    await expect(response.json()).resolves.toEqual({ keys: [] })
+  })
+
+  it('validates the declared sources beside the output, as ever', async () => {
+    const handler = defineValidatedEventHandler(
+      {
+        input: { query: z.object({ page: z.coerce.number() }) },
+        output: z.object({ page: z.number() }),
+      },
+      (_event, { query }) => ({ page: query.page })
+    )
+
+    const ok = await request(handler, '/api/test?page=2')
+    const bad = await request(handler, '/api/test?page=nope')
+
+    await expect(ok.json()).resolves.toEqual({ page: 2 })
+    expect(bad.status).toBe(400)
+    await expect(sourcesOfIssues(bad)).resolves.toEqual(['query'])
+  })
+
+  it('refuses a declaration that declares nothing at all', () => {
+    // The compile guard's answer for a JavaScript caller, spelled the same way.
+    expect(() => defineValidatedEventHandler(wire('{}'), () => null)).toThrow(
+      'must declare input, output, or both'
+    )
+  })
+
+  it('refuses an empty `input` with no output beside it', () => {
+    expect(() =>
+      defineValidatedEventHandler(wire('{"input":{}}'), () => null)
+    ).toThrow('must declare input, output, or both')
+  })
+})
+
+describe('a handler declaring a Response output as a status map', () => {
+  /** The two bodies the map below promises, one per declared status. */
+  const existing = z.object({ id: z.string() })
+  const created = z.object({ id: z.string(), createdAt: z.string() })
+
+  it('sends the status the handler responded with, and its value as the body', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: { 200: existing, 201: created } },
+      (_event, { respond }) =>
+        respond(201, { id: '1', createdAt: '2026-09-09' })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(201)
+    await expect(response.json()).resolves.toEqual({
+      id: '1',
+      createdAt: '2026-09-09',
+    })
+  })
+
+  it('sends the other declared status from the same route', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: { 200: existing, 201: created } },
+      (_event, { respond }) => respond(200, { id: '1' })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ id: '1' })
+  })
+
+  it('sends a `null` status with no body at all', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: { 204: null } },
+      (_event, { respond }) => respond(204)
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(204)
+    await expect(response.text()).resolves.toBe('')
+  })
+
+  it('lets any status map to `null`, not just 204', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: { 205: null } },
+      (_event, { respond }) => respond(205)
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(205)
+    await expect(response.text()).resolves.toBe('')
+  })
+
+  it('sends what the handler responded with, untouched by the schema', async () => {
+    // The declared schema strips and coerces; nothing runs it, so the answer
+    // is the handler's own object, extra key included. What a plain-JavaScript
+    // route file hands over: parsed, so the value is honestly untyped.
+    const parsed: unknown = wire('{"id":"1","extra":true}')
+
+    const handler = defineValidatedEventHandler(
+      { output: { 200: existing } },
+      // @ts-expect-error - `unknown` is not the declared status's body type
+      (_event, { respond }) => respond(200, parsed)
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ id: '1', extra: true })
+  })
+
+  it('hands a map-form route `respond` beside its validated sources', async () => {
+    const handler = defineValidatedEventHandler(
+      {
+        input: { query: z.object({ page: z.coerce.number() }) },
+        output: { 200: z.object({ keys: z.array(z.string()) }) },
+      },
+      (_event, validated) =>
+        validated.respond(200, { keys: Object.keys(validated).toSorted() })
+    )
+
+    const response = await request(handler, '/api/test?page=2')
+
+    await expect(response.json()).resolves.toEqual({
+      keys: ['query', 'respond'],
+    })
+  })
+
+  it('hands a bare-form route no `respond` at all', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: z.object({ keys: z.array(z.string()) }) },
+      (_event, validated) => ({ keys: Object.keys(validated) })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    await expect(response.json()).resolves.toEqual({ keys: [] })
+  })
+
+  it('refuses a plain return from a map-form route, single key included', async () => {
+    // The compile guard's answer for a JavaScript caller: a map declares how
+    // the handler answers, and a bare value names no status.
+    const handler = defineValidatedEventHandler(
+      wire('{"output":{"201":null}}'),
+      () => ({ id: '1' })
+    )
+
+    const { thrown } = await requestReporting(handler, '/api/test')
+
+    expect(thrown.statusCode).toBe(500)
+    expect(thrown.message).toContain(
+      'cannot send the response: a route declaring a status map must return the Respond helper’s result'
+    )
+  })
+})
+
+describe('an `output` that names no reply', () => {
+  // Every declaration below is refused by the compile guard too; each is what a
+  // JavaScript caller, or a cast, can still write - and each would otherwise
+  // leave a route nobody could answer, so the runtime refuses it at route
+  // evaluation rather than at the first request.
+  const UNDECLARABLE =
+    '[nuxt-handler-validation] cannot declare the Response output:'
+
+  const source = z.object({ id: z.string() })
+
+  it('refuses an empty status map', () => {
+    // `{}` satisfies the map's index signature while promising no status, so
+    // `respond` would have had nothing to accept.
+    expect(() =>
+      defineValidatedEventHandler(wire('{"output":{}}'), () => null)
+    ).toThrow(`${UNDECLARABLE} an empty object names no reply`)
+  })
+
+  it('refuses an empty status map standing beside a declared source', () => {
+    // The other half being a real declaration is no reason to serve the route
+    // with an `output` the author believed they had declared.
+    expect(() =>
+      defineValidatedEventHandler(
+        { input: { query: source }, output: wire('{}') },
+        () => null
+      )
+    ).toThrow(`${UNDECLARABLE} an empty object names no reply`)
+  })
+
+  it('refuses an array, which is neither a schema nor a status map', () => {
+    expect(() =>
+      defineValidatedEventHandler(wire('{"output":[]}'), () => null)
+    ).toThrow(`${UNDECLARABLE} an array names no reply`)
+  })
+
+  it('refuses a function', () => {
+    expect(() =>
+      defineValidatedEventHandler({ output: untyped(() => null) }, () => null)
+    ).toThrow(`${UNDECLARABLE} a function names no reply`)
+  })
+
+  it('refuses a class instance, which no status map is', () => {
+    expect(() =>
+      defineValidatedEventHandler({ output: untyped(new Map()) }, () => null)
+    ).toThrow(`${UNDECLARABLE} an instance of Map names no reply`)
+  })
+
+  it('refuses a primitive', () => {
+    expect(() =>
+      defineValidatedEventHandler(wire('{"output":42}'), () => null)
+    ).toThrow(`${UNDECLARABLE} the primitive 42 names no reply`)
+  })
+
+  it('accepts a hand-written Standard Schema, plain object and all', () => {
+    // A schema is told apart by its `~standard` property, not by its
+    // prototype: the bare form accepts one written by hand.
+    const handWritten = schemaReturning({ value: undefined })
+
+    expect(() =>
+      defineValidatedEventHandler({ output: handWritten }, () => null)
+    ).not.toThrow()
+  })
+})
+
+describe('a key under `input` that names no source', () => {
+  // The compile guard refuses every declaration below; each is what a
+  // JavaScript caller, or a cast, can still write - so the runtime answers
+  // too, in the guard's own sentence.
+  const schema = z.object({ id: z.string() })
+
+  it('refuses the pre-rename `routerParams` name', () => {
+    expect(() =>
+      defineValidatedEventHandler(
+        // @ts-expect-error - `routerParams` is not a validation source
+        { input: { routerParams: schema } },
+        () => null
+      )
+    ).toThrow(
+      "[nuxt-handler-validation] 'routerParams' is not a validation source - the sources are route, query, headers and body"
+    )
+  })
+
+  it('refuses a misspelling standing beside a real source', () => {
+    expect(() =>
+      defineValidatedEventHandler(
+        // @ts-expect-error - `boyd` is not a validation source
+        { input: { query: schema, boyd: schema } },
+        () => null
+      )
+    ).toThrow(
+      "[nuxt-handler-validation] 'boyd' is not a validation source - the sources are route, query, headers and body"
+    )
   })
 })
