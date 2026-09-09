@@ -3,7 +3,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineValidatedEventHandler } from '../../src/runtime/server'
 import { setResponseChecking } from '../../src/runtime/server/lib/response-check'
-import { request, requestReporting, schemaReturning, wire } from '../h3-app'
+import {
+  request,
+  requestReporting,
+  schemaReturning,
+  untyped,
+  wire,
+} from '../h3-app'
 
 // The dev-only check of a response against its declared Response output. The
 // gate is `import.meta.dev` in a real build, which a plain suite run is neither
@@ -155,6 +161,30 @@ describe('a development server checking a map-form response', () => {
     expect(response.status).toBe(204)
     await expect(response.text()).resolves.toBe('')
   })
+
+  it('refuses a status the map never declared, naming the ones it did', async () => {
+    // The compile error's answer for a caller the types never saw: `404` is
+    // not one of `200 | 201`, so no schema is reached and the status the map
+    // never promised is refused rather than sent.
+    const handler = defineValidatedEventHandler(
+      { output: { 200: existing, 201: created } },
+      (_event, { respond }) => untyped(respond)(404, { id: '1' })
+    )
+
+    const { response, thrown } = await requestReporting(handler, ROUTE, {
+      route: ROUTE,
+    })
+
+    // The client receives the refusal, never the undeclared status.
+    expect(response.status).toBe(500)
+    expect(thrown.statusCode).toBe(500)
+    expect(thrown.message).toContain(`GET ${ROUTE}`)
+    expect(thrown.message).toContain('answered 404')
+    expect(thrown.message).toContain('200, 201')
+    // A plain `500` like every other mismatch here: no Known-error tag, no
+    // validation marker.
+    expect(thrown.data).toBeUndefined()
+  })
 })
 
 describe('a server with the check off', () => {
@@ -187,6 +217,20 @@ describe('a server with the check off', () => {
 
     expect(response.status).toBe(201)
     await expect(response.json()).resolves.toEqual({ id: 1 })
+  })
+
+  it('sends a status the map never declared, and throws nothing', async () => {
+    // The other half of the check being off: with it on this is a `500`, and
+    // production has never refused it at all.
+    const handler = defineValidatedEventHandler(
+      { output: { 200: receipt } },
+      (_event, { respond }) => untyped(respond)(404, { id: '1' })
+    )
+
+    const response = await request(handler, ROUTE, { route: ROUTE })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({ id: '1' })
   })
 
   it('never even asks the schema', async () => {

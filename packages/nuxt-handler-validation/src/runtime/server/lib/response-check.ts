@@ -1,6 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandlerResponse, H3Event } from 'h3'
 import { createError } from 'h3'
+import type { StatusMap } from '../../types'
 import { projectPath } from './issues'
 
 /**
@@ -28,6 +29,52 @@ export function setResponseChecking(next: boolean): void {
 /** Whether the next response should be checked against its declared schema. */
 export function checksResponses(): boolean {
   return checking
+}
+
+/**
+ * Assert that a map-form route responded under a status its map names, and
+ * throw if it did not. The compile guard's answer for a caller the types never
+ * saw: without it the value check finds no schema at an undeclared status,
+ * skips, and the route answers under a status nobody declared.
+ *
+ * Runs before the status reaches the response, so what a client receives on a
+ * refusal is this `500` rather than the status it refuses.
+ */
+export function checkRespondedStatus(
+  event: H3Event,
+  statuses: StatusMap,
+  status: number
+): void {
+  // `hasOwn` rather than a truthiness or `undefined` test on the schema: a
+  // status declared `null` is declared - it names a bodiless reply - and reads
+  // from this lookup exactly as an undeclared one would.
+  if (Object.hasOwn(statuses, status)) return
+
+  raiseUndeclaredStatus(event, statuses, status)
+}
+
+// The same plain `500` the value mismatch raises, for the same reasons: no
+// marker and no Known-error tag, so a route's error union never widens with an
+// arm production cannot produce.
+function raiseUndeclaredStatus(
+  event: H3Event,
+  statuses: StatusMap,
+  status: number
+): never {
+  throw createError({
+    statusCode: 500,
+    message:
+      `[nuxt-handler-validation] cannot send the response: ${event.method} ${event.path} answered ${status}, a status its declared Response output never names - the map names ${describeStatuses(statuses)}. ` +
+      `Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or name ${status} in \`output\`.`,
+  })
+}
+
+// The statuses the map declared, in the order the runtime keeps them, which
+// for the integer-like keys of a status map is ascending however they were
+// written. A map with no statuses at all never reaches here: `responseDelivery`
+// refuses it when the route file is evaluated.
+function describeStatuses(statuses: StatusMap): string {
+  return Object.keys(statuses).join(', ')
 }
 
 /**

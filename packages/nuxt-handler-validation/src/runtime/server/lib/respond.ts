@@ -2,7 +2,11 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandlerResponse, H3Event } from 'h3'
 import { createError, setResponseStatus } from 'h3'
 import type { ResponseOutput, StatusMap } from '../../types'
-import { checkResponse, checksResponses } from './response-check'
+import {
+  checkResponse,
+  checkRespondedStatus,
+  checksResponses,
+} from './response-check'
 
 // The runtime key on the envelope below, and the whole of what makes a value
 // the Respond helper's own: a plain object a handler wrote by hand carries no
@@ -153,6 +157,11 @@ async function sendResponded(
   returned: EventHandlerResponse
 ): Promise<EventHandlerResponse> {
   if (!isResponded(returned)) raiseUnrespondedReturn(returned)
+
+  // Before the status is set, so a development server refuses an undeclared
+  // status rather than sending it: the map has no schema at that status, and
+  // the value check alone would find nothing to assert and let it through.
+  if (checksResponses()) checkRespondedStatus(event, statuses, returned.status)
 
   setResponseStatus(event, returned.status)
 

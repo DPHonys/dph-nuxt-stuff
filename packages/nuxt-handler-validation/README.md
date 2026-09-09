@@ -277,9 +277,13 @@ respond(201, { id: '1' }) // the 201 body is missing `createdAt`
 return { id: '1' } // a bare value names no status
 ```
 
-All three are compile errors, at the line that wrote them. **One key is still a
-map**: `output: { 201: created }` has no plain-return shortcut, because the
-status is the thing being declared.
+All three are compile errors, at the line that wrote them, and none reaches a
+client unnoticed: the first two are refused again on a development server, and
+the third at every run - see [The development-only response
+check](#the-development-only-response-check) and [Runtime errors for what the
+types cannot see](#runtime-errors-for-what-the-types-cannot-see). **One key is
+still a map**: `output: { 201: created }` has no plain-return shortcut, because
+the status is the thing being declared.
 
 The helper sets the status and sends the value; nothing else about the response
 is touched, so `setResponseHeader` and friends work as they always did.
@@ -335,6 +339,18 @@ every issue:
 [nuxt-handler-validation] cannot send the response: GET /api/users/1 answered 200 with a value its declared Response output rejects - id: Invalid input: expected string, received number. Nothing checks the response in production, so this route would send that value as it is: fix the handler or the schema, or set `checkResponses: false`.
 ```
 
+A map-form route that responded under a status its map never declared is the
+same plain `500`, raised before the status reaches the response, so the client
+receives the refusal rather than a status nobody promised:
+
+```text
+[nuxt-handler-validation] cannot send the response: POST /api/users answered 404, a status its declared Response output never names - the map names 200, 201. Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or name 404 in `output`.
+```
+
+- **`respond(404, …)` is still a compile error** on a map that names no `404`;
+  this is the same rule for the caller who never saw those types - a plain
+  JavaScript route file, or one that cast its way past them. A status declared
+  `null` is declared, and passes.
 - **It is an assertion, never a transform.** The result is discarded, so a
   development server sends the bytes production sends. An `output` schema that
   would strip an extra key or coerce a value does neither on the way out -
@@ -547,7 +563,10 @@ element actually contributed to.**
 The Response output has one of its own: a route declaring a status map whose
 handler hands back anything but the Respond helper's result answers an unmarked
 `500` naming what it returned instead. The compiler refuses that return, so
-only a JavaScript caller reaches it.
+only a JavaScript caller reaches it. Responding under a status the map never
+declared is refused the same way, but on a development server only - it is part
+of [the response check](#the-development-only-response-check), and a production
+build sends that status.
 
 ### Edges the compile-time guard does not catch
 
