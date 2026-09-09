@@ -1,0 +1,7 @@
+---
+'@dphonys/nuxt-typed-handler': minor
+---
+
+Forwards the validation parent's renames and its new `output` declaration. `defineTypedEventHandler({ validate, errors }, fn)` is now `defineTypedEventHandler({ input, errors, output }, fn)`, any one or more of the three keys; the empty-declaration diagnostic reads `declare input, errors, output, or any combination`. The `routerParams` source is now `route` in the declaration, in the handler context, and on the wire: the built-in `validation-failed` variant carries `issues: [{ source: 'route', … }]` and its message reads `Validation failed for route`. No aliases are kept; update `matchError` arms and any other code branching on `source === 'routerParams'`.
+
+Additive: `output` - a single schema, or a status map in which `null` declares a bodiless status - types the success response, and a map-form route receives `respond` in the handler context beside `errors`. An `output`-only route is a complete declaration: it reads no request, carries no `validation-failed` variant, and adds no Request typing at the call site. The parent's development-only response check, which asserts a returned value against its declared schema and discards the result, is on by default and forwarded as `typedHandler: { checkResponses: false }` - so `typedHandler` now has two keys rather than one. `TypedContext` and `AtLeastOne` take the Response output as a further type parameter, and the parent's new `output` types are re-exported from `/types`.
