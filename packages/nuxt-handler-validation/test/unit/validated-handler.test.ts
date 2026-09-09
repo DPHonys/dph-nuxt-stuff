@@ -1089,3 +1089,34 @@ describe('a handler declaring a Response output as a status map', () => {
     )
   })
 })
+
+describe('a key under `input` that names no source', () => {
+  // The compile guard refuses every declaration below; each is what a
+  // JavaScript caller, or a cast, can still write - so the runtime answers
+  // too, in the guard's own sentence.
+  const schema = z.object({ id: z.string() })
+
+  it('refuses the pre-rename `routerParams` name', () => {
+    expect(() =>
+      defineValidatedEventHandler(
+        // @ts-expect-error - `routerParams` is not a validation source
+        { input: { routerParams: schema } },
+        () => null
+      )
+    ).toThrow(
+      "[nuxt-handler-validation] 'routerParams' is not a validation source - the sources are route, query, headers and body"
+    )
+  })
+
+  it('refuses a misspelling standing beside a real source', () => {
+    expect(() =>
+      defineValidatedEventHandler(
+        // @ts-expect-error - `boyd` is not a validation source
+        { input: { query: schema, boyd: schema } },
+        () => null
+      )
+    ).toThrow(
+      "[nuxt-handler-validation] 'boyd' is not a validation source - the sources are route, query, headers and body"
+    )
+  })
+})
