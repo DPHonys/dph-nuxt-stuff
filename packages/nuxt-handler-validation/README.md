@@ -592,17 +592,17 @@ import from app code: `ValidationSchemas`, `SourceSchemas`, `ValidationSource`,
 `MergedOutput<T>`, `OutputOf<S>`, `ValidationIssue`, `ValidationErrorData`, and
 the two families below:
 
-| Type                              | Role                                                                                                     |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `InputOf<S>`                      | A schema's input - what the client sends, before transforms.                                             |
-| `MergedInput<T>`                  | A composed tuple's input: the intersection of its element inputs, flattened to one record.               |
-| `SourceInput<T>`                  | One slot's input - a lone schema's input, or the tuple's intersection.                                   |
-| `RequestInput<S>`                 | The request input: keys are the declared sources, values what the client sends for each.                 |
-| `ValidatedEventHandler`           | What `defineValidatedEventHandler` returns: an h3 `EventHandler` carrying its `RequestInput` as a brand. |
-| `RequestInputOfHandler<T>`        | Reads that brand off a handler type; `never` for `any` and for handlers this package did not produce.    |
-| `ValidationSchemasGuard<S>`       | The compile-time guard behind the declaration diagnostics above.                                         |
-| `ValidationDeclarationError<Msg>` | The sentence-shaped type those diagnostics surface.                                                      |
-| `DeclareSomething<S, O, Msg>`     | The "declare something" guard; its sentence is a parameter, so the umbrella composes it with its own.    |
+| Type                              | Role                                                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `InputOf<S>`                      | A schema's input - what the client sends, before transforms.                                                                   |
+| `MergedInput<T>`                  | A composed tuple's input: the intersection of its element inputs, flattened to one record.                                     |
+| `SourceInput<T>`                  | One slot's input - a lone schema's input, or the tuple's intersection.                                                         |
+| `RequestInput<S>`                 | The request input: keys are the declared sources, values what the client sends for each.                                       |
+| `ValidatedEventHandler`           | What `defineValidatedEventHandler` returns: an h3 `EventHandler` carrying its Request input and its Response output as brands. |
+| `RequestInputOfHandler<T>`        | Reads that brand off a handler type; `never` for `any` and for handlers this package did not produce.                          |
+| `ValidationSchemasGuard<S>`       | The compile-time guard behind the declaration diagnostics above.                                                               |
+| `ValidationDeclarationError<Msg>` | The sentence-shaped type those diagnostics surface.                                                                            |
+| `DeclareSomething<S, O, Msg>`     | The "declare something" guard; its sentence is a parameter, so the umbrella composes it with its own.                          |
 
 The response-output family:
 
