@@ -1,0 +1,11 @@
+---
+'@dphonys/nuxt-handler-validation': minor
+---
+
+Two renames and one new declaration. `validate` is now `input`: `defineValidatedEventHandler({ input: { … } }, fn)`, with semantics unchanged - four sources, tuple composition, fail-fast order, the same `400` payload. The `routerParams` source is now `route` everywhere: in the declaration (`input: { route: schema }`), in the validated context (`{ route }`), and on the wire, where a rejected route param answers `issues: [{ source: 'route', … }]` under `message: 'Validation failed for route'`; the fail-fast order reads `route -> query -> headers -> body`. No aliases are kept: rename the option key, the source key, and any client code matching `source === 'routerParams'`.
+
+Additive: `output` types the success response. `output: schema` is a single `200` with a plain return typed against the schema's output; `output: { 200: a, 201: b, 204: null }` is a status map, and the validated context gains `respond(status, value)` - `respond(204)` for a status declared `null` - which checks status and value together at compile time. `output` may stand alone: the options are now `{ input?, output? }` with at least one required, and the empty-declaration diagnostic reads `declare input, output, or both`. Fetch still infers the response from the handler's return.
+
+In development the wrapper additionally asserts the value the handler handed over against the schema its status declared, and throws a plain `500` on a mismatch. The result is discarded, so development and production send the same bytes, and an `output` schema should describe the value rather than transform or strip it. This check is the module's first option - `handlerValidation: { checkResponses: false }` turns it off - and a production build never runs it at all.
+
+New exported types for the declaration: `ResponseOutput`, `StatusMap`, `ResponseOutputs`, `ResponseBodies`, `HandlerReturn`, `SentResponse`, `Respond`, `Responded`, `ResponseOutputOfHandler`, `ValidatedHandlerOptions` and `DeclareSomething`; `ValidatedContext` takes the Response output as a second type parameter. The `internals/server` entry, versioned with `@dphonys/nuxt-typed-handler` rather than by this package's semver, gains `responseDelivery`, `ResponseDelivery` and `setResponseChecking`.
