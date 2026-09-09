@@ -2,6 +2,8 @@ import { loadNuxt } from '@nuxt/kit'
 import type { Nuxt, NuxtConfig, NuxtHooks } from '@nuxt/schema'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import module from '../../src/module'
+import type { ModuleOptions } from '../../src/module'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
 
@@ -77,6 +79,17 @@ describe('module setup wiring', () => {
 
   afterAll(async () => {
     await booted?.nuxt.close()
+  })
+
+  it('hands setup every option from its default: the fixture configures none', async () => {
+    // The claim `nothingConfigured: Partial<ModuleOptions> = {}` looks like it
+    // makes and cannot - that position accepts `{}` whatever the module
+    // declares. This is what kit resolves for an app with no
+    // `handlerValidation` key at all, matched against a *complete*
+    // `ModuleOptions`, so an option added without a default fails here.
+    const resolved = await module.getOptions?.(undefined, booted.nuxt)
+
+    expect(resolved).toEqual({ checkResponses: true } satisfies ModuleOptions)
   })
 
   it('auto-imports the two server helpers into the Nitro build', () => {
