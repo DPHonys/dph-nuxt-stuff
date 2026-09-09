@@ -104,7 +104,8 @@ describe('module setup wiring', () => {
 
   it('wires nothing else: no plugin, no template', () => {
     // Anything else it registered would be behaviour a consumer never asked for
-    // and cannot configure away.
+    // and cannot configure away. The response-check plugin is the one thing
+    // that could land here, and it does so only to turn the check *off*.
     const { appPlugins, nitroPlugins, templates } = registrationsOf(booted)
 
     expect({ appPlugins, nitroPlugins, templates }).toEqual({
@@ -126,9 +127,28 @@ describe('module setup wiring', () => {
   })
 })
 
+describe('the `checkResponses` option', () => {
+  it('registers the Nitro plugin that turns the check off, and only then', async () => {
+    // The option carries no value into the bundle: the plugin's presence is
+    // the whole of the setting, so an app that keeps the check pays for no
+    // plugin at all - which the default boot above already asserts.
+    let disabled: Booted | undefined
+
+    try {
+      disabled = await boot({ handlerValidation: { checkResponses: false } })
+
+      expect(registrationsOf(disabled).nitroPlugins).toEqual([
+        expect.stringMatching(/\/runtime\/server\/plugins\/response-check$/),
+      ])
+    } finally {
+      await disabled?.nuxt.close()
+    }
+  }, 120_000)
+})
+
 describe('the `handlerValidation: false` off-switch', () => {
   it('skips setup entirely, so the module registers nothing', async () => {
-    // Not an option: the module has none. Kit skips the setup of any module
+    // Not an option of this module's own: kit skips the setup of any module
     // whose config key is `false`, so this asserts kit's behaviour on *this*
     // module rather than a branch the module hand-rolls.
     let disabled: Booted | undefined

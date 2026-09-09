@@ -8,7 +8,13 @@ import type { NuxtConfig } from 'nuxt/schema'
 
 export const disabled: NuxtConfig['handlerValidation'] = false
 
+/** The dev-only response check, turned off from a consumer's config. */
+export const checkResponses: NuxtConfig['handlerValidation'] = {
+  checkResponses: false,
+}
+
 export const strayKey: NuxtConfig['handlerValidation'] = {
+  checkResponses: true,
   // @ts-expect-error a key this module does not declare must not type-check
   channelToken: 'x',
 }

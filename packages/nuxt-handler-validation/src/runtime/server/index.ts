@@ -34,9 +34,11 @@ import { sourcePlan, validatedContext } from './lib/validate'
  * declares a status map instead: the Validated context gains `respond`, and
  * the handler returns `respond(status, value)` - or `respond(status)` for a
  * status declared `null`, which sends no body - with the status and the value
- * checked together. Nothing runs the schema either way, so what the handler
- * hands over is what the client receives. Either half alone is a declaration;
- * an `output` naming no reply is neither, and is refused.
+ * checked together. In development the declared schema additionally asserts
+ * what the handler handed over, and a mismatch is a plain `500`; the result is
+ * discarded either way, so what the handler hands over is what the client
+ * receives, in development exactly as in production. Either half alone is a
+ * declaration; `{}` is neither, and is refused.
  */
 // Every type parameter carries a default, because both halves of the
 // declaration are optional: `S` has to read `{}` rather than the whole

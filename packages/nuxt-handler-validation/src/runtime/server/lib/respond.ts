@@ -2,6 +2,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandlerResponse, H3Event } from 'h3'
 import { createError, setResponseStatus } from 'h3'
 import type { ResponseOutput, StatusMap } from '../../types'
+import { checkResponse, checksResponses } from './response-check'
 
 // The runtime key on the envelope below, and the whole of what makes a value
 // the Respond helper's own: a plain object a handler wrote by hand carries no
@@ -54,8 +55,9 @@ export interface ResponseDelivery {
    */
   readonly respondSlot: { readonly respond: RespondFn } | undefined
   /**
-   * Unwrap the handler's return into what the client receives. Never a
-   * transform: what the handler handed over is what goes out.
+   * Unwrap the handler's return and, in development, assert it against the
+   * schema its status declared. Never a transform: what the handler handed
+   * over is what goes out, in development exactly as in production.
    */
   send: (
     event: H3Event,
@@ -89,13 +91,22 @@ export function responseDelivery(
 
     return {
       respondSlot: RESPOND_SLOT,
-      send: (event, returned) => sendResponded(event, returned),
+      send: (event, returned) => sendResponded(event, output, returned),
     }
   }
 
   if (!declaresSchema(output)) raiseUndeclarableOutput(output)
 
-  return { respondSlot: undefined, send: async (_event, returned) => returned }
+  return {
+    respondSlot: undefined,
+    send: async (event, returned) => {
+      // The bare form is sugar for a single `200`, so that is the status the
+      // declared schema answers for.
+      if (checksResponses()) await checkResponse(event, 200, output, returned)
+
+      return returned
+    },
+  }
 }
 
 /**
@@ -138,11 +149,21 @@ function declaresSchema(
  */
 async function sendResponded(
   event: H3Event,
+  statuses: StatusMap,
   returned: EventHandlerResponse
 ): Promise<EventHandlerResponse> {
   if (!isResponded(returned)) raiseUnrespondedReturn(returned)
 
   setResponseStatus(event, returned.status)
+
+  if (checksResponses()) {
+    await checkResponse(
+      event,
+      returned.status,
+      statuses[returned.status],
+      returned.body
+    )
+  }
 
   return returned.body === undefined ? null : returned.body
 }
