@@ -265,7 +265,8 @@ export default defineTypedEventHandler(
 - **`respond` is offered by the map form only**, exactly as `errors` is offered
   only by a declared error array. `respond(status, value)` checks the two
   together, a status the map never declared is a compile error, and a plain
-  return is one too.
+  return is one too. A development server refuses that status again, for the
+  caller who never saw those types.
 - **A status mapped to `null` has no body.** `respond(204)` takes no value, and
   `respond(204, value)` is a compile error.
 - **An `output`-only route is a declaration.** It has no source keys, no
@@ -274,9 +275,11 @@ export default defineTypedEventHandler(
   mapped outputs, exactly as it infers a plain return.
 - **The development-only response check runs here too**, on by default: on a
   development server the declared schema is asserted against the value the
-  handler handed over, and a mismatch is a plain `500`. The result is discarded,
-  so development sends the bytes production sends. This module forwards the
-  parent's option as `typedHandler: { checkResponses: false }`.
+  handler handed over, and a mismatch is a plain `500`; so is responding under a
+  status the map never declared, refused before that status reaches the
+  response. The result is discarded, so development sends the bytes production
+  sends. This module forwards the parent's option as
+  `typedHandler: { checkResponses: false }`.
 
 Both forms in full, every rejection the compiler writes, and the check's `500`:
 [Response output][validation-output].

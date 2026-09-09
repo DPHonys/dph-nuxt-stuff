@@ -1,6 +1,11 @@
 import { defineError } from '@dphonys/nuxt-handler-errors/server'
 import { setResponseChecking } from '@dphonys/nuxt-handler-validation/internals/server'
-import { request, requestReporting, wire } from '@dphonys/test-utils/h3-app'
+import {
+  request,
+  requestReporting,
+  untyped,
+  wire,
+} from '@dphonys/test-utils/h3-app'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineTypedEventHandler } from '../../src/runtime/server'
@@ -55,6 +60,36 @@ describe('a development server checking an umbrella route’s response', () => {
     expect(thrown.message).toContain('answered 201')
   })
 
+  it('refuses a status the umbrella route’s map never declared', async () => {
+    const handler = defineTypedEventHandler(
+      { output: { 200: receipt, 201: z.object({ id: z.number() }) } },
+      (_event, { respond }) => untyped(respond)(404, { id: '1' })
+    )
+
+    const { response, thrown } = await requestReporting(handler, ROUTE, {
+      route: ROUTE,
+    })
+
+    expect(response.status).toBe(500)
+    expect(thrown.message).toContain(
+      '[nuxt-handler-validation] cannot send the response'
+    )
+    expect(thrown.message).toContain('answered 404')
+    expect(thrown.message).toContain('200, 201')
+  })
+
+  it('lets a declared status through with the handler’s own value', async () => {
+    const handler = defineTypedEventHandler(
+      { output: { 200: receipt, 201: z.object({ id: z.number() }) } },
+      (_event, { respond }) => respond(200, wire('{"id":"1","extra":true}'))
+    )
+
+    const response = await request(handler, ROUTE, { route: ROUTE })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ id: '1', extra: true })
+  })
+
   it('carries no Known-error tag, so a route’s error union never widens', async () => {
     // Declared errors and a Response output together: the mismatch is still a
     // plain `500`, not an arm the route's call sites could match on.
@@ -106,6 +141,18 @@ describe('an umbrella route with the check off', () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ id: 1 })
+  })
+
+  it('sends a status the map never declared, and throws nothing', async () => {
+    const handler = defineTypedEventHandler(
+      { output: { 200: z.object({ id: z.string() }) } },
+      (_event, { respond }) => untyped(respond)(404, { id: '1' })
+    )
+
+    const response = await request(handler, ROUTE, { route: ROUTE })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({ id: '1' })
   })
 })
 
