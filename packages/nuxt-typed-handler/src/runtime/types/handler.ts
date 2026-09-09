@@ -7,10 +7,11 @@ import type {
 } from '@dphonys/nuxt-handler-errors/types'
 import type {
   DeclareSomething,
+  HandlerReturn,
   RequestInput,
-  ResponseBody,
   ResponseOutput,
   ResponseOutputs,
+  SentResponse,
   ValidatedContext,
   ValidatedEventHandler,
   ValidationIssue,
@@ -54,11 +55,15 @@ export interface TypedEventHandler<
     CheckedEventHandler<Request, Response, Errors>,
     ValidatedEventHandler<Request, Response, Input, Output> {}
 
-/** Validated sources plus factories for nonempty error declarations. */
+/**
+ * Validated sources - plus `respond` when the Response output is a status map
+ * - and factories for nonempty error declarations.
+ */
 export type TypedContext<
   S extends ValidationSchemas,
   A extends readonly AnyKnownError[],
-> = ValidatedContext<S> &
+  O = undefined,
+> = ValidatedContext<S, O> &
   (HasErrors<A> extends true
     ? HandlerContext<A>
     : // eslint-disable-next-line ts/no-empty-object-type
@@ -75,7 +80,8 @@ export type TypedHandlerFn<
   A extends readonly AnyKnownError[],
   Request extends EventHandlerRequest,
   Response,
-> = (event: H3Event<Request>, ctx: TypedContext<S, A>) => Response
+  O = undefined,
+> = (event: H3Event<Request>, ctx: TypedContext<S, A, O>) => Response
 
 // Every guard below is a missing-property guard: an unsatisfiable property
 // naming the mistake, surfaced by the compiler at the options argument.
@@ -129,15 +135,15 @@ export interface DefineTypedEventHandler {
     const S extends ValidationSchemas = {},
     const A extends ReadonlyArray<AnyKnownError> = [],
     O extends ResponseOutput | undefined = undefined,
-    Response extends EventHandlerResponse<ResponseBody<O>> =
-      EventHandlerResponse<ResponseBody<O>>,
+    Response extends EventHandlerResponse<HandlerReturn<O>> =
+      EventHandlerResponse<HandlerReturn<O>>,
     Request extends EventHandlerRequest = EventHandlerRequest,
   >(
     options: TypedHandlerOptions<S, A, O>,
-    handler: TypedHandlerFn<S, A, Request, Response>
+    handler: TypedHandlerFn<S, A, Request, Response, O>
   ): TypedEventHandler<
     Request,
-    Response,
+    SentResponse<O, Response>,
     TypedErrors<S, A>,
     RequestInput<S>,
     ResponseOutputs<O>

@@ -97,3 +97,12 @@ export const legacyRouterParamsKey = defineTypedEventHandler(
   },
   () => null
 )
+
+// --- A map-form output is answered through `respond`, here too ------------
+
+// The parent's rule, fired through the umbrella: a status map declares how the
+// handler answers, and a bare value names no status.
+export const plainReturnOnMap = defineTypedEventHandler(
+  { output: { 201: z.object({ id: z.string() }) } },
+  () => ({ id: '1' })
+)

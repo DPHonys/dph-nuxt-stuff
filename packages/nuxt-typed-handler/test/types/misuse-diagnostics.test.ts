@@ -36,7 +36,7 @@ describe('the declaration guards’ diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(9)
+    expect(diagnostics).toHaveLength(10)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -99,6 +99,20 @@ describe('the declaration guards’ diagnostics', () => {
 
     expect(wrongResponse?.code).toBe(NOT_ASSIGNABLE)
     expect(wrongResponse?.line).toBe(lineContaining(FIXTURE, 'Number(42)'))
+  })
+
+  it('refuses a plain return from a map-form Response output', () => {
+    // The parent's rule again: a status map is answered through `respond`,
+    // and the constraint the umbrella forwards is what says so.
+    const [plainReturn] = saying(
+      diagnostics,
+      "Type '{ id: string; }' is not assignable to type 'EventHandlerResponse<Responded<{ 201: { id: string; }; }>>'"
+    )
+
+    expect(plainReturn?.code).toBe(NOT_ASSIGNABLE)
+    expect(plainReturn?.line).toBe(
+      lineContaining(FIXTURE, "() => ({ id: '1' })")
+    )
   })
 
   it('refuses a factory for the built-in validation variant', () => {

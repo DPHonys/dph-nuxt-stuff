@@ -34,7 +34,12 @@ const SERVER_TSCONFIG = join(PLAYGROUND, '.nuxt/tsconfig.server.json')
 const APP_PROBE_SOURCE = [
   `import type { KnownApiErrors } from '@dphonys/nuxt-handler-errors/types'`,
   `import type { KnownApiRequestInputs } from '@dphonys/nuxt-typed-handler/types'`,
+  `import type { InternalApi } from 'nitropack/types'`,
   `import { useTypedFetch } from '#imports'`,
+  ``,
+  // Nitro's own generated route type for a status-map route, read the way
+  // Nitro's typed routes and both fetch families read it.
+  `export type StatusMapRoute = InternalApi['/api/drafts']['post']`,
   ``,
   // The route declaring both halves: one key in each map, read one at a time.
   `export type BothErrors = KnownApiErrors['/api/users']['post']`,
@@ -177,6 +182,18 @@ describe('both maps, rendered in the app program', () => {
 
     expect(rendered).toContain('"validation-failed"')
     expect(rendered).not.toContain('"user-exists"')
+  })
+
+  it('renders a status-map route as the union of its mapped bodies', () => {
+    const rendered = appProgram().renderHover('StatusMapRoute')
+
+    // The bodies the map declares, the bodiless status's `null` beside them,
+    // and no trace of the envelope the handler answered through.
+    expect(rendered).toContain('id: string')
+    expect(rendered).toContain('createdAt: string')
+    expect(rendered).toContain('null')
+    expect(rendered).not.toContain('Responded')
+    expect(rendered).not.toContain('respondedWith')
   })
 
   it('extracts nothing from an unbranded route in either map', () => {

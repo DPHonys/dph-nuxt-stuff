@@ -4,15 +4,19 @@ import {
 } from '@dphonys/nuxt-handler-errors/internals/server'
 import type { AnyKnownError } from '@dphonys/nuxt-handler-errors/types'
 import {
+  declaresStatusMap,
+  RESPOND_SLOT,
+  sendResponded,
   sourcePlan,
   validatedContext,
 } from '@dphonys/nuxt-handler-validation/internals/server'
 import type { ValidatedContextOptions } from '@dphonys/nuxt-handler-validation/internals/server'
 import type {
+  HandlerReturn,
   RequestInput,
-  ResponseBody,
   ResponseOutput,
   ResponseOutputs,
+  SentResponse,
   ValidatedContext,
   ValidationSchemas,
 } from '@dphonys/nuxt-handler-validation/types'
@@ -40,7 +44,7 @@ type Handler<
   Response extends EventHandlerResponse,
 > = TypedEventHandler<
   Request,
-  Response,
+  SentResponse<O, Response>,
   TypedErrors<S, A>,
   RequestInput<S>,
   ResponseOutputs<O>
@@ -68,9 +72,10 @@ type Handler<
  * A rejected request answers the built-in `validation-failed` variant rather
  * than the validation parent's own `400`; everything else about each half is
  * the parent's, unchanged. `output` is the parent's too: a bare schema
- * declares one `200` the handler returns plainly, checked by the compiler and
- * run by nothing. Reading the body again with `readBody` yields h3's
- * memoized unvalidated parse.
+ * declares one `200` the handler returns plainly, a status map declares one
+ * reply per status and puts `respond` in the context to answer through, both
+ * checked by the compiler and run by nothing. Reading the body again with
+ * `readBody` yields h3's memoized unvalidated parse.
  * Error payload schemas accept their input type and expose their validated
  * output as flat fields on the variant.
  */
@@ -78,11 +83,11 @@ export const defineTypedEventHandler: DefineTypedEventHandler = <
   const S extends ValidationSchemas,
   const A extends ReadonlyArray<AnyKnownError>,
   O extends ResponseOutput | undefined,
-  Response extends EventHandlerResponse<ResponseBody<O>>,
+  Response extends EventHandlerResponse<HandlerReturn<O>>,
   Request extends EventHandlerRequest,
 >(
   options: TypedHandlerOptions<S, A, O>,
-  handler: TypedHandlerFn<S, A, Request, Response>
+  handler: TypedHandlerFn<S, A, Request, Response, O>
 ): Handler<S, A, O, Request, Response> => {
   // In this order, so each declaration fault reports with its owner's message.
   const declared = resolveDeclared(options.errors ?? [])
@@ -103,27 +108,38 @@ export const defineTypedEventHandler: DefineTypedEventHandler = <
     )
   }
 
+  // Read once, when the route file is evaluated: a route the helper was never
+  // offered to pays nothing per request for it.
+  const respondsWithStatus = declaresStatusMap(options.output)
+
   // A fresh object per request, so a handler may decorate its own context.
   // Validation-only routes keep the parent's context without a factories slot.
-  // `undefined` when there is no plan: nothing validated, and `S` is `{}`.
   const contextFor = (
     validated: ValidatedContext<S> | undefined
-  ): TypedContext<S, A> =>
+  ): TypedContext<S, A, O> =>
     // SAFETY: the plan is `sourcePlan(options.input)`, so `validated`
-    // holds exactly the sources `S` declares, each its schema's output; and
-    // `errorContext.errors` holds one factory per tag `A` declares. Those
-    // two halves are `TypedContext<S, A>` by definition.
-    ({ ...validated, ...errorContext }) as TypedContext<S, A>
+    // holds exactly the sources `S` declares, each its schema's output;
+    // `errorContext.errors` holds one factory per tag `A` declares; and
+    // `respond` joins them exactly when `O` is the status map that offers it.
+    // Those halves are `TypedContext<S, A, O>` by definition.
+    ({
+      ...validated,
+      ...errorContext,
+      ...(respondsWithStatus ? RESPOND_SLOT : undefined),
+    }) as TypedContext<S, A, O>
 
   // SAFETY: h3 awaits every handler's result and Nitro types the route
-  // through `Awaited<>`, so the validating branch's `Promise<Response>`
-  // serves exactly as `Response` does. Both phantom slots are optional and
-  // never assigned; the value is h3's own handler.
-  return defineEventHandler((event: H3Event<Request>) =>
-    plan === undefined
-      ? handler(event, contextFor(undefined))
-      : validatedContext(event, plan, VALIDATION_OPTIONS).then((validated) =>
-          handler(event, contextFor(validated))
-        )
-  ) as Handler<S, A, O, Request, Response>
+  // through `Awaited<>`, so this branch's `Promise<Response>` serves exactly
+  // as `Response` does - and for a status map the public signature reports
+  // the union of the mapped bodies the envelope is unwrapped to. Both phantom
+  // slots are optional and never assigned; the value is h3's own handler.
+  return defineEventHandler(async (event: H3Event<Request>) => {
+    const validated =
+      plan === undefined
+        ? undefined
+        : await validatedContext(event, plan, VALIDATION_OPTIONS)
+    const returned = await handler(event, contextFor(validated))
+
+    return respondsWithStatus ? sendResponded(event, returned) : returned
+  }) as Handler<S, A, O, Request, Response>
 }

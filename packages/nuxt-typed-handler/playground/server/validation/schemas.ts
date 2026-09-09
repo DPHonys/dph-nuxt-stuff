@@ -31,3 +31,17 @@ export const orderRef = z.object({
     .regex(/^\d+$/, 'order id must be a whole number')
     .transform(Number),
 })
+
+/** The body the status-map route's `200` promises: a draft that existed. */
+export const draftRef = z.object({ id: z.string() })
+
+/** The body its `201` promises: the draft it had to create, and when. */
+export const draftCreated = z.object({
+  id: z.string(),
+  createdAt: z.string(),
+})
+
+/** Which of the three declared statuses the status-map route should answer. */
+export const draftIntent = z.object({
+  answer: z.enum(['found', 'created', 'discarded']),
+})

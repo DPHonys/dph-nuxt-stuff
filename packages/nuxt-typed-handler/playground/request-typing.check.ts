@@ -260,3 +260,19 @@ export async function tryResults(): Promise<void> {
     type _untyped = Assert<Equal<typeof unbranded.error.data, unknown>>
   }
 }
+
+/** `/api/drafts` declares a status map: the response is the union of bodies. */
+export async function statusMapResponse(): Promise<void> {
+  const _answered = await $typedFetch('/api/drafts', {
+    method: 'post',
+    query: { answer: 'created' },
+  })
+  // The mapped bodies and nothing else - the `null` of the bodiless status
+  // included, and no trace of the envelope the handler answered through.
+  type _resp = Assert<
+    Equal<
+      typeof _answered,
+      { id: string } | { id: string; createdAt: string } | null
+    >
+  >
+}

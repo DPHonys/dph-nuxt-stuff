@@ -354,3 +354,71 @@ describe('a route declaring a Response output', () => {
     })
   })
 })
+
+describe('a route declaring a Response output as a status map', () => {
+  /** The two bodies the map below promises, one per declared status. */
+  const existing = z.object({ id: z.string() })
+  const created = z.object({ id: z.string(), createdAt: z.string() })
+
+  it('sends the status the handler responded with, and its value as the body', async () => {
+    const handler = defineTypedEventHandler(
+      { output: { 200: existing, 201: created } },
+      (_event, { respond }) =>
+        respond(201, { id: '1', createdAt: '2026-09-09' })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(201)
+    await expect(response.json()).resolves.toEqual({
+      id: '1',
+      createdAt: '2026-09-09',
+    })
+  })
+
+  it('sends a status declared `null` with no body at all', async () => {
+    const handler = defineTypedEventHandler(
+      { output: { 204: null } },
+      (_event, { respond }) => respond(204)
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(204)
+    await expect(response.text()).resolves.toBe('')
+  })
+
+  it('hands `respond` over beside the sources and the error factories', async () => {
+    const handler = defineTypedEventHandler(
+      {
+        input: { query: z.object({ page: z.coerce.number() }) },
+        errors: [...userErrors],
+        output: { 200: z.object({ keys: z.array(z.string()) }) },
+      },
+      (_event, ctx) => ctx.respond(200, { keys: Object.keys(ctx).toSorted() })
+    )
+
+    const response = await request(handler, '/api/test?page=2')
+
+    await expect(response.json()).resolves.toEqual({
+      keys: ['errors', 'query', 'respond'],
+    })
+  })
+
+  it('rejects a source before the handler can respond at all', async () => {
+    const handler = defineTypedEventHandler(
+      {
+        input: { query: z.object({ page: z.coerce.number() }) },
+        output: { 201: existing },
+      },
+      (_event, { respond }) => respond(201, { id: '1' })
+    )
+
+    const response = await request(handler, '/api/test?page=nope')
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({
+      data: { [KNOWN_ERROR_KEY]: { tag: 'validation-failed', status: 400 } },
+    })
+  })
+})

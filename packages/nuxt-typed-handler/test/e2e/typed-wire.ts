@@ -179,6 +179,25 @@ export function theTypedWire(nitroExtras: NitroExtras): void {
     ).toEqual({ created: 'Ada' })
   })
 
+  it('answers a status-map route under the status the handler responded with', async () => {
+    const created = await fetch('/api/drafts?answer=created', {
+      method: 'POST',
+    })
+
+    expect(created.status).toBe(201)
+    expect(await created.json()).toEqual({
+      id: 'draft-1',
+      createdAt: '2026-09-09',
+    })
+
+    const discarded = await fetch('/api/drafts?answer=discarded', {
+      method: 'POST',
+    })
+
+    expect(discarded.status).toBe(204)
+    expect(await discarded.text()).toBe('')
+  })
+
   it('lets malformed JSON reach an `errors`-only POST untouched', async () => {
     // No validation declared, so nothing reads the body before the handler.
     expect(await $fetch('/api/notes', postJson('{"name":'))).toEqual({
