@@ -117,9 +117,15 @@ function contentsOf(
   })
 }
 
+/** The Nitro plugins registered, as paths. */
+// `?? ''` because Nitro's own option type admits a hole in the array.
+function nitroPluginsOf(booted: Booted): string[] {
+  return (booted.nuxt.options.nitro.plugins ?? []).map((plugin) => plugin ?? '')
+}
+
 /** The §4.2 text, verbatim. */
 function leftoverKeyWarning(key: string): string {
-  return `[nuxt-typed-handler] \`${key}\` in nuxt.config is ignored: this module replaces the parent it configured. Move \`channelToken\` under \`typedHandler\` and delete \`${key}\`.`
+  return `[nuxt-typed-handler] \`${key}\` in nuxt.config is ignored: this module replaces the parent it configured. Move its options under \`typedHandler\` and delete \`${key}\`.`
 }
 
 /** The §4.6 text, verbatim. */
@@ -347,10 +353,7 @@ describe('module setup wiring', () => {
   })
 
   it('registers the two Nitro plugins separately, so each is deletable', () => {
-    // `?? ''` because Nitro's own option type admits a hole in the array.
-    const registered = (booted.nuxt.options.nitro.plugins ?? []).map(
-      (plugin) => plugin ?? ''
-    )
+    const registered = nitroPluginsOf(booted)
 
     expect(
       registered.filter((plugin) =>
@@ -364,9 +367,39 @@ describe('module setup wiring', () => {
     ).toHaveLength(1)
   })
 
+  it('registers no response-check plugin while the check is on', () => {
+    // The option carries no value into the bundle: the plugin's presence is
+    // the whole of the setting, so the default costs nothing at all.
+    expect(
+      nitroPluginsOf(booted).filter((plugin) =>
+        plugin.endsWith('/runtime/server/plugins/response-check')
+      )
+    ).toEqual([])
+  })
+
   it('warns about nothing on a clean boot', () => {
     expect(booted.warnings).toEqual([])
   })
+})
+
+describe('the `checkResponses` option', () => {
+  it('registers the plugin that turns the parent’s check off, and only then', async () => {
+    // The validation parent owns the check; this module forwards the option
+    // under its own key and clears the parent's flag through its own plugin.
+    let disabled: Booted | undefined
+
+    try {
+      disabled = await boot({ typedHandler: { checkResponses: false } })
+
+      expect(
+        nitroPluginsOf(disabled).filter((plugin) =>
+          plugin.endsWith('/runtime/server/plugins/response-check')
+        )
+      ).toHaveLength(1)
+    } finally {
+      await disabled?.nuxt.close()
+    }
+  }, 120_000)
 })
 
 describe('the channel token', () => {

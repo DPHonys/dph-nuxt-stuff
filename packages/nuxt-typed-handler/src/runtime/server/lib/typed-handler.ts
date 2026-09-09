@@ -72,8 +72,9 @@ type Handler<
  * the parent's, unchanged. `output` is the parent's too: a bare schema
  * declares one `200` the handler returns plainly, a status map declares one
  * reply per status and puts `respond` in the context to answer through, both
- * checked by the compiler and run by nothing. Reading the body again with
- * `readBody` yields h3's memoized unvalidated parse.
+ * checked by the compiler and, on a development server, asserted against the
+ * declared schema before the value goes out untouched. Reading the body again
+ * with `readBody` yields h3's memoized unvalidated parse.
  * Error payload schemas accept their input type and expose their validated
  * output as flat fields on the variant.
  */
