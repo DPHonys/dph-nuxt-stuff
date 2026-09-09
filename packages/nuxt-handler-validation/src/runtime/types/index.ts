@@ -113,17 +113,34 @@ export type SourceInput<T> = T extends readonly [
   : InputOf<T>
 
 /**
- * The handler's second parameter: exactly the sources the declaration
- * guarantees, each typed as its slot's delivered value. A key is guaranteed
- * only when its slot type cannot be `undefined`, so a declaration annotated
+ * The sources a declaration guarantees. A key is guaranteed only when its slot
+ * type cannot be `undefined`, so a declaration annotated
  * `const schemas: ValidationSchemas = { query }` guarantees nothing and
  * delivers no sources; use `satisfies ValidationSchemas` instead.
  */
-export type ValidatedContext<S extends ValidationSchemas> = {
+type DeclaredSource<S extends ValidationSchemas> = keyof {
   [K in Extract<keyof S, ValidationSource> as undefined extends S[K]
     ? never
-    : K]: SourceValue<S[K]>
+    : K]: 0
 }
+
+/**
+ * The handler's second parameter: exactly the sources the declaration
+ * guarantees, each typed as its slot's delivered value, plus `respond` when
+ * the Response output is a status map.
+ */
+// One mapped type rather than an intersection with a respond slot: an
+// intersection prints as its first constituent in a diagnostic, so a handler
+// reading a key it never declared would be told about a helper alias instead
+// of the context it was actually handed.
+export type ValidatedContext<S extends ValidationSchemas, O = undefined> = {
+  [K in DeclaredSource<S> | RespondKey<O>]: K extends keyof S
+    ? SourceValue<S[K]>
+    : Respond<ResponseOutputs<O>>
+}
+
+/** `'respond'` for a status map, and no key at all for anything else. */
+type RespondKey<O> = [O] extends [ResponseOutputMap] ? 'respond' : never
 
 /**
  * The Request input: keys = declared sources, values = what the client sends.
@@ -137,25 +154,92 @@ export type RequestInput<S extends ValidationSchemas> = {
 }
 
 /**
- * A declared Response output. One schema, meaning a single `200` reply the
- * handler returns plainly.
+ * A declared Response output: one schema, meaning a single `200` reply the
+ * handler returns plainly, or a status map the handler answers through the
+ * Respond helper.
  */
-export type ResponseOutput = StandardSchemaV1
+export type ResponseOutput = StandardSchemaV1 | ResponseOutputMap
 
 /**
- * The body a declaration promises: the declared schema's _output_ type, so a
- * transform is already applied by the time the value is sent. `unknown` when a
- * route declares no Response output, which constrains the return to nothing.
+ * The map form: one HTTP success status per reply the route can send, each
+ * carrying that reply's schema, or `null` for a status with no body at all.
  */
-export type ResponseBody<O> = O extends ResponseOutput ? OutputOf<O> : unknown
+export interface ResponseOutputMap {
+  readonly [status: number]: StandardSchemaV1 | null
+}
 
 /**
  * What the Response-output slot carries: the status map the declaration means,
- * which for the bare form is a single `200`. `never` when nothing is declared.
+ * which for the bare form is a single `200`, each status paired with the
+ * schema's _output_ type so a transform is already applied by the time the
+ * value is sent. `never` when a route declares no Response output.
  */
-export type ResponseOutputs<O> = O extends ResponseOutput
+export type ResponseOutputs<O> = O extends StandardSchemaV1
   ? { 200: OutputOf<O> }
-  : never
+  : O extends ResponseOutputMap
+    ? {
+        [Status in keyof O]: O[Status] extends StandardSchemaV1
+          ? OutputOf<O[Status]>
+          : null
+      }
+    : never
+
+/** Every body a declaration can send, as one union - what a client sees. */
+export type ResponseBodies<O> = ResponseOutputs<O>[keyof ResponseOutputs<O>]
+
+/**
+ * What the handler must hand back: the schema's output for the bare form, the
+ * Respond helper's result for the map form, and `unknown` when a route
+ * declares no Response output, which constrains the return to nothing.
+ */
+export type HandlerReturn<O> = O extends StandardSchemaV1
+  ? OutputOf<O>
+  : O extends ResponseOutputMap
+    ? Responded<ResponseOutputs<O>>
+    : unknown
+
+/**
+ * What the wrapper's product reports as its h3 `Response`: the union of the
+ * mapped bodies for the map form, so Nitro's typed routes and both fetch
+ * families see the bodies rather than the envelope carrying them; the
+ * handler's own return for every other form.
+ */
+export type SentResponse<O, Response> = [O] extends [ResponseOutputMap]
+  ? Promise<ResponseBodies<O>>
+  : Response
+
+// Module-private and never exported, so nothing outside this package can
+// fabricate a Respond helper's result: a handler that returns a plain value on
+// a map-form route is refused because it cannot spell this key.
+declare const respondedWith: unique symbol
+
+/**
+ * The Respond helper's result: one declared status paired with a value of that
+ * status's shape, which the wrapper unwraps to set the status and send the
+ * body. Opaque on purpose - the only way to make one is `respond`.
+ */
+export interface Responded<Outputs> {
+  readonly [respondedWith]: Outputs
+}
+
+/**
+ * The Respond helper a map-form route answers through: `status` is one of the
+ * declared statuses and the value is that status's body, checked together. A
+ * status declared `null` takes no value at all, and refuses one.
+ */
+// One signature rather than an overload per arity: two overloads turn every
+// rejection into an essay with the actionable sentence buried in a branch. The
+// status is its own parameter so it can still be inferred, and the body rides
+// a rest tuple the status picks.
+export interface Respond<Outputs> {
+  <Status extends keyof Outputs>(
+    status: Status,
+    ...body: RespondBody<Outputs[Status]>
+  ): Responded<Outputs>
+}
+
+/** One value for a status with a body, none for a status declared `null`. */
+type RespondBody<Body> = [Body] extends [null] ? [] : [body: Body]
 
 /**
  * What a route declares: its Validation sources, its Response output, or both.

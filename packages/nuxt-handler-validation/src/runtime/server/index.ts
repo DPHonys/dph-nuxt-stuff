@@ -2,16 +2,18 @@ import type { EventHandlerRequest, EventHandlerResponse, H3Event } from 'h3'
 import { defineEventHandler } from 'h3'
 import { readValidationMarker } from '../shared/error-marker'
 import type {
+  HandlerReturn,
   RequestInput,
-  ResponseBody,
   ResponseOutput,
   ResponseOutputs,
+  SentResponse,
   ValidatedContext,
   ValidatedEventHandler,
   ValidatedHandlerOptions,
   ValidationErrorData,
   ValidationSchemas,
 } from '../types'
+import { declaresStatusMap, RESPOND_SLOT, sendResponded } from './lib/respond'
 import { sourcePlan, validatedContext } from './lib/validate'
 
 /**
@@ -28,9 +30,13 @@ import { sourcePlan, validatedContext } from './lib/validate'
  * `readBody` yields h3's memoized unvalidated parse.
  *
  * `output: schema` declares one `200` reply: the handler's plain return is
- * constrained to the schema's _output_ type. Nothing runs the schema, so what
- * the handler returns is what the client receives. Either half alone is a
- * declaration; `{}` is neither, and is refused.
+ * constrained to the schema's _output_ type. `output: { 200: a, 201: b }`
+ * declares a status map instead: the Validated context gains `respond`, and
+ * the handler returns `respond(status, value)` - or `respond(status)` for a
+ * status declared `null`, which sends no body - with the status and the value
+ * checked together. Nothing runs the schema either way, so what the handler
+ * hands over is what the client receives. Either half alone is a declaration;
+ * `{}` is neither, and is refused.
  */
 // Every type parameter carries a default, because both halves of the
 // declaration are optional: `S` has to read `{}` rather than the whole
@@ -39,16 +45,18 @@ export function defineValidatedEventHandler<
   // eslint-disable-next-line ts/no-empty-object-type
   const S extends ValidationSchemas = {},
   O extends ResponseOutput | undefined = undefined,
-  Response extends EventHandlerResponse<ResponseBody<O>> = EventHandlerResponse<
-    ResponseBody<O>
-  >,
+  Response extends EventHandlerResponse<HandlerReturn<O>> =
+    EventHandlerResponse<HandlerReturn<O>>,
   Request extends EventHandlerRequest = EventHandlerRequest,
 >(
   options: ValidatedHandlerOptions<S, O>,
-  handler: (event: H3Event<Request>, validated: ValidatedContext<S>) => Response
+  handler: (
+    event: H3Event<Request>,
+    validated: ValidatedContext<S, O>
+  ) => Response
 ): ValidatedEventHandler<
   Request,
-  Response,
+  SentResponse<O, Response>,
   RequestInput<S>,
   ResponseOutputs<O>
 > {
@@ -67,20 +75,34 @@ export function defineValidatedEventHandler<
     )
   }
 
+  // Read once, when the route file is evaluated: a bare-form or output-less
+  // route pays nothing per request for a helper it was never offered.
+  const respondsWithStatus = declaresStatusMap(options.output)
+
   // SAFETY: `defineEventHandler` types its product by the one promise the
   // wrapper always returns, while the public signature reports the handler's
-  // own `Response`, so Nitro's typed routes see the success type rather than
-  // the wrapper's promise of it. An output-only route validates nothing, so its
-  // `ValidatedContext<S>` has no keys and a fresh `{}` is the whole of it - one
-  // per request, so a handler may decorate its own context. Both phantom slots
-  // are optional and never assigned, so the h3 handler satisfies them as it is.
-  return defineEventHandler(async (event: H3Event<Request>) =>
-    plan === undefined
-      ? handler(event, {} as ValidatedContext<S>)
-      : handler(event, await validatedContext(event, plan))
-  ) as ValidatedEventHandler<
+  // own `Response` - or, for a status map, the union of the mapped bodies the
+  // envelope is unwrapped to. Both phantom slots are optional and never
+  // assigned, so the h3 handler satisfies them as it is.
+  return defineEventHandler(async (event: H3Event<Request>) => {
+    const sources =
+      plan === undefined ? {} : await validatedContext(event, plan)
+
+    // SAFETY: `sources` is `validatedContext` over this `S`, so it holds
+    // exactly the sources `S` declares - and an output-only route validates
+    // nothing, so a fresh `{}` is the whole of them, one per request, which is
+    // what lets a handler decorate its own context. `respond` joins them
+    // exactly when `O` is the status map that offers it. Those halves are
+    // `ValidatedContext<S, O>` by definition.
+    const context = (
+      respondsWithStatus ? { ...sources, ...RESPOND_SLOT } : sources
+    ) as ValidatedContext<S, O>
+    const returned = await handler(event, context)
+
+    return respondsWithStatus ? sendResponded(event, returned) : returned
+  }) as ValidatedEventHandler<
     Request,
-    Response,
+    SentResponse<O, Response>,
     RequestInput<S>,
     ResponseOutputs<O>
   >

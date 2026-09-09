@@ -137,6 +137,22 @@ export function theValidationWire(nitroExtras: NitroExtras): void {
     ).toEqual({ method: 'POST', nickname: 'dph' })
   })
 
+  it('answers a status-map route under the status the handler responded with', async () => {
+    const created = await fetch('/api/drafts', { method: 'POST' })
+
+    expect(created.status).toBe(201)
+    expect(await created.json()).toEqual({ id: 'draft-1' })
+  })
+
+  it('sends a status declared `null` with no body at all', async () => {
+    const discarded = await fetch('/api/drafts?discard=yes', {
+      method: 'POST',
+    })
+
+    expect(discarded.status).toBe(204)
+    expect(await discarded.text()).toBe('')
+  })
+
   it('delivers a composed tuple’s outputs as one flat value', async () => {
     // Three schemas from two libraries compose `query`, all three against the
     // same raw source.

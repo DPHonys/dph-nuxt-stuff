@@ -125,9 +125,11 @@ describe('the declaration guard’s diagnostics', () => {
     // `validated.body` used to compile as `unknown` and arrive `undefined`. A
     // slot that can be `undefined` is now no key at all - which costs the
     // annotated `query` too, and deliberately.
+    // The second type argument is the Response output: `undefined` here, so
+    // the context is the sources alone, with no `respond` beside them.
     const [undeclared, declared] = saying(
       diagnostics,
-      "does not exist on type 'ValidatedContext<ValidationSchemas>'"
+      "does not exist on type 'ValidatedContext<ValidationSchemas, undefined>'"
     )
 
     expect(undeclared?.code).toBe(PROPERTY_DOES_NOT_EXIST)
@@ -202,5 +204,113 @@ describe('the declaration guard’s diagnostics', () => {
 
     expect(stray?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
     expect(stray?.line).toBe(lineContaining(fixture, 'boyd:'))
+  })
+})
+
+// What an author reads when a map-form Response output is answered wrongly.
+// The Respond helper's whole promise is a compile-time one, so every way of
+// breaking it is read here, at the line the author broke it on.
+
+const RESPOND_FIXTURE = fixturePath('misuse-respond.ts')
+
+const respondDiagnostics = compileFixture(FIXTURE_TSCONFIG, RESPOND_FIXTURE)
+
+/** TS2554 - a call with the wrong number of arguments. */
+const WRONG_ARGUMENT_COUNT = 2554
+
+describe('the Respond helper’s diagnostics', () => {
+  it('is the same run every time, and nothing more than this run', () => {
+    // Six cases, six diagnostics: a rejection that appears, moves or vanishes
+    // fails here rather than passing quietly.
+    expect(respondDiagnostics).toHaveLength(6)
+    expect(compileFixture(FIXTURE_TSCONFIG, RESPOND_FIXTURE)).toEqual(
+      respondDiagnostics
+    )
+  })
+
+  it('never collapses into an overload paragraph', () => {
+    // `respond` has one signature for the same reason the wrapper does: two
+    // would bury the actionable sentence in a branch of an essay.
+    for (const diagnostic of respondDiagnostics) {
+      expect(diagnostic.message).not.toContain('Overload')
+    }
+  })
+
+  it('names the declared statuses when the handler responds with another', () => {
+    const [undeclared] = saying(
+      respondDiagnostics,
+      "Argument of type '404' is not assignable to parameter of type '200 | 201'."
+    )
+
+    expect(undeclared?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(undeclared?.line).toBe(
+      lineContaining(RESPOND_FIXTURE, 'respond(404,')
+    )
+  })
+
+  it('checks the value against the schema of the status it was paired with', () => {
+    // 200 would have accepted this value; 201 is what the handler named.
+    const [mismatchedValue] = saying(
+      respondDiagnostics,
+      "Property 'createdAt' is missing in type '{ id: string; }'"
+    )
+
+    expect(mismatchedValue?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(mismatchedValue?.line).toBe(
+      lineContaining(RESPOND_FIXTURE, 'respond(201,')
+    )
+  })
+
+  it('refuses a plain return from a map-form route', () => {
+    // A bare value names no status, so the map form has exactly one way to
+    // answer - which is what the return constraint says.
+    const [plain] = saying(
+      respondDiagnostics,
+      "Type '{ id: string; }' is not assignable to type 'EventHandlerResponse<Responded<{ 200: { id: string; }; 201: { id: string; createdAt: string; }; }>>'."
+    )
+
+    expect(plain?.code).toBe(NOT_ASSIGNABLE)
+    expect(plain?.line).toBe(
+      lineContaining(RESPOND_FIXTURE, '(_event, _validated) => ({ id: ')
+    )
+  })
+
+  it('refuses a plain return from a single-key map too', () => {
+    // One key is still a map: there is no plain-return shortcut for it.
+    const [single] = saying(
+      respondDiagnostics,
+      "is not assignable to type 'EventHandlerResponse<Responded<{ 201: { id: string; createdAt: string; }; }>>'."
+    )
+
+    expect(single?.code).toBe(NOT_ASSIGNABLE)
+    expect(single?.line).toBe(
+      lineContaining(RESPOND_FIXTURE, "createdAt: '2026-09-09' }")
+    )
+  })
+
+  it('refuses a value handed to a status declared `null`', () => {
+    // The body rides a rest tuple the status picks, and a bodiless status
+    // picks an empty one - so the second argument is one argument too many.
+    const [bodiless] = saying(
+      respondDiagnostics,
+      'Expected 1 arguments, but got 2.'
+    )
+
+    expect(bodiless?.code).toBe(WRONG_ARGUMENT_COUNT)
+    expect(bodiless?.line).toBe(lineContaining(RESPOND_FIXTURE, 'respond(204,'))
+  })
+
+  it('offers no `respond` at all on a bare-form route', () => {
+    // The same missing-key diagnostic an undeclared source gets, because it
+    // is the same rule: the context carries what the declaration guarantees.
+    const [bare] = saying(
+      respondDiagnostics,
+      "Property 'respond' does not exist on type 'ValidatedContext<{}, ZodObject<{ id: ZodString; }, $strip>>'."
+    )
+
+    expect(bare?.code).toBe(PROPERTY_DOES_NOT_EXIST)
+    expect(bare?.line).toBe(
+      lineContaining(RESPOND_FIXTURE, 'validated.respond(200,')
+    )
   })
 })

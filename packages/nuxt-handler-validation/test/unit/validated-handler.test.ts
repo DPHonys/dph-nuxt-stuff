@@ -15,6 +15,7 @@ import {
   failureBodyOf,
   postJson,
   request,
+  requestReporting,
   schemaReturning,
   sourcesOfIssues,
   wire,
@@ -966,5 +967,125 @@ describe('a handler declaring a Response output', () => {
     expect(() =>
       defineValidatedEventHandler(wire('{"input":{}}'), () => null)
     ).toThrow('must declare input, output, or both')
+  })
+})
+
+describe('a handler declaring a Response output as a status map', () => {
+  /** The two bodies the map below promises, one per declared status. */
+  const existing = z.object({ id: z.string() })
+  const created = z.object({ id: z.string(), createdAt: z.string() })
+
+  it('sends the status the handler responded with, and its value as the body', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: { 200: existing, 201: created } },
+      (_event, { respond }) =>
+        respond(201, { id: '1', createdAt: '2026-09-09' })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(201)
+    await expect(response.json()).resolves.toEqual({
+      id: '1',
+      createdAt: '2026-09-09',
+    })
+  })
+
+  it('sends the other declared status from the same route', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: { 200: existing, 201: created } },
+      (_event, { respond }) => respond(200, { id: '1' })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ id: '1' })
+  })
+
+  it('sends a `null` status with no body at all', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: { 204: null } },
+      (_event, { respond }) => respond(204)
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(204)
+    await expect(response.text()).resolves.toBe('')
+  })
+
+  it('lets any status map to `null`, not just 204', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: { 205: null } },
+      (_event, { respond }) => respond(205)
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(205)
+    await expect(response.text()).resolves.toBe('')
+  })
+
+  it('sends what the handler responded with, untouched by the schema', async () => {
+    // The declared schema strips and coerces; nothing runs it, so the answer
+    // is the handler's own object, extra key included. What a plain-JavaScript
+    // route file hands over: parsed, so the value is honestly untyped.
+    const untyped: unknown = wire('{"id":"1","extra":true}')
+
+    const handler = defineValidatedEventHandler(
+      { output: { 200: existing } },
+      // @ts-expect-error - `unknown` is not the declared status's body type
+      (_event, { respond }) => respond(200, untyped)
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ id: '1', extra: true })
+  })
+
+  it('hands a map-form route `respond` beside its validated sources', async () => {
+    const handler = defineValidatedEventHandler(
+      {
+        input: { query: z.object({ page: z.coerce.number() }) },
+        output: { 200: z.object({ keys: z.array(z.string()) }) },
+      },
+      (_event, validated) =>
+        validated.respond(200, { keys: Object.keys(validated).toSorted() })
+    )
+
+    const response = await request(handler, '/api/test?page=2')
+
+    await expect(response.json()).resolves.toEqual({
+      keys: ['query', 'respond'],
+    })
+  })
+
+  it('hands a bare-form route no `respond` at all', async () => {
+    const handler = defineValidatedEventHandler(
+      { output: z.object({ keys: z.array(z.string()) }) },
+      (_event, validated) => ({ keys: Object.keys(validated) })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    await expect(response.json()).resolves.toEqual({ keys: [] })
+  })
+
+  it('refuses a plain return from a map-form route, single key included', async () => {
+    // The compile guard's answer for a JavaScript caller: a map declares how
+    // the handler answers, and a bare value names no status.
+    const handler = defineValidatedEventHandler(
+      wire('{"output":{"201":null}}'),
+      () => ({ id: '1' })
+    )
+
+    const { thrown } = await requestReporting(handler, '/api/test')
+
+    expect(thrown.statusCode).toBe(500)
+    expect(thrown.message).toContain(
+      'cannot send the response: a route declaring a status map must return the Respond helper’s result'
+    )
   })
 })
