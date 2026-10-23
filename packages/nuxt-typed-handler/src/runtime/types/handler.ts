@@ -97,8 +97,7 @@ export type AtLeastOne<
   O,
 > =
   HasErrors<A> extends true
-    ? // eslint-disable-next-line ts/no-empty-object-type
-      {}
+    ? unknown
     : DeclareSomething<
         S,
         O,

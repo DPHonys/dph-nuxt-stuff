@@ -114,6 +114,9 @@ type HasOutput<O> = [O] extends [ResponseOutput]
  * naming the halves it could have declared. The message is a parameter so the
  * umbrella, which has a third half of its own, composes this guard with its
  * own sentence rather than reinventing the rule.
+ *
+ * `unknown` where the declaration passes: the options type intersects with
+ * this guard, and `T & unknown` is `T` itself.
  */
 export type DeclareSomething<
   S extends ValidationSchemas,
@@ -121,11 +124,9 @@ export type DeclareSomething<
   Msg extends string = 'declare input, output, or both',
 > =
   HasInput<S> extends true
-    ? // eslint-disable-next-line ts/no-empty-object-type
-      {}
+    ? unknown
     : HasOutput<O> extends true
-      ? // eslint-disable-next-line ts/no-empty-object-type
-        {}
+      ? unknown
       : { __declareSomething__: Msg }
 
 /**
