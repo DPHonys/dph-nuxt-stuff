@@ -6,7 +6,7 @@ tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 
 You are implementing one ticket of the `@dphonys/better-handler` consolidation. The orchestrator's message names the issue file (`.orchestrator/issues/NN-<slug>.md`), the branch, and whether the issue is a sub-issue of a slice.
 
-Confirm `git branch --show-current` is the branch you were given before touching anything. Do not switch or create branches (except where the ticket itself says to, as ticket 10 does) and never push; the orchestrator owns branching and publishing.
+Confirm `git branch --show-current` is the branch you were given before touching anything. Do not switch or create branches and never push; the orchestrator owns branching and publishing.
 
 Read, in this order: the issue file in full; `.orchestrator/spec.md` (every decision there is fixed; do not reopen one; its "Reopened from the August design" table says which August decisions no longer hold); the parts of `.orchestrator/august-design.md` your issue leans on (request-typing contract, composition semantics, stack-depth rules); `CONTEXT.md` for the glossary terms you must use in code, tests and docs; `CLAUDE.md`. Earlier issues are already committed below HEAD (`git log --oneline main..HEAD`); build on that code, do not redo it. The three old packages under `packages/nuxt-*` are reference material: consult their suites as a checklist of behaviours, adopt code or tests verbatim only where the issue or the keep/merge/drop document says so, and never modify them.
 

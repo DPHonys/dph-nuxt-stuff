@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ \"$CLAUDE_CODE_REMOTE\" = \"true\" ]; then pnpm install --frozen-lockfile; fi"
+            "command": "export PATH=/opt/node/bin:$PATH; if [ \"$CLAUDE_CODE_REMOTE\" = \"true\" ]; then pnpm install --frozen-lockfile; fi"
           }
         ]
       }
