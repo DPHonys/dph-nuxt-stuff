@@ -18,7 +18,7 @@ export default defineNuxtModule<ModuleOptions>({
     // starts tight: the floor is the lowest Nuxt the workspace catalog can
     // install, and the ceiling stops below a major nobody has run it on.
     // Move either end once you have measured it.
-    compatibility: { nuxt: '>=4.5.1 <5.0.0' },
+    compatibility: { nuxt: '>=4.6.2 <5.0.0' },
   },
   defaults: {
     message: 'SCAFFOLD_DEFAULT_MESSAGE_TOKEN',

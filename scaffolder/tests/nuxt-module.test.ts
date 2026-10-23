@@ -191,7 +191,7 @@ describe('nuxt module Template contract', () => {
       type: 'module',
       sideEffects: false,
       license: 'MIT',
-      engines: { node: '^22.19.0 || ^24.11.0 || >=26.0.0' },
+      engines: { node: '^22.22.3 || ^24.15.0 || >=26.0.0' },
       keywords: ['nuxt', 'nuxt-module', 'api-2-client'],
       repository: {
         type: 'git',
