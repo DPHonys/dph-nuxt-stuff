@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export PATH=/opt/node/bin:$PATH; if [ \"$CLAUDE_CODE_REMOTE\" = \"true\" ]; then pnpm install --frozen-lockfile; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(git *)",
+      "Bash(gh api *)",
+      "Bash(sleep *)",
+      "Bash(date *)"
+    ]
+  },
+  "attribution": {
+    "sessionUrl": false
+  }
+}
