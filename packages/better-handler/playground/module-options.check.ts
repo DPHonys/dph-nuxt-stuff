@@ -9,9 +9,6 @@ import type { NuxtConfig } from 'nuxt/schema'
 /** The development-only assertions, turned off from a consumer's config. */
 export const devChecksOff: NuxtConfig['betterHandler'] = { devChecks: false }
 
-/** The whole module, turned off: kit skips the setup of a `false` key. */
-export const disabled: NuxtConfig['betterHandler'] = false
-
 export const retiredOption: NuxtConfig['betterHandler'] = {
   devChecks: true,
   // @ts-expect-error the channel token no longer exists in this design
