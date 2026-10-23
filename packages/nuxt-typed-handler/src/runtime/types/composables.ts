@@ -40,7 +40,7 @@ export type UseTypedFetchOptions<
   ReqT extends NitroFetchRequest,
   Method extends MethodArg<ReqT>,
 > = Omit<
-  UseFetchOptions<ResT, ResT, never, undefined, ReqT, Method>,
+  UseFetchOptions<ResT, ResT, never, undefined, ReqT & string, Method>,
   'body' | 'query' | 'params'
 > &
   ReactiveSources<TypedSources<ReqT, Method>>

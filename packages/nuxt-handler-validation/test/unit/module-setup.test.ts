@@ -24,7 +24,11 @@ interface Booted {
  * hands over is the only public route to the resolved Nitro options.
  */
 async function boot(overrides?: NuxtConfig): Promise<Booted> {
-  const nuxt = await loadNuxt({ cwd: FIXTURE, ready: false, overrides })
+  // Added only when present: kit 4.6 types `overrides` without `undefined`,
+  // and this repo compiles with `exactOptionalPropertyTypes`.
+  const options: Parameters<typeof loadNuxt>[0] = { cwd: FIXTURE, ready: false }
+  if (overrides !== undefined) options.overrides = overrides
+  const nuxt = await loadNuxt(options)
   let nitro: NitroInstance | undefined
 
   nuxt.hook('nitro:init', (instance) => {
