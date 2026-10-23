@@ -4,6 +4,7 @@ import {
   createError,
   defineEventHandler,
   readBody,
+  setResponseStatus,
   toWebHandler,
 } from 'h3'
 import * as v from 'valibot'
@@ -929,6 +930,24 @@ describe('a handler declaring a Response output', () => {
     })
   })
 
+  it('answers 200 whatever status the handler set, as the bare form declares', async () => {
+    // The declaration promised the body under `200` and nothing else, so the
+    // wrapper sets that status the way the map form sets the one responded with.
+    const handler = defineValidatedEventHandler(
+      { output: z.object({ page: z.number() }) },
+      (event) => {
+        setResponseStatus(event, 201)
+
+        return { page: 2 }
+      }
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ page: 2 })
+  })
+
   it('hands an output-only route an empty Validated context', async () => {
     const handler = defineValidatedEventHandler(
       { output: z.object({ keys: z.array(z.string()) }) },
@@ -1025,6 +1044,20 @@ describe('a handler declaring a Response output as a status map', () => {
     const response = await request(handler, '/api/test')
 
     expect(response.status).toBe(205)
+    await expect(response.text()).resolves.toBe('')
+  })
+
+  it('sends no body under a `null` status, even when a caller passed one', async () => {
+    // `respond(204, value)` is a compile error; a plain-JavaScript route file
+    // can still write it, and the declaration decides what goes out.
+    const handler = defineValidatedEventHandler(
+      { output: { 204: null } },
+      (_event, { respond }) => untyped(respond)(204, { leaked: true })
+    )
+
+    const response = await request(handler, '/api/test')
+
+    expect(response.status).toBe(204)
     await expect(response.text()).resolves.toBe('')
   })
 

@@ -240,7 +240,9 @@ export default defineValidatedEventHandler(
 A bare schema is shorthand for a single `200`. The handler returns the value
 plainly, constrained to the schema's **output** type - the side the wire sees,
 so a transform is already applied where the type is concerned. No helper is
-offered on this form.
+offered on this form, and the wrapper answers `200` whatever status a handler
+or middleware set before: the declaration names the only status the body was
+promised under.
 
 ### The map form: one status per reply
 

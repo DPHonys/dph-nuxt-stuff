@@ -105,7 +105,10 @@ export function responseDelivery(
     respondSlot: undefined,
     send: async (event, returned) => {
       // The bare form is sugar for a single `200`, so that is the status the
-      // declared schema answers for.
+      // declared schema answers for - set, as the map form sets its status, so
+      // a status a handler or middleware changed cannot carry the 200 body.
+      setResponseStatus(event, 200)
+
       if (checksResponses()) await checkResponse(event, 200, output, returned)
 
       return returned
@@ -149,7 +152,8 @@ function declaresSchema(
 /**
  * Send what a map-form handler responded with: the declared status, and its
  * value as the body. A status declared `null` sends `null`, which is h3's own
- * spelling for "no body" and keeps the status the helper named.
+ * spelling for "no body" and keeps the status the helper named - whatever a
+ * caller the types never saw passed beside it.
  */
 async function sendResponded(
   event: H3Event,
@@ -174,7 +178,14 @@ async function sendResponded(
     )
   }
 
-  return returned.body === undefined ? null : returned.body
+  // The declaration decides, not the envelope: the runtime helper takes any
+  // arguments, so a plain-JavaScript `respond(204, value)` carries a body the
+  // declared `null` promised never to send.
+  if (statuses[returned.status] === null || returned.body === undefined) {
+    return null
+  }
+
+  return returned.body
 }
 
 function isResponded(
