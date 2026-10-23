@@ -61,6 +61,8 @@ function fakeNuxt(): FakeNuxt {
           declarations: [],
           nodeReferences: [],
           sharedReferences: [],
+          serverTsConfig: { compilerOptions: {} },
+          serverReferences: [],
         })
       }
     },

@@ -66,7 +66,14 @@ async function boot(overrides?: NuxtConfig): Promise<Booted> {
   let nitro: NitroInstance | undefined
 
   const { result: nuxt, warnings } = await warningsDuring(async () => {
-    const loaded = await loadNuxt({ cwd: FIXTURE, ready: false, overrides })
+    // Added only when present: kit 4.6 types `overrides` without `undefined`,
+    // and this repo compiles with `exactOptionalPropertyTypes`.
+    const options: Parameters<typeof loadNuxt>[0] = {
+      cwd: FIXTURE,
+      ready: false,
+    }
+    if (overrides !== undefined) options.overrides = overrides
+    const loaded = await loadNuxt(options)
 
     loaded.hook('nitro:init', (instance) => {
       nitro = instance
@@ -228,6 +235,8 @@ describe('module setup wiring', () => {
       nodeReferences: [],
       sharedTsConfig: { compilerOptions: {} },
       sharedReferences: [],
+      serverTsConfig: { compilerOptions: {} },
+      serverReferences: [],
     }
 
     await booted.nuxt.callHook('prepare:types', payload)
@@ -494,7 +503,11 @@ describe('the sibling guard', () => {
     let nuxt: Nuxt | undefined
 
     try {
-      nuxt = await loadNuxt({ cwd: FIXTURE, ready: false, overrides })
+      nuxt = await loadNuxt({
+        cwd: FIXTURE,
+        ready: false,
+        overrides,
+      })
       await nuxt.ready()
     } catch (cause) {
       return cause instanceof Error

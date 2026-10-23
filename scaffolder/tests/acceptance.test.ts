@@ -246,7 +246,7 @@ async function assertPreInstallContract(
     type: 'module',
     sideEffects: false,
     license: 'MIT',
-    engines: { node: '^22.19.0 || ^24.11.0 || >=26.0.0' },
+    engines: { node: '^22.22.3 || ^24.15.0 || >=26.0.0' },
     keywords: ['nuxt', 'nuxt-module', 'api-2-client'],
     repository: {
       type: 'git',
@@ -372,7 +372,7 @@ async function assertPreInstallContract(
     join(repositoryRoot, 'pnpm-workspace.yaml'),
     'utf8'
   )
-  expect(workspace).toContain('nuxt: ^4.5.1')
+  expect(workspace).toContain('nuxt: ^4.6.2')
 }
 
 async function createDisposableRepository(): Promise<string> {

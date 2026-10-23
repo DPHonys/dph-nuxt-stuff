@@ -21,7 +21,9 @@ type RouteMethod<R extends NitroFetchRequest> =
   | Uppercase<AvailableRouterMethod<R>>
 
 // `ReqT extends string` because `NitroFetchRequest` also admits a `Request`
-// object no route path can be read out of.
+// object no route path can be read out of. The `ReqT & string` handed to the
+// option types below is Nuxt 4.6's own spelling: its request slot is
+// constrained to `string` since typed fetch was rebuilt.
 type KnownErrorsFor<ReqT, Method> = ReqT extends string
   ? Method extends RouterMethod | Uppercase<RouterMethod>
     ? KnownErrorsOfRoute<ReqT, Method>
@@ -62,7 +64,7 @@ export interface UseCheckedFetch {
       DataT,
       PickKeys,
       DefaultT,
-      ReqT,
+      ReqT & string,
       Method
     >
   ): AsyncData<
@@ -89,7 +91,7 @@ export interface UseCheckedFetch {
       DataT,
       PickKeys,
       DefaultT,
-      ReqT,
+      ReqT & string,
       Method
     >
   ): AsyncData<
@@ -111,7 +113,14 @@ export interface UseCheckedFetch {
     DefaultT = undefined,
   >(
     request: Ref<ReqT> | ReqT | (() => ReqT),
-    opts?: UseFetchOptions<_ResT, DataT, PickKeys, DefaultT, ReqT, Method>
+    opts?: UseFetchOptions<
+      _ResT,
+      DataT,
+      PickKeys,
+      DefaultT,
+      ReqT & string,
+      Method
+    >
   ): AsyncData<
     PickFrom<DataT, PickKeys> | DefaultT,
     KnownErrorRef<ReqT, Method> | undefined
@@ -131,7 +140,14 @@ export interface UseCheckedFetch {
     DefaultT = DataT,
   >(
     request: Ref<ReqT> | ReqT | (() => ReqT),
-    opts?: UseFetchOptions<_ResT, DataT, PickKeys, DefaultT, ReqT, Method>
+    opts?: UseFetchOptions<
+      _ResT,
+      DataT,
+      PickKeys,
+      DefaultT,
+      ReqT & string,
+      Method
+    >
   ): AsyncData<
     PickFrom<DataT, PickKeys> | DefaultT,
     KnownErrorRef<ReqT, Method> | undefined
@@ -153,7 +169,14 @@ export interface UseCheckedFetch {
     request: Ref<ReqT> | ReqT | (() => ReqT),
     arg1?:
       | string
-      | UseFetchOptions<_ResT, DataT, PickKeys, DefaultT, ReqT, Method>,
+      | UseFetchOptions<
+          _ResT,
+          DataT,
+          PickKeys,
+          DefaultT,
+          ReqT & string,
+          Method
+        >,
     arg2?: string
   ): AsyncData<
     PickFrom<DataT, PickKeys> | DefaultT,

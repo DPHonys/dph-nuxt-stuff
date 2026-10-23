@@ -70,7 +70,7 @@ export default defineNuxtModule<ModuleOptions>({
     name: NAME,
     configKey: 'typedHandler',
     // The ceiling is the only guard against the h3 v2 / Nitro 3 line.
-    compatibility: { nuxt: '>=4.5.1 <5.0.0' },
+    compatibility: { nuxt: '>=4.6.2 <5.0.0' },
   },
   defaults: {
     channelToken: NAME,
