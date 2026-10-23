@@ -66,21 +66,14 @@ export async function requestReporting(
 }
 
 /**
- * A value the types never saw - what a plain-JavaScript route file or a wire
- * hands over - as its JSON. Parsing is the one honest source of such a value:
- * `any` here is `JSON.parse`'s own answer, where every other spelling would be
- * a cast telling the compiler a lie.
+ * A value the types never saw, as a plain-JavaScript route file or a wire
+ * hands it over. `any` is `JSON.parse`'s own answer, not a cast.
  */
 export function wire(json: string): any {
   return JSON.parse(json)
 }
 
-/**
- * A value handed over as the types never saw it - what a cast, or a plain
- * JavaScript route file, produces for a shape `wire` cannot spell as JSON: a
- * function, a class instance. `any` is the honest spelling; a chained
- * assertion at every call site would say the same thing, less readably.
- */
+/** As `wire`, for a shape JSON cannot spell: a function, a class instance. */
 export function untyped<T>(value: T): any {
   return value
 }
