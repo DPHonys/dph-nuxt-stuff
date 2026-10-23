@@ -1,0 +1,8 @@
+{
+  "overrides": {
+    "nuxt": "~4.0.0",
+    "@nuxt/kit": "~4.0.0",
+    "@nuxt/schema": "~4.0.0"
+  },
+  "trustPolicyIgnoreAfter": 525600
+}

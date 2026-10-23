@@ -1,7 +1,7 @@
 /**
  * Renders the Markdown fragments CI posts as one sticky pull request comment.
  *
- *   pr-report.ts jobs <needs-json>        table of every job's result
+ *   pr-report.ts jobs <needs-json> [<allowed-to-fail-job>...]
  *   pr-report.ts lint <oxlint.json> <eslint.txt>
  *   pr-report.ts junit <junit.xml>...
  */
@@ -10,6 +10,7 @@ import process from 'node:process'
 
 interface JobOutcome {
   result: 'success' | 'failure' | 'cancelled' | 'skipped'
+  outputs?: Record<string, string>
 }
 
 interface OxlintReport {
@@ -23,12 +24,25 @@ const badge = {
   skipped: '⏭️ skipped',
 } satisfies Record<JobOutcome['result'], string>
 
-function jobsTable(needsJson: string): string {
+/**
+ * One table row per job, except the jobs named as allowed to fail. Those run
+ * with `continue-on-error`, which makes their `result` read `success` even when
+ * they failed, so each hands over a `verdict` output and renders as a
+ * `<job>: pass|fail` line below the table, its hyphens read as spaces
+ * (`nightly-5` → `nightly 5: fail`). A missing verdict - the job never reached
+ * the step that records it - reads as `fail`.
+ */
+function jobsTable(needsJson: string, allowedToFail: string[]): string {
   const needs: Record<string, JobOutcome> = JSON.parse(needsJson)
-  const rows = Object.entries(needs).map(
-    ([job, outcome]) => `| ${job} | ${badge[outcome.result]} |`
-  )
-  return ['| Job | Result |', '| --- | --- |', ...rows].join('\n')
+  const rows = Object.entries(needs)
+    .filter(([job]) => !allowedToFail.includes(job))
+    .map(([job, outcome]) => `| ${job} | ${badge[outcome.result]} |`)
+  const verdicts = allowedToFail.map((job) => {
+    const verdict = needs[job]?.outputs?.verdict === 'pass' ? 'pass' : 'fail'
+    return `${job.replaceAll('-', ' ')}: ${verdict}`
+  })
+  const table = ['| Job | Result |', '| --- | --- |', ...rows].join('\n')
+  return verdicts.length > 0 ? `${table}\n\n${verdicts.join('\n\n')}` : table
 }
 
 function lintSummary(oxlintPath: string, eslintPath: string): string {
@@ -93,7 +107,7 @@ function readTotals(xml: string): SuiteTotals {
 const [mode, ...rest] = process.argv.slice(2)
 switch (mode) {
   case 'jobs':
-    console.log(jobsTable(rest[0] ?? '{}'))
+    console.log(jobsTable(rest[0] ?? '{}', rest.slice(1)))
     break
   case 'lint':
     console.log(lintSummary(rest[0] ?? '', rest[1] ?? ''))

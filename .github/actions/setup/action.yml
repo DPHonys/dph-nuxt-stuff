@@ -1,6 +1,17 @@
 name: Setup
 description: Check out, install the pinned toolchain, restore caches, and install dependencies.
 
+inputs:
+  compat-settings:
+    description: >-
+      Path to a JSON object of pnpm workspace settings (one of
+      `.github/compat/*.json`) to layer onto `pnpm-workspace.yaml` before
+      installing. The install then resolves a lockfile of its own in the
+      runner's checkout, which nothing commits. Empty, the default, installs
+      the committed lockfile with `--frozen-lockfile`.
+    required: false
+    default: ''
+
 runs:
   using: composite
   steps:
@@ -15,5 +26,30 @@ runs:
         key: turbo-${{ runner.os }}-${{ github.sha }}
         restore-keys: |
           turbo-${{ runner.os }}-
-    - run: pnpm install --frozen-lockfile
+    - if: ${{ inputs.compat-settings == '' }}
+      run: pnpm install --frozen-lockfile
       shell: bash
+    # Settings layered onto the checkout, not a second committed lockfile: a
+    # lockfile could not follow the Nuxt 5 nightly, which moves daily, and
+    # would need its own upkeep for the floor. pnpm reads `overrides` and the
+    # trust settings from `pnpm-workspace.yaml` only, not from the command line
+    # or the environment, so each key is written there through
+    # `pnpm config set`, which keeps the file's comments.
+    # A key the workspace already sets is refused rather than replaced: merge
+    # it into the settings file by hand. Changing `pnpm-workspace.yaml` also
+    # changes every Turborepo task hash (it is a global dependency), so a
+    # restored `.turbo` cache cannot replay a result from the committed tree.
+    - if: ${{ inputs.compat-settings != '' }}
+      name: Install against the compatibility settings
+      shell: bash
+      env:
+        SETTINGS: ${{ inputs.compat-settings }}
+      run: |
+        for key in $(jq -r 'keys[]' "$SETTINGS"); do
+          if grep -q "^${key}:" pnpm-workspace.yaml; then
+            echo "::error file=${SETTINGS}::pnpm-workspace.yaml already sets \`${key}\`; merge it into ${SETTINGS} instead."
+            exit 1
+          fi
+          pnpm config set --location project --json "$key" "$(jq -c --arg key "$key" '.[$key]' "$SETTINGS")"
+        done
+        pnpm install --no-frozen-lockfile
