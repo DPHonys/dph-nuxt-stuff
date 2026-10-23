@@ -29,7 +29,8 @@ export const orderRef = z.object({
   id: z
     .string()
     .regex(/^\d+$/, 'order id must be a whole number')
-    .transform(Number),
+    .transform(Number)
+    .refine(Number.isSafeInteger, 'order id is out of range'),
 })
 
 /** The body the status-map route's `200` promises: a draft that existed. */
