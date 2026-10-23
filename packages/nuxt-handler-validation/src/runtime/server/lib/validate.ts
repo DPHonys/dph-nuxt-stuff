@@ -2,6 +2,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import { z } from 'zod'
+import { VALIDATION_SOURCES } from '../../shared/sources'
 import type {
   SourceSchemas,
   SourceValue,
@@ -42,16 +43,28 @@ function isStandardSchema(value: unknown): value is StandardSchemaV1 {
   return STANDARD_SCHEMA.safeParse(value).success
 }
 
+// Membership only; `SOURCE_WALK` is what states the order.
+const SOURCE_NAMES: ReadonlySet<string> = new Set<string>(VALIDATION_SOURCES)
+
 /**
  * Resolve a declaration, once, when the route file is evaluated. Walking
  * `SOURCE_WALK` rather than the declaration's own keys is what makes the
- * fail-fast order the package's promise instead of the author's key order.
+ * fail-fast order the package's promise instead of the author's key order; the
+ * keys are read once first, so a name that is not a source is refused here
+ * rather than silently skipped by that walk.
  */
 export function sourcePlan<S extends ValidationSchemas>(
   schemas: S
 ): readonly SourcePlan<S>[] {
   const declaration: ValidationSchemas = schemas
   const plan: SourcePlan<S>[] = []
+
+  // Ahead of the walk, because the walk visits the four sources rather than
+  // the author's keys: a stray key is never looked at there, so the route
+  // would serve with what the author believed they had declared unvalidated.
+  for (const key of Object.keys(declaration)) {
+    if (!SOURCE_NAMES.has(key)) raiseUnknownSource(key)
+  }
 
   for (const [source, read] of SOURCE_WALK) {
     const slot = declaration[source]
@@ -72,6 +85,15 @@ export function sourcePlan<S extends ValidationSchemas>(
   }
 
   return plan
+}
+
+// The sentence is `ValidationSchemasGuard`'s own, byte for byte, so the
+// JavaScript caller and the TypeScript one are told the same thing; only the
+// package prefix every runtime diagnostic here carries is added.
+function raiseUnknownSource(key: string): never {
+  throw new Error(
+    `[nuxt-handler-validation] '${key}' is not a validation source - the sources are route, query, headers and body`
+  )
 }
 
 // A plain `Error` rather than the `500`s below: this fires at route evaluation,

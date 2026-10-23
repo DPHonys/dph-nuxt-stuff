@@ -80,7 +80,7 @@ const APP_FILES = {
     ``,
     `export default defineTypedEventHandler(`,
     `  {`,
-    `    validate: { body: createUser, query: pagination },`,
+    `    input: { body: createUser, query: pagination },`,
     `    errors: userErrors.pick('user-exists'),`,
     `  },`,
     `  (_event, { body, query, errors }) => {`,
@@ -106,13 +106,13 @@ const APP_FILES = {
     ``,
   ].join('\n'),
 
-  // `validate` only: nothing declared to fail with but the built-in variant.
+  // `input` only: nothing declared to fail with but the built-in variant.
   'server/api/search.get.ts': [
     `import { defineTypedEventHandler } from '@dphonys/nuxt-typed-handler/server'`,
     `import { pagination } from '../validation/schemas'`,
     ``,
     `export default defineTypedEventHandler(`,
-    `  { validate: { query: pagination } },`,
+    `  { input: { query: pagination } },`,
     `  (_event, { query }) => ({ page: query.page }),`,
     `)`,
     ``,
@@ -248,8 +248,8 @@ const CONSUMER = [
   `export type BothInput = KnownApiRequestInputs['/api/users']['post']`,
   `export type ErrorsOnlyErrors = KnownApiErrors['/api/users/:id']['get']`,
   `export type ErrorsOnlyInput = KnownApiRequestInputs['/api/users/:id']['get']`,
-  `export type ValidateOnlyErrors = KnownApiErrors['/api/search']['get']`,
-  `export type ValidateOnlyInput = KnownApiRequestInputs['/api/search']['get']`,
+  `export type InputOnlyErrors = KnownApiErrors['/api/search']['get']`,
+  `export type InputOnlyInput = KnownApiRequestInputs['/api/search']['get']`,
   `export type UnbrandedErrors = KnownApiErrors['/api/legacy']['get']`,
   `export type UnbrandedInput = KnownApiRequestInputs['/api/legacy']['get']`,
   ``,
@@ -300,12 +300,10 @@ describe('the emitted map, with both slots in one file', () => {
     // Nothing declared to send: an empty input, not a failure to resolve.
     expect(compilation.renderHover('ErrorsOnlyInput')).toBe('{}')
 
-    expect(compilation.renderHover('ValidateOnlyErrors')).toContain(
+    expect(compilation.renderHover('InputOnlyErrors')).toContain(
       '"validation-failed"'
     )
-    expect(compilation.renderHover('ValidateOnlyInput')).toContain(
-      'page: string'
-    )
+    expect(compilation.renderHover('InputOnlyInput')).toContain('page: string')
   })
 
   it('extracts nothing from an unbranded route in either map', () => {

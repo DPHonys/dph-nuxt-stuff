@@ -5,6 +5,6 @@ import { pagination } from '~~/server/validation/schemas'
  * module registers `defineValidatedEventHandler` as a server auto-import.
  */
 export default defineValidatedEventHandler(
-  { validate: { query: pagination } },
+  { input: { query: pagination } },
   (_event, { query }) => ({ page: query.page })
 )

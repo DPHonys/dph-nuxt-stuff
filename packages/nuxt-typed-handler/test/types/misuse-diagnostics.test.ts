@@ -4,6 +4,7 @@ import {
   fixturePath,
   FIXTURE_TSCONFIG,
   lineContaining,
+  NOT_ASSIGNABLE,
   NOT_ASSIGNABLE_EXACT_OPTIONAL,
   saying,
 } from './compile-harness'
@@ -22,17 +23,20 @@ const ARGUMENT_NOT_ASSIGNABLE = 2345
 /** TS2339 - a property read that the type does not have. */
 const PROPERTY_MISSING = 2339
 
+/** TS2353 - an object literal key the parameter type does not declare. */
+const UNKNOWN_OPTION_KEY = 2353
+
 /** The reserved-tag sentence, verbatim. */
 const RESERVED_TAG = 'validation-failed is reserved for the built-in variant'
 
 /** The bare-`{}` sentence, verbatim. */
-const DECLARE_SOMETHING = 'declare validate, errors, or both'
+const DECLARE_SOMETHING = 'declare input, errors, output, or any combination'
 
 describe('the declaration guards’ diagnostics', () => {
   it('is the same run every time, and nothing more than this run', () => {
     // The length is pinned as well as the sentences, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(6)
+    expect(diagnostics).toHaveLength(10)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -71,6 +75,46 @@ describe('the declaration guards’ diagnostics', () => {
     expect(bare?.line).toBe(lineContaining(FIXTURE, '({}, () => null)'))
   })
 
+  it('refuses the pre-rename `validate` key, with no alias behind it', () => {
+    // The option key is `input` now, and the rename is a clean break: no
+    // alias, no deprecation shim, just an unknown key on the options object.
+    const [legacy] = saying(
+      diagnostics,
+      "Object literal may only specify known properties, and 'validate' does not exist in type 'TypedHandlerOptions<{}, [], undefined>'."
+    )
+
+    expect(legacy?.code).toBe(UNKNOWN_OPTION_KEY)
+    expect(legacy?.line).toBe(
+      lineContaining(FIXTURE, '{ validate: { query: z.object({ page:')
+    )
+  })
+
+  it('refuses a return that is not the declared Response output', () => {
+    // The validation parent's rule, fired through the umbrella: nothing runs
+    // the declared schema, so the compiler is the whole of the promise.
+    const [wrongResponse] = saying(
+      diagnostics,
+      "Type 'number' is not assignable to type 'EventHandlerResponse<{ id: string; }>'"
+    )
+
+    expect(wrongResponse?.code).toBe(NOT_ASSIGNABLE)
+    expect(wrongResponse?.line).toBe(lineContaining(FIXTURE, 'Number(42)'))
+  })
+
+  it('refuses a plain return from a map-form Response output', () => {
+    // The parent's rule again: a status map is answered through `respond`,
+    // and the constraint the umbrella forwards is what says so.
+    const [plainReturn] = saying(
+      diagnostics,
+      "Type '{ id: string; }' is not assignable to type 'EventHandlerResponse<Responded<{ 201: { id: string; }; }>>'"
+    )
+
+    expect(plainReturn?.code).toBe(NOT_ASSIGNABLE)
+    expect(plainReturn?.line).toBe(
+      lineContaining(FIXTURE, "() => ({ id: '1' })")
+    )
+  })
+
   it('refuses a factory for the built-in validation variant', () => {
     const [reservedFactory] = saying(
       diagnostics,
@@ -86,11 +130,21 @@ describe('the declaration guards’ diagnostics', () => {
   it('still fires the validation parent’s stray-key sentence at the call', () => {
     const [stray] = saying(
       diagnostics,
-      "'boyd' is not a validation source - the sources are routerParams, query, headers and body"
+      "'boyd' is not a validation source - the sources are route, query, headers and body"
     )
 
     expect(stray?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
     expect(stray?.line).toBe(lineContaining(FIXTURE, '      boyd:'))
+  })
+
+  it('names the pre-rename `routerParams` source a stray key, through the umbrella', () => {
+    const [legacy] = saying(
+      diagnostics,
+      "'routerParams' is not a validation source - the sources are route, query, headers and body"
+    )
+
+    expect(legacy?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
+    expect(legacy?.line).toBe(lineContaining(FIXTURE, '      routerParams:'))
   })
 
   it('still fires the errors parent’s kebab-tag guard at the declaration', () => {

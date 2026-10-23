@@ -33,6 +33,19 @@ export interface ModuleOptions {
    * is baked into both bundles, so changing it is a rebuild.
    */
   channelToken: string | false
+
+  /**
+   * Whether a development server asserts each response against the schema its
+   * declared Response output promised for that status. A mismatch is a plain
+   * `500` naming the route, the status and the issues; the assertion's result
+   * is discarded, so development sends the bytes production sends.
+   *
+   * Defaults to `true`, and costs nothing in a production build, which never
+   * runs the check at all. Set `false` for an app whose responses a schema
+   * cannot describe. The validation parent's option, forwarded under this
+   * module's own key.
+   */
+  checkResponses: boolean
 }
 
 const NAME = 'nuxt-typed-handler'
@@ -61,6 +74,7 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     channelToken: NAME,
+    checkResponses: true,
   },
   setup(options, nuxt) {
     warnCustomErrorHandler(nuxt, NAME)
@@ -71,7 +85,7 @@ export default defineNuxtModule<ModuleOptions>({
       if (!Object.hasOwn(nuxt.options, configKey)) continue
 
       logger.warn(
-        `[${NAME}] \`${configKey}\` in nuxt.config is ignored: this module replaces the parent it configured. Move \`channelToken\` under \`typedHandler\` and delete \`${configKey}\`.`
+        `[${NAME}] \`${configKey}\` in nuxt.config is ignored: this module replaces the parent it configured. Move its options under \`typedHandler\` and delete \`${configKey}\`.`
       )
     }
 
@@ -154,6 +168,15 @@ export default defineNuxtModule<ModuleOptions>({
     addServerPlugin(
       resolver.resolve('./runtime/server/plugins/event-typed-fetch')
     )
+
+    // Registered only to turn the parent's dev-only response check off: the
+    // option carries no value into the bundle, so the plugin's presence is the
+    // whole of the setting.
+    if (!options.checkResponses) {
+      addServerPlugin(
+        resolver.resolve('./runtime/server/plugins/response-check')
+      )
+    }
 
     const channelToken = normalizeChannelToken(options.channelToken, NAME)
     addChannelToken(nuxt, NAME, channelToken)

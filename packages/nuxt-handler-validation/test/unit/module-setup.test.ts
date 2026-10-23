@@ -2,6 +2,8 @@ import { loadNuxt } from '@nuxt/kit'
 import type { Nuxt, NuxtConfig, NuxtHooks } from '@nuxt/schema'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import module from '../../src/module'
+import type { ModuleOptions } from '../../src/module'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
 
@@ -79,6 +81,17 @@ describe('module setup wiring', () => {
     await booted?.nuxt.close()
   })
 
+  it('hands setup every option from its default: the fixture configures none', async () => {
+    // The claim `nothingConfigured: Partial<ModuleOptions> = {}` looks like it
+    // makes and cannot - that position accepts `{}` whatever the module
+    // declares. This is what kit resolves for an app with no
+    // `handlerValidation` key at all, matched against a *complete*
+    // `ModuleOptions`, so an option added without a default fails here.
+    const resolved = await module.getOptions?.(undefined, booted.nuxt)
+
+    expect(resolved).toEqual({ checkResponses: true } satisfies ModuleOptions)
+  })
+
   it('auto-imports the two server helpers into the Nitro build', () => {
     // `toEqual` over the whole filtered list, so a duplicate or a third
     // registration fails too.
@@ -104,7 +117,8 @@ describe('module setup wiring', () => {
 
   it('wires nothing else: no plugin, no template', () => {
     // Anything else it registered would be behaviour a consumer never asked for
-    // and cannot configure away.
+    // and cannot configure away. The response-check plugin is the one thing
+    // that could land here, and it does so only to turn the check *off*.
     const { appPlugins, nitroPlugins, templates } = registrationsOf(booted)
 
     expect({ appPlugins, nitroPlugins, templates }).toEqual({
@@ -126,9 +140,28 @@ describe('module setup wiring', () => {
   })
 })
 
+describe('the `checkResponses` option', () => {
+  it('registers the Nitro plugin that turns the check off, and only then', async () => {
+    // The option carries no value into the bundle: the plugin's presence is
+    // the whole of the setting, so an app that keeps the check pays for no
+    // plugin at all - which the default boot above already asserts.
+    let disabled: Booted | undefined
+
+    try {
+      disabled = await boot({ handlerValidation: { checkResponses: false } })
+
+      expect(registrationsOf(disabled).nitroPlugins).toEqual([
+        expect.stringMatching(/\/runtime\/server\/plugins\/response-check$/),
+      ])
+    } finally {
+      await disabled?.nuxt.close()
+    }
+  }, 120_000)
+})
+
 describe('the `handlerValidation: false` off-switch', () => {
   it('skips setup entirely, so the module registers nothing', async () => {
-    // Not an option: the module has none. Kit skips the setup of any module
+    // Not an option of this module's own: kit skips the setup of any module
     // whose config key is `false`, so this asserts kit's behaviour on *this*
     // module rather than a branch the module hand-rolls.
     let disabled: Booted | undefined

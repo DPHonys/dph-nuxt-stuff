@@ -214,6 +214,75 @@ export async function vanillaDegradation(): Promise<void> {
   })
 }
 
+/**
+ * `route` is a Validation source but never a Request-typing one: a route that
+ * declares `route` and nothing else types exactly as vanilla on the client,
+ * key for key, and grows no `route` option of its own.
+ */
+export function routeIsNotRequestTyped(): void {
+  type RouteOnly = TypedRequestOptions<'/api/params-only/:slug', 'post'>
+
+  type _keys = Assert<
+    Equal<
+      keyof RouteOnly,
+      Exclude<keyof NitroFetchOptions<'/api/params-only/:slug'>, 'params'>
+    >
+  >
+  type _body = Assert<
+    Equal<
+      RouteOnly['body'],
+      NitroFetchOptions<'/api/params-only/:slug'>['body']
+    >
+  >
+  type _query = Assert<
+    Equal<
+      RouteOnly['query'],
+      NitroFetchOptions<'/api/params-only/:slug'>['query']
+    >
+  >
+
+  // The path carries the params; the options never do.
+  type _noRouteOption = Assert<Equal<Extract<keyof RouteOnly, 'route'>, never>>
+}
+
+/**
+ * A route declaring `output` alone validates nothing, so the client side is
+ * the vanilla fetch surface: `body` and `query` as Nitro types them, no
+ * built-in variant to handle, and the response the route's own return type.
+ */
+export async function outputOnlyIsVanilla(): Promise<void> {
+  const _created = await $typedFetch('/api/output-only', {
+    method: 'post',
+    body: 'raw string',
+    query: { a: 1 },
+  })
+  type _resp = Assert<Equal<typeof _created, { id: string; name: string }>>
+
+  type OutputOnly = TypedRequestOptions<'/api/output-only', 'post'>
+
+  type _keys = Assert<
+    Equal<
+      keyof OutputOnly,
+      Exclude<keyof NitroFetchOptions<'/api/output-only'>, 'params'>
+    >
+  >
+  type _body = Assert<
+    Equal<OutputOnly['body'], NitroFetchOptions<'/api/output-only'>['body']>
+  >
+  type _query = Assert<
+    Equal<OutputOnly['query'], NitroFetchOptions<'/api/output-only'>['query']>
+  >
+
+  // No Validation source, so no built-in variant reaches the call site.
+  const result = await $typedFetch.try('/api/output-only', { method: 'post' })
+
+  if (result.error) {
+    type _untyped = Assert<Equal<typeof result.error.data, unknown>>
+  } else {
+    type _data = Assert<Equal<typeof result.data, { id: string; name: string }>>
+  }
+}
+
 /** Two handlers on one (route, method): every map answers a union. */
 export async function multiHandlerRoute(): Promise<void> {
   await $typedFetch('/api/multi', { method: 'post', body: { qty: 1 } })
@@ -268,14 +337,14 @@ export async function tryResults(): Promise<void> {
   }
 }
 
-/** A `validate`-only route can still only fail one way; an unbranded one is untyped. */
+/** An `input`-only route can still only fail one way; an unbranded one is untyped. */
 export async function tryUnionEdges(): Promise<void> {
-  const validateOnly = await $typedFetch.try('/api/users')
+  const inputOnly = await $typedFetch.try('/api/users')
 
-  if (validateOnly.error) {
-    type _validateOnly = Assert<
+  if (inputOnly.error) {
+    type _inputOnly = Assert<
       Equal<
-        NonNullable<typeof validateOnly.error.data>['data']['__knownError__'],
+        NonNullable<typeof inputOnly.error.data>['data']['__knownError__'],
         ValidationFailed
       >
     >

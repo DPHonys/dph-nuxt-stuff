@@ -5,6 +5,6 @@ import { itemUpdate } from '../validation/schemas'
  * keyed for, and both maps key it under `default` rather than a method.
  */
 export default defineTypedEventHandler(
-  { validate: { body: itemUpdate } },
+  { input: { body: itemUpdate } },
   (_event, { body }) => ({ qty: body.qty })
 )

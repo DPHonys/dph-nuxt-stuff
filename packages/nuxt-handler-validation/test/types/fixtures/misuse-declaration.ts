@@ -21,7 +21,7 @@ const sorting = v.object({ sort: v.picklist(['asc', 'desc']) })
 
 export const strayKey = defineValidatedEventHandler(
   {
-    validate: {
+    input: {
       query: z.object({ page: z.coerce.number() }),
       boyd: z.object({ name: z.string() }),
     },
@@ -32,14 +32,14 @@ export const strayKey = defineValidatedEventHandler(
 // --- A value that is not a schema is rejected -----------------------------
 
 export const notASchema = defineValidatedEventHandler(
-  { validate: { query: 42 } },
+  { input: { query: 42 } },
   async (_event, _validated) => null
 )
 
 // --- Reading an undeclared source names the missing key -------------------
 
 export const undeclaredSource = defineValidatedEventHandler(
-  { validate: { query: z.object({ page: z.coerce.number() }) } },
+  { input: { query: z.object({ page: z.coerce.number() }) } },
   async (_event, validated) => validated.body
 )
 
@@ -49,7 +49,7 @@ const paginationTwin = z.object({ page: z.coerce.number() })
 
 export const overlappingOutputs = defineValidatedEventHandler(
   {
-    validate: {
+    input: {
       query: [pagination, paginationTwin],
     },
   },
@@ -60,7 +60,7 @@ export const overlappingOutputs = defineValidatedEventHandler(
 
 export const primitiveOutput = defineValidatedEventHandler(
   {
-    validate: {
+    input: {
       body: [z.string(), z.object({ name: z.string() })],
     },
   },
@@ -70,7 +70,7 @@ export const primitiveOutput = defineValidatedEventHandler(
 // The object test is structural, but an array is still not a mergeable object.
 export const arrayOutput = defineValidatedEventHandler(
   {
-    validate: {
+    input: {
       body: [z.array(z.string()), z.object({ name: z.string() })],
     },
   },
@@ -83,7 +83,7 @@ const widened: Array<typeof pagination | typeof sorting> = [pagination, sorting]
 
 export const widenedArray = defineValidatedEventHandler(
   {
-    validate: {
+    input: {
       query: widened,
     },
   },
@@ -100,17 +100,62 @@ const annotatedSchemas: ValidationSchemas = {
 }
 
 export const annotatedDeclaration = defineValidatedEventHandler(
-  { validate: annotatedSchemas },
+  { input: annotatedSchemas },
   async (_event, validated) => ({
     undeclared: validated.body,
     declared: validated.query,
   })
 )
 
-// --- An explicit response type argument is an arity error -----------------
+// --- A declaration must declare something --------------------------------
 
-// `Response` has no default, so annotating the schemas type argument cannot
-// silently collapse the response type to `any`.
-export const explicitTypeArgument = defineValidatedEventHandler<{
-  query: typeof pagination
-}>({ validate: { query: pagination } }, async (_event, _validated) => null)
+// Both halves are optional, so bare `{}` is what the "declare something" guard
+// is for: an unsatisfiable property naming the two halves.
+export const declaresNothing = defineValidatedEventHandler(
+  {},
+  async (_event, _validated) => null
+)
+
+// --- An `output` naming no reply declares nothing either ------------------
+
+// `{}` satisfies the status map's index signature while promising no status,
+// so it is no more a declaration than the bare options above - and the same
+// guard turns it away, rather than leaving a route whose `respond` accepts no
+// status at all.
+export const emptyStatusMap = defineValidatedEventHandler(
+  { output: {} },
+  async (_event, _validated) => null
+)
+
+// --- A return that is not the declared output is refused ------------------
+
+const user = z.object({ id: z.string(), name: z.string() })
+
+export const wrongResponse = defineValidatedEventHandler({ output: user }, () =>
+  Number(42)
+)
+
+// --- The old `validate` key is gone, with no alias ------------------------
+
+// The rename to `input` is a clean break: `validate` is an unknown key on the
+// options object, which is what the compiler reports - the "declare something"
+// guard is missing from this literal too, but the unknown key is reported
+// first and alone.
+export const legacyValidateKey = defineValidatedEventHandler(
+  { validate: { query: pagination } },
+  async (_event, _validated) => null
+)
+
+// --- The old `routerParams` source name is gone, with no alias ------------
+
+// The rename to `route` is a clean break too: the old name is a stray key like
+// any other, told the four sources by their current names.
+export const legacyRouterParamsKey = defineValidatedEventHandler(
+  {
+    input: {
+      query: z.object({ page: z.coerce.number() }),
+      routerParams: z.object({ id: z.string() }),
+    },
+  },
+  async (_event, _validated) => null
+)

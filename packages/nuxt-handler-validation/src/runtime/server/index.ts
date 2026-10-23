@@ -2,48 +2,114 @@ import type { EventHandlerRequest, EventHandlerResponse, H3Event } from 'h3'
 import { defineEventHandler } from 'h3'
 import { readValidationMarker } from '../shared/error-marker'
 import type {
+  HandlerReturn,
   RequestInput,
+  ResponseOutput,
+  ResponseOutputs,
+  SentResponse,
   ValidatedContext,
   ValidatedEventHandler,
+  ValidatedHandlerOptions,
   ValidationErrorData,
   ValidationSchemas,
-  ValidationSchemasGuard,
 } from '../types'
+import { responseDelivery } from './lib/respond'
 import { sourcePlan, validatedContext } from './lib/validate'
 
 /**
- * Declare what a route validates, and get the validated values eagerly in the
- * handler's second parameter. Undeclared sources are absent from it rather than
- * `unknown`, and the returned handler is an ordinary h3 `EventHandler` that
- * additionally carries the computed Request input as a phantom type slot.
+ * Declare what a route validates and what it answers with, and get the
+ * validated values eagerly in the handler's second parameter. Undeclared
+ * sources are absent from it rather than `unknown`, and the returned handler is
+ * an ordinary h3 `EventHandler` that additionally carries the computed Request
+ * input and the declared Response output as phantom type slots.
  *
- * Sources validate in the order `routerParams -> query -> headers -> body`,
+ * Sources validate in the order `route -> query -> headers -> body`,
  * fail-fast across sources: the first failure answers `400` and no later source
  * is read, while issues within one source arrive together. The second parameter
  * is the only door to the validated values - reading the body again with
  * `readBody` yields h3's memoized unvalidated parse.
+ *
+ * `output: schema` declares one `200` reply: the handler's plain return is
+ * constrained to the schema's _output_ type. `output: { 200: a, 201: b }`
+ * declares a status map instead: the Validated context gains `respond`, and
+ * the handler returns `respond(status, value)` - or `respond(status)` for a
+ * status declared `null`, which sends no body - with the status and the value
+ * checked together. In development the declared schema additionally asserts
+ * what the handler handed over, and a mismatch is a plain `500`; the result is
+ * discarded either way, so what the handler hands over is what the client
+ * receives, in development exactly as in production. Either half alone is a
+ * declaration; `{}` is neither, and is refused.
  */
-// `Response` has no default type parameter on purpose: an explicit type
-// argument becomes an arity error instead of collapsing the success type.
+// Every type parameter carries a default, because both halves of the
+// declaration are optional: `S` has to read `{}` rather than the whole
+// interface for the guard to see an output-only route as declaring no source.
 export function defineValidatedEventHandler<
-  const S extends ValidationSchemas,
-  Response extends EventHandlerResponse,
+  // eslint-disable-next-line ts/no-empty-object-type
+  const S extends ValidationSchemas = {},
+  O extends ResponseOutput | undefined = undefined,
+  Response extends EventHandlerResponse<HandlerReturn<O>> =
+    EventHandlerResponse<HandlerReturn<O>>,
   Request extends EventHandlerRequest = EventHandlerRequest,
 >(
-  options: { validate: S & ValidationSchemasGuard<S> },
-  handler: (event: H3Event<Request>, validated: ValidatedContext<S>) => Response
-): ValidatedEventHandler<Request, Response, RequestInput<S>> {
+  options: ValidatedHandlerOptions<S, O>,
+  handler: (
+    event: H3Event<Request>,
+    validated: ValidatedContext<S, O>
+  ) => Response
+): ValidatedEventHandler<
+  Request,
+  SentResponse<O, Response>,
+  RequestInput<S>,
+  ResponseOutputs<O>
+> {
   // Planned over `S` alone: the guard is a compile-time refusal, not a slot.
-  const plan = sourcePlan<S>(options.validate)
+  const plan =
+    options.input === undefined ? undefined : sourcePlan<S>(options.input)
+
+  // The compile guard's answer for a JavaScript caller - `input: {}` plans
+  // nothing, so it counts for nothing here either.
+  if (
+    (plan === undefined || plan.length === 0) &&
+    options.output === undefined
+  ) {
+    throw new Error(
+      '[nuxt-handler-validation] defineValidatedEventHandler must declare input, output, or both.'
+    )
+  }
+
+  // Read once, when the route file is evaluated: a bare-form or output-less
+  // route pays nothing per request for a helper it was never offered, and an
+  // `output` naming no reply at all is refused here rather than served.
+  const delivery = responseDelivery(options.output)
 
   // SAFETY: `defineEventHandler` types its product by the one promise the
   // wrapper always returns, while the public signature reports the handler's
-  // own `Response`, so Nitro's typed routes see the success type rather than
-  // the wrapper's promise of it. The phantom Request-input slot is optional and
-  // never assigned, so the h3 handler satisfies it as it is.
-  return defineEventHandler(async (event: H3Event<Request>) =>
-    handler(event, await validatedContext(event, plan))
-  ) as ValidatedEventHandler<Request, Response, RequestInput<S>>
+  // own `Response` - or, for a status map, the union of the mapped bodies the
+  // envelope is unwrapped to. Both phantom slots are optional and never
+  // assigned, so the h3 handler satisfies them as it is.
+  return defineEventHandler(async (event: H3Event<Request>) => {
+    const sources =
+      plan === undefined ? {} : await validatedContext(event, plan)
+
+    // SAFETY: `sources` is `validatedContext` over this `S`, so it holds
+    // exactly the sources `S` declares - and an output-only route validates
+    // nothing, so a fresh `{}` is the whole of them, one per request, which is
+    // what lets a handler decorate its own context. `respond` joins them
+    // exactly when `O` is the status map that offers it. Those halves are
+    // `ValidatedContext<S, O>` by definition.
+    const context = { ...sources, ...delivery.respondSlot } as ValidatedContext<
+      S,
+      O
+    >
+    const returned = await handler(event, context)
+
+    return delivery.send(event, returned)
+  }) as ValidatedEventHandler<
+    Request,
+    SentResponse<O, Response>,
+    RequestInput<S>,
+    ResponseOutputs<O>
+  >
 }
 
 /**

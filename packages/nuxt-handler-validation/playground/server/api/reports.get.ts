@@ -4,7 +4,7 @@ import { pagination, sorting } from '~~/server/validation/schemas'
 /** Composition: a tuple on one source, whose outputs arrive as one value. */
 export default defineValidatedEventHandler(
   {
-    validate: {
+    input: {
       query: [
         pagination,
         sorting,

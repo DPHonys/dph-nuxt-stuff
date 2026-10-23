@@ -6,7 +6,7 @@ import type { ValidationSource } from '../types'
  * source; the readers keyed off this tuple refuse a source left out.
  */
 export const VALIDATION_SOURCES = [
-  'routerParams',
+  'route',
   'query',
   'headers',
   'body',

@@ -237,16 +237,16 @@ export async function tryResults(): Promise<void> {
     type _data = Assert<Equal<typeof both.data, { created: string }>>
   }
 
-  // A `validate`-only route can still only fail one way.
-  const validateOnly = await $typedFetch.try('/api/search', {
+  // An `input`-only route can still only fail one way.
+  const inputOnly = await $typedFetch.try('/api/search', {
     query: { page: 'nope' },
   })
 
-  if (validateOnly.error) {
+  if (inputOnly.error) {
     type _onlyVariant = Assert<
       Equal<
         NonNullable<
-          typeof validateOnly.error.data
+          typeof inputOnly.error.data
         >['data']['__knownError__']['tag'],
         'validation-failed'
       >
@@ -259,4 +259,20 @@ export async function tryResults(): Promise<void> {
   if (unbranded.error) {
     type _untyped = Assert<Equal<typeof unbranded.error.data, unknown>>
   }
+}
+
+/** `/api/drafts` declares a status map: the response is the union of bodies. */
+export async function statusMapResponse(): Promise<void> {
+  const _answered = await $typedFetch('/api/drafts', {
+    method: 'post',
+    query: { answer: 'created' },
+  })
+  // The mapped bodies and nothing else - the `null` of the bodiless status
+  // included, and no trace of the envelope the handler answered through.
+  type _resp = Assert<
+    Equal<
+      typeof _answered,
+      { id: string } | { id: string; createdAt: string } | null
+    >
+  >
 }

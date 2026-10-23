@@ -48,7 +48,12 @@ function isPathKey(value: unknown): value is string | number {
 // unhandled `500` from inside the `400` this is building.
 const KEY_CARRIER = z.object({ key: z.unknown() })
 
-function projectPath(
+/**
+ * One issue's path, normalized to plain keys. Shared with the dev-only
+ * response check, which names an offending path the same way; no entry
+ * re-exports it.
+ */
+export function projectPath(
   path: StandardSchemaV1.Issue['path']
 ): Array<string | number> {
   if (path === undefined) return []

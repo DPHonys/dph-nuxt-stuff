@@ -53,7 +53,7 @@ export function bothDeclared() {
 
   return defineTypedEventHandler(
     {
-      validate: { body: createUser, query: pagination },
+      input: { body: createUser, query: pagination },
       errors: userErrors.pick('user-exists'),
     },
     (_event, { body, errors }) => {
@@ -63,9 +63,9 @@ export function bothDeclared() {
   )
 }
 
-export function validateOnly() {
+export function inputOnly() {
   return defineTypedEventHandler(
-    { validate: { query: pagination } },
+    { input: { query: pagination } },
     (_event, { query }) => ({ page: query.page })
   )
 }
@@ -96,13 +96,13 @@ export function parentChecked() {
 /** The validation parent's own wrapper: the other slot, and only that one. */
 export function parentValidated() {
   return defineValidatedEventHandler(
-    { validate: { body: createUser } },
+    { input: { body: createUser } },
     (_event, { body }) => ({ name: body.name })
   )
 }
 
 type BothHandler = ReturnType<typeof bothDeclared>
-type ValidateOnlyHandler = ReturnType<typeof validateOnly>
+type InputOnlyHandler = ReturnType<typeof inputOnly>
 type ErrorsOnlyHandler = ReturnType<typeof errorsOnly>
 type ParentCheckedHandler = ReturnType<typeof parentChecked>
 type ParentValidatedHandler = ReturnType<typeof parentValidated>
@@ -169,9 +169,9 @@ type _validatedCarriesNoErrors = Assert<
 
 // --- one negative per slot -------------------------------------------------
 
-/** A `validate`-only route can only fail the one way, and says so. */
-type _validateOnlyErrors = Assert<
-  Equal<KnownErrorsOfHandler<ValidateOnlyHandler>, ValidationFailed>
+/** An `input`-only route can only fail the one way, and says so. */
+type _inputOnlyErrors = Assert<
+  Equal<KnownErrorsOfHandler<InputOnlyHandler>, ValidationFailed>
 >
 
 /**

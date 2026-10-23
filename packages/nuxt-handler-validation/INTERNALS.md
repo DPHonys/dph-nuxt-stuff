@@ -41,14 +41,17 @@ A module layer composing these entries must:
 `src/runtime/internals/server/index.ts`, copied by mkdist. Nitro side: may
 import `h3`.
 
-| Export                                    | One line                                                                                                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sourcePlan(schemas)`                     | Route-evaluation resolution of a `ValidationSchemas` value into one `SourcePlan` per declared source, in walk order; a not-a-schema slot throws a plain `Error` here, not later. |
-| `validatedContext(event, plan, options?)` | One request through the plan, fail-fast in plan order; returns the loose record the caller casts to `ValidatedContext<S>` at its own seam.                                       |
-| `raiseValidationError(source, issues)`    | The default `onInvalid`: the marked h3 `400` (`statusMessage: 'Validation Error'`, `message: 'Validation failed for <source>'`, `data: { issues }`), byte-identical wire.        |
-| `OnInvalid`                               | `(source, issues) => never`; receives projected issues, all from one source.                                                                                                     |
-| `SourcePlan`                              | One resolved source slot: `source`, its reader and its schema list. Pass it through unchanged.                                                                                   |
-| `ValidatedContextOptions`                 | `{ onInvalid? }`; defaults to `raiseValidationError`.                                                                                                                            |
+| Export                                    | One line                                                                                                                                                                                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sourcePlan(schemas)`                     | Route-evaluation resolution of a `ValidationSchemas` value into one `SourcePlan` per declared source, in walk order; a not-a-schema slot throws a plain `Error` here, not later.                                         |
+| `validatedContext(event, plan, options?)` | One request through the plan, fail-fast in plan order; returns the loose record the caller casts to `ValidatedContext<S>` at its own seam.                                                                               |
+| `raiseValidationError(source, issues)`    | The default `onInvalid`: the marked h3 `400` (`statusMessage: 'Validation Error'`, `message: 'Validation failed for <source>'`, `data: { issues }`), byte-identical wire.                                                |
+| `OnInvalid`                               | `(source, issues) => never`; receives projected issues, all from one source.                                                                                                                                             |
+| `SourcePlan`                              | One resolved source slot: `source`, its reader and its schema list. Pass it through unchanged.                                                                                                                           |
+| `ValidatedContextOptions`                 | `{ onInvalid? }`; defaults to `raiseValidationError`.                                                                                                                                                                    |
+| `responseDelivery(output)`                | Route-evaluation resolution of an `output` declaration into the Respond-helper slot the context earns and the send step that unwraps what the handler returned; an `output` naming no reply throws a plain `Error` here. |
+| `ResponseDelivery`                        | `{ respondSlot, send }` - the resolved delivery a wrapper spreads and calls.                                                                                                                                             |
+| `setResponseChecking(next)`               | Turns the development-only response check off (or on) for the rest of the server's life; what a `checkResponses: false` Nitro plugin calls.                                                                              |
 
 Raw Standard Schema issues never cross this seam: the raw-to-projected split
 (`projectIssues`) is re-exported by no entry, so an `onInvalid` hook sees
