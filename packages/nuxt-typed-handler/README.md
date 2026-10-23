@@ -39,7 +39,7 @@ Schema](https://standardschema.dev) works - [zod](https://zod.dev),
 [valibot](https://valibot.dev), [arktype](https://arktype.io), and others -
 nothing is bundled for you.
 
-**Requirements:** Nuxt `>=4.5.1 <5.0.0`, Node 22.19+ / 24.11+ / 26+.
+**Requirements:** Nuxt `>=4.6.2 <5.0.0`, Node 22.22.3+ / 24.15+ / 26+.
 
 If the app already uses a parent, remove it from `modules` and uninstall it
 first - registering a parent beside this module throws at startup. See

@@ -39,7 +39,7 @@ Bring your own schema library. Anything implementing Standard Schema works -
 [zod](https://zod.dev), [valibot](https://valibot.dev),
 [arktype](https://arktype.io), and others - nothing is bundled for you.
 
-**Requirements:** Nuxt `>=4.5.1 <5.0.0`, Node 22.19+ / 24.11+ / 26+.
+**Requirements:** Nuxt `>=4.6.2 <5.0.0`, Node 22.22.3+ / 24.15+ / 26+.
 
 ## Quick start
 

@@ -21,7 +21,7 @@ The module has one option, `channelToken` - see
 counterpart, and nothing about a route's failures is configured - it is
 declared, in the route.
 
-**Requirements:** Nuxt `>=4.5.1 <5.0.0`, Node 22.19+ / 24.11+ / 26+.
+**Requirements:** Nuxt `>=4.6.2 <5.0.0`, Node 22.22.3+ / 24.15+ / 26+.
 
 ## Declaring what a route can fail with
 
