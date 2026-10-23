@@ -10,6 +10,8 @@ The package is under construction and private: it installs, takes its one option
 
 Every Nuxt 4 (`>=4.0.0 <5.0.0`).
 
+CI holds that range at both edges. The default jobs install the committed lockfile, which pins the latest 4.x. Two more jobs run this package's typecheck and tests on every push to `main`, on every pull request, and once a day, without changing the committed lockfile. The `Nuxt 4.0 floor` job installs `nuxt`, `@nuxt/kit` and `@nuxt/schema` 4.0.x in their place and must pass. The `Nuxt 5 nightly` job installs the Nuxt 5 nightly channel instead, may fail without blocking a merge, and reports `nightly 5: pass` or `nightly 5: fail` in the pull request's CI comment.
+
 ## Registration and configuration
 
 ```ts
