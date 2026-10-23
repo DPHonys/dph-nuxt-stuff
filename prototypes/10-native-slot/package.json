@@ -1,0 +1,20 @@
+{
+  "name": "@dphonys/prototype-10-native-slot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "proto:prepare": "node scripts/prepare.mjs",
+    "proto:check": "node scripts/check.mjs",
+    "proto:cost": "node scripts/cost.mjs"
+  },
+  "dependencies": {
+    "@standard-schema/spec": "catalog:",
+    "h3": "catalog:",
+    "nitropack": "catalog:",
+    "nuxt": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "vue": "catalog:",
+    "zod": "catalog:"
+  }
+}

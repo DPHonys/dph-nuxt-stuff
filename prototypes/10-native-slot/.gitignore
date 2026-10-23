@@ -1,0 +1,3 @@
+.nuxt-*
+cost/tsconfig.*.json
+cost/server/api/gen

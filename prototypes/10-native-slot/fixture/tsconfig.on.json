@@ -1,0 +1,9 @@
+{
+  "extends": "./.nuxt-on/tsconfig.app.json",
+  "include": [
+    "./.nuxt-on/nuxt.d.ts",
+    "./checks/*.ts",
+    "./checks/both/**/*.ts",
+    "./checks/on/**/*.ts"
+  ]
+}
