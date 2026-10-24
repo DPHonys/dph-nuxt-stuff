@@ -6,15 +6,10 @@
  */
 
 import { z } from 'zod'
-import { defineError } from '../../../src/runtime/server'
-import type { ErrorDeclarations, Fail } from '../../../src/runtime/types'
-import type { ErrorDeclarationsGuard } from '../../../src/runtime/types/errors/declaration'
-
-// A route's `errors` option, as the handler wrapper takes it: the map
-// intersected with its guard, and the Fail helper typed from it.
-declare function route<const Errors extends ErrorDeclarations>(
-  errors: Errors & ErrorDeclarationsGuard<Errors>
-): Fail<Errors>
+import {
+  defineBetterEventHandler,
+  defineError,
+} from '../../../src/runtime/server'
 
 const missingOrder = z.object({
   _tag: z.literal('order-missing'),
@@ -49,37 +44,80 @@ export const strayKey = defineError('stray-key', {
   status: 400,
   payload: z.object({ id: z.number() }),
 })
+export const bigintField = defineError('order-big', {
+  status: 400,
+  schema: z.object({ total: z.bigint() }),
+})
 
 // --- a route's errors map ---------------------------------------------------
 
-export const mapReserved = route({
-  'validation-failed': { status: 400 },
-})
+export const mapReserved = defineBetterEventHandler(
+  {
+    errors: {
+      'validation-failed': { status: 400 },
+    },
+  },
+  () => null
+)
 
-export const mapMismatch = route({
-  'order-not-found': { status: 404, schema: missingOrder },
-})
+export const mapMismatch = defineBetterEventHandler(
+  {
+    errors: {
+      'order-not-found': { status: 404, schema: missingOrder },
+    },
+  },
+  () => null
+)
 
-export const mapStray = route({
-  'stray-key': { status: 400, payload: z.object({ id: z.number() }) },
-})
+export const mapStray = defineBetterEventHandler(
+  {
+    errors: {
+      'stray-key': { status: 400, payload: z.object({ id: z.number() }) },
+    },
+  },
+  () => null
+)
 
-export const mapNumeric = route({
-  404: { status: 404 },
-})
+export const mapNumeric = defineBetterEventHandler(
+  {
+    errors: {
+      404: { status: 404 },
+    },
+  },
+  () => null
+)
+
+export const mapNested = defineBetterEventHandler(
+  {
+    errors: {
+      'order-nested': {
+        status: 400,
+        schema: z.object({ lines: z.array(z.object({ sku: z.symbol() })) }),
+      },
+    },
+  },
+  () => null
+)
 
 // --- fail pairs a tag with its fields ---------------------------------------
 
-const fail = route({
-  'order-not-found': { status: 404, schema: z.object({ id: z.number() }) },
-  'order-locked': { status: 409 },
-})
+export const failPairing = defineBetterEventHandler(
+  {
+    errors: {
+      'order-not-found': { status: 404, schema: z.object({ id: z.number() }) },
+      'order-locked': { status: 409 },
+    },
+  },
+  (_event, { fail }) => {
+    if (Math.random() > 0.5) throw fail('order-unknown')
+    if (Math.random() > 0.5) throw fail('validation-failed')
+    if (Math.random() > 0.5) throw fail('order-not-found')
+    if (Math.random() > 0.5) throw fail('order-not-found', { id: 'seven' })
+    if (Math.random() > 0.5) throw fail('order-locked', { id: 7 })
 
-export const undeclaredTag = fail('order-unknown')
-export const reservedThroughFail = fail('validation-failed')
-export const missingFields = fail('order-not-found')
-export const wrongField = fail('order-not-found', { id: 'seven' })
-export const fieldsWithoutSchema = fail('order-locked', { id: 7 })
+    return null
+  }
+)
 
 // --- narrowing is Pick ------------------------------------------------------
 
@@ -92,6 +130,10 @@ const common = {
 }
 
 const onlyUnauthorized: Pick<typeof common, 'unauthorized'> = common
-const failNarrowed = route(onlyUnauthorized)
 
-export const pickedAway = failNarrowed('forbidden', { role: 'admin' })
+export const pickedAway = defineBetterEventHandler(
+  { errors: onlyUnauthorized },
+  (_event, { fail }) => {
+    throw fail('forbidden', { role: 'admin' })
+  }
+)

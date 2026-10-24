@@ -42,6 +42,10 @@ const SENTENCES = {
   strayKey:
     'payload is not an error entry key - an entry takes status and schema',
   numericKey: 'an error tag must be a string key - quote a numeric one',
+  bigintField:
+    'the field total cannot go out as JSON - it holds a bigint or a symbol',
+  nestedSymbol:
+    'the field lines cannot go out as JSON - it holds a bigint or a symbol',
 } as const
 
 /** The one diagnostic reported on the fixture line containing `needle`. */
@@ -63,7 +67,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(18)
+    expect(diagnostics).toHaveLength(20)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -105,6 +109,15 @@ describe('defineError refuses an entry its tag cannot carry', () => {
     expect(guarding(diagnostic, SENTENCES.objectFields)).toBe(true)
   })
 
+  it('refuses a field JSON cannot carry, at the tag', () => {
+    // The fields go out inside `data` through JSON, which has no form for a
+    // bigint: serialising one would throw while the error body is written.
+    const diagnostic = at("defineError('order-big'")
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.bigintField)).toBe(true)
+  })
+
   it('refuses a key an entry does not take, at that key', () => {
     // The pre-rename `payload:` would otherwise silently mean "no schema".
     const diagnostic = at('payload: z.object({ id: z.number() }),')
@@ -114,7 +127,7 @@ describe('defineError refuses an entry its tag cannot carry', () => {
   })
 })
 
-describe("a route's errors map is refused at the key", () => {
+describe("a route's errors are refused at the key", () => {
   it('refuses a reserved tag', () => {
     const diagnostic = at("'validation-failed': { status: 400 }")
 
@@ -136,6 +149,13 @@ describe("a route's errors map is refused at the key", () => {
 
     expect(diagnostic?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
     expect(guarding(diagnostic, SENTENCES.strayKey)).toBe(true)
+  })
+
+  it('refuses a field holding what JSON cannot carry, however deep', () => {
+    const diagnostic = at("'order-nested': {")
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.nestedSymbol)).toBe(true)
   })
 
   it('refuses a numeric key, which names no tag the helper can reach', () => {
@@ -189,7 +209,7 @@ describe('fail pairs a declared tag with its fields', () => {
   })
 
   it('refuses a tag a Pick narrowed away, at the tag', () => {
-    expect(at("failNarrowed('forbidden'")).toMatchObject({
+    expect(at("throw fail('forbidden'")).toMatchObject({
       code: ARGUMENT_NOT_ASSIGNABLE,
       message: `Argument of type '"forbidden"' is not assignable to parameter of type '"unauthorized"'.`,
     })

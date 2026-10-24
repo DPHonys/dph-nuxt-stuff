@@ -7,6 +7,8 @@
   },
   "dependencies": {
     "@dphonys/better-handler": "workspace:*",
-    "nuxt": "catalog:"
+    "effect": "catalog:",
+    "nuxt": "catalog:",
+    "zod": "catalog:"
   }
 }

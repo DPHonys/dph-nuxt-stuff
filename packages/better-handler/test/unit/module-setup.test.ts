@@ -68,16 +68,18 @@ describe('module setup', () => {
     await booted?.nuxt.close()
   })
 
-  it('auto-imports defineError into the server build, by name', () => {
+  it('auto-imports the server surface into the server build, by name', () => {
     // `toEqual` over the whole filtered list, so a duplicate or an extra
     // registration fails too.
-    expect(registrationsOf(booted).serverImports).toEqual([
-      {
-        name: 'defineError',
-        as: 'defineError',
-        from: expect.stringMatching(/\/runtime\/server\/index$/),
-      },
-    ])
+    expect(registrationsOf(booted).serverImports).toEqual(
+      ['defineBetterEventHandler', 'defineError', 'recognizeKnownError'].map(
+        (name) => ({
+          name,
+          as: name,
+          from: expect.stringMatching(/\/runtime\/server\/index$/),
+        })
+      )
+    )
   })
 
   it('registers no Nitro plugin while the development checks stay on', () => {

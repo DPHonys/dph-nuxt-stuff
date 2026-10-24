@@ -9,3 +9,10 @@ export type {
   ReservedTag,
 } from './errors/declaration'
 export type { Fail, FailedError } from './errors/fail'
+export type { TaggedError } from './errors/tagged'
+export type {
+  BetterEventHandler,
+  BetterHandlerFn,
+  BetterHandlerOptions,
+  HandlerContext,
+} from './handler'
