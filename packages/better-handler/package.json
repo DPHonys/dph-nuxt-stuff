@@ -67,7 +67,7 @@
     "publint": "publint",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "typecheck": "nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json"
+    "typecheck": "nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json && vue-tsc --noEmit --project playground/server/tsconfig.json"
   },
   "dependencies": {
     "@nuxt/kit": "catalog:",
