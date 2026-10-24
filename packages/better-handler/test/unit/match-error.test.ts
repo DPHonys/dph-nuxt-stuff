@@ -1,5 +1,6 @@
 import { untyped } from '@dphonys/test-utils/h3-app'
 import { createError } from 'h3'
+import { createFetch } from 'ofetch'
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { matchError } from '../../src/runtime/shared'
@@ -116,6 +117,53 @@ describe('matchError on a fetched NuxtError', () => {
       cause: error,
     })
     expect(fallback).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['a network failure', () => Promise.reject(new TypeError('fetch failed'))],
+    [
+      'an abort',
+      () =>
+        Promise.reject(
+          new DOMException('The operation was aborted.', 'AbortError')
+        ),
+    ],
+  ])(
+    'gives the request-failed arm no status for %s, though the error ref says 500',
+    async (_, fetch) => {
+      // What a `useFetch` error ref holds: ofetch's error, normalised by
+      // h3's `createError` as Nuxt does, which answers `500` for a request
+      // that never got a response.
+      const thrown = await createFetch({ fetch })(
+        'http://test.local/api/test'
+      ).catch((cause: Error) => cause)
+      const error = createError(thrown)
+      const { arms, fallback } = spies()
+
+      expect(error.statusCode).toBe(500)
+
+      matchError(error, arms, fallback)
+
+      expect(arms['request-failed']).toHaveBeenCalledExactlyOnceWith({
+        _tag: 'request-failed',
+        status: undefined,
+        cause: error,
+      })
+    }
+  )
+
+  it('gives the request-failed arm the status of a 500 that did arrive', async () => {
+    const thrown = await createFetch({
+      fetch: async () => new Response('down', { status: 500 }),
+    })('http://test.local/api/test').catch((cause: Error) => cause)
+    const { arms, fallback } = spies()
+
+    matchError(createError(thrown), arms, fallback)
+
+    expect(arms['request-failed']).toHaveBeenCalledOnce()
+    expect(arms['request-failed'].mock.calls[0]?.[0]).toMatchObject({
+      status: 500,
+    })
   })
 
   it('does not read a Tagged error at the depth a route raised it', () => {

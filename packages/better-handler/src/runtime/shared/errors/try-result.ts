@@ -2,7 +2,7 @@ import type { NuxtError } from 'nuxt/app'
 import type { RequestFailed, TryResult } from '../../types/errors/client'
 import type { TaggedError } from '../../types/errors/tagged'
 import { isNumber, isRecordLike } from '../guards'
-import { toNuxtError } from '../h3'
+import { isNormalisedError, toNuxtError } from '../h3'
 import { taggedOf } from './tagged'
 
 // The body a fetched error carries as its `data`, and the Tagged error inside
@@ -14,11 +14,10 @@ function fetchedTagged(error: NuxtError): TaggedError | undefined {
   return isRecordLike(body) && 'data' in body ? taggedOf(body.data) : undefined
 }
 
-// The status of the response a failure came with, read off the thrown value
-// before h3's normalisation, which would answer `500` for a request that
-// never got one. ofetch's error reads `statusCode` and `status` off the
-// response and answers `undefined` when none arrived.
-function statusOf(cause: unknown): number | undefined {
+// The status a response carried, read off ofetch's error, which reads
+// `statusCode` and `status` off the response and answers `undefined` when
+// none arrived.
+function responseStatusOf(cause: unknown): number | undefined {
   if (!isRecordLike(cause)) return undefined
   if ('statusCode' in cause && isNumber(cause.statusCode)) {
     return cause.statusCode
@@ -26,6 +25,19 @@ function statusOf(cause: unknown): number | undefined {
   if ('status' in cause && isNumber(cause.status)) return cause.status
 
   return undefined
+}
+
+// The status of the response a failure came with, never h3's normalisation of
+// it, which answers `500` for a request that never got one. An error h3
+// already normalised - a `useFetch` error ref - keeps what it normalised as
+// its own `cause`: ofetch's error when a response arrived, the network or
+// abort error when none did. Without one, its own status is all there is.
+function statusOf(cause: unknown): number | undefined {
+  if (isNormalisedError(cause) && isRecordLike(cause.cause)) {
+    return responseStatusOf(cause.cause)
+  }
+
+  return responseStatusOf(cause)
 }
 
 /**

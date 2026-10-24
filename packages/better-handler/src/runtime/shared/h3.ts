@@ -8,7 +8,7 @@
  * too.
  */
 
-import { createError, defineEventHandler } from 'h3'
+import { createError, defineEventHandler, isError } from 'h3'
 import type {
   EventHandler,
   EventHandlerRequest,
@@ -67,6 +67,16 @@ export function httpError<Data>(input: HttpErrorInput<Data>): H3Error<Data> {
   if (input.cause !== undefined) fields.cause = input.cause
 
   return createError<Data>(fields)
+}
+
+/**
+ * Whether `value` is an error h3 already made or normalised - a Known error, a
+ * developer fault, a `NuxtError` such as a `useFetch` error ref. Recognised by
+ * h3's class marker rather than `instanceof`, so an error from another copy
+ * of h3, as Nuxt bundles its own, is recognised too.
+ */
+export function isNormalisedError(value: unknown): value is H3Error {
+  return isError(value)
 }
 
 // What h3's `createError` reads: a message, or an object it copies the error
