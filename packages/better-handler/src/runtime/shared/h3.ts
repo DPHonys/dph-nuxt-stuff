@@ -40,6 +40,11 @@ export interface HttpErrorInput<Data> {
   readonly message: string
   /** The error's `data`, sent as the body's `data`; absent when omitted. */
   readonly data?: Data
+  /**
+   * What the error stands in for, kept as its `cause` for the logs and an
+   * error hook; h3 never sends a cause.
+   */
+  readonly cause?: unknown
 }
 
 /**
@@ -53,11 +58,15 @@ export interface HttpErrorInput<Data> {
  * `message` and `data`, and Nuxt never escalates the error to its error page.
  */
 export function httpError<Data>(input: HttpErrorInput<Data>): H3Error<Data> {
-  return createError<Data>(
-    input.data === undefined
-      ? { statusCode: input.status, message: input.message }
-      : { statusCode: input.status, message: input.message, data: input.data }
-  )
+  const fields: Partial<H3Error<Data>> = {
+    statusCode: input.status,
+    message: input.message,
+  }
+
+  if (input.data !== undefined) fields.data = input.data
+  if (input.cause !== undefined) fields.cause = input.cause
+
+  return createError<Data>(fields)
 }
 
 // What h3's `createError` reads: a message, or an object it copies the error

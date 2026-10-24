@@ -1,6 +1,6 @@
 import { request, requestReporting, untyped } from '@dphonys/test-utils/h3-app'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import { Schema } from 'effect'
+import { Cause, Schema } from 'effect'
 import type { EventHandler } from 'h3'
 import { createError, getRouterParam } from 'h3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -501,6 +501,64 @@ describe('the development checks', () => {
     )
     expect(thrown.data).toBeUndefined()
   })
+
+  it('keep what was thrown as the refusal’s cause, so the logs show it', async () => {
+    // Effect's own failures carry a string `_tag` too: an `Option` lookup's
+    // `NoSuchElementError` is no route's error, and its stack is what the
+    // author needs to find the bug.
+    const missing = new Cause.NoSuchElementError()
+
+    const { response, thrown } = await answer(throwing(() => missing))
+
+    expect(response.status).toBe(500)
+    expect(thrown.message).toContain(
+      'threw a value tagged "NoSuchElementError", which this route does not declare - it declares "order-not-found", "order-locked". '
+    )
+    expect(thrown.cause).toBe(missing)
+    expect(thrown.data).toBeUndefined()
+    // The cause is for the logs: the wire carries none of it.
+    expect(JSON.stringify(await response.json())).not.toContain('NoSuchElement')
+  })
+
+  it.each([
+    [
+      'throws',
+      (): StandardSchemaV1.Result<unknown> => {
+        throw new TypeError('the schema broke')
+      },
+    ],
+    [
+      'rejects',
+      async (): Promise<StandardSchemaV1.Result<unknown>> => {
+        throw new TypeError('the schema broke')
+      },
+    ],
+  ])(
+    'refuse a schema that %s with a plain 500, keeping what it threw as the cause',
+    async (_, validate) => {
+      const broken: StandardSchemaV1 = {
+        '~standard': { version: 1, vendor: 'test', validate },
+      }
+      const odd = { _tag: 'order-odd', id: 7 }
+      const route = defineBetterEventHandler(
+        { errors: { 'order-odd': { status: 422, schema: broken } } },
+        () => {
+          throw odd
+        }
+      )
+
+      const { response, thrown } = await answer(route)
+
+      expect(response.status).toBe(500)
+      expect(thrown.message).toBe(
+        '[better-handler] cannot send the error: GET /api/orders/7 threw "order-odd", and the schema it declares threw while checking the fields instead of reporting issues - the cause is what it threw. ' +
+          'Nothing runs the schema in production, so this route would send the fields unchecked: fix the schema, or set `devChecks: false`.'
+      )
+      expect(thrown.cause).toEqual(new TypeError('the schema broke'))
+      expect(thrown.data).toBeUndefined()
+      expect(recognizeKnownError(thrown)).toBeUndefined()
+    }
+  )
 })
 
 describe('with the development checks off, as in production', () => {

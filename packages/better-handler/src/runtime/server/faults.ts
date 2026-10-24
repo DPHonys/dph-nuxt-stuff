@@ -14,10 +14,12 @@ const PREFIX = '[better-handler]'
 /**
  * A mistake found while a request is served: a plain `500` carrying the
  * sentence, built through the h3 seam. It has no `data`, so it never carries
- * a `_tag` and `recognizeKnownError` never answers for a bug.
+ * a `_tag` and `recognizeKnownError` never answers for a bug. A fault that
+ * stands in for something thrown keeps it as its `cause`, so the logs still
+ * show the original and its stack; the wire never carries it.
  */
-export function developerFault(message: string): H3Error {
-  return httpError({ status: 500, message: `${PREFIX} ${message}` })
+export function developerFault(message: string, cause?: unknown): H3Error {
+  return httpError({ status: 500, message: `${PREFIX} ${message}`, cause })
 }
 
 /**
