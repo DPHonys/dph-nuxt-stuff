@@ -5,18 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # Daily, for the Nuxt 5 nightly job: the nightly moves without a commit here.
-  schedule:
-    - cron: '17 4 * * *'
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  # The event is part of the group so a scheduled run on `main` never cancels
-  # the push run it overlaps, or the other way round.
-  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -169,40 +163,10 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: pnpm exec turbo run test --filter=@dphonys/better-handler
 
-  # The Nuxt 5 nightly, where the distance to the planned adapter shows. It is
-  # allowed to fail and never blocks a merge. `continue-on-error` makes
-  # `needs.<job>.result` read `success` even when the job failed, so the job
-  # hands its own `verdict` to the pull request report instead.
-  nightly-5:
-    name: Nuxt 5 nightly (allowed to fail)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    continue-on-error: true
-    outputs:
-      verdict: ${{ steps.verdict.outputs.verdict }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: setup
-        uses: ./.github/actions/setup
-        with:
-          compat-settings: .github/compat/nightly-5.json
-      - name: Show the Nuxt this job resolved
-        run: pnpm --filter @dphonys/better-handler list nuxt @nuxt/kit @nuxt/schema @nuxt/test-utils
-      - name: Typecheck
-        run: pnpm exec turbo run typecheck --filter=@dphonys/better-handler
-      - name: Test
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: pnpm exec turbo run test --filter=@dphonys/better-handler
-      - id: verdict
-        name: Record the verdict
-        if: ${{ always() }}
-        run: echo "verdict=${{ job.status == 'success' && 'pass' || 'fail' }}" >> "$GITHUB_OUTPUT"
-
   report:
     name: Pull request report
     if: ${{ always() && github.event_name == 'pull_request' }}
-    needs:
-      [contract, format, lint, typecheck, knip, test, build, floor, nightly-5]
+    needs: [contract, format, lint, typecheck, knip, test, build, floor]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -225,7 +189,7 @@ jobs:
           {
             echo "## CI report"
             echo
-            node .github/scripts/pr-report.ts jobs "$NEEDS" nightly-5
+            node .github/scripts/pr-report.ts jobs "$NEEDS"
             echo
             echo "### Lint"
             echo

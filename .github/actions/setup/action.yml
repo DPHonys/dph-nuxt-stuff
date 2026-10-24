@@ -29,9 +29,9 @@ runs:
     - if: ${{ inputs.compat-settings == '' }}
       run: pnpm install --frozen-lockfile
       shell: bash
-    # Settings layered onto the checkout, not a second committed lockfile: a
-    # lockfile could not follow the Nuxt 5 nightly, which moves daily, and
-    # would need its own upkeep for the floor. pnpm reads `overrides` and the
+    # Settings layered onto the checkout, not a second committed lockfile,
+    # which would need regenerating every time the committed one changes and
+    # would drift from it in between. pnpm reads `overrides` and the
     # trust settings from `pnpm-workspace.yaml` only, not from the command line
     # or the environment, so each key is written there through
     # `pnpm config set`, which keeps the file's comments.
