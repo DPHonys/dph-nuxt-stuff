@@ -16,8 +16,10 @@ import type {
   H3Error,
   H3Event,
 } from 'h3'
+import type { NuxtError } from 'nuxt/app'
+import { isRecordLike, isString } from './guards'
 
-// Neither name below is an h3 v2 export: Nuxt 5 auto-imports every lowercase
+// No name below is an h3 v2 export: Nuxt 5 auto-imports every lowercase
 // one, and a name of ours that shadowed it would collide in every app.
 
 /**
@@ -56,4 +58,42 @@ export function httpError<Data>(input: HttpErrorInput<Data>): H3Error<Data> {
       ? { statusCode: input.status, message: input.message }
       : { statusCode: input.status, message: input.message, data: input.data }
   )
+}
+
+// What h3's `createError` reads: a message, or an object it copies the error
+// fields it knows off and ignores the rest of. An array is an object to h3 but
+// carries no field it reads, so it is stringified like any other primitive.
+function isErrorInput(cause: unknown): cause is string | Partial<H3Error> {
+  return isString(cause) || isRecordLike(cause)
+}
+
+/**
+ * Any thrown value as the `NuxtError` the client surfaces hand out: h3's own
+ * normalisation, the one a `useFetch` error ref goes through, so a fetched
+ * failure keeps the response body as its `data` either way. Total: a thrown
+ * `null` is a failure like any other.
+ */
+export function toNuxtError(cause: unknown): NuxtError {
+  // `createError(null)` reads `input.message` and throws.
+  const error = createError(
+    isErrorInput(cause) ? cause : { message: String(cause) }
+  )
+
+  // A bare `H3Error` sets only `statusCode`; the `NuxtError` face this hands
+  // out has to be runtime-true on the server as well.
+  if (!('status' in error)) {
+    Object.defineProperty(error, 'status', {
+      get: () => error.statusCode,
+      configurable: true,
+    })
+  }
+
+  if (!('statusText' in error)) {
+    Object.defineProperty(error, 'statusText', {
+      get: () => error.statusMessage,
+      configurable: true,
+    })
+  }
+
+  return error
 }

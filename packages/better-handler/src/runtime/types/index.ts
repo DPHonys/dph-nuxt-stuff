@@ -5,6 +5,17 @@ import type { RouteMethod } from './engine'
 import type { RouteEntry } from './utils'
 
 export type {
+  ErrorArms,
+  KnownErrorBody,
+  KnownErrorFor,
+  MatchableError,
+  MatchError,
+  RequestFailed,
+  TryResult,
+  UnknownTagFallback,
+  VariantsOf,
+} from './errors/client'
+export type {
   ErrorDeclarationError,
   ErrorDeclarations,
   ErrorEntry,

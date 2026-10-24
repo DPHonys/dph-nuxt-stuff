@@ -230,7 +230,8 @@ function buildApp(
 
 /** What every consumer opens with: the assertions inlined, one file each. */
 const PRELUDE = [
-  `import type { KnownApiErrors, KnownErrorsOfRoute } from '@dphonys/better-handler/types'`,
+  `import type { KnownApiErrors, KnownErrorBody, KnownErrorFor, KnownErrorsOfRoute, RequestFailed, TryResult } from '@dphonys/better-handler/types'`,
+  `import type { NuxtError } from 'nuxt/app'`,
   ``,
   `type Equal<X, Y> =`,
   `  (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false`,
@@ -265,8 +266,23 @@ describe('the emitted map, compiled', () => {
       `type _byDefault = Expect<Equal<ByDefault, Expected>>`,
       `type _noMethod = Expect<IsNever<NoMethod>>`,
       ``,
+      `export type Thrown = KnownErrorFor<'/api/orders/7'>`,
+      `export type Vanilla = KnownErrorFor<'/api/legacy'>`,
+      `export type Unresolved = KnownErrorFor<'/api/shipped'>`,
       `export type UnresolvedErrors = KnownErrorsOfRoute<'/api/shipped'>`,
-      `type _unresolved = Expect<IsNever<UnresolvedErrors>>`,
+      `type _thrown = Expect<Equal<Thrown, NuxtError<KnownErrorBody<Expected>>>>`,
+      `type _vanilla = Expect<Equal<Vanilla, NuxtError<unknown>>>`,
+      `type _unresolved = Expect<Equal<Unresolved, NuxtError<unknown>>>`,
+      ``,
+      `export type Tried = TryResult<{ id: number }, ByPath | RequestFailed>`,
+      `export function handled(result: Tried): string {`,
+      `  if (result.error === undefined) return String(result.data.id)`,
+      `  switch (result.error._tag) {`,
+      `    case 'order-not-found': return result.error.at`,
+      `    case 'order-locked': return 'locked'`,
+      `    case 'request-failed': return String(result.error.status)`,
+      `  }`,
+      `}`,
       ``,
     ].join('\n')
   )
@@ -295,6 +311,13 @@ describe('the emitted map, compiled', () => {
     )
   })
 
+  it('types the error a call throws with the Tagged error at data.data', () => {
+    expect(compilation.renderHover('Thrown')).toContain(
+      'NuxtError<KnownErrorBody<'
+    )
+    expect(compilation.renderHover('Vanilla')).toBe('NuxtError<unknown>')
+  })
+
   it('extracts nothing from a handler this package did not brand', () => {
     expect(compilation.renderHover('Unbranded')).toBe('never')
     expect(compilation.renderHover('Indexed')).toBe('never')
@@ -302,6 +325,7 @@ describe('the emitted map, compiled', () => {
 
   it('leaves a route whose module the compiler cannot resolve vanilla, not `any`', () => {
     expect(compilation.renderHover('UnresolvedErrors')).toBe('never')
+    expect(compilation.renderHover('Unresolved')).toBe('NuxtError<unknown>')
   })
 })
 

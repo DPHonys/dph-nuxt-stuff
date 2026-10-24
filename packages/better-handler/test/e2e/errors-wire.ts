@@ -1,6 +1,9 @@
 import { $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { expect, it } from 'vitest'
 import { recognizeKnownError } from '../../src/runtime/server'
+import { matchError } from '../../src/runtime/shared'
+import { toTryResult } from '../../src/runtime/shared/errors/try-result'
+import { toNuxtError } from '../../src/runtime/shared/h3'
 
 /**
  * The Known-error wire, in one copy, run by `errors-wire.test.ts` against a
@@ -118,6 +121,35 @@ export function theErrorsWire(nitroExtras: NitroExtras): void {
     expect(error.statusCode).toBe(404)
     // ofetch's `data` is the whole body; the Tagged error is its `data`.
     expect(error.data.data).toEqual({ _tag: 'order-not-found', id: 404 })
+  })
+
+  it('is read by the try classifier as the Tagged error, and nothing else is', async () => {
+    expect(await toTryResult(() => $fetch('/api/orders/404'))).toEqual({
+      data: undefined,
+      error: { _tag: 'order-not-found', id: 404 },
+    })
+    expect(await toTryResult(() => $fetch('/api/effect'))).toEqual({
+      data: undefined,
+      error: { _tag: 'OrderMissing', id: 7 },
+    })
+
+    // A hand-rolled error's `data` carries no `_tag`: not a Known error.
+    const foreign = await toTryResult(() => $fetch('/api/foreign'))
+
+    expect(foreign.error).toMatchObject({ _tag: 'request-failed', status: 403 })
+  })
+
+  it('is matched by its tag from the fetched error', async () => {
+    const seen: string[] = []
+
+    matchError(
+      toNuxtError(await rejectionOf('/api/orders/locked')),
+      { 'request-failed': () => seen.push('request-failed') },
+      (tagged) => seen.push(tagged._tag)
+    )
+
+    // Typed as a route declaring nothing, so the tag reaches the fallback.
+    expect(seen).toEqual(['order-locked'])
   })
 
   it('leaves a hand-rolled error’s own data untouched', async () => {
