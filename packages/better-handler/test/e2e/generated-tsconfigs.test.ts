@@ -28,8 +28,8 @@ function nuxtCli(): string {
   const manifestPath = createRequire(import.meta.url).resolve(
     'nuxt/package.json'
   )
-  // SAFETY: every `nuxt` manifest this suite installs against (4.0.x, the
-  // latest 4.x and the `nuxt-nightly` alias) maps `bin.nuxt` to its CLI.
+  // SAFETY: every `nuxt` manifest this suite installs against (4.0.x and the
+  // latest 4.x) maps `bin.nuxt` to its CLI.
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
     bin: { nuxt: string }
   }
