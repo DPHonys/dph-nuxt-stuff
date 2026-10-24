@@ -1,0 +1,14 @@
+{
+  "name": "@dphonys/better-handler-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build"
+  },
+  "dependencies": {
+    "@dphonys/better-handler": "workspace:*",
+    "effect": "catalog:",
+    "nuxt": "catalog:",
+    "zod": "catalog:"
+  }
+}
