@@ -1,3 +1,4 @@
+import { untyped } from '@dphonys/test-utils/h3-app'
 import { createApp, createError, eventHandler, toWebHandler } from 'h3'
 import type { EventHandler } from 'h3'
 import { createFetch } from 'ofetch'
@@ -171,6 +172,8 @@ describe('toTryResult', () => {
   )
 })
 
+// `status` is read untyped: it is `NuxtError`'s from Nuxt 4.6, and every Nuxt
+// 4 runs these, so the getter is asserted at runtime only.
 describe('toNuxtError', () => {
   it.each([
     ['a network error', new TypeError('fetch failed')],
@@ -186,8 +189,8 @@ describe('toNuxtError', () => {
     const error = toNuxtError(cause)
 
     expect(error).toBeInstanceOf(Error)
-    expect(error.status).toBeTypeOf('number')
-    expect(error.status).toBe(error.statusCode)
+    expect(untyped(error).status).toBeTypeOf('number')
+    expect(untyped(error).status).toBe(error.statusCode)
   })
 
   it('keeps a fetched failure’s body as its data, the Tagged error inside', async () => {
@@ -196,7 +199,7 @@ describe('toNuxtError', () => {
     )
     const error = toNuxtError(thrown)
 
-    expect(error.status).toBe(409)
+    expect(untyped(error).status).toBe(409)
     expect(error.data).toMatchObject({ data: { _tag: 'order-locked' } })
   })
 
@@ -204,7 +207,7 @@ describe('toNuxtError', () => {
     const raised = createError({ statusCode: 403, message: 'forbidden' })
 
     expect(toNuxtError(raised)).toBe(raised)
-    expect(toNuxtError(raised).status).toBe(403)
+    expect(untyped(toNuxtError(raised)).status).toBe(403)
   })
 
   it('does not overwrite a status the error already has', () => {
@@ -212,6 +215,6 @@ describe('toNuxtError', () => {
       status: 418,
     })
 
-    expect(toNuxtError(hydrated).status).toBe(418)
+    expect(untyped(toNuxtError(hydrated)).status).toBe(418)
   })
 })
