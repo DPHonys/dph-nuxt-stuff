@@ -126,6 +126,21 @@ before publishing missing package versions through npm trusted publishing.
   parallel jobs: publishing contract, format, lint, typecheck, knip, test, and
   build + publint. Lint failures land as inline PR annotations; test results
   land as a `Vitest` check with the junit summary.
+  One more job, `floor` (**Nuxt 4.0 floor**), tests the bottom of the Nuxt
+  range `@dphonys/better-handler` claims: it installs `nuxt`, `@nuxt/kit` and
+  `@nuxt/schema` 4.0.x and must pass. While the old handler packages remain,
+  it runs only that package's typecheck and tests.
+
+  The job passes `.github/compat/floor.json` to the setup action as
+  `compat-settings`. The action writes those pnpm settings into the runner's
+  `pnpm-workspace.yaml` with `pnpm config set`; pnpm takes `overrides` only
+  from that file, so it is the one place they can go. The overrides change
+  what resolves, so the committed lockfile no longer matches and the job
+  installs with `--no-frozen-lockfile`, resolving a lockfile of its own that
+  nothing commits back. The file also sets `trustPolicyIgnoreAfter`, because
+  the 4.0.x tree predates provenance on some packages. Every other job keeps
+  `pnpm install --frozen-lockfile`.
+
 - **publish.yml** — manual dispatch from `main` only. Reruns `pnpm check`, then
   publishes missing package versions through npm trusted publishing.
 - **semantic-pull-requests.yml** — validates PR title follows conventional commits
