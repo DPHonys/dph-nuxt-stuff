@@ -7,7 +7,13 @@ import {
   defineError,
   recognizeKnownError,
 } from '../../src/runtime/server'
-import type { Fail, HandlerContext, TaggedError } from '../../src/runtime/types'
+import type {
+  BetterEventHandler,
+  Fail,
+  HandlerContext,
+  KnownErrorsOfHandler,
+  TaggedError,
+} from '../../src/runtime/types'
 
 const orderErrors = {
   'order-not-found': { status: 404, schema: z.object({ id: z.number() }) },
@@ -63,12 +69,23 @@ describe('defineBetterEventHandler with errors', () => {
       async () => ({ id: 7 })
     )
 
+    type Declared =
+      | { _tag: 'order-not-found'; id: number }
+      | { _tag: 'order-locked' }
+
     expectTypeOf(sync).toEqualTypeOf<
+      BetterEventHandler<
+        EventHandlerRequest,
+        Promise<{ id: number }>,
+        KnownErrorsOfHandler<typeof sync>
+      >
+    >()
+    expectTypeOf(async).toEqualTypeOf(sync)
+    expectTypeOf(sync).toExtend<
       EventHandler<EventHandlerRequest, Promise<{ id: number }>>
     >()
-    expectTypeOf(async).toEqualTypeOf<
-      EventHandler<EventHandlerRequest, Promise<{ id: number }>>
-    >()
+    expectTypeOf<KnownErrorsOfHandler<typeof sync>>().toExtend<Declared>()
+    expectTypeOf<Declared>().toExtend<KnownErrorsOfHandler<typeof sync>>()
   })
 
   it('takes an Effect error class as an Error declaration', () => {
@@ -88,8 +105,13 @@ describe('defineBetterEventHandler with errors', () => {
       }
     )
 
-    expectTypeOf(route).toEqualTypeOf<
+    expectTypeOf(route).toExtend<
       EventHandler<EventHandlerRequest, Promise<never>>
+    >()
+    // The class's methods and `Error`'s own keys are not fields: the variant
+    // is what the boundary sends.
+    expectTypeOf<KnownErrorsOfHandler<typeof route>>().toEqualTypeOf<
+      { _tag: 'OrderMissing' } & { readonly id: number }
     >()
   })
 })

@@ -72,7 +72,8 @@
   "dependencies": {
     "@nuxt/kit": "catalog:",
     "@standard-schema/spec": "catalog:",
-    "h3": "catalog:"
+    "h3": "catalog:",
+    "pathe": "catalog:"
   },
   "devDependencies": {
     "@dphonys/test-utils": "workspace:*",

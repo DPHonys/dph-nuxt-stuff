@@ -1,7 +1,8 @@
-import type { H3Event } from 'h3'
+import type { EventHandlerRequest, H3Event } from 'h3'
 import { makeEventHandler } from '../shared/h3'
 import type { ErrorDeclarations } from '../types/errors/declaration'
 import type { Fail } from '../types/errors/fail'
+import type { KnownErrorsOf } from '../types/errors/tagged'
 import type {
   BetterEventHandler,
   BetterHandlerFn,
@@ -39,7 +40,9 @@ import { createFail } from './errors/fail'
  * same body to every caller. Everything else propagates as it was thrown.
  *
  * The declarations are checked here, when the route module is evaluated, so
- * a misdeclared route throws before it serves anything.
+ * a misdeclared route throws before it serves anything. The returned
+ * Handler's type carries the declared Known errors, which the generated type
+ * map reads to type every call site of the route.
  */
 export function defineBetterEventHandler<
   const Errors extends ErrorDeclarations,
@@ -47,7 +50,11 @@ export function defineBetterEventHandler<
 >(
   options: BetterHandlerOptions<Errors>,
   handler: BetterHandlerFn<Errors, Response>
-): BetterEventHandler<Response> {
+): BetterEventHandler<
+  EventHandlerRequest,
+  Promise<Awaited<Response>>,
+  KnownErrorsOf<Errors>
+> {
   const errors = resolveErrors(options.errors)
 
   // The Fail helper as `Fail<Errors>` types it, handed over through an `any`

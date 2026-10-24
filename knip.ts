@@ -66,7 +66,11 @@ export default {
 
       // The inherited `@nuxt/schema` exemption suppresses nothing in this
       // package, and an idle ignore fails the run via the hint promotion above.
-      ignoreDependencies: ['@nuxt/devtools'],
+      // `nitropack` is imported for types only, by the response-typing seam:
+      // every Nuxt 4 app's generated tsconfig maps `nitropack/types` onto the
+      // app's own Nitro, which is the one whose route types must be read, so
+      // the package installs no copy of its own.
+      ignoreDependencies: ['@nuxt/devtools', 'nitropack'],
 
       entry: [
         ...nuxtModuleWorkspace.entry,
