@@ -70,7 +70,7 @@
     "typecheck": "nuxt prepare playground && vue-tsc --noEmit && vue-tsc --noEmit --project playground/tsconfig.json && vue-tsc --noEmit --project playground/server/tsconfig.json"
   },
   "dependencies": {
-    "@nuxt/kit": "catalog:",
+    "@nuxt/kit": "^4.0.0",
     "@standard-schema/spec": "catalog:",
     "h3": "catalog:",
     "pathe": "catalog:",

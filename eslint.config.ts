@@ -47,6 +47,16 @@ export default antfuConfig(
       'pnpm/json-enforce-catalog': 'off',
     },
   },
+  // `@dphonys/better-handler` claims Nuxt `>=4.0.0 <5.0.0`, so its `@nuxt/kit`
+  // range is `^4.0.0` (the spec's decision for the package), not the
+  // catalog's, which tracks the latest Nuxt for every other package.
+  {
+    name: 'project/better-handler-kit-range',
+    files: ['packages/better-handler/package.json'],
+    rules: {
+      'pnpm/json-enforce-catalog': ['error', { ignores: ['@nuxt/kit'] }],
+    },
+  },
   {
     name: 'project/predeclared-catalog-policy',
     files: ['pnpm-workspace.yaml'],
