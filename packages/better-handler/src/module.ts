@@ -1,4 +1,5 @@
-import { defineNuxtModule } from '@nuxt/kit'
+import { createResolver, defineNuxtModule } from '@nuxt/kit'
+import { addRuntimeServerPlugin } from './build/server-plugins'
 
 export interface ModuleOptions {
   /**
@@ -25,5 +26,16 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     devChecks: true,
+  },
+  setup(options) {
+    const resolver = createResolver(import.meta.url)
+
+    // Registered only to turn the checks off: the option carries no value
+    // into the bundle, so the plugin's presence is the whole of the setting.
+    if (!options.devChecks) {
+      addRuntimeServerPlugin(
+        resolver.resolve('./runtime/server/plugins/dev-checks')
+      )
+    }
   },
 })
