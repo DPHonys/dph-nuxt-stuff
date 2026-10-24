@@ -67,6 +67,15 @@ export default {
       // The inherited `@nuxt/schema` exemption suppresses nothing in this
       // package, and an idle ignore fails the run via the hint promotion above.
       ignoreDependencies: ['@nuxt/devtools'],
+
+      entry: [
+        ...nuxtModuleWorkspace.entry,
+
+        // Deliberately broken sources, compiled by path by
+        // `test/types/compile-harness.ts` so a suite can assert on their
+        // diagnostics. The package tsconfig excludes them for the same reason.
+        'test/types/fixtures/**/*.ts',
+      ],
     },
 
     'packages/better-handler/playground': {

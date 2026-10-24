@@ -39,8 +39,17 @@ async function boot(overrides?: NuxtConfig): Promise<Booted> {
 }
 
 /** What this module put into the server build. */
-function registrationsOf({ nuxt }: Booted) {
+function registrationsOf({ nuxt, nitro }: Booted) {
+  const imports = nitro?.options.imports
+  const resolved = imports === false ? undefined : imports
+
   return {
+    // `addServerImports` only queues onto `nitro:config`, so these are read
+    // off the resolved Nitro options rather than `nuxt.options`.
+    serverImports: (resolved?.imports ?? []).filter((entry) =>
+      FROM_THIS_PACKAGE.test(entry.from)
+    ),
+
     // `?? ''` because Nitro's own option type admits a hole in the array.
     nitroPlugins: (nuxt.options.nitro.plugins ?? []).filter((plugin) =>
       FROM_THIS_PACKAGE.test(plugin ?? '')
@@ -57,6 +66,18 @@ describe('module setup', () => {
 
   afterAll(async () => {
     await booted?.nuxt.close()
+  })
+
+  it('auto-imports defineError into the server build, by name', () => {
+    // `toEqual` over the whole filtered list, so a duplicate or an extra
+    // registration fails too.
+    expect(registrationsOf(booted).serverImports).toEqual([
+      {
+        name: 'defineError',
+        as: 'defineError',
+        from: expect.stringMatching(/\/runtime\/server\/index$/),
+      },
+    ])
   })
 
   it('registers no Nitro plugin while the development checks stay on', () => {
