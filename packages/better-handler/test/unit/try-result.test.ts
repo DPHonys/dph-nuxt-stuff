@@ -203,11 +203,21 @@ describe('toNuxtError', () => {
     expect(error.data).toMatchObject({ data: { _tag: 'order-locked' } })
   })
 
-  it('returns an error h3 already made, as it is', () => {
+  it('returns an error h3 already made as it is, and leaves it untouched', () => {
+    // The caller's own object - an error ref, a caught error - so not one
+    // property of it may change, not even a non-enumerable one.
     const raised = createError({ statusCode: 403, message: 'forbidden' })
+    const before = Object.getOwnPropertyDescriptors(raised)
 
     expect(toNuxtError(raised)).toBe(raised)
-    expect(untyped(toNuxtError(raised)).status).toBe(403)
+    expect(Object.getOwnPropertyDescriptors(raised)).toEqual(before)
+    expect('status' in raised).toBe(false)
+  })
+
+  it('returns a frozen error h3 already made, rather than throwing', () => {
+    const frozen = Object.freeze(createError({ statusCode: 403 }))
+
+    expect(toNuxtError(frozen)).toBe(frozen)
   })
 
   it('does not overwrite a status the error already has', () => {

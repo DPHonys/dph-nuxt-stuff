@@ -81,6 +81,10 @@ function isErrorInput(cause: unknown): cause is string | Partial<H3Error> {
  * normalisation, the one a `useFetch` error ref goes through, so a fetched
  * failure keeps the response body as its `data` either way. Total: a thrown
  * `null` is a failure like any other.
+ *
+ * An error h3 already made - an error ref, a caught `H3Error` - comes back as
+ * it is and untouched: it is the caller's object, so nothing is defined on it.
+ * Its `status` is whatever its maker gave it; `NuxtError` types it optional.
  */
 export function toNuxtError(cause: unknown): NuxtError {
   // `createError(null)` reads `input.message` and throws.
@@ -88,21 +92,19 @@ export function toNuxtError(cause: unknown): NuxtError {
     isErrorInput(cause) ? cause : { message: String(cause) }
   )
 
-  // A bare `H3Error` sets only `statusCode`; the `NuxtError` face this hands
-  // out has to be runtime-true on the server as well.
-  if (!('status' in error)) {
-    Object.defineProperty(error, 'status', {
-      get: () => error.statusCode,
-      configurable: true,
-    })
-  }
+  if (error === cause) return error
 
-  if (!('statusText' in error)) {
-    Object.defineProperty(error, 'statusText', {
-      get: () => error.statusMessage,
-      configurable: true,
-    })
-  }
+  // A bare `H3Error` sets only `statusCode`; the `NuxtError` face this hands
+  // out has to be runtime-true on the server as well, as Nuxt's own
+  // `createError` makes it from 4.6.
+  Object.defineProperty(error, 'status', {
+    get: () => error.statusCode,
+    configurable: true,
+  })
+  Object.defineProperty(error, 'statusText', {
+    get: () => error.statusMessage,
+    configurable: true,
+  })
 
   return error
 }
