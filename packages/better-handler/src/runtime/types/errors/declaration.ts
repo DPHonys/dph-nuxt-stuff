@@ -1,7 +1,10 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { IsAny, IsUnion } from '../utils'
 
-/** The common 4xx and 5xx statuses, as completions; any other number fits. */
+/**
+ * The common 4xx and 5xx statuses, as completions; any other number fits
+ * the type, and a literal outside 400-599 is refused at its key.
+ */
 export type ErrorStatus =
   | 400
   | 401
@@ -182,15 +185,35 @@ export type TagGuard<Tag extends string, Entry> = [TagRule<Tag>] extends [never]
     : ErrorDeclarationError<SchemaRule<Tag, EntryOutput<Entry>>>
   : ErrorDeclarationError<TagRule<Tag>>
 
+type Digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
 /**
- * An entry's own keys, checked one by one: anything beside `status` and
- * `schema` is refused at that key, so a stray `payload:` is never a silent
- * "no schema".
+ * The sentence a status breaks, or `never`: a numeric literal must be an
+ * integer from 400 to 599, read off its decimal form, so `404.5` and `302`
+ * are refused alike. Plain `number` says nothing about its value and is left
+ * to the declaration-time throw. Distributes over a union of literals.
+ */
+type StatusRule<Status> = number extends Status
+  ? never
+  : Status extends number
+    ? `${Status}` extends `${4 | 5}${Digit}${Digit}`
+      ? never
+      : `the status must be an integer from 400 to 599, not ${Status}`
+    : never
+
+/**
+ * An entry's own keys, checked one by one: a `status` literal outside
+ * 400-599 is refused at `status`, and anything beside `status` and `schema`
+ * at that key, so a stray `payload:` is never a silent "no schema".
  */
 export type EntryKeysGuard<Entry> = {
-  readonly [Key in keyof Entry]: Key extends 'status' | 'schema'
-    ? unknown
-    : ErrorDeclarationError<`${Key & string} is not an error entry key - an entry takes status and schema`>
+  readonly [Key in keyof Entry]: Key extends 'status'
+    ? [StatusRule<Entry[Key]>] extends [never]
+      ? unknown
+      : ErrorDeclarationError<StatusRule<Entry[Key]>>
+    : Key extends 'schema'
+      ? unknown
+      : ErrorDeclarationError<`${Key & string} is not an error entry key - an entry takes status and schema`>
 }
 
 /**
