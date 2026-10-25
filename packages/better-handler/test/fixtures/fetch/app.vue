@@ -1,19 +1,6 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
 import { isNuxtError, useAsyncData } from '#app'
-// Imported by path, as the package's own typecheck reads this file without
-// the auto-imports a fixture's generated `.nuxt` declares. The compiler keys
-// a call by the file its composable comes from, so the keyless calls below
-// are keyed all the same.
-import {
-  useBetterAsyncData,
-  useLazyBetterAsyncData,
-} from '../../../src/runtime/app/composables/use-better-async-data'
-import {
-  useBetterFetch,
-  useLazyBetterFetch,
-} from '../../../src/runtime/app/composables/use-better-fetch'
-import { useRequestBetterFetch } from '../../../src/runtime/app/composables/use-request-better-fetch'
 
 // `$betterFetch` during server-side rendering, where the one global is
 // Nitro's: a response and a classified failure, rendered.
