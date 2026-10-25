@@ -76,96 +76,80 @@ _Avoid_: Prior CI result, release smoke test
 The one-time authenticated publication that creates a new npm package name so its per-package trusted publisher can be registered for later OIDC releases.
 _Avoid_: Normal release, package admission
 
-## Handler Packages
+## Better Handler
 
-This context names the concepts shared across the handler packages (`nuxt-handler-errors`, `nuxt-handler-validation`, and the umbrella that composes them). Each package README is the authority for its own terms; only cross-package terms live here.
+This context names the concepts of `@dphonys/better-handler`, the repository's handler module. The package README is the authority for its rules; these are the terms its code, tests and docs use.
 
 ### Language
 
 **Handler**:
-A Nitro route handler produced by one of the repository's `define…EventHandler` wrappers; always a plain h3 `EventHandler`.
+A Nitro route handler produced by `defineBetterEventHandler`; at runtime always a plain h3 `EventHandler`, typed as `BetterEventHandler`, which fills h3's `H3Event<Request>` slot with the declared `body` and `query` input types.
 _Avoid_: Endpoint, route function
 
 **Known error**:
-A failure a Handler selects from reusable error declarations and raises through a local Error factory; typed at every call site from the route path.
+A failure a route declares under its `errors` key and a Handler raises through the Fail helper or by throwing any value whose `_tag` is a declared tag; it goes out with the declared status and its Tagged error as the error body's `data`, and is typed at every call site from the route path.
 _Avoid_: Expected error, business error
 
 **Error declaration**:
-A named failure contract with a kebab-case tag (`user-not-found`, reached in the Handler as `errors.userNotFound`), an HTTP error status and an optional Error payload; reusable individually or as part of an Error group.
-_Avoid_: Error record, registry entry
+One entry of a route's `errors` map: a tag as the key, any non-empty string literal, and `{ status, schema? }`, the status an integer from `400` to `599` and the optional Standard Schema describing the fields beside `_tag`. Reused by object spread (`defineError(tag, entry)` returns a one-key map) and narrowed by `Pick`.
+_Avoid_: Error record, registry entry, error group
 
-**Error group**:
-A reusable collection of Error declarations from which a Handler may select all or a subset of its Known errors.
-_Avoid_: Registry, namespace
+**Tagged error**:
+The value a Known error carries, `{ _tag, ...fields }`: sent flat as the error body's `data`, the same to every caller, and read at a call site as one member of a union exhaustive on `_tag`.
+_Avoid_: Marker, envelope, error payload
 
-**Error factory**:
-A Handler-local function that synchronously creates a throwable for one selected Error declaration; any payload validation must finish before it leaves the Handler as a Known error.
-_Avoid_: Fail helper, error raiser
+**Fail helper**:
+The Handler-context function `fail(tag, fields)`, present when the route declares `errors`; it pairs a declared tag with the fields its schema describes at compile time, as the Respond helper pairs a status with a body, and returns an `Error` carrying `_tag` and the fields for the Handler to throw.
+_Avoid_: Error factory, error raiser
 
-**Error payload**:
-The fields of a Known error beside its tag and status. A schema-backed payload validates input and supplies transformed output; a declaration without a payload carries no fields beyond its tag and status.
-_Avoid_: Nested data, response envelope
+**Reserved tag**:
+A tag the package keeps for its built-in variants, `validation-failed` and `request-failed`; declaring either in any route's errors is a compile error and a declaration-time throw.
+_Avoid_: Built-in tag, system error
+
+**Built-in validation-failed variant**:
+The Known error every route that declares `input` carries: `400` with `data: { _tag: 'validation-failed', issues }`, the issues of the one Validation source that failed. Call sites handle input rejection with a typed arm, and `recognizeKnownError` recognises it like any other Known error.
+_Avoid_: Validation error, 400
+
+**Request-failed variant**:
+The member of every call site's error union, `{ _tag: 'request-failed', status, cause }`, for each failure that carries no Tagged error of the route: a network error, an abort, an undeclared status, a body that carries no Tagged error. The caller builds it; no route sends it.
+_Avoid_: Unknown error, catch-all error
 
 **Validation source**:
 One of the four request inputs a Handler may validate: `route`, `query`, `headers`, `body`. Declared under the Handler's `input` key, which names the set rather than any one source.
 _Avoid_: Field, request part
 
+**Declared source**:
+A Validation source present in a route's Request input. Request typing applies per Declared source; an undeclared source is untouched, whatever else the route declares.
+_Avoid_: Branded source, validated field
+
 **Validated context**:
-The Handler's second parameter: output-typed validated values, one key per declared Validation source, undeclared sources absent, plus the Respond helper when the Response output is a status map.
+The input side of the Handler context: output-typed validated values, one key per Declared source, undeclared sources absent, plus the Respond helper when the Response output is a status map.
 _Avoid_: Parsed request, payload
 
+**Handler context**:
+The Handler's second parameter, flat and fresh per request: the Validated context's keys plus the Fail helper when the route declares `errors`; the only door to validated values.
+_Avoid_: Context object, helpers, second argument
+
 **Response output**:
-A Handler's declared success shape: either a single schema (one `200` reply, returned plainly) or a status map from HTTP success status to schema, where `null` declares a bodiless status. Production runs nothing on the response; a development server asserts the handed-over value against the declared schema and discards the result, so both send the same bytes. The client receives the schemas' _output_ types.
+A Handler's declared success shape: either a single schema (one `200` reply, returned plainly) or a status map from HTTP status to schema, where `null` declares a bodiless status. Production runs nothing on the response; a development server asserts the handed-over value against the declared schema and discards the result, so both send the same bytes. The client receives the schemas' _output_ types.
 _Avoid_: Response schema, return type
 
 **Respond helper**:
 The Validated-context function a Handler with a status-map Response output must return through; it pairs one declared status with a value of that status's shape - or with no value at all when the status declares a bodiless reply - and rejects any other pairing at compile time.
 _Avoid_: Reply, send, status setter
 
-**Handler context**:
-The Umbrella Handler's second parameter: the Validated context's keys plus `errors` factories when Known errors are declared; the door to validated values and to creating a Known error.
-_Avoid_: Context object, helpers, second argument
-
-**Built-in validation-failed variant**:
-The Known error every Umbrella route implicitly carries when it declares any Validation source, always on, carrying the rejected source's issues; call sites handle input rejection with a typed arm, and it is recognised both as a Known error and as a validation failure.
-_Avoid_: Validation error, 400
-
-**Reserved tag**:
-A Known-error tag the Umbrella keeps for itself (`validation-failed`) and refuses in any route's declared errors, whether or not that route validates.
-_Avoid_: Built-in tag, system error
-
-**Checked fetch family**:
-The fetch composables and globals that carry a route's Known-error union to the call site (`useCheckedFetch`, `$checkedFetch.try`, and their siblings).
-_Avoid_: Safe fetch
-
-**Request typing**:
-Typing a fetch call's `body` and `query` options per `(route, method)` from the route's Request input; compile-time only. A source is typed when the route declares it, required when sending nothing would fail validation, and otherwise exactly what the vanilla fetch accepts.
-_Avoid_: Client validation, request schema
-
 **Request input**:
 The shape a client must send for a route, per Validation source: the declared schemas' _input_ types, with a composed tuple's inputs intersected. What Request typing reads; distinct from the Validated context, which is the output side.
 _Avoid_: Validation input, request schema
 
-**Declared source**:
-A Validation source present in a route's Request input. Request typing applies per Declared source; an undeclared source is untouched, whatever else the route declares.
-_Avoid_: Branded source, validated field
+**Request typing**:
+Typing a call's `body`, `query` and `headers` options per `(route, method)` from the route's Request input; compile-time only. A Declared source is required unless `{}` fits its input type, and an undeclared one is exactly what the vanilla fetch accepts. The Better fetch family is typed on every Nuxt 4; on Nuxt 4.6 and later, Nuxt's own `$fetch` and `useFetch` also type `body` and `query` through the Handler's `H3Event<Request>` slot.
+_Avoid_: Client validation, request schema
 
-**Typed fetch family**:
-The Umbrella's mirror of the Checked fetch family (`useTypedFetch`, `$typedFetch` and siblings): carries both the route's Known-error union and its Request typing to the call site.
-_Avoid_: Better fetch, umbrella fetch
-
-**Parent package**:
-`nuxt-handler-errors` or `nuxt-handler-validation`: standalone modules that also expose an Internals entry.
-_Avoid_: Base package, core package
-
-**Umbrella**:
-The composed module (`nuxt-typed-handler`) built on both Parent packages' Internals entries; installed instead of the parents, never alongside.
-_Avoid_: Aggregator, meta-package
-
-**Internals entry**:
-A Parent package's side-split package entries (`/internals/build`, `/internals/server`, `/internals/app`, `/internals/shared`) exposing the pieces the Umbrella composes; versioned with the Umbrella (which pins the Parent package exactly) rather than by the Parent package's semver, documented for the Umbrella only, never for app authors.
-_Avoid_: Core, private API
+**Better fetch family**:
+`$betterFetch` with `.try`, `event.$betterFetch`, and the five composables (`useBetterFetch`, `useLazyBetterFetch`, `useBetterAsyncData`, `useLazyBetterAsyncData`, `useRequestBetterFetch`): Nuxt's fetch styles carrying a route's Request typing, its response and its Known-error union to the call site.
+_Avoid_: Typed fetch, checked fetch
 
 **Module layer**:
-The thin `src/module.ts` of a package: auto-imports, templates, plugins; Nuxt wiring rather than logic.
+The thin `src/module.ts`: the `betterHandler` config key and its `devChecks` option, auto-imports, plugins and the type template; Nuxt wiring rather than logic.
 _Avoid_: Setup, plugin
