@@ -6,7 +6,7 @@ describe('the module options', () => {
     expectTypeOf<ModuleOptions>().toEqualTypeOf<{ devChecks: boolean }>()
   })
 
-  it('refuse the retired `channelToken`', () => {
-    expectTypeOf<ModuleOptions>().not.toHaveProperty('channelToken')
+  it('refuse every key but `devChecks`, the retired channel token among them', () => {
+    expectTypeOf<keyof ModuleOptions>().toEqualTypeOf<'devChecks'>()
   })
 })
