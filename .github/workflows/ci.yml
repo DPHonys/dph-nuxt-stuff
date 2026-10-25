@@ -141,8 +141,10 @@ jobs:
       - run: pnpm publint
 
   # The Nuxt floor: the module claims every Nuxt from 4.0.0, the lockfile pins
-  # the latest 4.x, so this job installs 4.0.x on purpose and runs the whole
-  # typecheck and test suite against it.
+  # the latest 4.x, so this job installs 4.0.x on purpose and runs every
+  # package's typecheck and tests against it except `@dphonys/scaffolder`'s.
+  # The Scaffolder's acceptance test requires a generated package to resolve
+  # at least the Nuxt it claims, which the 4.0.x overrides break by design.
   floor:
     name: Nuxt 4.0 floor
     runs-on: ubuntu-latest
@@ -156,10 +158,10 @@ jobs:
       - name: Show the Nuxt this job resolved
         run: pnpm --filter @dphonys/better-handler list nuxt @nuxt/kit @nuxt/schema @nuxt/test-utils
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm exec tsc --noEmit && pnpm exec turbo run typecheck --filter='!@dphonys/scaffolder'
       - name: Test
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: pnpm test
+        run: pnpm exec turbo run test --filter='!@dphonys/scaffolder'
 
   report:
     name: Pull request report
