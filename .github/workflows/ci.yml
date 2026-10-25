@@ -141,10 +141,8 @@ jobs:
       - run: pnpm publint
 
   # The Nuxt floor: the module claims every Nuxt from 4.0.0, the lockfile pins
-  # the latest 4.x, so this job installs 4.0.x on purpose. Only the new package's
-  # suites run here, because the three handler packages stay on the committed
-  # lockfile until they are deleted; from then on these steps become
-  # `pnpm typecheck` and `pnpm test`.
+  # the latest 4.x, so this job installs 4.0.x on purpose and runs the whole
+  # typecheck and test suite against it.
   floor:
     name: Nuxt 4.0 floor
     runs-on: ubuntu-latest
@@ -158,10 +156,10 @@ jobs:
       - name: Show the Nuxt this job resolved
         run: pnpm --filter @dphonys/better-handler list nuxt @nuxt/kit @nuxt/schema @nuxt/test-utils
       - name: Typecheck
-        run: pnpm exec turbo run typecheck --filter=@dphonys/better-handler
+        run: pnpm typecheck
       - name: Test
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: pnpm exec turbo run test --filter=@dphonys/better-handler
+        run: pnpm test
 
   report:
     name: Pull request report

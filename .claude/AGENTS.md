@@ -128,8 +128,8 @@ before publishing missing package versions through npm trusted publishing.
   land as a `Vitest` check with the junit summary.
   One more job, `floor` (**Nuxt 4.0 floor**), tests the bottom of the Nuxt
   range `@dphonys/better-handler` claims: it installs `nuxt`, `@nuxt/kit` and
-  `@nuxt/schema` 4.0.x and must pass. While the old handler packages remain,
-  it runs only that package's typecheck and tests.
+  `@nuxt/schema` 4.0.x and must pass. It runs the whole `pnpm typecheck` and
+  `pnpm test` against them.
 
   The job passes `.github/compat/floor.json` to the setup action as
   `compat-settings`. The action writes those pnpm settings into the runner's
