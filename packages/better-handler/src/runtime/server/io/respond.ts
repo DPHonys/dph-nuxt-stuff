@@ -98,9 +98,24 @@ function isStatusMap<Output>(output: Output): output is Output & StatusMap {
   return isPlainObject(output) && !('~standard' in output)
 }
 
-/** Each status's slot checked: a Standard Schema, or `null` for no body. */
+// A status as an object key spells it: an integer from 100 to 599, HTTP's
+// whole range of codes, in its plain decimal form. The old packages bounded no
+// success status, so the map takes any code h3 can send.
+const STATUS_KEY = /^[1-5]\d{2}$/
+
+/**
+ * Each key checked to be a status, and each status's slot a Standard Schema
+ * or `null` for no body. A key h3 cannot send as a status would otherwise
+ * leave the current status in place under a reply declared for another.
+ */
 function checkStatusMap(statuses: StatusMap): void {
   for (const [status, slot] of Object.entries(statuses)) {
+    if (!STATUS_KEY.test(status)) {
+      throw declarationFault(
+        `The output's key "${status}" must be a status, an integer from 100 to 599.`
+      )
+    }
+
     if (slot === null || isStandardSchema(slot)) continue
 
     throw declarationFault(
@@ -112,8 +127,8 @@ function checkStatusMap(statuses: StatusMap): void {
 /**
  * Resolve a route's `output` once, when the route module is evaluated, so a
  * route pays nothing per request for the form it did not declare. Refuses, as
- * a declaration fault, an `output` that is neither form and a status whose
- * slot is neither a schema nor `null`: the compile guard's answer for a caller
+ * a declaration fault, an `output` that is neither form, a key that is no
+ * status, and a status whose slot is neither a schema nor `null`: the compile guard's answer for a caller
  * the types never saw. A map naming no status declares nothing, as an empty
  * `input` or `errors` does.
  */

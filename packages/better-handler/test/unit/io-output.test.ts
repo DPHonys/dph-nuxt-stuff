@@ -398,6 +398,28 @@ describe('an output that is neither form', () => {
     )
   })
 
+  // h3 keeps the current status for a code it cannot send, so each of these
+  // would answer whatever status was set before, under a reply declared for
+  // another. HTTP's status codes run from 100 to 599.
+  it.each(['2000', '99', '600', 'ok', '200.5', '-200', '0200'])(
+    'refuses the key %j, which is no status',
+    (key) => {
+      expect(declaring({ [key]: existing })).toThrow(
+        new Error(
+          `[better-handler] The output's key "${key}" must be a status, an integer from 100 to 599.`
+        )
+      )
+    }
+  )
+
+  it.each(['100', '200', '599'])('takes the key %j', (key) => {
+    expect(declaring({ [key]: existing })).not.toThrow()
+  })
+
+  it('refuses a key that is no status before a slot that is no schema', () => {
+    expect(declaring({ ok: { id: 'string' } })).toThrow(/key "ok"/)
+  })
+
   it('is refused before the route declares nothing', () => {
     // The output rule is the more precise sentence: the author did write one.
     expect(declaring([])).toThrow(/The output of defineBetterEventHandler/)
