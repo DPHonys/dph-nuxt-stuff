@@ -187,16 +187,18 @@ describe('the Built-in validation-failed variant in the route’s errors', () =>
     }>()
   })
 
-  it('is absent when every declared slot may be undefined', () => {
+  it('is present when the declared slots may be undefined, as nothing proves them empty', () => {
+    // Annotated with the interface, no source is guaranteed, but the value
+    // still holds `query`, which the runtime validates and can reject.
     const input: InputDeclaration = { query: pagination }
     const _route = defineBetterEventHandler(
       { input, errors: { 'order-locked': { status: 409 } } },
       () => ({ ok: true })
     )
 
-    expectTypeOf<KnownErrorsOfHandler<typeof _route>>().toEqualTypeOf<{
-      _tag: 'order-locked'
-    }>()
+    expectTypeOf<KnownErrorsOfHandler<typeof _route>>().toEqualTypeOf<
+      { _tag: 'order-locked' } | ValidationFailed
+    >()
   })
 })
 

@@ -15,6 +15,7 @@ import type {
   DeclaredSource,
   HasInput,
   InputDeclaration,
+  MayHaveInput,
   SourceValue,
   ValidationFailed,
 } from './io/input'
@@ -116,12 +117,14 @@ export type BetterHandlerFn<
 
 /**
  * Every Known error a route can fail with: the variants its `errors`
- * declares, and the Built-in validation-failed variant exactly when it
- * declares `input`.
+ * declares, and the Built-in validation-failed variant unless its `input` is
+ * proven to declare no source. A declaration annotated `InputDeclaration`
+ * guarantees none, yet the runtime validates what it holds, so it keeps the
+ * variant.
  */
 export type RouteKnownErrors<Input, Errors> =
   | KnownErrorsOf<Errors>
-  | (HasInput<Input> extends true ? ValidationFailed : never)
+  | (MayHaveInput<Input> extends true ? ValidationFailed : never)
 
 // Module-private and never exported, so only this package can brand a
 // Handler: a structural key on a foreign handler cannot spoof any slot, and
