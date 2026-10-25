@@ -1,7 +1,6 @@
 {
   "name": "@dphonys/better-handler",
   "version": "0.0.1",
-  "private": true,
   "description": "Declare a Nitro handler's request schemas, response schema and expected failures once, and get all of them typed at every call site.",
   "keywords": [
     "better-handler",
