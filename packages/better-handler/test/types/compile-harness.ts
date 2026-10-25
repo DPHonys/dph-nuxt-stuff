@@ -149,15 +149,22 @@ const NITRO_TYPE_PATHS = nitroTypePaths()
  * The program for one fixture, its fixture already checked: first, so the
  * declarations it imports are checked in the adverse order. With the
  * config's own files too when asked, so a declaration the fixture reaches by
- * membership alone - an augmentation - is in the program.
+ * membership alone - an augmentation - is in the program; or with only the
+ * roots named, for a config whose own files are more than the fixture may
+ * see.
  */
 function checkedProgram(
   tsconfigPath: string,
   fixture: string,
-  withConfigFiles = false
+  withConfigFiles: boolean | readonly string[] = false
 ): ts.Program {
   const parsed = parseTsConfig(tsconfigPath)
-  const roots = withConfigFiles ? [fixture, ...parsed.fileNames] : [fixture]
+  const roots =
+    withConfigFiles === true
+      ? [fixture, ...parsed.fileNames]
+      : withConfigFiles === false
+        ? [fixture]
+        : [fixture, ...withConfigFiles]
 
   const program = ts.createProgram([...new Set(roots)], {
     ...parsed.options,
@@ -195,6 +202,31 @@ export function compileFixture(
   return diagnostics.filter(
     (diagnostic) => normalize(diagnostic.fileName) === normalize(fixture)
   )
+}
+
+/**
+ * Compile one fixture inside an app `nuxt prepare` generated: under the
+ * app's own `tsconfig.app.json`, rooted at the fixture and the app's
+ * `nuxt.d.ts`, which brings in Nuxt's globals and every generated type, and
+ * at nothing else of the app's. Returns every diagnostic of the program, not
+ * only the fixture's - an app's route a fixture reaches is compiled here and
+ * nowhere else - and refuses a stack-depth error anywhere in it.
+ */
+export function compileInApp(
+  buildDir: string,
+  fixture: string
+): readonly Diagnostic[] {
+  const diagnostics = ts
+    .getPreEmitDiagnostics(
+      checkedProgram(resolve(buildDir, 'tsconfig.app.json'), fixture, [
+        resolve(buildDir, 'nuxt.d.ts'),
+      ])
+    )
+    .map(toDiagnostic)
+
+  refuseStackDepth(fixture, diagnostics)
+
+  return diagnostics
 }
 
 /**
