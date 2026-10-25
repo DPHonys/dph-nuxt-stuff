@@ -1,8 +1,8 @@
 import { defineBetterEventHandler } from '@dphonys/better-handler/server'
-import { schema } from '../schema'
+import { reportOutput } from '../outputs'
 
 // Output only: no source declared.
-export default defineBetterEventHandler(
-  { output: schema<{ total: number }>() },
-  () => ({ total: 1 })
-)
+export default defineBetterEventHandler({ output: reportOutput }, () => ({
+  total: 1,
+  at: new Date(0),
+}))

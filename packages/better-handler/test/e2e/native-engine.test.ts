@@ -33,9 +33,13 @@ const GENERATED = join(FIXTURE, '.nuxt/generated')
 
 const NATIVE_CHECK = join(FIXTURE, 'checks/native.ts')
 const AGREEMENT_CHECK = join(FIXTURE, 'checks/agreement.spec-d.ts')
+const BETTER_FETCH_CHECK = join(FIXTURE, 'checks/better-fetch.ts')
 
 /** What marks a call the generated engine must refuse, at the end of its line. */
 const REFUSED = '// refused natively'
+
+/** What marks a call the fetch family must refuse, and with which code. */
+const REFUSED_WITH = /\/\/ refused TS(\d+)$/
 
 /** TS2769, "No overload matches this call": how `$fetch` refuses a request. */
 const NO_OVERLOAD_MATCHES = 2769
@@ -85,6 +89,19 @@ function linesEndingIn(file: string, marker: string): number[] {
     .flatMap((line, index) =>
       line.trimEnd().endsWith(marker) ? [index + 1] : []
     )
+}
+
+/** Each line of `file` marked `// refused TS<code>`, as the diagnostic it promises. */
+function markedRefusals(file: string) {
+  return readFileSync(file, 'utf8')
+    .split('\n')
+    .flatMap((line, index) => {
+      const code = REFUSED_WITH.exec(line.trimEnd())?.[1]
+
+      return code === undefined
+        ? []
+        : [{ fileName: file, line: index + 1, code: Number(code) }]
+    })
 }
 
 /** A diagnostic as these assertions compare it: where, and which. */
@@ -140,3 +157,24 @@ describe.skipIf(!HAS_GENERATED_ENGINE)(
     })
   }
 )
+
+describe('the fetch family, typed from the generated map whatever the route engine', () => {
+  it('refuses exactly the marked calls on Nitro’s route types', () => {
+    const refused = markedRefusals(BETTER_FETCH_CHECK)
+
+    // Guards the comparison below against a file that lost its markers.
+    expect(refused.length).toBeGreaterThanOrEqual(30)
+    expect(compileInApp(INTERNAL_API, BETTER_FETCH_CHECK).map(located)).toEqual(
+      refused
+    )
+  })
+
+  it.skipIf(!HAS_GENERATED_ENGINE)(
+    'refuses the same calls, and types every other the same, on the generated route engine',
+    () => {
+      expect(compileInApp(GENERATED, BETTER_FETCH_CHECK).map(located)).toEqual(
+        markedRefusals(BETTER_FETCH_CHECK)
+      )
+    }
+  )
+})
