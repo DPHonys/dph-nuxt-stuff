@@ -10,7 +10,8 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import type { StatusMap } from '../../types/io/output'
 import { describeRoute, developerFault } from '../faults'
-import { projectPath } from './issues'
+import { describeIssues } from './issues'
+import type { CheckedValueNames } from './issues'
 
 // The statuses the map declares, in the order the runtime keeps them, which
 // for the integer-like keys of a status map is ascending however they were
@@ -45,21 +46,10 @@ export function checkRespondedStatus(
 }
 
 // The value itself has no path of its own, so a root issue is named for what
-// it is rather than given an empty string nobody could read. Projected the
-// way a request-side issue's path is, so a null-prototype segment cannot turn
-// this sentence into an unhandled throw of its own.
-function describePath(path: StandardSchemaV1.Issue['path']): string {
-  const projected = projectPath(path)
-
-  return projected.length === 0 ? 'the response body' : projected.join('.')
-}
-
-function describeIssues(issues: readonly StandardSchemaV1.Issue[]): string {
-  if (issues.length === 0) return 'the schema rejected it without saying why'
-
-  return issues
-    .map((issue) => `${describePath(issue.path)}: ${issue.message}`)
-    .join('; ')
+// it is rather than given an empty string nobody could read.
+const RESPONSE_BODY: CheckedValueNames = {
+  root: 'the response body',
+  unexplained: 'the schema rejected it without saying why',
 }
 
 /**
@@ -99,7 +89,7 @@ export async function checkResponse<Value>(
   if (issues === undefined) return
 
   throw developerFault(
-    `cannot send the response: ${describeRoute(event)} answered ${status} with a value its declared Response output rejects - ${describeIssues(issues)}. ` +
+    `cannot send the response: ${describeRoute(event)} answered ${status} with a value its declared Response output rejects - ${describeIssues(issues, RESPONSE_BODY)}. ` +
       'Nothing checks the response in production, so this route would send that value as it is: fix the handler or the schema, or set `devChecks: false`.'
   )
 }

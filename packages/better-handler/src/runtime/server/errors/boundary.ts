@@ -12,6 +12,8 @@ import { isFunction, isRecordLike, isString } from '../../shared/guards'
 import type { TaggedError } from '../../types/errors/tagged'
 import { devChecksEnabled } from '../dev-checks'
 import { describeRoute, developerFault } from '../faults'
+import { describeIssues } from '../io/issues'
+import type { CheckedValueNames } from '../io/issues'
 import { describeDeclaredTags } from './declaration'
 import type { ResolvedErrorEntry, ResolvedErrors } from './declaration'
 import { createKnownError } from './known-error'
@@ -50,22 +52,11 @@ function taggedErrorOf<Thrown extends object>(
   return { _tag: tag, ...Object.fromEntries(fields) }
 }
 
-// The keys an issue's path names, joined; a segment may be a key or an object
-// carrying one, and its key may be a symbol, which a template cannot print.
-function describePath(path: StandardSchemaV1.Issue['path']): string {
-  const keys = (path ?? []).map((segment) =>
-    String(isRecordLike(segment) ? segment.key : segment)
-  )
-
-  return keys.length === 0 ? 'the fields' : keys.join('.')
-}
-
-function describeIssues(issues: readonly StandardSchemaV1.Issue[]): string {
-  if (issues.length === 0) return 'the schema rejected them without saying why'
-
-  return issues
-    .map((issue) => `${describePath(issue.path)}: ${issue.message}`)
-    .join('; ')
+// The Tagged error has no path of its own: a root issue is about the fields
+// as a whole.
+const FIELDS: CheckedValueNames = {
+  root: 'the fields',
+  unexplained: 'the schema rejected them without saying why',
 }
 
 /**
@@ -103,7 +94,7 @@ async function checkFields(
   if (issues === undefined) return
 
   throw developerFault(
-    `cannot send the error: ${describeRoute(event)} threw ${JSON.stringify(entry.tag)} with fields its declared schema rejects - ${describeIssues(issues)}. ` +
+    `cannot send the error: ${describeRoute(event)} threw ${JSON.stringify(entry.tag)} with fields its declared schema rejects - ${describeIssues(issues, FIELDS)}. ` +
       'Nothing checks the fields in production, so this route would send them as they are: fix the handler or the schema, or set `devChecks: false`.'
   )
 }
