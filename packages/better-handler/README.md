@@ -646,11 +646,12 @@ Within `errors` the rules run one at a time over every entry: a reserved or empt
 
 ### A request answers a plain `500` starting with `[better-handler]`
 
-A developer's mistake found while serving a request. These three answer in production too:
+A developer's mistake found while serving a request. These four answer in production too:
 
 ```text
 [better-handler] fail("order-unknown") names no error this route declares. The route declares "order-not-found", "order-locked".
 [better-handler] fail("order-locked") takes no fields: the error is declared without a schema, and was handed a plain object.
+[better-handler] fail("order-not-found") takes one object of the fields its schema describes, and was handed nothing.
 [better-handler] cannot send the response: GET /api/receipts declares a status map, so it must return the Respond helper's result, and a plain object is not one. Return respond(status, value) - or respond(status) for a status declared null - from the Handler.
 ```
 
