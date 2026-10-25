@@ -130,6 +130,21 @@ describe('a route declaring a bare output', () => {
     await expect((await answer(route)).json()).resolves.toEqual({ keys: [] })
   })
 
+  it('answers 200 with no body when the Handler returns null', async () => {
+    // A nullable schema's `null`, which h3 alone would send as a `204`: a
+    // status the declaration never named.
+    const route = defineBetterEventHandler(
+      { output: receipt.nullable() },
+      () => null
+    )
+
+    const response = await answer(route)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBeNull()
+    await expect(response.text()).resolves.toBe('')
+  })
+
   it('takes a hand-written Standard Schema, plain object and all', async () => {
     // Told apart from a status map by its `~standard` property, not by its
     // prototype.
@@ -183,6 +198,21 @@ describe('a route declaring a status map', () => {
     await expect(response.text()).resolves.toBe('')
   })
 
+  it('keeps 200 when it is the status declared null', async () => {
+    // h3 alone sends `null` under `200` as a `204`, a status the map never
+    // declared.
+    const route = defineBetterEventHandler(
+      { output: { 200: null, 201: created } },
+      (_event, { respond }) => respond(200)
+    )
+
+    const response = await answer(route)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBeNull()
+    await expect(response.text()).resolves.toBe('')
+  })
+
   it('lets any status be declared null, not only 204', async () => {
     const route = defineBetterEventHandler(
       { output: { 205: null } },
@@ -215,14 +245,17 @@ describe('a route declaring a status map', () => {
     }
   )
 
-  it('keeps the status declared null, 202 included', async () => {
-    const route = defineBetterEventHandler(
-      { output: { 202: null } },
-      (_event, { respond }) => untyped(respond)(202, { leaked: true })
-    )
+  it.each([202, 200])(
+    'keeps the status declared null, %i included, even when a caller passed a body',
+    async (status) => {
+      const route = defineBetterEventHandler(
+        { output: { [status]: null } },
+        (_event, { respond }) => untyped(respond)(status, { leaked: true })
+      )
 
-    expect((await answer(route)).status).toBe(202)
-  })
+      expect((await answer(route)).status).toBe(status)
+    }
+  )
 
   it('sends what the Handler responded with, untouched by the schema', async () => {
     const parsed: unknown = wire('{"id":"1","extra":true}')
