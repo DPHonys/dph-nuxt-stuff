@@ -30,8 +30,27 @@ export type {
   BetterHandlerFn,
   BetterHandlerOptions,
   HandlerContext,
+  HandlerDeclarationError,
   KnownErrorsOfHandler,
+  RequestInputOfHandler,
+  RouteKnownErrors,
 } from './handler'
+export type { InputDeclarationError, InputGuard } from './io/guard'
+export type {
+  InputDeclaration,
+  InputOf,
+  MergedInput,
+  MergedOutput,
+  OutputOf,
+  RequestInput,
+  SourceInput,
+  SourceSchemas,
+  SourceValue,
+  ValidatedContext,
+  ValidationFailed,
+  ValidationIssue,
+  ValidationSource,
+} from './io/input'
 
 /**
  * The generated map of every route's Known errors - never written by hand.

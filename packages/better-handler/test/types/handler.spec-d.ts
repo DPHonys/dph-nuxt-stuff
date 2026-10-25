@@ -12,6 +12,7 @@ import type {
   Fail,
   HandlerContext,
   KnownErrorsOfHandler,
+  RequestInputOfHandler,
   TaggedError,
 } from '../../src/runtime/types'
 
@@ -29,7 +30,10 @@ describe('defineBetterEventHandler with errors', () => {
   it('hands the Handler a plain h3 event and a context holding the Fail helper', () => {
     defineBetterEventHandler({ errors: orderErrors }, (event, context) => {
       expectTypeOf(event).toEqualTypeOf<H3Event>()
-      expectTypeOf(context).toEqualTypeOf<HandlerContext<typeof orderErrors>>()
+      expectTypeOf(context).toEqualTypeOf<
+        // eslint-disable-next-line ts/no-empty-object-type -- the route declares no input
+        HandlerContext<{}, typeof orderErrors>
+      >()
       expectTypeOf(context.fail).toEqualTypeOf<Fail<typeof orderErrors>>()
       expectTypeOf(context.fail)
         .parameter(0)
@@ -77,7 +81,8 @@ describe('defineBetterEventHandler with errors', () => {
       BetterEventHandler<
         EventHandlerRequest,
         Promise<{ id: number }>,
-        KnownErrorsOfHandler<typeof sync>
+        KnownErrorsOfHandler<typeof sync>,
+        RequestInputOfHandler<typeof sync>
       >
     >()
     expectTypeOf(async).toEqualTypeOf(sync)

@@ -177,8 +177,8 @@ describe('defineError refuses a misdeclared error', () => {
 })
 
 describe('defineBetterEventHandler refuses what declares nothing', () => {
-  // The compile guard requires `errors`; a plain-JavaScript route file gets
-  // these sentences instead of a TypeError from inside the package.
+  // The compile guard requires a source or a tag; a plain-JavaScript route
+  // file gets these sentences instead of a TypeError from inside the package.
 
   it.each([
     [undefined, 'undefined'],
@@ -201,12 +201,16 @@ describe('defineBetterEventHandler refuses what declares nothing', () => {
   it.each([
     ['an empty object', {}],
     ['errors left undefined', { errors: undefined }],
+    ['an empty errors map', { errors: {} }],
+    ['an empty input', { input: {} }],
+    ['an input whose slots are all undefined', { input: { query: undefined } }],
+    ['an empty input beside an empty errors map', { input: {}, errors: {} }],
   ])('refuses %s, which declares nothing', (_, options) => {
     expect(() =>
       defineBetterEventHandler(untyped(options), () => null)
     ).toThrow(
       new Error(
-        '[better-handler] defineBetterEventHandler must declare errors.'
+        '[better-handler] defineBetterEventHandler must declare input, errors, or both.'
       )
     )
   })

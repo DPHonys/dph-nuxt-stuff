@@ -88,6 +88,7 @@
     "ofetch": "catalog:",
     "publint": "catalog:",
     "typescript": "catalog:",
+    "valibot": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "catalog:",
     "zod": "catalog:"
