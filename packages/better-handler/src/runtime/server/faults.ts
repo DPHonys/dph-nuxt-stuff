@@ -4,7 +4,7 @@
  * time, where the route answers `500`. Neither is ever a Known error.
  */
 
-import type { H3Error } from 'h3'
+import type { H3Error, H3Event } from 'h3'
 import { isFunction, isRecordLike } from '../shared/guards'
 import { httpError } from '../shared/h3'
 
@@ -57,4 +57,9 @@ export function describeValue<Value>(value: Value): string {
   }
 
   return Object.keys(value).length === 0 ? 'an empty object' : 'a plain object'
+}
+
+/** The route as a sentence names it: its method and the path it was asked. */
+export function describeRoute(event: H3Event): string {
+  return `${event.method} ${event.path}`
 }

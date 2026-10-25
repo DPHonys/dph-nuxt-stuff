@@ -9,12 +9,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import { isFunction, isRecordLike, isString } from '../../shared/guards'
-import { httpError } from '../../shared/h3'
 import type { TaggedError } from '../../types/errors/tagged'
 import { devChecksEnabled } from '../dev-checks'
-import { developerFault } from '../faults'
+import { describeRoute, developerFault } from '../faults'
 import { describeDeclaredTags } from './declaration'
 import type { ResolvedErrorEntry, ResolvedErrors } from './declaration'
+import { createKnownError } from './known-error'
 
 /**
  * The `_tag` a thrown value carries, read by property access because a class
@@ -48,11 +48,6 @@ function taggedErrorOf<Thrown extends object>(
   // `fromEntries` and the spread define every key, so a field named
   // `__proto__` stays a field rather than becoming the prototype.
   return { _tag: tag, ...Object.fromEntries(fields) }
-}
-
-/** The route as a sentence names it: its method and the path it was asked. */
-function describeRoute(event: H3Event): string {
-  return `${event.method} ${event.path}`
 }
 
 // The keys an issue's path names, joined; a segment may be a key or an object
@@ -136,7 +131,7 @@ function refuseUndeclaredTag<Thrown>(
 
 /**
  * Answer what a route's body threw, by throwing in its place: the Known error
- * a declared tag names, built through the h3 seam with the declared status,
+ * a declared tag names, built by `createKnownError` with the declared status,
  * the tag as its `message` and the Tagged error as its `data`; or the thrown
  * value itself, untouched. Status always comes from the declaration, never
  * from the thrown value.
@@ -164,5 +159,5 @@ export async function answerThrown<Thrown>(
 
   if (devChecksEnabled()) await checkFields(event, entry, tagged)
 
-  throw httpError({ status: entry.status, message: tag, data: tagged })
+  throw createKnownError(entry.status, tagged)
 }
