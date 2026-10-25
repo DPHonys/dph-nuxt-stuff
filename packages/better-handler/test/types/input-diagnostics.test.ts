@@ -36,7 +36,7 @@ const SENTENCES = {
     'schemas composed on one source must produce disjoint output keys - merge them in your schema library instead',
   primitive:
     'every schema composed on one source must produce an object output - not a primitive, an array or a function',
-  declareSomething: 'declare input, errors, or both',
+  declareSomething: 'declare input, errors, output, or any combination',
 } as const
 
 /** The one diagnostic reported on the fixture line containing `needle`. */
