@@ -8,8 +8,6 @@
     "./h3-app": "./src/h3-app.ts",
     "./json": "./src/json.ts",
     "./run": "./src/run.ts",
-    "./doubles/channel-token": "./src/doubles/channel-token.ts",
-    "./doubles/nitro-runtime": "./src/doubles/nitro-runtime.ts",
     "./doubles/nuxt-app": "./src/doubles/nuxt-app.ts"
   },
   "scripts": {
