@@ -42,6 +42,43 @@ const echoed = await useBetterAsyncData('echoed', () =>
 )
 const fetchEchoed = await useBetterFetch('/api/echo')
 
+/** What `console.warn` received while `calls` ran, which is synchronous. */
+function warnedDuring(calls: () => void): string[] {
+  const warned: string[] = []
+  const warn = console.warn
+
+  console.warn = (...args: unknown[]) => {
+    warned.push(args.map(String).join(' '))
+  }
+
+  try {
+    calls()
+  } finally {
+    console.warn = warn
+  }
+
+  return warned
+}
+
+// Nuxt's development check on a key two calls share hashes each call's
+// handler from its source text: two different handlers under one key warn,
+// the same handler twice does not. Only a development server runs it.
+const shared = () => $betterFetch.try('/api/orders/7')
+const collisions = {
+  sameHandler: warnedDuring(() => {
+    void useBetterAsyncData('same-handler', shared)
+    void useBetterAsyncData('same-handler', shared)
+  }),
+  differentHandlers: warnedDuring(() => {
+    void useBetterAsyncData('different-handlers', () =>
+      $betterFetch.try('/api/orders/7')
+    )
+    void useBetterAsyncData('different-handlers', () =>
+      $betterFetch.try('/api/orders/404')
+    )
+  }),
+}
+
 const composables = {
   useBetterFetch: {
     data: order.data.value,
@@ -61,4 +98,5 @@ const composables = {
 <template>
   <pre id="rendered">{{ JSON.stringify(data) }}</pre>
   <pre id="composables">{{ JSON.stringify(composables) }}</pre>
+  <pre id="collisions">{{ JSON.stringify(collisions) }}</pre>
 </template>

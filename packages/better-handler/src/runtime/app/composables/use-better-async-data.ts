@@ -58,11 +58,40 @@ function rethrown(variant: TrySource['error'] & object): Error {
   return failureOrigin(variant) ?? toNuxtError(variant)
 }
 
+// A function whose source text is native code, which Nuxt hashes by its name.
+const NATIVE_SOURCE = /\{\s*\[native code\]\s*\}\s*$/
+
+/**
+ * `substitute`, as Nuxt's development check on a key two calls share sees
+ * `handler`. The check hashes each call's handler from its source text, read
+ * with `Function.prototype.toString`, and every substitute has the same
+ * source, so two different handlers under one key would never warn. A bound
+ * function's source is native code, which Nuxt hashes by name instead (4.0
+ * through ohash's `name()`, 4.6 as `name(length)`), so the substitute goes
+ * over bound and named for the handler's own source: what Nuxt would have
+ * hashed, or the handler's name when it is native code itself.
+ */
+function carryingHandlerSource(
+  substitute: BetterAsyncDataHandler<TrySource['data']>,
+  handler: BetterAsyncDataHandler<TrySource>
+): BetterAsyncDataHandler<TrySource['data']> {
+  const source = Function.prototype.toString.call(handler)
+  // Bound to nothing: the substitute is an arrow, which ignores `this`.
+  const bound = substitute.bind(undefined)
+
+  Object.defineProperty(bound, 'name', {
+    value: NATIVE_SOURCE.test(source) ? handler.name : source,
+  })
+
+  return bound
+}
+
 /**
  * The wrapper over vanilla's variadic runtime signature, generic in what the
  * delegate answers so a recording double wraps as readily as vanilla: the
  * handler, wherever vanilla's rule finds it, is replaced by one that resolves
- * a success to its data and throws a failure; every other argument, the
+ * a success to its data and throws a failure, and that Nuxt's development
+ * check tells apart as it would the handler; every other argument, the
  * appended key included, is forwarded as it came.
  */
 export function wrapRawAsyncData<Result>(
@@ -77,15 +106,16 @@ export function wrapRawAsyncData<Result>(
 
     const forwarded = [...args]
 
-    forwarded[at] = async (
-      ...rest: Parameters<BetterAsyncDataHandler<TrySource>>
-    ) => {
-      const result = await handler(...rest)
+    forwarded[at] = carryingHandlerSource(
+      async (...rest: Parameters<BetterAsyncDataHandler<TrySource>>) => {
+        const result = await handler(...rest)
 
-      if (result.error) throw rethrown(result.error)
+        if (result.error) throw rethrown(result.error)
 
-      return result.data
-    }
+        return result.data
+      },
+      handler
+    )
 
     return delegate(...forwarded)
   }

@@ -54,7 +54,13 @@ const OBSERVED = {
   unavailable: { _tag: 'request-failed', status: 503 },
 }
 
-export function theFetchWire(): void {
+/** Which server a wire runs against. */
+interface WireServer {
+  /** A development server, which runs Nuxt's development checks. */
+  readonly dev: boolean
+}
+
+export function theFetchWire(server: WireServer): void {
   it('$betterFetch answers, and .try classifies every failure, from a Nitro handler', async () => {
     expect(await $fetch('/api/relay/global')).toEqual({
       ...OBSERVED,
@@ -118,6 +124,26 @@ export function theFetchWire(): void {
           }),
         },
       },
+    })
+  })
+
+  // The async-data composables hand Nuxt a handler of their own: Nuxt's
+  // check, which hashes each handler's source text, still has to tell two
+  // callers' handlers apart.
+  it('keeps Nuxt’s development warning for two different handlers under one key', async () => {
+    const collisions: unknown = JSON.parse(
+      renderedJson(await $fetch<string>('/'), 'collisions')
+    )
+
+    expect(collisions).toEqual({
+      sameHandler: [],
+      differentHandlers: server.dev
+        ? [
+            expect.stringMatching(
+              /"different-handlers"[\s\S]*different handler/
+            ),
+          ]
+        : [],
     })
   })
 
