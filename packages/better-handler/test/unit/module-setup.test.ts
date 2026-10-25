@@ -39,12 +39,31 @@ async function boot(overrides?: NuxtConfig): Promise<Booted> {
   return { nuxt, nitro }
 }
 
+/** What `addImports` queued, by calling the hook it queues onto. */
+async function appImportsOf(nuxt: Nuxt) {
+  const imports: Parameters<NuxtHooks['imports:extend']>[0] = []
+
+  await nuxt.callHook('imports:extend', imports)
+
+  return imports.filter((entry) => FROM_THIS_PACKAGE.test(entry.from))
+}
+
 /** What this module put into the server build and the app. */
 function registrationsOf({ nuxt, nitro }: Booted) {
   const imports = nitro?.options.imports
   const resolved = imports === false ? undefined : imports
 
   return {
+    // A string here: Nuxt 4.0 also admits a `RegExp` source.
+    keyedComposables: nuxt.options.optimization.keyedComposables.filter(
+      ({ source }) => isString(source) && FROM_THIS_PACKAGE.test(source)
+    ),
+
+    // The generated type map, by the name the module gives it.
+    templates: nuxt.options.build.templates
+      .map((template) => template.filename)
+      .filter((filename) => filename?.includes('better-handler')),
+
     // `addServerImports` only queues onto `nitro:config`, so these are read
     // off the resolved Nitro options rather than `nuxt.options`.
     serverImports: (resolved?.imports ?? []).filter((entry) =>
@@ -68,6 +87,27 @@ function registrationsOf({ nuxt, nitro }: Booted) {
 const BETTER_FETCH_NITRO_PLUGIN = expect.stringMatching(
   /\/runtime\/server\/plugins\/better-fetch$/
 )
+
+/** One composable auto-import, from its file under `runtime/app/composables/`. */
+function composable(name: string, file: string) {
+  return {
+    name,
+    from: expect.stringMatching(
+      new RegExp(`/runtime/app/composables/${file}$`)
+    ),
+  }
+}
+
+/** One keyed composable, keyed as vanilla's are. */
+function keyed(name: string, file: string) {
+  return {
+    name,
+    source: expect.stringMatching(
+      new RegExp(`/runtime/app/composables/${file}$`)
+    ),
+    argumentLength: 3,
+  }
+}
 
 describe('module setup', () => {
   let booted: Booted
@@ -105,6 +145,31 @@ describe('module setup', () => {
         ),
         mode: 'client',
       },
+    ])
+  })
+
+  it('auto-imports the five composables into the app, by name', async () => {
+    expect(await appImportsOf(booted.nuxt)).toEqual([
+      composable('useBetterFetch', 'use-better-fetch'),
+      composable('useLazyBetterFetch', 'use-better-fetch'),
+      composable('useBetterAsyncData', 'use-better-async-data'),
+      composable('useLazyBetterAsyncData', 'use-better-async-data'),
+      composable('useRequestBetterFetch', 'use-request-better-fetch'),
+    ])
+  })
+
+  it('has the compiler key every fetch and async-data composable, as vanilla’s', () => {
+    expect(registrationsOf(booted).keyedComposables).toEqual([
+      keyed('useBetterFetch', 'use-better-fetch'),
+      keyed('useLazyBetterFetch', 'use-better-fetch'),
+      keyed('useBetterAsyncData', 'use-better-async-data'),
+      keyed('useLazyBetterAsyncData', 'use-better-async-data'),
+    ])
+  })
+
+  it('adds the one generated type map', () => {
+    expect(registrationsOf(booted).templates).toEqual([
+      'types/better-handler.d.ts',
     ])
   })
 })

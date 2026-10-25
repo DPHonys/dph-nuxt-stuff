@@ -5,6 +5,7 @@
  */
 
 import type { H3Event } from 'h3'
+import { ACCEPT, ACCEPT_JSON } from '../shared/better-fetch'
 import { toTryResult } from '../shared/errors/try-result'
 import type { BetterFetch } from '../types/fetch'
 
@@ -22,11 +23,6 @@ export type RawEventFetch<Body> = (
   request: string | Request,
   init?: RawInit
 ) => Promise<Body>
-
-const ACCEPT = 'accept'
-
-// Why the header is forced: see the global's twin in `shared/better-fetch.ts`.
-const ACCEPT_JSON = 'application/json'
 
 // Flattened to a plain object, the inverse of the global's rule: underneath is
 // h3's `fetchWithEvent`, which merges headers by object spread, and a

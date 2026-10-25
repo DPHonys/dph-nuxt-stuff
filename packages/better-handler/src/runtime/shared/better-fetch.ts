@@ -28,12 +28,16 @@ export interface RawFetch<Body, Raw = Response> {
   native: typeof globalThis.fetch
 }
 
-const ACCEPT = 'accept'
+/** The header every member of the fetch family sends unless the caller did. */
+export const ACCEPT = 'accept'
 
-// Nitro answers an error as JSON outside `/api/**` only for a request that
-// asks for JSON; without the header a Known error from a `server/routes/`
-// route arrives as an HTML page and is classified `request-failed`.
-const ACCEPT_JSON = 'application/json'
+/**
+ * What the family asks for. Nitro answers an error as JSON outside `/api/**`
+ * only for a request that asks for JSON; without the header a Known error
+ * from a `server/routes/` route arrives as an HTML page and is classified
+ * `request-failed`.
+ */
+export const ACCEPT_JSON = 'application/json'
 
 // Built through a `Headers`, the one merge that accepts every form a caller
 // may pass, and handed on as one: ofetch merges a `Headers` correctly. The
