@@ -5,7 +5,7 @@
  */
 
 import type { H3Event } from 'h3'
-import { ACCEPT, ACCEPT_JSON } from '../shared/better-fetch'
+import { flatHeadersAcceptingJson } from '../shared/better-fetch'
 import { toTryResult } from '../shared/errors/try-result'
 import type { BetterFetch } from '../types/fetch'
 
@@ -24,16 +24,10 @@ export type RawEventFetch<Body> = (
   init?: RawInit
 ) => Promise<Body>
 
-// Flattened to a plain object, the inverse of the global's rule: underneath is
-// h3's `fetchWithEvent`, which merges headers by object spread, and a
-// `Headers` instance spreads to nothing. h3 never forwards the incoming
-// request's own `accept`, so only the caller's can be present.
+// The caller's init with the JSON `accept` merged into its headers, flattened
+// for h3's `fetchWithEvent`, which spreads them.
 function withAcceptJson(init: RawInit | undefined): RawInit {
-  const headers = new Headers(init?.headers)
-
-  if (!headers.has(ACCEPT)) headers.set(ACCEPT, ACCEPT_JSON)
-
-  return { ...init, headers: Object.fromEntries(headers) }
+  return { ...init, headers: flatHeadersAcceptingJson(init?.headers) }
 }
 
 /**

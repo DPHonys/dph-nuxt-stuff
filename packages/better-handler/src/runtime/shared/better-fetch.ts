@@ -29,7 +29,7 @@ export interface RawFetch<Body, Raw = Response> {
 }
 
 /** The header every member of the fetch family sends unless the caller did. */
-export const ACCEPT = 'accept'
+const ACCEPT = 'accept'
 
 /**
  * What the family asks for. Nitro answers an error as JSON outside `/api/**`
@@ -37,12 +37,32 @@ export const ACCEPT = 'accept'
  * from a `server/routes/` route arrives as an HTML page and is classified
  * `request-failed`.
  */
-export const ACCEPT_JSON = 'application/json'
+const ACCEPT_JSON = 'application/json'
+
+/**
+ * A caller's headers, in any form `HeadersInit` takes, with the JSON `accept`
+ * added unless they carry one, handed back flattened to a plain record. What
+ * the event-bound fetch and the fetch composables send: underneath both is
+ * h3's `fetchWithEvent` (for a composable, on a same-origin request during
+ * server-side rendering), which merges headers by object spread, and a
+ * `Headers` instance spreads to nothing. h3 never forwards the incoming
+ * request's own `accept`, so only the caller's can be present.
+ */
+export function flatHeadersAcceptingJson(
+  headers: HeadersInit | undefined
+): Record<string, string> {
+  const merged = new Headers(headers)
+
+  if (!merged.has(ACCEPT)) merged.set(ACCEPT, ACCEPT_JSON)
+
+  return Object.fromEntries(merged)
+}
 
 // Built through a `Headers`, the one merge that accepts every form a caller
-// may pass, and handed on as one: ofetch merges a `Headers` correctly. The
-// event-bound fetch flattens instead, so the two merges stay apart. A caller's
-// own `accept`, per call or per instance, wins.
+// may pass, and handed on as one: ofetch merges a `Headers` correctly. Apart
+// from `flatHeadersAcceptingJson` because it also reads the instance's own
+// headers, which ofetch merges in below it. A caller's own `accept`, per call
+// or per instance, wins.
 function withAcceptJson(
   opts: RawOptions | undefined,
   instanceHeaders: Headers

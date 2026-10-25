@@ -7,7 +7,7 @@
 import { computed, toValue } from 'vue'
 import type { ComputedRef } from 'vue'
 import { useFetch, useLazyFetch } from '#app'
-import { ACCEPT, ACCEPT_JSON } from '../../shared/better-fetch'
+import { flatHeadersAcceptingJson } from '../../shared/better-fetch'
 import { isString } from '../../shared/guards'
 import type { UseBetterFetch } from '../../types/composables'
 
@@ -54,19 +54,13 @@ function resolveHeadersInit(
   )
 }
 
-// Handed back flattened: on a same-origin request during server-side
-// rendering `useFetch` goes through h3's `fetchWithEvent`, which merges
-// headers by object spread, and a `Headers` instance spreads to nothing. A
-// `computed`, so vanilla's deep watch on `headers` keeps tracking the
-// caller's refs. A caller's own `accept` wins.
+// The family's flattened merge, read inside a `computed`, so vanilla's deep
+// watch on `headers` keeps tracking the caller's refs. A caller's own
+// `accept` wins.
 function withAcceptJson(headers: HeadersOption): ComputedRef<HeadersInit> {
-  return computed(() => {
-    const merged = new Headers(resolveHeadersInit(toValue(headers)))
-
-    if (!merged.has(ACCEPT)) merged.set(ACCEPT, ACCEPT_JSON)
-
-    return Object.fromEntries(merged)
-  })
+  return computed(() =>
+    flatHeadersAcceptingJson(resolveHeadersInit(toValue(headers)))
+  )
 }
 
 /**
