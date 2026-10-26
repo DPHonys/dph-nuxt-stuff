@@ -37,6 +37,16 @@ describe('first-release bootstrap contract', () => {
     expect(guide).toContain('pnpm does not apply an extra first-release bump')
   })
 
+  it('lets admission reseed the debut version before the first Release intent', async () => {
+    const guide = await readFile(bootstrapPath, 'utf8')
+    const reseed = guide.indexOf('may reseed the manifest `version`')
+    const firstIntent = guide.indexOf('run `pnpm change`')
+
+    expect(reseed).toBeGreaterThanOrEqual(0)
+    expect(firstIntent).toBeGreaterThan(reseed)
+    expect(guide).not.toContain('`0.0.1` is still the manifest version')
+  })
+
   it('orders inspection before targeted interactive publication and trust registration', async () => {
     const guide = await readFile(bootstrapPath, 'utf8')
     const landedSection = guide.indexOf(
