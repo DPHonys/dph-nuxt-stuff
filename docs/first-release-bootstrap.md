@@ -11,8 +11,11 @@ evidence requested in the final checklist.
 
 ## 1. Admit the Generated package
 
-A Generated package starts at `0.0.1` with `private: true`. Keep it private
-while its package developer and a maintainer complete this review:
+A Generated package starts at `0.0.1` with `private: true`. A package that
+should debut at another version may reseed the manifest `version` (for example
+to `0.1.0`) during this review, before `pnpm change`; its seeded version is then
+that version. Keep it private while its package developer and a maintainer
+complete this review:
 
 - Replace the Template's Starter behavior, its tests and playground examples,
   the generated README, and every Handoff marker with the package's real
@@ -30,7 +33,7 @@ while its package developer and a maintainer complete this review:
   ```
 
 - Confirm that the intended package name is absent from the public npm registry
-  and that `0.0.1` is still the manifest version.
+  and that its seeded version is still the manifest version.
 
 When the review is complete, remove only `private: true` from the package
 manifest and run `pnpm change`. Select the package, choose the semantic impact
@@ -40,21 +43,22 @@ admission that contains one without the other.
 
 Removing `private` is the entire admission transition. Do not add a readiness
 file, package allowlist, service, or admission workflow. The first Release
-intent is still required even though a registry-absent package debuts at the
-seeded `0.0.1`; pnpm does not apply an extra first-release bump.
+intent is still required even though a registry-absent package debuts at its
+seeded version; pnpm does not apply an extra first-release bump.
 
 The admission change then follows the ordinary
 [Release commit procedure](./release-preparation.md#prepare-one-release-commit).
 Bootstrap must not begin until that reviewed Release commit, including the
-package's `0.0.1` changelog and consumed-intent ledger entry, has landed on
-`main`.
+package's changelog for its seeded version and consumed-intent ledger entry,
+has landed on `main`.
 
 ## 2. Recheck the landed Release commit
 
 Start from a clean, current local checkout of `main`. Confirm that the admitted
-package is non-private at `0.0.1` and that its Release commit is present. Run the
-Canonical publication gate, then inspect the selected package's dry-run tarball
-again before logging in to npm or performing any other authenticated operation:
+package is non-private at its seeded version and that its Release commit is
+present. Run the Canonical publication gate, then inspect the selected package's
+dry-run tarball again before logging in to npm or performing any other
+authenticated operation:
 
 ```sh
 git switch main
