@@ -17,6 +17,7 @@ import type {
   ResponseOutputOfHandler,
   ResponseOutputs,
   SentResponse,
+  StatusMap,
   ValidationFailed,
 } from '../../src/runtime/types'
 
@@ -32,17 +33,19 @@ const created = z.object({ id: z.string(), createdAt: z.string() })
 const pagination = z.object({ page: z.coerce.number() })
 
 describe('the output type family', () => {
-  it('reads the bare form as one 200, its schema’s output type', () => {
+  it('reads the bare form as one 200, its schema’s input type', () => {
+    // The input side: what the Handler hands over is what the development
+    // check validates and what goes out, before any transform.
     expectTypeOf<ResponseOutputs<typeof receipt>>().toEqualTypeOf<{
-      200: { id: string; at: Date }
+      200: { id: string; at: string }
     }>()
     expectTypeOf<ResponseBodies<typeof receipt>>().toEqualTypeOf<{
       id: string
-      at: Date
+      at: string
     }>()
     expectTypeOf<HandlerReturn<typeof receipt>>().toEqualTypeOf<{
       id: string
-      at: Date
+      at: string
     }>()
   })
 
@@ -89,16 +92,16 @@ describe('a route declaring a bare output', () => {
       expectTypeOf(context).toEqualTypeOf<{}>()
       expectTypeOf(context).not.toHaveProperty('respond')
 
-      return { id: '1', at: new Date() }
+      return { id: '1', at: '2026-10-31T00:00:00.000Z' }
     })
   })
 
-  it('answers with the schema’s output type, not the Handler’s narrower return', () => {
-    // The fetch result is pinned to `InferOutput<output>`: an extra key the
+  it('answers with the schema’s input type, not the Handler’s narrower return', () => {
+    // The fetch result is pinned to `InferInput<output>`: an extra key the
     // Handler returns is not part of what the route promised.
     const _route = defineBetterEventHandler({ output: receipt }, async () => ({
       id: '1',
-      at: new Date(),
+      at: '2026-10-31T00:00:00.000Z',
       internal: true,
     }))
 
@@ -106,29 +109,29 @@ describe('a route declaring a bare output', () => {
       BetterEventHandler<
         // eslint-disable-next-line ts/no-empty-object-type -- no body or query in the native slot
         {},
-        Promise<StandardSchemaV1.InferOutput<typeof receipt>>,
+        Promise<StandardSchemaV1.InferInput<typeof receipt>>,
         never,
         // eslint-disable-next-line ts/no-empty-object-type -- no source declared
         {},
-        { 200: { id: string; at: Date } }
+        { 200: { id: string; at: string } }
       >
     >()
     expectTypeOf(_route).toExtend<
-      EventHandler<EventHandlerRequest, Promise<{ id: string; at: Date }>>
+      EventHandler<EventHandlerRequest, Promise<{ id: string; at: string }>>
     >()
   })
 
   it('carries no Known error and no Request input of its own', () => {
     const _route = defineBetterEventHandler({ output: receipt }, () => ({
       id: '1',
-      at: new Date(),
+      at: '2026-10-31T00:00:00.000Z',
     }))
 
     expectTypeOf<KnownErrorsOfHandler<typeof _route>>().toBeNever()
     // eslint-disable-next-line ts/no-empty-object-type -- no key at all
     expectTypeOf<RequestInputOfHandler<typeof _route>>().toEqualTypeOf<{}>()
     expectTypeOf<ResponseOutputOfHandler<typeof _route>>().toEqualTypeOf<{
-      200: { id: string; at: Date }
+      200: { id: string; at: string }
     }>()
   })
 })
@@ -138,12 +141,17 @@ describe('a route declaring a status map', () => {
 
   it('hands the Respond helper, pairing each status with its body', () => {
     defineBetterEventHandler({ output }, (_event, context) => {
+      // The second argument names the statuses declared `null`, the ones
+      // that take no value: a body of `null` alone cannot say so.
       expectTypeOf(context).toEqualTypeOf<{
-        readonly respond: Respond<{
-          200: { id: string }
-          201: { id: string; createdAt: string }
-          204: null
-        }>
+        readonly respond: Respond<
+          {
+            200: { id: string }
+            201: { id: string; createdAt: string }
+            204: null
+          },
+          204
+        >
       }>()
       expectTypeOf(context.respond<200>).parameters.toEqualTypeOf<
         [status: 200, value: { id: string }]
@@ -196,6 +204,89 @@ describe('a route declaring a status map', () => {
     expectTypeOf<KnownErrorsOfHandler<typeof _route>>().toEqualTypeOf<
       { _tag: 'order-locked' } | ValidationFailed
     >()
+  })
+})
+
+describe('a status map telling a bodiless status from a null body', () => {
+  it('takes null for a schema whose input is null', () => {
+    defineBetterEventHandler(
+      { output: { 200: existing, 201: z.null() } },
+      (_event, context) => {
+        expectTypeOf(context.respond<201>).parameters.toEqualTypeOf<
+          [status: 201, value: null]
+        >()
+
+        return context.respond(201, null)
+      }
+    )
+  })
+
+  it('takes any value for a schema whose input is any', () => {
+    defineBetterEventHandler(
+      { output: { 200: z.any() } },
+      (_event, { respond }) => respond(200, { a: 1 })
+    )
+
+    const untypedSchema: StandardSchemaV1<any, any> = z.any()
+
+    defineBetterEventHandler(
+      { output: { 200: untypedSchema } },
+      (_event, { respond }) => respond(200, 'anything')
+    )
+  })
+
+  it('takes no value for a status declared null', () => {
+    defineBetterEventHandler(
+      { output: { 200: existing, 204: null } },
+      (_event, context) => {
+        expectTypeOf(context.respond<204>).parameters.toEqualTypeOf<
+          [status: 204]
+        >()
+
+        return context.respond(204)
+      }
+    )
+  })
+
+  it('advertises null as both bodies to a client', () => {
+    // The distinction is the Handler's alone: on the wire neither carries a
+    // body a client could read as anything but `null`.
+    const _map = { 201: z.null(), 204: null }
+
+    expectTypeOf<ResponseOutputs<typeof _map>>().toEqualTypeOf<{
+      201: null
+      204: null
+    }>()
+  })
+})
+
+describe('a status map whose schema transforms', () => {
+  it('pairs each status with its schema’s input', () => {
+    defineBetterEventHandler(
+      { output: { 201: receipt } },
+      (_event, { respond }) =>
+        respond(201, { id: '1', at: '2026-10-31T00:00:00.000Z' })
+    )
+  })
+})
+
+describe('a map annotated with the public StatusMap', () => {
+  // Every slot is `StandardSchemaV1 | null`: nothing says which status sends
+  // a body, so each keeps one, typed as an untyped schema types it.
+  const str = z.string()
+  const output: StatusMap = { 200: str }
+
+  it('keeps a body for every status', () => {
+    // `unknown`, an untyped schema's input, rather than `null`: a client is
+    // never told every status is bodiless.
+    expectTypeOf<keyof ResponseOutputs<StatusMap>>().toEqualTypeOf<number>()
+    expectTypeOf<ResponseOutputs<StatusMap>[200]>().toBeUnknown()
+  })
+
+  it('answers through respond with a value', () => {
+    defineBetterEventHandler({ output }, (_event, { respond }) =>
+      respond(200, 'ok')
+    )
   })
 })
 

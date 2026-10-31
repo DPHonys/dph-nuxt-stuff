@@ -1,20 +1,19 @@
 /**
  * The handler and error construction seam: the only file in the package that
- * builds an h3 handler or an h3 error. On h3 v2 (Nuxt 5) `defineEventHandler`
- * and `createError` become `defineHandler` and `HTTPError`, and only the
- * bodies below change.
+ * builds an h3 handler or an h3 error, or reaches h3's event class. On h3 v2
+ * (Nuxt 5) `defineEventHandler` and `createError` become `defineHandler` and
+ * `HTTPError`, and only the bodies below change.
  *
  * In `shared/` rather than `server/` because the client half constructs errors
  * too.
  */
 
-import { createError, defineEventHandler, isError } from 'h3'
+import { createError, defineEventHandler, H3Event, isError } from 'h3'
 import type {
   EventHandler,
   EventHandlerRequest,
   EventHandlerResponse,
   H3Error,
-  H3Event,
 } from 'h3'
 import type { NuxtError } from 'nuxt/app'
 import { isRecordLike, isString } from './guards'
@@ -34,6 +33,16 @@ export function makeEventHandler<
   return defineEventHandler<Request, Response>(run)
 }
 
+/**
+ * The prototype every event this copy of h3 makes inherits from, for a
+ * member the package gives every event, whoever creates it: the request's
+ * own, and the fresh one a cached handler runs on. Typed as an event, as
+ * TypeScript types a class's prototype.
+ */
+export function eventPrototype(): H3Event {
+  return H3Event.prototype
+}
+
 /** What {@link httpError} builds an error from. */
 export interface HttpErrorInput<Data> {
   readonly status: number
@@ -45,17 +54,23 @@ export interface HttpErrorInput<Data> {
    * error hook; h3 never sends a cause.
    */
   readonly cause?: unknown
+  /**
+   * Whether the error is a server bug rather than an answer: Nitro logs an
+   * unhandled error with its stack, and a production server sends its client
+   * a generic `500` without the `message` or `data`. Defaults to `false`.
+   */
+  readonly unhandled?: boolean
 }
 
 /**
  * Every HTTP error the package constructs: a Known error, whose `message` is
  * its tag and whose `data` is the tagged object, and a developer fault, which
- * has no `data`.
+ * has no `data` and is `unhandled`.
  *
  * `statusMessage` is never set: h3 copies it into a server-to-server fetch's
- * error untouched, so nothing of ours may ride the reason phrase. `fatal` and
- * `unhandled` are left at h3's `false`, so a production server still sends
- * `message` and `data`, and Nuxt never escalates the error to its error page.
+ * error untouched, so nothing of ours may ride the reason phrase. `fatal` is
+ * left at h3's `false`, and so is `unhandled` unless asked for, so a
+ * production server still sends a Known error's `message` and `data`.
  */
 export function httpError<Data>(input: HttpErrorInput<Data>): H3Error<Data> {
   const fields: Partial<H3Error<Data>> = {
@@ -65,6 +80,7 @@ export function httpError<Data>(input: HttpErrorInput<Data>): H3Error<Data> {
 
   if (input.data !== undefined) fields.data = input.data
   if (input.cause !== undefined) fields.cause = input.cause
+  if (input.unhandled === true) fields.unhandled = true
 
   return createError<Data>(fields)
 }

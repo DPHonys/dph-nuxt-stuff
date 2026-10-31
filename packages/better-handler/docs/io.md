@@ -14,7 +14,7 @@ The handler's `event` stays h3's plain `H3Event`, even though the returned handl
 
 Sources are validated in the order `route`, `query`, `headers`, `body`, whatever order the declaration names them in, and the first source with issues answers. Cheap and synchronous first, stream-consuming last, so an invalid route param spares the body parse. There is no aggregate mode across sources. Within a source every issue is reported together, so a form with two bad fields needs one round trip, and a tuple's elements run one after another, so asynchronous schemas are deterministic.
 
-Sources reach the schemas exactly as h3 yields them, with nothing normalised or coerced on the way: every conversion belongs in the schema, where the rest of the parsing rules live.
+Sources reach the schemas exactly as h3 yields them, with nothing normalised or coerced on the way: every conversion belongs in the schema, where the rest of the parsing rules live. That is why a `route`, `query` or `headers` key whose input takes no string is a compile error: the call site is typed from the schema's input, so a `z.number()` query key would accept a call sending `2` and then refuse the `'2'` that arrives. A coercing schema's input admits the string, so the rule points at one.
 
 The body is read only on h3 v1's payload methods (`POST`, `PUT`, `PATCH`, `DELETE`); any other method validates `undefined`, so a method-agnostic route file that declares a body keeps serving `GET` instead of answering h3's bare `405`. The accepted cost: a `users.get.ts` that declares a body answers `400` rather than `500`. A body h3 cannot parse is one issue with the package's own message, never h3's, so an h3 patch is not a change to this package's wire.
 
@@ -22,10 +22,11 @@ The body is read only on h3 v1's payload methods (`POST`, `PUT`, `PATCH`, `DELET
 
 Composition is writing a tuple: each element validates the whole source, and their outputs merge into one value. That lets a route combine reusable schemas (pagination beside sorting beside a route-specific filter) without a schema library's own merge.
 
-Two rules are checked at compile time, at the source key:
+Three rules are checked at compile time, at the source key:
 
 1. **Every element must produce an object.** Merging a primitive, an array or a function has no meaning. The test is structural, so an interface-typed output is not falsely refused.
 2. **No two elements may produce the same key.** An intersection type would lie about which value survives the merge, so an overlap is refused; merge such schemas in the schema library instead.
+3. **Only the first element may keep keys it does not name.** A passthrough, loose or record schema hands back the raw source, so later in the tuple it would overwrite the named elements' converted values with raw strings, the overlap rule 2 forbids made invisible by an index signature. First in the tuple, everything after it wins. The runtime refuses the same mistake at declaration when a schema's Standard JSON Schema output says so; an output typed `unknown` passes both, as nothing can be said about it.
 
 What the types cannot see, such as a `z.custom` claiming an object it never produces, the runtime refuses with a developer fault rather than merging garbage. A lone schema is never merged, so its output, array or primitive included, passes through untouched.
 
@@ -37,8 +38,8 @@ The first design sent the issues twice, at `data.issues` and inside the marker, 
 
 ## Why `output` is an assertion
 
-`output` declares what a route answers: one schema for a plain `200`, or a map from status to schema with `null` for a bodiless status, answered through `respond(status, value)`. The client is typed from the schemas' output types, as JSON carries them.
+`output` declares what a route answers: one schema for a plain `200`, or a map from status to schema with `null` for a bodiless status, answered through `respond(status, value)`, one status literal at a time: the value of a union of statuses would only have to fit one of their bodies. The handler hands over, and the client is typed from, the schemas' input types, as JSON carries them: the development check validates the handed-over value and production sends it as it is, so the input is the only type both the check and the wire agree on. A transform's output is never sent.
 
 Production runs nothing on the response; a development server validates the handed-over value and discards the result. A schema that would strip or coerce on the way out therefore does neither, and the development server sends the bytes production sends. Declare a schema that describes the value, not one that repairs it. See [the error model](./errors.md#why-the-checks-are-development-only) for why every check is development-only.
 
-The status rules exist because h3 v1 would otherwise answer something nobody declared: the bare form sets `200` itself, so a status set earlier cannot carry the `200` body; a `200` declared with no body is sent as an empty `200` rather than h3's `204`; and a map key outside `100` to `599` is refused, since h3 keeps the current status for a code it cannot send.
+The status rules exist because h3 v1 would otherwise answer something nobody declared: the bare form sets `200` itself, so a status set earlier cannot carry the `200` body; a `200` declared with no body is sent as an empty `200` rather than h3's `204`; and a map key outside `100` to `399` is refused. Above `599` h3 keeps the current status for a code it cannot send; from `400` up a client's fetch throws instead of resolving, so a body declared there would never reach the typed response. A failure is declared under `errors`, by tag, where the client reads it as a typed variant.

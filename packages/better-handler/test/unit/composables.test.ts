@@ -103,6 +103,41 @@ describe('useBetterFetch and its lazy twin', () => {
     expect(lastHeaders()).toEqual(sent)
   })
 
+  // Vanilla hands ofetch no `headers` when the call passed none, and ofetch
+  // then sends a `Request`'s own: `input.headers ?? request.headers`.
+  it.each([
+    ['as it is', (request: Request) => request],
+    ['through a ref', (request: Request) => ref(request)],
+    ['through a getter', (request: Request) => () => request],
+  ])(
+    'sends the headers of a Request passed %s with no headers option',
+    (_name, wrap) => {
+      const request = new Request('http://localhost/api/anything', {
+        headers: { authorization: 'Bearer t', accept: 'text/csv' },
+      })
+
+      useBetterFetch(wrap(request))
+
+      expect(lastHeaders()).toEqual({
+        authorization: 'Bearer t',
+        accept: 'text/csv',
+      })
+    }
+  )
+
+  it('lets a headers option replace a Request’s own, as vanilla does', () => {
+    const request = new Request('http://localhost/api/anything', {
+      headers: { authorization: 'Bearer t', accept: 'text/csv' },
+    })
+
+    useBetterFetch(request, { headers: { authorization: 'Bearer u' } })
+
+    expect(lastHeaders()).toEqual({
+      authorization: 'Bearer u',
+      accept: 'application/json',
+    })
+  })
+
   it('keeps tracking the caller’s refs', async () => {
     const authorization = ref('Bearer one')
 

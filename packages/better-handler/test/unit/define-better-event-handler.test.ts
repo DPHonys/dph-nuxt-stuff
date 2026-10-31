@@ -89,6 +89,25 @@ describe('a thrown value whose _tag the route declares', () => {
     expect(thrown.statusMessage).toBeUndefined()
   })
 
+  it('keeps the thrown value as its cause, so an error hook sees the raising line', async () => {
+    let failed: Error | undefined
+    const route = defineBetterEventHandler(
+      { errors: orderErrors },
+      (_event, { fail }) => {
+        failed = fail('order-not-found', { id: 7 })
+        throw failed
+      }
+    )
+
+    const { response, thrown } = await answer(route)
+
+    expect(response.status).toBe(404)
+    expect(thrown.cause).toBe(failed)
+    expect(failed?.stack).toContain('define-better-event-handler.test.ts')
+    // h3 never sends a cause: the body is the same as without one.
+    expect(await dataOf(response)).toEqual({ _tag: 'order-not-found', id: 7 })
+  })
+
   it('carries the tag alone for an error declared without a schema', async () => {
     const route = defineBetterEventHandler(
       { errors: orderErrors },
@@ -400,6 +419,99 @@ describe('the development checks', () => {
 
     expect(response.status).toBe(409)
     expect(await dataOf(response)).toEqual({ _tag: 'order-doubled', id: 7 })
+  })
+
+  it('accept the input a transforming schema takes, which is what fail is typed by', async () => {
+    const route = defineBetterEventHandler(
+      {
+        errors: {
+          'order-dated': {
+            status: 409,
+            schema: z.object({ id: z.string().transform(Number) }),
+          },
+        },
+      },
+      (_event, { fail }) => {
+        throw fail('order-dated', { id: '7' })
+      }
+    )
+
+    const { response } = await answer(route)
+
+    expect(response.status).toBe(409)
+    expect(await dataOf(response)).toEqual({ _tag: 'order-dated', id: '7' })
+  })
+
+  it('accept the fields alone, which a strict schema not listing _tag requires', async () => {
+    const route = defineBetterEventHandler(
+      {
+        errors: {
+          'order-strict': {
+            status: 404,
+            schema: z.strictObject({ id: z.number() }),
+          },
+        },
+      },
+      (_event, { fail }) => {
+        throw fail('order-strict', { id: 7 })
+      }
+    )
+
+    const { response } = await answer(route)
+
+    expect(response.status).toBe(404)
+    expect(await dataOf(response)).toEqual({ _tag: 'order-strict', id: 7 })
+  })
+
+  it('accept the fields with _tag, which a schema requiring _tag needs', async () => {
+    const route = defineBetterEventHandler(
+      {
+        errors: {
+          'order-missing': {
+            status: 404,
+            schema: z.strictObject({
+              _tag: z.literal('order-missing'),
+              id: z.number(),
+            }),
+          },
+        },
+      },
+      (_event, { fail }) => {
+        throw fail('order-missing', { id: 7 })
+      }
+    )
+
+    const { response } = await answer(route)
+
+    expect(response.status).toBe(404)
+    expect(await dataOf(response)).toEqual({ _tag: 'order-missing', id: 7 })
+  })
+
+  it('report what a schema requiring _tag rejects with _tag given', async () => {
+    const route = defineBetterEventHandler(
+      {
+        errors: {
+          'order-missing': {
+            status: 404,
+            schema: z.object({
+              _tag: z.literal('order-missing'),
+              id: z.number({ error: 'id must be a number' }),
+            }),
+          },
+        },
+      },
+      (_event, { fail }) => {
+        throw fail('order-missing', untyped({ id: 'seven' }))
+      }
+    )
+
+    const { response, thrown } = await answer(route)
+
+    expect(response.status).toBe(500)
+    expect(thrown.message).toBe(
+      '[better-handler] cannot send the error: GET /api/orders/7 threw "order-missing" with fields its declared schema rejects - id: id must be a number. ' +
+        'Nothing checks the fields in production, so this route would send them as they are: fix the handler or the schema, or set `devChecks: false`.'
+    )
   })
 
   it('hand the schema the whole Tagged error, which an Effect error class requires', async () => {

@@ -21,21 +21,22 @@ The map augments only the package's own `/types`. Nothing is hoisted: `typescrip
 
 ## The family's contract
 
-Every member of the family takes the same call signature, `<T, R, const M>(request: R, opts?: BetterRequestOptions<R, M>)`: the method is inferred from `opts.method`, and the options are a concrete type computed from the route and method. This is Nuxt's own `useFetch` pattern, chosen over inferring the whole options object as a type parameter:
+Every member of the family takes the same call signature, `<T, R, const M>(request: R, ...opts: RequestArgs<R, M>)`, the rest tuple holding the options, optional only when `{}` fits them: the method is inferred from `opts.method`, and the options are a concrete type computed from the route and method. This is Nuxt's own `useFetch` pattern, chosen over inferring the whole options object as a type parameter:
 
 - **An inferred options type cannot reject excess keys**, because TypeScript's excess-property check never fires through a type parameter, and it breaks calls that pass no options.
 - **A concrete options type gets required sources and excess-key refusal natively**, with TypeScript's own messages at the offending key.
 
 The rules that follow from it:
 
-- A declared source is required unless `{}` fits its input type, so an all-optional schema stays optional but typed.
+- A declared source is required unless `{}` fits its input type, so an all-optional schema stays optional but typed. A call that leaves the options out where a source is required is refused (`TS2554`), as is one passing `undefined` (`TS2345`): an optional parameter alone would let both through.
+- A request is served by one route, so its options come from the most specific route key that has an entry for the method: an exact static key over a key with params over a catch-all, keys that tie unioned. The error union keeps every matching key's errors instead, a safe superset of what may answer.
 - A declared `body` replaces vanilla's union, so no `FormData` or string side door remains where the schema describes an object.
 - Declared headers type the keys they name and leave the rest open: a client sends more headers than any route validates.
 - A route of this package takes no `body` on `get` or `head`. A route the map does not type keeps vanilla's options key for key, `body` on `get` included, so adopting the package is incremental and a route never types worse than vanilla.
 - ofetch's deprecated `params` alias of `query` is gone from the whole family, since it is a back door past the query's checks.
 - The method is accepted in either case, `get` by default when the route has one; every lookup lowercases it.
 
-**Known limits, accepted.** A call with no options at all skips the requiredness check, because `opts` itself is optional. A source passed through a `ref()` or a getter on the composables loses the excess-key check, because the option is a union of reactive forms and `ref()` infers its own type; the values are still checked. `$betterFetch<T, R, M>` is not type-argument-compatible with `$fetch<T, R, O>`.
+**Known limits, accepted.** A composable call with no options at all skips the requiredness check, because the composables keep vanilla's optional options argument. A source passed through a `ref()` or a getter on the composables loses the excess-key check, because the option is a union of reactive forms and `ref()` infers its own type; the values are still checked. `$betterFetch<T, R, M>` is not type-argument-compatible with `$fetch<T, R, O>`.
 
 ## Stack depth, and the route ceiling
 
@@ -53,6 +54,8 @@ Nitro's own route matching has a ceiling the rules cannot lift. Measured on a re
 Nuxt 4.6 ships its own typed `$fetch`, opt-in through `experimental.routeTypedFetch` and the default in Nuxt 5. Its extractor reads a handler's request types off the `H3Event<Request>` generic of the handler's default export. A handler that leaves that generic at h3's default makes vanilla `$fetch` see `never` for body and query once the flag is on, so this package, left alone, would make native typing worse on its own routes.
 
 The handler `defineBetterEventHandler` returns therefore fills the slot: `EventHandler<{ body, query }, Response>`, each key present only when declared, each the schemas' **input** type, for the same reason as the family. The module never reads or sets the flag; an app that turns it on gets correct native typing on these routes, and one that does not sees nothing change.
+
+The slot is one type per handler, and Nuxt applies it to every method a handler serves. A method-less handler (`server/api/items/[id].ts`) that declares a required `body` therefore makes vanilla `$fetch` require that body on a `GET` too, which `fetch` refuses to send. The slot cannot say otherwise without a type per method, so this is a known difference, not fixed: the family takes no `body` on `get` or `head`, and a route file named for its method (`[id].post.ts`) has no `GET` to mistype.
 
 The handler's own `event` stays h3's default. The slot describes what a client sends; claiming it on the handler's `event` would type `readBody(event)` as validated when it is not.
 

@@ -94,6 +94,29 @@ describe('a development server checking a bare-form response', () => {
     })
   })
 
+  it('passes the schema’s input, which a transform turns into another type', async () => {
+    // `at` is a string on the wire and a `Date` once parsed. The Handler
+    // returns the input side, typed so without a cast, and the check
+    // validates exactly that value: a `Date` here would be the mismatch.
+    const stamped = z.object({
+      id: z.string(),
+      at: z.string().transform((at) => new Date(at)),
+    })
+
+    const route = defineBetterEventHandler({ output: stamped }, () => ({
+      id: 'r-1',
+      at: '2026-10-31T00:00:00.000Z',
+    }))
+
+    const response = await request(route, ROUTE, { route: ROUTE })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      id: 'r-1',
+      at: '2026-10-31T00:00:00.000Z',
+    })
+  })
+
   it('awaits an async Standard Schema', async () => {
     const asyncSchema: StandardSchemaV1 = {
       '~standard': {
@@ -246,9 +269,25 @@ describe('a development server checking a map-form response', () => {
     // The client receives the refusal, never the undeclared status.
     expect(response.status).toBe(500)
     expect(thrown.data).toBeUndefined()
+    // `output` takes no status from 400 up, so the sentence points a failure
+    // at `errors` rather than at a declaration that would be refused.
     expect(thrown.message).toBe(
       `[better-handler] cannot send the response: GET ${ROUTE} answered 404, a status its declared Response output never names - the map names 200, 201. ` +
-        'Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or name 404 in `output`, or set `devChecks: false`.'
+        'Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or declare the failure under `errors` and throw it with `fail`, or set `devChecks: false`.'
+    )
+  })
+
+  it('suggests naming an undeclared success status in output', async () => {
+    const route = defineBetterEventHandler(
+      { output: { 201: created, 200: existing } },
+      (_event, { respond }) => untyped(respond)(202, { id: '1' })
+    )
+
+    const { thrown } = await answer(route)
+
+    expect(thrown.message).toBe(
+      `[better-handler] cannot send the response: GET ${ROUTE} answered 202, a status its declared Response output never names - the map names 200, 201. ` +
+        'Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or name 202 in `output`, or set `devChecks: false`.'
     )
   })
 })
