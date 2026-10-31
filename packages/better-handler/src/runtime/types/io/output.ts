@@ -3,9 +3,10 @@ import type { IsUnion } from '../utils'
 import type { InputOf } from './input'
 
 /**
- * The map form of a Response output: one HTTP status per reply the route can
- * send, each carrying that reply's schema, or `null` for a status that sends
- * no body at all.
+ * The map form of a Response output: one HTTP status from 100 to 399 per
+ * reply the route can send, each carrying that reply's schema, or `null` for
+ * a status that sends no body at all. A failure status is no reply of
+ * `output`'s: a client fetch throws on it, so it is declared under `errors`.
  */
 export interface StatusMap {
   readonly [status: number]: StandardSchemaV1 | null
@@ -33,6 +34,44 @@ export type IsStatusMap<Output> = [Output] extends [StandardSchemaV1]
       ? false
       : true
     : false
+
+/**
+ * A rule an `output` declaration broke. Nothing the author writes can satisfy
+ * it, so the diagnostic prints at `output` with this sentence inside it.
+ */
+export interface OutputDeclarationError<Msg extends string> {
+  readonly 'output-declaration-error': Msg
+}
+
+type Digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+/**
+ * The sentence a status-map key breaks, or `never`: it must be an integer
+ * from 100 to 399, read off its decimal form, so `404` and `200.5` are
+ * refused alike. Plain `number`, the key of a map annotated `StatusMap`, says
+ * nothing about its value and is left to the declaration-time throw.
+ * Distributes over the map's keys.
+ */
+type StatusKeyRule<Status> = number extends Status
+  ? never
+  : Status extends number | string
+    ? `${Status}` extends `${1 | 2 | 3}${Digit}${Digit}`
+      ? never
+      : `the status must be an integer from 100 to 399, not ${Status} - a failure status is declared under errors, by tag`
+    : never
+
+/**
+ * The guard a route's `output` intersects with: `unknown`, the identity of
+ * `&`, for a schema and for a map whose every key is a status from 100 to
+ * 399; the unsatisfiable property otherwise. Checked on the map as a whole,
+ * not key by key: a key declared `null` intersected with the property would
+ * be `never`, and the sentence would be lost from the diagnostic.
+ */
+export type OutputGuard<Output> = Output extends StandardSchemaV1
+  ? unknown
+  : [StatusKeyRule<keyof Output>] extends [never]
+    ? unknown
+    : OutputDeclarationError<StatusKeyRule<keyof Output>>
 
 /**
  * Whether a route declares a Response output: a schema, or a status map naming

@@ -35,6 +35,11 @@ const DECLARE_SOMETHING = 'declare input, errors, output, or any combination'
 const ONE_STATUS =
   'respond takes one status literal - respond under each status in its own branch'
 
+/** The output guard's sentence for a status outside 100-399. */
+function outsideSuccess(status: number): string {
+  return `the status must be an integer from 100 to 399, not ${status} - a failure status is declared under errors, by tag`
+}
+
 /** The one diagnostic reported on the fixture line containing `needle`. */
 function at(needle: string): Diagnostic | undefined {
   const line = lineContaining(FIXTURE, needle)
@@ -47,7 +52,7 @@ function at(needle: string): Diagnostic | undefined {
 
 describe('the output diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
-    expect(diagnostics).toHaveLength(15)
+    expect(diagnostics).toHaveLength(17)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -193,6 +198,20 @@ describe('a bare-form route whose schema transforms', () => {
         code: NOT_ASSIGNABLE,
         message: "Type 'Date' is not assignable to type 'string'.",
       })
+    )
+  })
+})
+
+describe('a status map naming a failure status', () => {
+  it.each([
+    [404, '{ output: { 200: existing, 404: null } }'],
+    [500, '{ output: { 500: existing } }'],
+  ])('refuses %i at output, pointing at errors', (status, needle) => {
+    const diagnostic = at(needle)
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(diagnostic?.message).toContain(
+      `OutputDeclarationError<"${outsideSuccess(status)}">`
     )
   })
 })

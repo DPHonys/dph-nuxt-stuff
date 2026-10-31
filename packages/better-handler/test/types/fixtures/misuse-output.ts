@@ -92,6 +92,18 @@ export const transformedBareReturn = defineBetterEventHandler(
   () => ({ id: '1', at: new Date() })
 )
 
+// --- a status the map cannot declare ----------------------------------------
+
+export const failureStatus = defineBetterEventHandler(
+  { output: { 200: existing, 404: null } },
+  (_event, { respond }) => respond(200, { id: '1' })
+)
+
+export const serverErrorStatus = defineBetterEventHandler(
+  { output: { 500: existing } },
+  (_event, { respond }) => respond(500, { id: '1' })
+)
+
 // --- a declaration that declares nothing ------------------------------------
 
 export const emptyOutput = defineBetterEventHandler({ output: {} }, () => null)

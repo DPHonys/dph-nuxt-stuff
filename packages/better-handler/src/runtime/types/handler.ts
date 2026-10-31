@@ -22,6 +22,7 @@ import type {
   BodilessStatuses,
   HasOutput,
   IsStatusMap,
+  OutputGuard,
   Respond,
   ResponseOutput,
   ResponseOutputs,
@@ -67,7 +68,7 @@ export type BetterHandlerOptions<
 > = DeclareSomething<Input, Errors, Output> & {
   readonly input?: Input & InputGuard<Input>
   readonly errors?: Errors & ErrorDeclarationsGuard<Errors>
-  readonly output?: Output
+  readonly output?: Output & OutputGuard<Output>
 }
 
 /** `'fail'` when the route declares a tag, and no key at all otherwise. */

@@ -54,6 +54,8 @@ export type {
 } from './io/input'
 export type {
   HandlerReturn,
+  OutputDeclarationError,
+  OutputGuard,
   Respond,
   Responded,
   RespondError,

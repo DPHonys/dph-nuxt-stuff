@@ -92,7 +92,8 @@ function checkOptions<
  *
  * `output: schema` declares one `200` reply: the Handler returns the schema's
  * input type plainly, and the route answers `200` whatever status was set
- * before. `output: { 200: a, 201: b, 204: null }` declares a status map: the
+ * before. `output: { 200: a, 201: b, 204: null }` declares a status map, each
+ * key a status from 100 to 399 (a failure is declared under `errors`): the
  * Handler context gains the Respond helper and the Handler returns
  * `respond(status, value)`, one status literal at a time, or
  * `respond(status)` for a status declared `null`, which sends no body

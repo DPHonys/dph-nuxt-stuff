@@ -370,6 +370,34 @@ describe('an output that is neither form', () => {
     )
   })
 
+  it.each([400, 404, 500, 599, 600])(
+    'refuses %i, pointing a failure status at errors',
+    (status) => {
+      // A client fetch throws on 400 and above, so a body declared there
+      // would never arrive as data; a failure is a Known error instead.
+      expect(declaring({ 200: existing, [status]: existing })).toThrow(
+        new Error(
+          `[better-handler] The output's key "${status}" must be a status, an integer from 100 to 399 - a failure status is declared under errors, by tag.`
+        )
+      )
+    }
+  )
+
+  it.each(['99', '200.5', 'ok', '0200', '-200'])(
+    'refuses the key %j, which is no status at all',
+    (key) => {
+      expect(declaring({ [key]: existing })).toThrow(
+        new Error(
+          `[better-handler] The output's key "${key}" must be a status, an integer from 100 to 399 - a failure status is declared under errors, by tag.`
+        )
+      )
+    }
+  )
+
+  it.each([100, 200, 302, 399])('takes %i as a status', (status) => {
+    expect(declaring({ [status]: existing })).not.toThrow()
+  })
+
   it('refuses a status left undefined, which names no reply', () => {
     expect(declaring({ 204: undefined })).toThrow(
       new Error(
