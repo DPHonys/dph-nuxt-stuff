@@ -16,7 +16,14 @@ export type FieldsOf<Entry> = [EntryOutput<Entry>] extends [never]
   : IsAny<EntryOutput<Entry>> extends true
     ? // `any` is the answer an untyped schema gives, and stays one.
       any
-    : WithoutTag<EntryOutput<Entry>>
+    : unknown extends EntryOutput<Entry>
+      ? // An `unknown` output says nothing of the fields, but the runtime
+        // still takes only a record of them; an index signature refuses a
+        // primitive, an array and a function, as it does. Its values are
+        // `unknown` because the schema says no more than that.
+        // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
+        Record<string, unknown>
+      : WithoutTag<EntryOutput<Entry>>
 
 /**
  * What the Fail helper returns for the handler to throw: an `Error` carrying

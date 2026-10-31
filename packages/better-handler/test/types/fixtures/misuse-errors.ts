@@ -143,6 +143,17 @@ const failAnnotated = route({ annotated: annotatedEntry })
 
 export const annotatedWithoutFields = failAnnotated('annotated')
 
+// A schema whose output is `unknown`, as `ErrorEntry` types one, says nothing
+// of its fields, and the runtime still takes only a record of them: no
+// primitive, no array, no function.
+declare const opaqueSchema: StandardSchemaV1<unknown, unknown>
+const failOpaque = route({ opaque: { status: 400, schema: opaqueSchema } })
+
+export const opaquePrimitive = failOpaque('opaque', 7)
+export const opaqueArray = failOpaque('opaque', [7])
+export const opaqueCallable = failOpaque('opaque', () => 7)
+export const opaqueRecord = failOpaque('opaque', { id: 7 })
+
 // --- narrowing is Pick ------------------------------------------------------
 
 const common = {
