@@ -63,7 +63,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(29)
+    expect(diagnostics).toHaveLength(35)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -252,6 +252,58 @@ describe('fail pairs a declared tag with its fields', () => {
 
   it('takes a record of fields for a schema whose output is unknown', () => {
     const line = lineContaining(FIXTURE, "failOpaque('opaque', { id: 7 })")
+
+    expect(
+      diagnostics.filter((diagnostic) => diagnostic.line === line)
+    ).toEqual([])
+  })
+
+  it.each([
+    [
+      "failKeyless('tag-only', 7)",
+      'a primitive',
+      "Argument of type 'number' is not assignable to parameter of type 'Record<string, unknown>'.",
+    ],
+    [
+      "failKeyless('tag-only', [7])",
+      'an array',
+      "Argument of type 'number[]' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type 'number[]'.",
+    ],
+    [
+      "failKeyless('tag-only', () => 7)",
+      'a function',
+      "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
+    ],
+    [
+      "failKeyless('object-output', 7)",
+      'a primitive',
+      "Argument of type 'number' is not assignable to parameter of type 'Record<string, unknown>'.",
+    ],
+    [
+      "failKeyless('object-output', [7])",
+      'an array',
+      "Argument of type 'number[]' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type 'number[]'.",
+    ],
+    [
+      "failKeyless('object-output', () => 7)",
+      'a function',
+      "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
+    ],
+  ])(
+    '%s refuses %s for a schema naming no fields, as the runtime does',
+    (needle, _, message) => {
+      expect(at(needle)).toMatchObject({
+        code: ARGUMENT_NOT_ASSIGNABLE,
+        message,
+      })
+    }
+  )
+
+  it.each([
+    "failKeyless('tag-only', {})",
+    "failKeyless('object-output', { id: 7 })",
+  ])('%s takes a record for a schema naming no fields', (needle) => {
+    const line = lineContaining(FIXTURE, needle)
 
     expect(
       diagnostics.filter((diagnostic) => diagnostic.line === line)

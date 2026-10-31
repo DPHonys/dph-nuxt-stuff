@@ -1,10 +1,23 @@
 import type { ArgsFor, IsAny } from '../utils'
 import type { EntryOutput, ErrorDeclarations } from './declaration'
 
+// A member left with no key beside `_tag` names no field: an `object` output,
+// or one carrying only `_tag`. The runtime still takes only a record of them,
+// empty or not, and an index signature refuses a primitive, an array and a
+// function, as it does. Spelled out rather than aliased, so a diagnostic
+// prints the type itself; its values are `unknown` because the schema says no
+// more than that.
+type NamedOrOpen<Fields> = [keyof Fields] extends [never]
+  ? // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
+    Record<string, unknown>
+  : Fields
+
 // Distributes over a union output, so each member keeps its own keys, and
 // remaps rather than `Omit`s, so a hover shows the fields themselves.
 type WithoutTag<Output> = Output extends unknown
-  ? { [Key in keyof Output as Key extends '_tag' ? never : Key]: Output[Key] }
+  ? NamedOrOpen<{
+      [Key in keyof Output as Key extends '_tag' ? never : Key]: Output[Key]
+    }>
   : never
 
 /**
@@ -17,10 +30,8 @@ export type FieldsOf<Entry> = [EntryOutput<Entry>] extends [never]
     ? // `any` is the answer an untyped schema gives, and stays one.
       any
     : unknown extends EntryOutput<Entry>
-      ? // An `unknown` output says nothing of the fields, but the runtime
-        // still takes only a record of them; an index signature refuses a
-        // primitive, an array and a function, as it does. Its values are
-        // `unknown` because the schema says no more than that.
+      ? // An `unknown` output says nothing of the fields either, and takes
+        // any record of them, as an output naming none does.
         // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
         Record<string, unknown>
       : WithoutTag<EntryOutput<Entry>>

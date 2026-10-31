@@ -154,6 +154,30 @@ export const opaqueArray = failOpaque('opaque', [7])
 export const opaqueCallable = failOpaque('opaque', () => 7)
 export const opaqueRecord = failOpaque('opaque', { id: 7 })
 
+// A schema whose output carries only `_tag` leaves no fields beside it, and
+// one whose output is `object` names none; the runtime still takes only a
+// record, empty or not.
+declare const objectSchema: StandardSchemaV1<unknown, object>
+const failKeyless = route({
+  'tag-only': {
+    status: 400,
+    schema: z.object({ _tag: z.literal('tag-only') }),
+  },
+  'object-output': {
+    status: 400,
+    schema: objectSchema,
+  },
+})
+
+export const tagOnlyPrimitive = failKeyless('tag-only', 7)
+export const tagOnlyArray = failKeyless('tag-only', [7])
+export const tagOnlyCallable = failKeyless('tag-only', () => 7)
+export const tagOnlyRecord = failKeyless('tag-only', {})
+export const objectPrimitive = failKeyless('object-output', 7)
+export const objectArray = failKeyless('object-output', [7])
+export const objectCallable = failKeyless('object-output', () => 7)
+export const objectRecord = failKeyless('object-output', { id: 7 })
+
 // --- narrowing is Pick ------------------------------------------------------
 
 const common = {
