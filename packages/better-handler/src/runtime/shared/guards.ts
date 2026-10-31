@@ -11,6 +11,11 @@ export function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
+/** Whether `value` is a number. */
+export function isNumber(value: unknown): value is number {
+  return typeof value === 'number'
+}
+
 /**
  * Whether `value` can be called. Typed with `never` parameters, so a caller
  * learns it is a function without being handed a signature to call it with.

@@ -176,6 +176,54 @@ describe('defineError refuses a misdeclared error', () => {
   })
 })
 
+describe('defineBetterEventHandler refuses what declares nothing', () => {
+  // The compile guard requires `errors`; a plain-JavaScript route file gets
+  // these sentences instead of a TypeError from inside the package.
+
+  it.each([
+    [undefined, 'undefined'],
+    [null, 'null'],
+    ['errors', 'the primitive errors'],
+    [[{ errors: {} }], 'an array'],
+  ])(
+    'refuses the options %j, which are not an object',
+    (options, described) => {
+      expect(() =>
+        defineBetterEventHandler(untyped(options), () => null)
+      ).toThrow(
+        new Error(
+          `[better-handler] defineBetterEventHandler takes its declarations as an object, not ${described}.`
+        )
+      )
+    }
+  )
+
+  it.each([
+    ['an empty object', {}],
+    ['errors left undefined', { errors: undefined }],
+  ])('refuses %s, which declares nothing', (_, options) => {
+    expect(() =>
+      defineBetterEventHandler(untyped(options), () => null)
+    ).toThrow(
+      new Error(
+        '[better-handler] defineBetterEventHandler must declare errors.'
+      )
+    )
+  })
+
+  it.each([
+    [null, 'null'],
+    ['order-not-found', 'the primitive order-not-found'],
+    [[{ status: 404 }], 'an array'],
+  ])('refuses errors %j, which are not a map', (errors, described) => {
+    expect(() => declare(errors)).toThrow(
+      new Error(
+        `[better-handler] The errors of defineBetterEventHandler must be a map of error declarations keyed by tag, not ${described}.`
+      )
+    )
+  })
+})
+
 /** A route declaring `errors`, as a plain-JavaScript route file would. */
 function declare<Errors>(errors: Errors) {
   return defineBetterEventHandler(untyped({ errors }), () => null)

@@ -48,6 +48,10 @@ export const bigintField = defineError('order-big', {
   status: 400,
   schema: z.object({ total: z.bigint() }),
 })
+export const redirectStatus = defineError('order-moved', {
+  status: 302,
+})
+export const fractionalStatus = defineError('order-half', { status: 404.5 })
 
 // --- a route's errors map ---------------------------------------------------
 
@@ -73,6 +77,15 @@ export const mapStray = defineBetterEventHandler(
   {
     errors: {
       'stray-key': { status: 400, payload: z.object({ id: z.number() }) },
+    },
+  },
+  () => null
+)
+
+export const mapSuccessStatus = defineBetterEventHandler(
+  {
+    errors: {
+      'order-fine': { status: 200 },
     },
   },
   () => null
