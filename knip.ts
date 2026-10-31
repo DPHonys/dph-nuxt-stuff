@@ -93,21 +93,5 @@ export default {
       // in a generated `.nuxt`.
       entry: ['*.check.ts'],
     },
-
-    'packages/nuxt-handler-errors': {
-      ...nuxtModuleWorkspace,
-
-      // The inherited `@nuxt/schema` exemption would suppress nothing here, and
-      // an idle ignore fails the run via the hint promotion above.
-      ignoreDependencies: ['@nuxt/devtools'],
-
-      entry: [
-        ...nuxtModuleWorkspace.entry,
-
-        // The `/internals/build` entry: a second rollup input declared in
-        // `build.config.ts`, reachable only through `exports`.
-        'src/internals/**/*.ts',
-      ],
-    },
   },
 } satisfies KnipConfig

@@ -45,7 +45,6 @@ catalog:
   eslint-plugin-oxlint: 1.76.0
   h3: ^1.15.11
   magicast: ^0.5.3
-  nitropack: ^2.13.4
   nuxt: ^4.6.2
   nypm: ^0.6.9
   ofetch: ^1.5.1
@@ -55,7 +54,6 @@ catalog:
   publint: ^0.3.22
   scule: ^1.3.0
   typescript: ^5.9.3
-  unbuild: ^3.6.1
   valibot: ^1.4.2
   vitest: ^4.1.10
   vue: ^3.5.44
