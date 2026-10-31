@@ -3,7 +3,8 @@
  * delivery when the route module is evaluated, and run on whatever the
  * Handler hands back. Beside the source readers, the one file importing an h3
  * runtime helper outside the h3 seam: `setResponseStatus`, which on h3 v2 is
- * a write to `event.res.status` instead.
+ * a write to `event.res.status` instead, and the status message cleared beside
+ * it, which on h3 v2 is `event.res.statusText`.
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec'
@@ -157,6 +158,19 @@ export function responseDelivery(
   }
 }
 
+/**
+ * Set the status a reply goes out under, and clear the status message. h3's
+ * `setResponseStatus` writes a message only when given one, so one a
+ * middleware or the Handler set earlier would ride the new status -
+ * `HTTP/1.1 200 Not Found`. Cleared, the server writes the status's own
+ * reason phrase.
+ */
+function setStatus(event: H3Event, status: number): void {
+  setResponseStatus(event, status)
+
+  event.node.res.statusMessage = ''
+}
+
 /** The bare form: one `200` reply, returned plainly. */
 function bareDelivery(schema: StandardSchemaV1): ResponseDelivery {
   return {
@@ -167,7 +181,7 @@ function bareDelivery(schema: StandardSchemaV1): ResponseDelivery {
       // declared schema answers for - set, as the map form sets its status,
       // and before the check, so a status a Handler or a middleware changed
       // cannot carry the 200 body.
-      setResponseStatus(event, 200)
+      setStatus(event, 200)
 
       if (devChecksEnabled()) await checkResponse(event, 200, schema, returned)
 
@@ -208,7 +222,7 @@ async function sendResponded<Returned>(
   // check alone would find nothing to assert and let it through.
   if (devChecksEnabled()) checkRespondedStatus(event, statuses, status)
 
-  setResponseStatus(event, status)
+  setStatus(event, status)
 
   if (devChecksEnabled()) {
     await checkResponse(event, status, statuses[status], body)

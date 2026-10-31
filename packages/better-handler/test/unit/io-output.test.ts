@@ -76,6 +76,27 @@ describe('a route declaring a bare output', () => {
     expect(response.status).toBe(200)
   })
 
+  it('drops a status message set before the Handler ran', async () => {
+    // h3 writes a status message only when given one, so a message left
+    // behind would ride the new status: `HTTP/1.1 200 Not Found`. Cleared, a
+    // server writes the status's own reason phrase in its place.
+    const route = defineBetterEventHandler({ output: receipt }, () => ({
+      id: 'r-1',
+      total: 3,
+    }))
+
+    const response = await answer(
+      defineEventHandler((event) => {
+        setResponseStatus(event, 404, 'Not Found')
+
+        return route(event)
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.statusText).toBe('')
+  })
+
   it('hands an output-only route an empty context', async () => {
     const route = defineBetterEventHandler(
       { output: z.object({ keys: z.array(z.string()) }) },
@@ -181,6 +202,25 @@ describe('a route declaring a status map', () => {
 
     expect(response.status).toBe(204)
     await expect(response.text()).resolves.toBe('')
+  })
+
+  it('drops a status message set before the Handler ran', async () => {
+    const route = defineBetterEventHandler(
+      { output: { 201: created } },
+      (_event, { respond }) =>
+        respond(201, { id: '1', createdAt: '2026-10-25' })
+    )
+
+    const response = await answer(
+      defineEventHandler((event) => {
+        setResponseStatus(event, 404, 'Not Found')
+
+        return route(event)
+      })
+    )
+
+    expect(response.status).toBe(201)
+    expect(response.statusText).toBe('')
   })
 
   it('sends null as the body of a schema whose input is null', async () => {

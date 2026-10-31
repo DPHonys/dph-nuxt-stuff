@@ -279,11 +279,25 @@ export function theOutputWire(): void {
     expect(await response.json()).toEqual({ id: 'r-1', total: 3 })
   })
 
+  it('answers the bare form with 200’s own reason phrase, not one set earlier', async () => {
+    // The Handler set `404 Not Found` first; a message left behind would
+    // have gone out as `HTTP/1.1 200 Not Found`.
+    const response = await fetch('/api/receipts')
+
+    expect(response.statusText).toBe('OK')
+  })
+
   it('answers a mapped status with its body', async () => {
     const response = await fetch('/api/receipts', { method: 'POST' })
 
     expect(response.status).toBe(201)
     expect(await response.json()).toEqual({ id: 'r-2', total: 5 })
+  })
+
+  it('answers a mapped status with its own reason phrase, not one set earlier', async () => {
+    const response = await fetch('/api/receipts', { method: 'POST' })
+
+    expect(response.statusText).toBe('Created')
   })
 
   it('answers a status declared null with no body', async () => {
