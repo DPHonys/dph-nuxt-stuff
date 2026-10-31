@@ -201,9 +201,11 @@ describe('the composables, typed from the generated map whatever the route engin
   )
 
   it('refuse a handler that forgot .try with the sentence that says so', () => {
-    const forgotten = compileInApp(INTERNAL_API, COMPOSABLES_CHECK).filter(
+    const untypedLine = lineContaining(COMPOSABLES_CHECK, "('untyped',")
+    const refused = compileInApp(INTERNAL_API, COMPOSABLES_CHECK).filter(
       ({ code }) => code === NO_OVERLOAD_MATCHES
     )
+    const forgotten = refused.filter(({ line }) => line !== untypedLine)
 
     expect(forgotten).toHaveLength(2)
     for (const { message } of forgotten) {
@@ -211,6 +213,18 @@ describe('the composables, typed from the generated map whatever the route engin
         'AsyncDataHandlerError<"resolve to a .try result, such as $betterFetch.try(…)">'
       )
     }
+  })
+
+  it('refuse a handler resolving any with the sentence that says why', () => {
+    const untypedLine = lineContaining(COMPOSABLES_CHECK, "('untyped',")
+    const refused = compileInApp(INTERNAL_API, COMPOSABLES_CHECK).filter(
+      ({ code, line }) => code === NO_OVERLOAD_MATCHES && line === untypedLine
+    )
+
+    expect(refused).toHaveLength(1)
+    expect(refused[0]?.message).toContain(
+      'AsyncDataHandlerError<"resolve to a typed .try result, such as $betterFetch.try(…), not any - an untyped result cannot be told from one that left out .try">'
+    )
   })
 })
 

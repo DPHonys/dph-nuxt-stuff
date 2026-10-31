@@ -392,6 +392,9 @@ export async function useBetterAsyncDataCallSites(): Promise<void> {
   // A handler resolving to plain data forgot `.try`.
   useBetterAsyncData('raw', () => $betterFetch('/api/users')) // refused TS2769
 
+  // Nor does `any`, which nothing tells from a result that left `.try` out.
+  useBetterAsyncData('untyped', async () => JSON.parse('{}')) // refused TS2769
+
   // A handler takes what vanilla's handler is handed.
   useBetterAsyncData('app', (nuxtApp) => {
     void nuxtApp?.payload

@@ -5,6 +5,7 @@ import {
   useAsyncData,
   useFetch,
 } from '@dphonys/test-utils/doubles/nuxt-app'
+import { untyped } from '@dphonys/test-utils/h3-app'
 import { createError, isError } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref, toValue } from 'vue'
@@ -258,6 +259,46 @@ const run = (): Promise<Order> => substituted()(nuxtApp, context)
 const getterKey = (): string => 'order'
 
 describe('useBetterAsyncData: the handler vanilla runs', () => {
+  // The types refuse such a handler; one typed `any`, or plain JavaScript,
+  // still reaches the runtime, which says what was left out.
+  it.each([
+    ['a plain object', { id: 7 }],
+    ['null', null],
+    ['undefined', undefined],
+    ['the string "7"', '7'],
+  ])(
+    'refuses a handler resolving %s, naming the missing .try',
+    async (described, resolved) => {
+      useBetterAsyncData(
+        'order',
+        untyped(async () => resolved)
+      )
+
+      // h3's own error, so Nuxt's `createError` keeps it whole in the ref.
+      const refused = run()
+
+      await expect(refused.catch(isError)).resolves.toBe(true)
+      await expect(refused).rejects.toMatchObject({
+        statusCode: 500,
+        message: `[better-handler] useBetterAsyncData's handler resolved ${described}, not a .try result - call the fetch through .try, such as $betterFetch.try(…).`,
+        data: undefined,
+      })
+    }
+  )
+
+  it('names the lazy twin when it is the one called', async () => {
+    useLazyBetterAsyncData(
+      'order',
+      untyped(async () => ({ id: 7 }))
+    )
+
+    await expect(run()).rejects.toMatchObject({
+      message: expect.stringMatching(
+        /^\[better-handler\] useLazyBetterAsyncData's handler resolved/
+      ),
+    })
+  })
+
   it('resolves a success to its data, by reference', async () => {
     useBetterAsyncData('order', async () => ({
       data: order,

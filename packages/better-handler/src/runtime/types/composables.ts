@@ -26,6 +26,7 @@ import type {
   MethodArg,
   RequestSources,
 } from './fetch'
+import type { IsAny } from './utils'
 
 // Nuxt does not export `ComputedOptions`; this is its definition verbatim,
 // the bare `Function` included, because narrowing it would stop matching what
@@ -167,17 +168,29 @@ export interface AsyncDataHandlerError<Msg extends string> {
 // property otherwise. Not a constraint on `Result`: a constraint is the
 // contextual type of what the handler returns, from which a bare
 // `$betterFetch` call infers its response type - while the route is still
-// being inferred, with an excessive stack depth. Nor a check intersected
+// being inferred, with an excessive stack depth. Nor this check intersected
 // with the handler: resolving it to find the handler's parameters fixes
 // `Result` before a handler that names its parameters is read.
 type TryResultCheck<Result> = [Result] extends [TrySource]
   ? unknown
   : AsyncDataHandlerError<'resolve to a .try result, such as $betterFetch.try(…)'>
 
+// A handler resolving `any` passes `TryResultCheck`, since `any & X` is
+// `any`, though nothing says it is a `.try` result: an untyped fetch, or one
+// whose `.try` was left out of an untyped call. Refused on the handler
+// itself, the one place `any` cannot reach: the unsatisfiable property for
+// `any` alone, and `unknown` otherwise, so a handler that names its
+// parameters is read before `Result` is fixed, as without the check.
+type AnyResultCheck<Result> =
+  IsAny<Result> extends true
+    ? AsyncDataHandlerError<'resolve to a typed .try result, such as $betterFetch.try(…), not any - an untyped result cannot be told from one that left out .try'>
+    : unknown
+
 /** A handler as `useBetterAsyncData` takes it, its result checked. */
 type CheckedHandler<Result> = BetterAsyncDataHandler<
   Result & TryResultCheck<Result>
->
+> &
+  AnyResultCheck<Result>
 
 /** What one `useBetterAsyncData` call answers. */
 type BetterAsyncData<

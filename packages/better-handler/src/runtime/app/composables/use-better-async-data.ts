@@ -5,6 +5,7 @@
  */
 
 import { useAsyncData, useLazyAsyncData } from '#app'
+import { describeValue, developerFault } from '../../server/faults'
 import { failureOrigin } from '../../shared/errors/try-result'
 import { isFunction, isRecordLike, isString } from '../../shared/guards'
 import { toNuxtError } from '../../shared/h3'
@@ -86,16 +87,28 @@ function carryingHandlerSource(
   return bound
 }
 
+// A `.try` result as the runtime can tell one: an object carrying `error`,
+// `undefined` on a success. What the types refuse still arrives from a
+// handler typed `any` or from plain JavaScript.
+function isTrySource<Resolved>(
+  resolved: Resolved
+): resolved is Resolved & TrySource {
+  return isRecordLike(resolved) && 'error' in resolved
+}
+
 /**
  * The wrapper over vanilla's variadic runtime signature, generic in what the
  * delegate answers so a recording double wraps as readily as vanilla: the
  * handler, wherever vanilla's rule finds it, is replaced by one that resolves
  * a success to its data and throws a failure, and that Nuxt's development
  * check tells apart as it would the handler; every other argument, the
- * appended key included, is forwarded as it came.
+ * appended key included, is forwarded as it came. A handler resolving
+ * anything but a `.try` result is a developer fault naming `name`, the
+ * composable called, and the `.try` it left out.
  */
 export function wrapRawAsyncData<Result>(
-  delegate: RawUseAsyncData<Result>
+  delegate: RawUseAsyncData<Result>,
+  name = 'useBetterAsyncData'
 ): RawUseAsyncData<Result> {
   return (...args) => {
     const at = handlerIndex(args)
@@ -109,6 +122,12 @@ export function wrapRawAsyncData<Result>(
     forwarded[at] = carryingHandlerSource(
       async (...rest: Parameters<BetterAsyncDataHandler<TrySource>>) => {
         const result = await handler(...rest)
+
+        if (!isTrySource(result)) {
+          throw developerFault(
+            `${name}'s handler resolved ${describeValue(result)}, not a .try result - call the fetch through .try, such as $betterFetch.try(…).`
+          )
+        }
 
         if (result.error) throw rethrown(result.error)
 
@@ -137,7 +156,7 @@ export function betterAsyncDataComposable(
   const vanilla = (lazy ? useLazyAsyncData : useAsyncData) as RawUseAsyncData<
     ReturnType<typeof useAsyncData>
   >
-  const composable = wrapRawAsyncData(vanilla)
+  const composable = wrapRawAsyncData(vanilla, name)
 
   // What a stack trace and Vue's devtools show for a call.
   Object.defineProperty(composable, 'name', { value: name })
