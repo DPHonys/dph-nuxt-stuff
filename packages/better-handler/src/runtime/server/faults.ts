@@ -5,7 +5,7 @@
  */
 
 import type { H3Error } from 'h3'
-import { isFunction, isRecordLike } from '../shared/guards'
+import { isFunction, isRecordLike, isString } from '../shared/guards'
 import { httpError } from '../shared/h3'
 
 /** The module's `meta.name`, leading every sentence the package raises. */
@@ -38,15 +38,17 @@ export function declarationFault(message: string): Error {
 
 /**
  * A value as the author would name it in a sentence about what they wrote or
- * sent: `null`, `an array`, `the primitive 42`, `a function`, `an instance of
- * Date`, `an empty object`, `a plain object`. Generic because it describes
- * whatever it is handed, typed or not.
+ * sent: `null`, `an array`, `the string "42"`, `the primitive 42`, `a function`,
+ * `an instance of Date`, `an empty object`, `a plain object`. Generic because it
+ * describes whatever it is handed, typed or not.
  */
 export function describeValue<Value>(value: Value): string {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
   if (Array.isArray(value)) return 'an array'
   if (isFunction(value)) return 'a function'
+  // Quoted, so the string "400" never reads as the number it is not.
+  if (isString(value)) return `the string ${JSON.stringify(value)}`
   if (Object(value) !== value) return `the primitive ${String(value)}`
 
   const prototype: unknown = Object.getPrototypeOf(value)

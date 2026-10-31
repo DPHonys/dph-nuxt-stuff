@@ -157,7 +157,7 @@ describe('fail refuses a call the types would have refused', () => {
 
   it.each([
     [[], 'nothing'],
-    [['seven'], 'the primitive seven'],
+    [['seven'], 'the string "seven"'],
     [[null], 'null'],
     [[[7]], 'an array'],
     [[{ id: 7 }, { id: 8 }], '2 arguments'],

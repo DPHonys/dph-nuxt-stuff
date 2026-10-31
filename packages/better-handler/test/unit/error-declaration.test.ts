@@ -109,7 +109,7 @@ describe('defineError refuses a misdeclared error', () => {
 
   it.each([
     [{}, 'an empty object'],
-    ['z.object()', 'the primitive z.object()'],
+    ['z.object()', 'the string "z.object()"'],
     [
       { '~standard': { version: 2, validate: () => ({ value: 1 }) } },
       'a plain object',
@@ -132,7 +132,7 @@ describe('defineError refuses a misdeclared error', () => {
     [399, 'the primitive 399'],
     [600, 'the primitive 600'],
     [404.5, 'the primitive 404.5'],
-    ['404', 'the primitive 404'],
+    ['404', 'the string "404"'],
     [Number.NaN, 'the primitive NaN'],
     [undefined, 'undefined'],
   ])('refuses the status %j', (status, described) => {
