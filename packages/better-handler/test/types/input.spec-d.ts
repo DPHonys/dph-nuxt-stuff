@@ -268,6 +268,43 @@ describe('the Built-in validation-failed variant in the route’s errors', () =>
   })
 })
 
+describe('a source a URL or a header carries', () => {
+  it('takes every key whose input admits a string, a coerce key among them', () => {
+    const _accepted = defineBetterEventHandler(
+      {
+        input: {
+          route: z.object({ id: z.coerce.number() }),
+          // The passthrough first: only the first element may produce an
+          // index signature.
+          query: [
+            z.looseObject({ extra: z.string().nullable() }),
+            z.object({
+              q: z.string(),
+              page: z.coerce.number().optional(),
+              tags: z.array(z.string()),
+              sort: z.enum(['asc', 'desc']),
+              either: z.union([z.string(), z.number()]),
+              loose: z.unknown(),
+              free: z.any(),
+            }),
+          ],
+          headers: z.object({ 'x-tenant': z.string().transform(Number) }),
+          // The body is JSON: no rule about strings.
+          body: z.object({ n: z.number(), flags: z.array(z.boolean()) }),
+        },
+      },
+      (_event, { route, query, headers }) => [route.id, query.page, headers]
+    )
+
+    expectTypeOf<
+      RequestInputOfHandler<typeof _accepted>['route']
+    >().toEqualTypeOf<{ id: unknown }>()
+    expectTypeOf<
+      RequestInputOfHandler<typeof _accepted>['body']
+    >().toEqualTypeOf<{ n: number; flags: boolean[] }>()
+  })
+})
+
 describe('the Request-input slot', () => {
   it('carries what a client sends, read back through RequestInputOfHandler', () => {
     const _route = defineBetterEventHandler(

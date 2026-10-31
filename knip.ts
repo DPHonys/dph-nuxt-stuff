@@ -69,8 +69,11 @@ export default {
       // `nitropack` is imported for types only, by the response-typing seam:
       // every Nuxt 4 app's generated tsconfig maps `nitropack/types` onto the
       // app's own Nitro, which is the one whose route types must be read, so
-      // the package installs no copy of its own.
-      ignoreDependencies: ['@nuxt/devtools', 'nitropack'],
+      // the package installs no copy of its own. `@nuxt/nitro-server` is the
+      // same for the native-engine fixture's agreement suite: it reads Nuxt's
+      // own request extractor through the path the fixture app's generated
+      // tsconfig maps (Nuxt 4.6 and later), the one its route types import.
+      ignoreDependencies: ['@nuxt/devtools', 'nitropack', '@nuxt/nitro-server'],
 
       entry: [
         ...nuxtModuleWorkspace.entry,

@@ -107,7 +107,8 @@ describe('a route declaring a bare output', () => {
 
     expectTypeOf(_route).toEqualTypeOf<
       BetterEventHandler<
-        EventHandlerRequest,
+        // eslint-disable-next-line ts/no-empty-object-type -- no body or query in the native slot
+        {},
         Promise<StandardSchemaV1.InferInput<typeof receipt>>,
         never,
         // eslint-disable-next-line ts/no-empty-object-type -- no source declared

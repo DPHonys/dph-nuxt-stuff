@@ -345,7 +345,7 @@ describe('an element that reports neither a value nor an issue', () => {
     const quiet = defineBetterEventHandler(
       {
         input: {
-          query: [schemaReturning<{ page: number }>({ issues: [] }), sorting],
+          query: [schemaReturning<{ page: string }>({ issues: [] }), sorting],
         },
       },
       () => 'the Handler never runs'

@@ -79,7 +79,8 @@ describe('defineBetterEventHandler with errors', () => {
 
     expectTypeOf(sync).toEqualTypeOf<
       BetterEventHandler<
-        EventHandlerRequest,
+        // eslint-disable-next-line ts/no-empty-object-type -- no body or query in the native slot
+        {},
         Promise<{ id: number }>,
         KnownErrorsOfHandler<typeof sync>,
         RequestInputOfHandler<typeof sync>

@@ -6,12 +6,13 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-// The `KnownApiErrors` map as a real app's `nuxt prepare` writes it: the
+// The generated map as a real app's `nuxt prepare` writes it: the
 // only layer that catches the template's hooks silently ceasing to fire.
 // `prepare` rather than a build, because `types:extend` fires inside Nitro's
 // `writeTypes`, which is what `prepare` runs. The claims here are where the
 // file lands and what it keys; that the text resolves, and to what, is
-// `playground/known-errors.check.ts`'s, compiled by `pnpm typecheck`.
+// `playground/known-errors.check.ts`'s and `playground/request-inputs.check.ts`'s,
+// compiled by `pnpm typecheck`.
 
 const run = promisify(execFile)
 
@@ -76,6 +77,13 @@ describe('the generated map, in a real app', () => {
       `      'get': Wire<KnownErrorsOfHandler<typeof import('../../server/api/orders/[id].get').default>>`
     )
     expect(map).toContain(`    '/api/effect': {`)
+  })
+
+  it('carries every route’s Request input beside its Known errors', () => {
+    expect(map).toContain('  interface KnownApiRequestInputs {')
+    expect(map).toContain(
+      `      'post': RequestInputOfHandler<typeof import('../../server/api/users.post').default>`
+    )
   })
 
   it('augments the package’s own types entry and names no Nitro specifier', () => {
