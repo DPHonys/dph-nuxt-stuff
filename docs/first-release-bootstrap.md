@@ -7,7 +7,8 @@ publisher. After trust is verified, ordinary publication is token-free.
 
 This runbook does not admit or publish any package by itself. Substitute the
 real package name, version, and directory in every command, and record the
-evidence requested in the final checklist.
+evidence requested in the final checklist. `<version>` stands for the package's
+seeded version: the `version` in its manifest once admission is complete.
 
 ## 1. Admit the Generated package
 
@@ -90,7 +91,7 @@ safety boundary: this bootstrap publication must target only the new package.
 Do not use recursive publication, a workflow secret, a bootstrap token, or a
 token-capable branch in `publish.yml`.
 
-Record npm's successful publication of exactly `@dphonys/example@0.0.1`. If it
+Record npm's successful publication of exactly `@dphonys/example@<version>`. If it
 fails before publishing, correct the operational problem and retry the same
 targeted command. If the version did publish, it is immutable; any content
 correction needs fresh Release intent and a new version.
@@ -105,7 +106,7 @@ tag:
 ```sh
 npm create nuxt@latest first-release-consumer
 cd first-release-consumer
-npm install --save-exact --registry=https://registry.npmjs.org @dphonys/example@0.0.1
+npm install --save-exact --registry=https://registry.npmjs.org @dphonys/example@<version>
 ```
 
 Register the package in the clean application's `nuxt.config.ts`:
@@ -171,9 +172,9 @@ release ledger.
 ### First-release bootstrap: @dphonys/example
 
 - Release commit on `main`: <commit SHA>; clean `pnpm check`: <run/date>
-- Tarball: `@dphonys/example@0.0.1`; inspected files/metadata: <evidence>
+- Tarball: `@dphonys/example@<version>`; inspected files/metadata: <evidence>
 - Local first publication: <npm result/date>; account 2FA: confirmed
-- Clean Nuxt consumer: exact `@dphonys/example@0.0.1`; prepare/build: passed
+- Clean Nuxt consumer: exact `@dphonys/example@<version>`; prepare/build: passed
 - Trusted publisher: `DPHonys/dph-nuxt-stuff`, `publish.yml`, direct publish,
   no Environment or staged publish: <registration/date>
 - First OIDC publication: <workflow run/version>; provenance: confirmed

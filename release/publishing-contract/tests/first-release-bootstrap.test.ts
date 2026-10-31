@@ -45,6 +45,10 @@ describe('first-release bootstrap contract', () => {
     expect(reseed).toBeGreaterThanOrEqual(0)
     expect(firstIntent).toBeGreaterThan(reseed)
     expect(guide).not.toContain('`0.0.1` is still the manifest version')
+    expect(guide).toMatch(
+      /`<version>` stands for the package's\s+seeded version: the `version`\s+in\s+its\s+manifest/
+    )
+    expect(guide).not.toMatch(/@dphonys\/example@\d/)
   })
 
   it('orders inspection before targeted interactive publication and trust registration', async () => {
@@ -64,7 +68,7 @@ describe('first-release bootstrap contract', () => {
       'pnpm --filter @dphonys/example publish --access public'
     )
     const exactInstall = guide.indexOf(
-      'npm install --save-exact --registry=https://registry.npmjs.org @dphonys/example@0.0.1'
+      'npm install --save-exact --registry=https://registry.npmjs.org @dphonys/example@<version>'
     )
     const trust = guide.indexOf(
       'npm trust github @dphonys/example --repo DPHonys/dph-nuxt-stuff --file publish.yml --allow-publish'
