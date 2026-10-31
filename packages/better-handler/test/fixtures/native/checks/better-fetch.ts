@@ -126,6 +126,35 @@ export async function declaredSources(): Promise<void> {
   await $betterFetch('/api/optional-body', { method: 'post' }) // refused TS2345
 }
 
+/**
+ * The options argument itself: required exactly when a declared source must
+ * be sent, on every member of the family, so leaving it out, or passing
+ * `undefined` for it, is refused where `{}` would be.
+ */
+export async function requiredOptions(event: H3Event): Promise<void> {
+  await $betterFetch('/api/search') // refused TS2554
+  await $betterFetch('/api/search', undefined) // refused TS2345
+  await $betterFetch('/api/headers-only') // refused TS2554
+  await $betterFetch.raw('/api/search') // refused TS2554
+  await $betterFetch.try('/api/search') // refused TS2554
+  await $betterFetch.create({})('/api/search') // refused TS2554
+  await event.$betterFetch('/api/search') // refused TS2554
+  await event.$betterFetch.try('/api/search') // refused TS2554
+
+  // Omissible wherever sending no options passes: an all-optional input, a
+  // route this package does not type, a `Request`, an explicit response type.
+  await $betterFetch('/api/users')
+  await $betterFetch('/api/users', undefined)
+  await $betterFetch.raw('/api/users')
+  await $betterFetch.try('/api/users')
+  await event.$betterFetch('/api/users')
+  await event.$betterFetch.try('/api/users')
+  await $betterFetch('/api/plain')
+  await $betterFetch('https://example.com/x')
+  await $betterFetch(new Request('https://example.com/x'))
+  await $betterFetch<{ custom: true }>('/api/plain')
+}
+
 /** Declared headers: the keys they name typed, every other header open. */
 export async function declaredHeaders(): Promise<void> {
   await $betterFetch('/api/headers-only', { headers: { 'x-tenant': 'acme' } })

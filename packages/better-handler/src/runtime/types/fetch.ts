@@ -117,6 +117,18 @@ export type BetterRequestOptions<
   'method' | 'body' | 'query' | 'headers' | 'params'
 > & { method?: M } & RequestSources<R, M>
 
+/**
+ * The options argument as a rest tuple: omissible when sending no options
+ * satisfies the route and method, required when a declared source must be
+ * sent. An optional parameter can always be left out, so `opts?:` alone
+ * would let a call that must send a `query` compile without one.
+ */
+type RequestArgs<R extends FetchRequest, M extends MethodArg<R>> =
+  // eslint-disable-next-line ts/no-empty-object-type -- the requiredness test itself
+  {} extends BetterRequestOptions<R, M>
+    ? [opts?: BetterRequestOptions<R, M>]
+    : [opts: BetterRequestOptions<R, M>]
+
 /** What one call resolves to on success. */
 export type BetterResponse<R, T, M extends string> = ResponseOf<R, T, Lower<M>>
 
@@ -143,7 +155,7 @@ export interface BetterFetchTry<
     const M extends MethodArg<R> = DefaultMethod<R>,
   >(
     request: R,
-    opts?: BetterRequestOptions<R, M>
+    ...opts: RequestArgs<R, M>
   ): Promise<TryResult<BetterResponse<R, T, M>, BetterFetchError<R, M>>>
 }
 
@@ -162,7 +174,7 @@ export interface BetterFetch<
     const M extends MethodArg<R> = DefaultMethod<R>,
   >(
     request: R,
-    opts?: BetterRequestOptions<R, M>
+    ...opts: RequestArgs<R, M>
   ): Promise<BetterResponse<R, T, M>>
   try: BetterFetchTry<DefaultT, DefaultR>
 }
@@ -179,7 +191,7 @@ export interface $BetterFetch<
     const M extends MethodArg<R> = DefaultMethod<R>,
   >(
     request: R,
-    opts?: BetterRequestOptions<R, M>
+    ...opts: RequestArgs<R, M>
   ) => Promise<RawFetchResponse<BetterResponse<R, T, M>>>
 
   /** ofetch's bare `fetch`, passed through untouched. */
