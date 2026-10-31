@@ -61,6 +61,23 @@ export default {
 
     'packages/*/playground': playgroundWorkspace,
 
+    'packages/better-handler': {
+      ...nuxtModuleWorkspace,
+
+      // The inherited `@nuxt/schema` exemption suppresses nothing in this
+      // package, and an idle ignore fails the run via the hint promotion above.
+      ignoreDependencies: ['@nuxt/devtools'],
+    },
+
+    'packages/better-handler/playground': {
+      ...playgroundWorkspace,
+
+      // Compiler-asserted by `vue-tsc`, never imported. It lives in an app
+      // because the config typing it asserts only exists in a generated
+      // `.nuxt`.
+      entry: ['module-options.check.ts'],
+    },
+
     'packages/nuxt-handler-errors': {
       ...nuxtModuleWorkspace,
 

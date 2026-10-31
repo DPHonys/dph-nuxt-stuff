@@ -140,10 +140,38 @@ jobs:
       - run: pnpm build
       - run: pnpm publint
 
+  # The Nuxt floor: the module claims every Nuxt from 4.0.0, the lockfile pins
+  # the latest 4.x, so this job installs 4.0.x on purpose. Only the new package's
+  # suites run here, because the three handler packages stay on the committed
+  # lockfile until they are deleted; from then on these steps become
+  # `pnpm typecheck` and `pnpm test`.
+  floor:
+    name: Nuxt 4.0 floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - id: setup
+        uses: ./.github/actions/setup
+        with:
+          compat-settings: .github/compat/floor.json
+      # Fails rather than only prints, so a settings file that no longer takes
+      # effect cannot leave this job testing the committed Nuxt.
+      - name: Show the Nuxt this job resolved and require 4.0.x
+        run: |
+          pnpm --filter @dphonys/better-handler list nuxt @nuxt/kit @nuxt/schema @nuxt/test-utils
+          version=$(node -p "require('./packages/better-handler/node_modules/nuxt/package.json').version")
+          [[ $version == 4.0.* ]] || { echo "::error::@dphonys/better-handler resolved nuxt $version, not 4.0.x."; exit 1; }
+      - name: Typecheck
+        run: pnpm exec turbo run typecheck --filter=@dphonys/better-handler
+      - name: Test
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: pnpm exec turbo run test --filter=@dphonys/better-handler
+
   report:
     name: Pull request report
     if: ${{ always() && github.event_name == 'pull_request' }}
-    needs: [contract, format, lint, typecheck, knip, test, build]
+    needs: [contract, format, lint, typecheck, knip, test, build, floor]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
