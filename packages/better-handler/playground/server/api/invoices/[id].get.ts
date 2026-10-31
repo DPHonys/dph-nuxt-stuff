@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { invoiceRef } from '~~/server/io/schemas'
 
 /**
@@ -14,7 +15,10 @@ export default defineBetterEventHandler(
     errors: {
       ...defineError('invoice-not-found', {
         status: 404,
-        schema: invoiceRef.pick({ id: true }),
+        // The Handler's converted number, not the route's string: the
+        // error carries what `fail` is handed, so `invoiceRef`'s string
+        // input would refuse it.
+        schema: z.object({ id: z.number() }),
       }),
     },
   },

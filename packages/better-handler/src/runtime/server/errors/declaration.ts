@@ -9,11 +9,15 @@ import type {
 } from '../../types/errors/declaration'
 import { declarationFault, describeValue } from '../faults'
 
-/** The tags the package keeps for its own variants. */
-const RESERVED_TAGS: readonly string[] = [
-  'validation-failed',
-  'request-failed',
-] satisfies readonly ReservedTag[]
+/**
+ * The tags the package keeps for its own variants. Keyed by every
+ * `ReservedTag`, so a variant added to the type fails to compile until it is
+ * refused here too.
+ */
+const RESERVED_TAGS: readonly string[] = Object.keys({
+  'validation-failed': true,
+  'request-failed': true,
+} satisfies Record<ReservedTag, true>)
 
 /** The keys an entry may carry. */
 const ENTRY_KEYS: readonly string[] = ['status', 'schema']

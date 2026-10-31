@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandler, EventHandlerRequest, H3Event } from 'h3'
 import { defineEventHandler } from 'h3'
 import * as v from 'valibot'
@@ -17,6 +18,10 @@ import type {
   ValidationFailed,
   ValidationIssue,
 } from '../../src/runtime/types'
+import type {
+  HasKeyOverlap,
+  IsMergeableOutput,
+} from '../../src/runtime/types/io/guard'
 
 /** A page number, coerced from the string the wire always carries. */
 const pagination = z.object({ page: z.coerce.number() })
@@ -77,6 +82,35 @@ describe('the input type family', () => {
   })
 })
 
+describe('the composition guard', () => {
+  it('sees a named-key clash past an index signature among the siblings', () => {
+    expectTypeOf<
+      HasKeyOverlap<[{ id: number }, Record<string, string>, { id: string }]>
+    >().toEqualTypeOf<true>()
+    expectTypeOf<
+      HasKeyOverlap<[{ id: number }, unknown, { id: string }]>
+    >().toEqualTypeOf<true>()
+    expectTypeOf<
+      HasKeyOverlap<[{ id: number }, { id: string }]>
+    >().toEqualTypeOf<true>()
+  })
+
+  it('sees the named keys an index signature stands beside', () => {
+    expectTypeOf<
+      HasKeyOverlap<[{ page: string; [key: string]: string }, { page: number }]>
+    >().toEqualTypeOf<true>()
+    expectTypeOf<
+      HasKeyOverlap<[Record<string, string>, { page: number }]>
+    >().toEqualTypeOf<false>()
+  })
+
+  it('merges an unknown output as it merges any', () => {
+    expectTypeOf<IsMergeableOutput<unknown>>().toEqualTypeOf<true>()
+    expectTypeOf<IsMergeableOutput<any>>().toEqualTypeOf<true>()
+    expectTypeOf<IsMergeableOutput<string>>().toEqualTypeOf<false>()
+  })
+})
+
 describe('the Handler context of a route declaring input', () => {
   it('holds each declared source’s output, coercions and transforms applied', () => {
     defineBetterEventHandler(
@@ -122,6 +156,40 @@ describe('the Handler context of a route declaring input', () => {
           page: number
           sort: 'asc' | 'desc'
         }>()
+
+        return null
+      }
+    )
+  })
+
+  it('merges an untyped schema’s output as whatever the runtime hands over', () => {
+    // A hand-written or untyped vendor schema: its output is `unknown`, which
+    // the runtime merges when it is a plain object and refuses otherwise.
+    const untyped: StandardSchemaV1 = pagination
+
+    defineBetterEventHandler(
+      { input: { query: [pagination, untyped] } },
+      (_, { query }) => {
+        expectTypeOf(query).toEqualTypeOf<{ page: number }>()
+
+        return null
+      }
+    )
+  })
+
+  it('takes a passthrough output first, before the named outputs that win the merge', () => {
+    defineBetterEventHandler(
+      {
+        input: {
+          query: [
+            z.looseObject({ sort: z.string() }),
+            z.object({ page: z.coerce.number() }),
+          ],
+        },
+      },
+      (_, { query }) => {
+        expectTypeOf(query.page).toEqualTypeOf<number>()
+        expectTypeOf(query.sort).toEqualTypeOf<string>()
 
         return null
       }
@@ -197,6 +265,43 @@ describe('the Built-in validation-failed variant in the route’s errors', () =>
     expectTypeOf<KnownErrorsOfHandler<typeof _route>>().toEqualTypeOf<{
       _tag: 'order-locked'
     }>()
+  })
+})
+
+describe('a source a URL or a header carries', () => {
+  it('takes every key whose input admits a string, a coerce key among them', () => {
+    const _accepted = defineBetterEventHandler(
+      {
+        input: {
+          route: z.object({ id: z.coerce.number() }),
+          // The passthrough first: only the first element may produce an
+          // index signature.
+          query: [
+            z.looseObject({ extra: z.string().nullable() }),
+            z.object({
+              q: z.string(),
+              page: z.coerce.number().optional(),
+              tags: z.array(z.string()),
+              sort: z.enum(['asc', 'desc']),
+              either: z.union([z.string(), z.number()]),
+              loose: z.unknown(),
+              free: z.any(),
+            }),
+          ],
+          headers: z.object({ 'x-tenant': z.string().transform(Number) }),
+          // The body is JSON: no rule about strings.
+          body: z.object({ n: z.number(), flags: z.array(z.boolean()) }),
+        },
+      },
+      (_event, { route, query, headers }) => [route.id, query.page, headers]
+    )
+
+    expectTypeOf<
+      RequestInputOfHandler<typeof _accepted>['route']
+    >().toEqualTypeOf<{ id: unknown }>()
+    expectTypeOf<
+      RequestInputOfHandler<typeof _accepted>['body']
+    >().toEqualTypeOf<{ n: number; flags: boolean[] }>()
   })
 })
 

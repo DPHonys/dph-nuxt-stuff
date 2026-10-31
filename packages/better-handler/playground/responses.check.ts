@@ -22,7 +22,7 @@ type Created = Awaited<
   ReturnType<typeof $fetch<unknown, '/api/receipts', { method: 'POST' }>>
 >
 
-/** The bare form answers its schema's output type, nothing the Handler added. */
+/** The bare form answers its schema's input type, nothing the Handler added. */
 export type BareHolds = Assert<
   Equal<Receipt, { id: number; total: number; at: string }>
 >

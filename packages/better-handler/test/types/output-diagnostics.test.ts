@@ -31,6 +31,15 @@ const WRONG_ARGUMENT_COUNT = 2554
 /** The guard's sentence, verbatim. */
 const DECLARE_SOMETHING = 'declare input, errors, output, or any combination'
 
+/** The Respond helper's sentence for a status that is not one literal. */
+const ONE_STATUS =
+  'respond takes one status literal - respond under each status in its own branch'
+
+/** The output guard's sentence for a status outside 100-399. */
+function outsideSuccess(status: number): string {
+  return `the status must be an integer from 100 to 399, not ${status} - a failure status is declared under errors, by tag`
+}
+
 /** The one diagnostic reported on the fixture line containing `needle`. */
 function at(needle: string): Diagnostic | undefined {
   const line = lineContaining(FIXTURE, needle)
@@ -43,7 +52,7 @@ function at(needle: string): Diagnostic | undefined {
 
 describe('the output diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
-    expect(diagnostics).toHaveLength(11)
+    expect(diagnostics).toHaveLength(17)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -99,6 +108,33 @@ describe('the Respond helper', () => {
     )
   })
 
+  it('requires the value for a schema whose input is null', () => {
+    // A `z.null()` slot sends a body, `null`; only a status declared `null`
+    // is bodiless.
+    expect(at('respond(201)')).toEqual(
+      expect.objectContaining({
+        code: WRONG_ARGUMENT_COUNT,
+        message: 'Expected 2 arguments, but got 1.',
+      })
+    )
+  })
+
+  it.each([
+    ['carrying a value', "respond(isNew ? 201 : 200, { id: '1' })"],
+    ['of bodiless statuses', 'respond(isNew ? 204 : 205)'],
+  ])('refuses a union status %s, at the status', (_, needle) => {
+    // The value of a union would only have to fit one of its statuses'
+    // bodies, so the union is refused whole and each branch responds alone.
+    expect(at(needle)).toEqual(
+      expect.objectContaining({
+        code: ARGUMENT_NOT_ASSIGNABLE,
+        message:
+          `Argument of type 'number' is not assignable to parameter of type 'RespondError<"${ONE_STATUS}">'.\n` +
+          `  Type 'number' is not assignable to type 'RespondError<"${ONE_STATUS}">'.`,
+      })
+    )
+  })
+
   it('is the only way a map-form route answers', () => {
     // A bare value names no status, so the return is constrained to the
     // helper's result.
@@ -149,6 +185,33 @@ describe('a bare-form route', () => {
         code: NOT_ASSIGNABLE,
         message: "Type 'number' is not assignable to type 'string'.",
       })
+    )
+  })
+})
+
+describe('a bare-form route whose schema transforms', () => {
+  it('returns the schema’s input, refusing the transform’s output', () => {
+    // The development check validates exactly what the Handler returns, so
+    // the type it must return is the one the check can pass.
+    expect(at('at: new Date()')).toEqual(
+      expect.objectContaining({
+        code: NOT_ASSIGNABLE,
+        message: "Type 'Date' is not assignable to type 'string'.",
+      })
+    )
+  })
+})
+
+describe('a status map naming a failure status', () => {
+  it.each([
+    [404, '{ output: { 200: existing, 404: null } }'],
+    [500, '{ output: { 500: existing } }'],
+  ])('refuses %i at output, pointing at errors', (status, needle) => {
+    const diagnostic = at(needle)
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(diagnostic?.message).toContain(
+      `OutputDeclarationError<"${outsideSuccess(status)}">`
     )
   })
 })
