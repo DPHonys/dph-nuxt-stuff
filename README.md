@@ -5,6 +5,16 @@ the `@dphonys/*` scope. Packages are scaffolded from templates, versioned
 independently with pnpm Release intents, and published through npm trusted
 publishing.
 
+## Packages
+
+| Package                                               | Description                                                                                                                          |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [`@dphonys/better-handler`](packages/better-handler/) | Declare a Nitro handler's request schemas, response schema and expected failures once, and get all of them typed at every call site. |
+
+Any other package still under `packages/` is deprecated: it is superseded by
+`@dphonys/better-handler`, is being removed from the repository, and gets no
+new releases.
+
 ## Repository layout
 
 ```text
