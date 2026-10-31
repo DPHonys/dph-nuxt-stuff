@@ -73,8 +73,7 @@
     "@nuxt/kit": "^4.0.0",
     "@standard-schema/spec": "catalog:",
     "h3": "catalog:",
-    "pathe": "catalog:",
-    "vue": "catalog:"
+    "pathe": "catalog:"
   },
   "devDependencies": {
     "@dphonys/test-utils": "workspace:*",
@@ -89,11 +88,13 @@
     "publint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
+    "vue": "catalog:",
     "vue-tsc": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "nuxt": ">=4.0.0 <5.0.0"
+    "nuxt": ">=4.0.0 <5.0.0",
+    "vue": "^3.5.17"
   },
   "engines": {
     "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
