@@ -1,11 +1,12 @@
 /**
  * `event.$betterFetch`: the event's own `$fetch` with `.try` and a JSON
- * `accept` header, typed as `$betterFetch` is. Installed on every event by a
- * `request` hook, the earliest point Nitro's `event.$fetch` exists.
+ * `accept` header, typed as `$betterFetch` is. A lazy getter on h3's event
+ * prototype, so every event has it, however it was created.
  */
 
 import type { H3Event } from 'h3'
 import { toTryResult } from '../shared/errors/try-result'
+import { eventPrototype } from '../shared/h3'
 import type { BetterFetch } from '../types/fetch'
 
 // Named `RawInit` because h3's `fetchWithEvent(event, req, init, options)`
@@ -110,34 +111,74 @@ export function createEventBetterFetch<Body>(
 }
 
 /**
- * The two members of an event the installer touches: `$fetch`, read on every
- * call, and `$betterFetch`, written once. Nitro's own `event.$fetch` and the
- * reduced shape are both admitted, and `undefined` is the version skew the
- * wrapper names.
+ * The two members of an event the getter touches: `$fetch`, read on every
+ * call, and `$betterFetch`, which it serves. Nitro's own `event.$fetch` and
+ * the reduced shape are both admitted, and `undefined` is the version skew
+ * the wrapper names.
  */
 export interface EventFetchSlots {
   $fetch?: H3Event['$fetch'] | RawEventFetch<unknown> | undefined
   $betterFetch?: BetterFetch
 }
 
-/** Install `event.$betterFetch` over the event's own fetch. */
-export function installEventBetterFetch(event: EventFetchSlots): void {
-  // SAFETY: Nitro's `event.$fetch` is `fetchWithEvent` over the global
-  // `$fetch`, which takes a request and an init and resolves the body:
-  // exactly `RawEventFetch` with the route-typed generics erased.
-  event.$betterFetch = createEventBetterFetch(
-    () => event.$fetch as RawEventFetch<unknown> | undefined
-  )
+const MEMBER = '$betterFetch'
+
+/** Each event's instance, built the first time the event's member is read. */
+const instances = new WeakMap<EventFetchSlots, BetterFetch>()
+
+/**
+ * Give every event inheriting from `prototype` a lazy `$betterFetch`: built
+ * over that event's own `$fetch` the first time it is read, then kept for
+ * the event's life. On the prototype rather than on each request's event, so
+ * an event created past every hook has it too: the fresh one Nitro runs a
+ * `defineCachedEventHandler` or `cache`/`swr` route rule on. An event that
+ * never reads it costs nothing. Installing twice keeps the first getter.
+ */
+export function installEventBetterFetch(prototype: EventFetchSlots): void {
+  if (Object.hasOwn(prototype, MEMBER)) return
+
+  Object.defineProperty(prototype, MEMBER, {
+    configurable: true,
+    get(this: EventFetchSlots): BetterFetch {
+      let better = instances.get(this)
+
+      if (better === undefined) {
+        // SAFETY: Nitro's `event.$fetch` is `fetchWithEvent` over the global
+        // `$fetch`, which takes a request and an init and resolves the body:
+        // exactly `RawEventFetch` with the route-typed generics erased.
+        better = createEventBetterFetch(
+          () => this.$fetch as RawEventFetch<unknown> | undefined
+        )
+        instances.set(this, better)
+      }
+
+      return better
+    },
+    // `H3Event['$betterFetch']` is a plain member, so assigning one works.
+    set(this: EventFetchSlots, better: BetterFetch): void {
+      instances.set(this, better)
+    },
+  })
 }
 
 /** What the installer needs from Nitro's app: a `request` hook. */
 export interface RequestHookHost {
   hooks: {
-    hook: (name: 'request', callback: (event: H3Event) => void) => void
+    hook: (name: 'request', callback: (event: EventFetchSlots) => void) => void
   }
 }
 
-/** Install `event.$betterFetch` on every request, as early as it can exist. */
+// Nitro may run on another copy of h3 than the one this package resolves, and
+// each copy has its own event class: the incoming event's own prototype gets
+// the getter too, the one a cached handler's event shares with it.
+function installOnPrototypeOf(event: EventFetchSlots): void {
+  // SAFETY: an event's prototype is its class's, which holds the members its
+  // events inherit: the same two slots, each possibly absent.
+  installEventBetterFetch(Object.getPrototypeOf(event) as EventFetchSlots)
+}
+
+/** Give every event `event.$betterFetch`, whoever creates the event. */
 export function registerEventBetterFetch(nitroApp: RequestHookHost): void {
-  nitroApp.hooks.hook('request', installEventBetterFetch)
+  installEventBetterFetch(eventPrototype())
+  nitroApp.hooks.hook('request', installOnPrototypeOf)
 }

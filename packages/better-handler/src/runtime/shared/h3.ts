@@ -1,20 +1,19 @@
 /**
  * The handler and error construction seam: the only file in the package that
- * builds an h3 handler or an h3 error. On h3 v2 (Nuxt 5) `defineEventHandler`
- * and `createError` become `defineHandler` and `HTTPError`, and only the
- * bodies below change.
+ * builds an h3 handler or an h3 error, or reaches h3's event class. On h3 v2
+ * (Nuxt 5) `defineEventHandler` and `createError` become `defineHandler` and
+ * `HTTPError`, and only the bodies below change.
  *
  * In `shared/` rather than `server/` because the client half constructs errors
  * too.
  */
 
-import { createError, defineEventHandler, isError } from 'h3'
+import { createError, defineEventHandler, H3Event, isError } from 'h3'
 import type {
   EventHandler,
   EventHandlerRequest,
   EventHandlerResponse,
   H3Error,
-  H3Event,
 } from 'h3'
 import type { NuxtError } from 'nuxt/app'
 import { isRecordLike, isString } from './guards'
@@ -32,6 +31,16 @@ export function makeEventHandler<
   Response extends EventHandlerResponse,
 >(run: (event: H3Event<Request>) => Response): EventHandler<Request, Response> {
   return defineEventHandler<Request, Response>(run)
+}
+
+/**
+ * The prototype every event this copy of h3 makes inherits from, for a
+ * member the package gives every event, whoever creates it: the request's
+ * own, and the fresh one a cached handler runs on. Typed as an event, as
+ * TypeScript types a class's prototype.
+ */
+export function eventPrototype(): H3Event {
+  return H3Event.prototype
 }
 
 /** What {@link httpError} builds an error from. */

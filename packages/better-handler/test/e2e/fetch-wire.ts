@@ -40,6 +40,18 @@ export function theFetchWire(): void {
     })
   })
 
+  // A cached handler runs on an event Nitro makes itself, after every
+  // `request` hook, forwarding only the headers the cache varies on.
+  it('event.$betterFetch reaches the event a cached handler runs on', async () => {
+    expect(
+      await $fetch('/api/relay/cached', { headers: { cookie: 'session=abc' } })
+    ).toEqual({
+      ...OBSERVED,
+      echoed: { accept: 'application/json', cookie: null },
+      ownAccept: { accept: 'text/plain', cookie: null },
+    })
+  })
+
   it('$betterFetch answers during server-side rendering', async () => {
     const html = await $fetch<string>('/')
     const rendered = /<pre id="rendered">(.*?)<\/pre>/s.exec(html)?.[1] ?? ''

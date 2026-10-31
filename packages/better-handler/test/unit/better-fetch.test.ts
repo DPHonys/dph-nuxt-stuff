@@ -9,14 +9,18 @@ import { createFetch } from 'ofetch'
 import { afterEach, describe, expect, it } from 'vitest'
 import clientPlugin from '../../src/runtime/app/plugins/better-fetch.client'
 import { defineBetterEventHandler } from '../../src/runtime/server'
-import type { RequestHookHost } from '../../src/runtime/server/event-better-fetch'
-import { installEventBetterFetch } from '../../src/runtime/server/event-better-fetch'
+import type {
+  EventFetchSlots,
+  RawEventFetch,
+  RequestHookHost,
+} from '../../src/runtime/server/event-better-fetch'
 import nitroPlugin from '../../src/runtime/server/plugins/better-fetch'
 import {
   $betterFetch,
   createBetterFetch,
   installBetterFetchGlobal,
 } from '../../src/runtime/shared/better-fetch'
+import { eventPrototype } from '../../src/runtime/shared/h3'
 
 // `$betterFetch` without a Nuxt boot: the factory over a real ofetch instance
 // against a real h3 app, so every header below is one the server received
@@ -322,8 +326,8 @@ describe('the one global', () => {
     expect(clientPlugin).toBe(installBetterFetchGlobal)
   })
 
-  it('is installed by the Nitro plugin, which also hooks every request', () => {
-    const hooked: unknown[] = []
+  it('is installed by the Nitro plugin, beside event.$betterFetch on every event', () => {
+    const hooked: [string, (event: EventFetchSlots) => void][] = []
     const host: RequestHookHost = {
       hooks: {
         hook: (name, callback) => {
@@ -335,6 +339,22 @@ describe('the one global', () => {
     nitroPlugin(host)
 
     expect(globalThis.$betterFetch).toBe($betterFetch)
-    expect(hooked).toEqual([['request', installEventBetterFetch]])
+    expect(
+      Object.getOwnPropertyDescriptor(eventPrototype(), '$betterFetch')?.get
+    ).toBeTypeOf('function')
+    expect(hooked.map(([name]) => name)).toEqual(['request'])
+
+    // An event of another copy of h3, as Nitro's own may be: the hook gives
+    // its prototype the same getter.
+    class ForeignEvent implements EventFetchSlots {
+      $fetch: RawEventFetch<unknown> | undefined = undefined
+    }
+
+    hooked[0]?.[1](new ForeignEvent())
+
+    expect(
+      Object.getOwnPropertyDescriptor(ForeignEvent.prototype, '$betterFetch')
+        ?.get
+    ).toBeTypeOf('function')
   })
 })
