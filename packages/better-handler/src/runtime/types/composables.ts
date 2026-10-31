@@ -67,7 +67,7 @@ type PickFrom<T, K extends Array<string>> =
  * `useFetch`'s options for a route and method: Nuxt's own, with `body`,
  * `query` and `headers` typed as the fetch family types them and each
  * accepted plain, through a ref or through a getter, `params` gone, and the
- * method in either case. `transform`, `pick` and `default` are vanilla's,
+ * method in either case, plain, through a ref or through a getter too. `transform`, `pick` and `default` are vanilla's,
  * over `DataT`, `PickKeys` and `DefaultT`, so they shape `data` as there.
  */
 export type UseBetterFetchOptions<
@@ -83,7 +83,9 @@ export type UseBetterFetchOptions<
   // its route engine, reports an excessive stack depth at the call site on
   // Nitro's route types.
   'method' | 'body' | 'query' | 'headers' | 'params'
-> & { method?: Method } & ReactiveSources<RequestSources<ReqT, Method>>
+> & {
+  method?: MaybeRefOrGetter<Method>
+} & ReactiveSources<RequestSources<ReqT, Method>>
 
 /**
  * `useFetch` with the route's Request input typed on the options, its

@@ -99,6 +99,34 @@ export function useBetterFetchCallSites(): void {
     query: { team: 'core' },
   })
 
+  // The method through a ref or a getter, as vanilla takes it, types the
+  // same call.
+  const _refMethod = useBetterFetch('/api/users', {
+    method: ref('post' as const),
+    body: { name: 'Ada', age: '36' },
+    query: { team: 'core' },
+  })
+
+  type _RefMethodData = Expect<
+    Equal<typeof _refMethod.data.value, typeof created.data.value>
+  >
+
+  const _getterMethod = useBetterFetch('/api/users', {
+    method: () => 'post' as const,
+    body: { name: 'Ada', age: '36' },
+    query: { team: 'core' },
+  })
+
+  type _GetterMethodData = Expect<
+    Equal<typeof _getterMethod.data.value, typeof created.data.value>
+  >
+
+  // Still the method's own requiredness: a `post` through a ref needs a body.
+  const post = ref('post' as const)
+
+  useBetterFetch('/api/users', { method: post, query: { team: 'core' } }) // refused TS2345
+  useBetterFetch('/api/users', { method: () => 'patch' as const }) // refused TS2322
+
   // `get` by default, with its own response and an all-optional query.
   const _listed = useBetterFetch('/api/users')
 

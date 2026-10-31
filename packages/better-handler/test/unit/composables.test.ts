@@ -169,6 +169,17 @@ describe('useBetterFetch and its lazy twin', () => {
     expect(last?.opts?.transform).toBe(identity)
   })
 
+  // Vanilla reads a reactive `method` itself, so the wrapper hands it on as
+  // the ref or the getter it is.
+  it.each([
+    ['a ref', ref('post' as const)],
+    ['a getter', () => 'post' as const],
+  ])('forwards a method passed as %s untouched', (_name, method) => {
+    useBetterFetch('/api/anything', { method })
+
+    expect(calls.at(-1)?.opts?.method).toBe(method)
+  })
+
   // What `optimization.keyedComposables` makes of a call: the key after the
   // last argument the call passed, which no typed overload declares, so the
   // raw wrapper, vanilla's own signature, is what takes it.
