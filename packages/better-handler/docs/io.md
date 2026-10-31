@@ -14,7 +14,7 @@ The handler's `event` stays h3's plain `H3Event`, even though the returned handl
 
 Sources are validated in the order `route`, `query`, `headers`, `body`, whatever order the declaration names them in, and the first source with issues answers. Cheap and synchronous first, stream-consuming last, so an invalid route param spares the body parse. There is no aggregate mode across sources. Within a source every issue is reported together, so a form with two bad fields needs one round trip, and a tuple's elements run one after another, so asynchronous schemas are deterministic.
 
-Sources reach the schemas exactly as h3 yields them, with nothing normalised or coerced on the way: every conversion belongs in the schema, where the rest of the parsing rules live.
+Sources reach the schemas exactly as h3 yields them, with nothing normalised or coerced on the way: every conversion belongs in the schema, where the rest of the parsing rules live. That is why a `route`, `query` or `headers` key whose input takes no string is a compile error: the call site is typed from the schema's input, so a `z.number()` query key would accept a call sending `2` and then refuse the `'2'` that arrives. A coercing schema's input admits the string, so the rule points at one.
 
 The body is read only on h3 v1's payload methods (`POST`, `PUT`, `PATCH`, `DELETE`); any other method validates `undefined`, so a method-agnostic route file that declares a body keeps serving `GET` instead of answering h3's bare `405`. The accepted cost: a `users.get.ts` that declares a body answers `400` rather than `500`. A body h3 cannot parse is one issue with the package's own message, never h3's, so an h3 patch is not a change to this package's wire.
 
@@ -22,10 +22,11 @@ The body is read only on h3 v1's payload methods (`POST`, `PUT`, `PATCH`, `DELET
 
 Composition is writing a tuple: each element validates the whole source, and their outputs merge into one value. That lets a route combine reusable schemas (pagination beside sorting beside a route-specific filter) without a schema library's own merge.
 
-Two rules are checked at compile time, at the source key:
+Three rules are checked at compile time, at the source key:
 
 1. **Every element must produce an object.** Merging a primitive, an array or a function has no meaning. The test is structural, so an interface-typed output is not falsely refused.
 2. **No two elements may produce the same key.** An intersection type would lie about which value survives the merge, so an overlap is refused; merge such schemas in the schema library instead.
+3. **Only the first element may keep keys it does not name.** A passthrough, loose or record schema hands back the raw source, so later in the tuple it would overwrite the named elements' converted values with raw strings, the overlap rule 2 forbids made invisible by an index signature. First in the tuple, everything after it wins. The runtime refuses the same mistake at declaration when a schema's Standard JSON Schema output says so; an output typed `unknown` passes both, as nothing can be said about it.
 
 What the types cannot see, such as a `z.custom` claiming an object it never produces, the runtime refuses with a developer fault rather than merging garbage. A lone schema is never merged, so its output, array or primitive included, passes through untouched.
 

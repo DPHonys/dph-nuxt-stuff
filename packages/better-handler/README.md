@@ -147,8 +147,10 @@ export default defineBetterEventHandler(
 - **Sources are validated before the handler is entered**, in the order `route`, `query`, `headers`, `body`, whatever order the declaration names them in. The first source with issues answers `400` with the [Built-in validation-failed variant](#the-wire), and the sources after it, the body included, are never read.
 - **Within a source every issue arrives together.** A tuple runs every element, one after another in tuple order, each against the whole source, and their issues are reported together.
 - **A tuple's outputs are merged into one value.** Every element must produce an object (not a primitive, an array or a function), and no two elements may produce the same key; both are compile errors at the source key. Merge overlapping schemas in your schema library instead. At runtime an element whose output is not a plain object answers a plain `500`; this catches what the types could not see, such as a `z.custom` that claims an object.
+- **Only the first element may keep keys it does not name.** A passthrough, loose or record schema hands back the raw source's keys, so after another element it would write the raw values over that element's converted ones in the merge. Put it first. An element after the first whose output type has an index signature is a compile error at the source key, and one whose Standard JSON Schema output admits unnamed keys is refused at declaration. A schema whose output is typed `unknown` or `any`, such as a bare `StandardSchemaV1`, composes anywhere; what it produces is the runtime merge's to judge.
 - **A lone schema, bare or a tuple of one, passes its output through untouched**, so a body may be an array or a primitive.
 - **Each source reaches its schema exactly as h3 yields it**, nothing coerced on the way: route params URL-decoded, a catch-all slash-joined under one key; query values `string | string[]`; header keys lowercased, so a headers schema names them in lower case. Coercion belongs in the schema (`z.coerce.number()` and the like).
+- **Every `route`, `query` and `headers` key must take a string as input**, or an array of strings, since a URL or a header carries nothing else: a `z.number()` query key would type a call sending `2` and then refuse the `'2'` that arrives. Such a key is a compile error at the source, in a lone schema or any element of a tuple; read it through a coercing schema, whose input admits a string. A key typed `unknown` or `any` passes.
 - **The body is read only on `POST`, `PUT`, `PATCH` and `DELETE`**, through h3's strict body read. On any other method, and for an empty body, a declared body schema validates `undefined`. A body h3 refuses to parse, such as malformed JSON, is one body issue, `Request body could not be parsed`, with an empty `path`; a `5xx` or a dropped connection during the read propagates untouched.
 - **A schema that reports a failure with no issues** (`{ issues: [] }`) answers a plain `500` whose sentence names the route, the source and the element; a `validate` that throws propagates as it was thrown. Asynchronous schemas are awaited.
 - **A route without `input` validates nothing and never reads the body**, so an `errors`-only route costs no parsing.
@@ -490,7 +492,7 @@ It is the call and `.try` only, typed as the global is, and forwards the incomin
 }
 ```
 
-Each issue is `{ source, message, path }`: the source that failed, the schema's message, and the path into that source as a list of keys and indexes.
+Each issue is `{ source, message, path }`: the source that failed, the schema's message, and the path into that source as a list of keys and indexes. A raw request value the message quotes, such as valibot's default `but received "…"`, is replaced with `<redacted>`, so a header's credential reaches neither the body nor an error hook.
 
 - **Every caller receives the same body.** No header, cookie or credential changes what a Known error carries.
 - **A development server and a production build send the same Known error**, apart from Nitro's `stack`, unless a [development check](#development-checks) refuses it.
@@ -563,6 +565,10 @@ ErrorDeclarationError<"the field total cannot go out as JSON - it holds a bigint
 InputDeclarationError<"quary is not a validation source - the sources are route, query, headers and body">
 InputDeclarationError<"schemas composed on one source must produce disjoint output keys - merge them in your schema library instead">
 InputDeclarationError<"every schema composed on one source must produce an object output - not a primitive, an array or a function">
+InputDeclarationError<"only the first schema composed on one source may produce an index signature - put the passthrough, loose or record schema first, so the named outputs after it win the merge">
+InputDeclarationError<"every route param must take a string as input, which is all a URL carries - read anything else through a coercing schema such as z.coerce.number()">
+InputDeclarationError<"every query key must take a string as input, which is all a URL carries - read anything else through a coercing schema such as z.coerce.number()">
+InputDeclarationError<"every header must take a string as input, which is all a request header carries - read anything else through a coercing schema such as z.coerce.number()">
 AsyncDataHandlerError<"resolve to a .try result, such as $betterFetch.try(…)">
 ```
 
@@ -642,6 +648,7 @@ A misdeclaration the types did not see (a JavaScript route, an `any`-typed value
 [better-handler] The body input must be a Standard Schema or a non-empty tuple of them, not a function.
 [better-handler] The query input holds a plain object at index 1, which is not a Standard Schema.
 [better-handler] The headers input is an empty tuple. Declare at least one schema, or remove the key.
+[better-handler] The query input holds a schema at index 1 whose output keeps keys it does not name - a passthrough, loose or record schema. Only the first schema composed on one source may, so the named outputs after it win the merge.
 [better-handler] The output of defineBetterEventHandler must be a Standard Schema, for one 200 reply returned plainly, or a map from status to schema, not an instance of Map.
 [better-handler] The output's key "600" must be a status, an integer from 100 to 399 - a failure status is declared under errors, by tag.
 [better-handler] The output for status 201 must be a Standard Schema, or null for a reply with no body, not a plain object.
@@ -665,7 +672,7 @@ So do these two, about a schema that broke the Standard Schema contract or a tup
 
 ```text
 [better-handler] cannot validate the query of GET /api/test: the schema reported a failure with no issues. A Standard Schema answers with a value or with at least one issue, so this result names neither a value to hand the Handler nor a reason to reject the request.
-[better-handler] cannot merge the validated query of GET /api/test: the schema at index 1 produced the primitive not an object at all. Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.
+[better-handler] cannot merge the validated query of GET /api/test: the schema at index 1 produced the string "not an object at all". Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.
 ```
 
 These come from the [development checks](#development-checks), on a development server only:
