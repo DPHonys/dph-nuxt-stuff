@@ -17,7 +17,7 @@ function declaring<Input>(input: Input): () => void {
 describe('an input that is no map of schemas', () => {
   it.each([
     [null, 'null'],
-    ['query', 'the primitive query'],
+    ['query', 'the string "query"'],
     [[page], 'an array'],
   ])('refuses %j', (input, described) => {
     expect(declaring(input)).toThrow(

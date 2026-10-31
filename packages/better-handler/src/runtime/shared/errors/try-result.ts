@@ -27,13 +27,34 @@ function responseStatusOf(cause: unknown): number | undefined {
   return undefined
 }
 
+// Whether a cause is ofetch's error, which carries the `request` it made and
+// the `response` it met, `undefined` when none came.
+function isFetchFailure(cause: unknown): boolean {
+  return isRecordLike(cause) && ('response' in cause || 'request' in cause)
+}
+
+// Whether a cause is a request that never got a response: `fetch`'s network
+// `TypeError`, or an abort or a timeout.
+function isUnansweredRequest(cause: unknown): boolean {
+  if (cause instanceof TypeError) return true
+  if (!(cause instanceof Error || cause instanceof DOMException)) return false
+
+  return cause.name === 'AbortError' || cause.name === 'TimeoutError'
+}
+
 // The status of the response a failure came with, never h3's normalisation of
 // it, which answers `500` for a request that never got one. An error h3
-// already normalised - a `useFetch` error ref - keeps what it normalised as
-// its own `cause`: ofetch's error when a response arrived, the network or
-// abort error when none did. Without one, its own status is all there is.
+// already normalised from a fetch - a `useFetch` error ref - keeps what it
+// normalised as its own `cause`: ofetch's error when a response arrived, the
+// network, abort or timeout error when none did, as h3 unwraps ofetch's own
+// `cause`. Any other cause is a caller's own, such as the database error a
+// route raised with, and says nothing about a response: the error's own
+// status is all there is.
 function statusOf(cause: unknown): number | undefined {
-  if (isNormalisedError(cause) && isRecordLike(cause.cause)) {
+  if (
+    isNormalisedError(cause) &&
+    (isFetchFailure(cause.cause) || isUnansweredRequest(cause.cause))
+  ) {
     return responseStatusOf(cause.cause)
   }
 

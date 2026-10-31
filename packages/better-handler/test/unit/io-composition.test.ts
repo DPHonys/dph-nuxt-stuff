@@ -282,7 +282,7 @@ describe('an element output the merge cannot take', () => {
 
     expect(response.status).toBe(500)
     expect(thrown.message).toBe(
-      '[better-handler] cannot merge the validated query of GET /api/test: the schema at index 1 produced the primitive not an object at all. ' +
+      '[better-handler] cannot merge the validated query of GET /api/test: the schema at index 1 produced the string "not an object at all". ' +
         'Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.'
     )
     // A bug in the route, not a client's bad input: never a Known error.
