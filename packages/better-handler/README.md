@@ -444,7 +444,9 @@ const { data: invoice } = await useBetterAsyncData('invoice', () =>
 
 ### The `accept` header
 
-Every member of the family sends `accept: application/json`. Nitro answers an error as JSON outside `/api/**` only to a request that asks for JSON, so without it a Known error from a route under `server/routes/` would arrive as an HTML page and read as `request-failed`. A caller's own `accept`, per call or per `.create` instance, wins. The family sends no other header of its own.
+Every member of the family sends `accept: application/json`. Nitro answers an error as JSON outside `/api/**` only to a request that asks for JSON, so without it a Known error from a route under `server/routes/` would arrive as an HTML page and read as `request-failed`. A caller's own `accept` wins: per call, on a `Request` passed with no per-call `headers` (on the global and the fetch composables), or through a `$betterFetch.create` instance. An `accept` among the defaults of an app-installed `globalThis.$fetch`, such as `$fetch.create({ headers: { accept: … } })`, is not seen and is overridden: ofetch keeps an instance's defaults out of reach. The family sends no other header of its own.
+
+A `Request` passed with no `headers` option sends its own headers, `authorization` and a chosen `accept` included, on the global, its `.raw` and `.try`, and the fetch composables, as vanilla `$fetch` does; a call that passes `headers` replaces them. `event.$betterFetch` never sends a `Request`'s headers, as vanilla `event.$fetch` does not.
 
 ### `event.$betterFetch`
 
@@ -457,7 +459,7 @@ export default defineEventHandler(async (event) => {
 })
 ```
 
-It is the call and `.try` only, typed as the global is, and forwards the incoming request's headers and cookies as Nitro's `event.$fetch` does, whose experimental API it wraps.
+It is the call and `.try` only, typed as the global is, and forwards the incoming request's headers and cookies as Nitro's `event.$fetch` does, whose experimental API it wraps. It is on every event, so it also works in a `defineCachedEventHandler` and under a `cache` or `swr` route rule, where Nitro runs the handler on an event of its own that carries only the headers the cache varies on, so no cookie by default.
 
 ## The wire
 
