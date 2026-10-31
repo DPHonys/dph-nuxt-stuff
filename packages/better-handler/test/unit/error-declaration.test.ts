@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineBetterEventHandler, defineError } from '../../src/runtime/server'
 import { resolveErrors } from '../../src/runtime/server/errors/declaration'
+import type { ReservedTag } from '../../src/runtime/types/errors/declaration'
 
 // Declaration-time behaviour, without a Nuxt boot: what `defineError` returns,
 // and what a misdeclared error throws while its module is evaluated. A
@@ -75,8 +76,16 @@ describe('defineError', () => {
   })
 })
 
+// Every tag the type reserves, keyed so a variant added to `ReservedTag`
+// fails to compile here until it is listed, then fails below until the
+// runtime refuses it too.
+const EVERY_RESERVED_TAG = {
+  'validation-failed': true,
+  'request-failed': true,
+} satisfies Record<ReservedTag, true>
+
 describe('defineError refuses a misdeclared error', () => {
-  it.each(['validation-failed', 'request-failed'])(
+  it.each(Object.keys(EVERY_RESERVED_TAG))(
     'refuses the reserved tag %s',
     (tag) => {
       expect(() => defineError(untyped(tag), { status: 400 })).toThrow(
@@ -109,7 +118,7 @@ describe('defineError refuses a misdeclared error', () => {
 
   it.each([
     [{}, 'an empty object'],
-    ['z.object()', 'the primitive z.object()'],
+    ['z.object()', 'the string "z.object()"'],
     [
       { '~standard': { version: 2, validate: () => ({ value: 1 }) } },
       'a plain object',
@@ -132,7 +141,7 @@ describe('defineError refuses a misdeclared error', () => {
     [399, 'the primitive 399'],
     [600, 'the primitive 600'],
     [404.5, 'the primitive 404.5'],
-    ['404', 'the primitive 404'],
+    ['404', 'the string "404"'],
     [Number.NaN, 'the primitive NaN'],
     [undefined, 'undefined'],
   ])('refuses the status %j', (status, described) => {

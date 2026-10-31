@@ -55,12 +55,18 @@ export interface ErrorDeclarationError<Msg extends string> {
  * What an entry's schema accepts, or `never` for an entry without one. The
  * input, not the output: the fields go out as they were thrown, and the
  * development check validates that thrown value, so a transforming schema's
- * output is never what is raised or sent.
+ * output is never what is raised or sent. A schema typed optional, as
+ * `ErrorEntry` types it, is read as the schema it may be: the runtime goes by
+ * the value, and an entry that holds one demands its fields.
  */
 export type EntryInput<Entry> = Entry extends {
-  readonly schema: infer Schema extends StandardSchemaV1
+  readonly schema?: infer Schema
 }
-  ? StandardSchemaV1.InferInput<Schema>
+  ? Exclude<Schema, undefined> extends infer Defined extends StandardSchemaV1
+    ? [Defined] extends [never]
+      ? never
+      : StandardSchemaV1.InferInput<Defined>
+    : never
   : never
 
 // The `_tag` literals a schema's input carries, over every member of a union
@@ -71,21 +77,37 @@ type TagLiteralsOf<Input> = Input extends unknown
     : never
   : never
 
+// A template-literal pattern such as `x-${string}` is no one literal: as a key
+// it makes an index signature, which an empty object already satisfies.
+type IsPattern<Tag extends string> =
+  Record<never, never> extends Record<Tag, true> ? true : false
+
 /** The sentence a tag itself breaks, or `never` when it is a tag. */
 type TagRule<Tag extends string> = string extends Tag
   ? 'an error tag must be one string literal'
   : IsUnion<Tag> extends true
     ? 'an error tag must be one string literal'
-    : Tag extends ''
-      ? 'an error tag must be a non-empty string'
-      : Tag extends ReservedTag
-        ? `${Tag} is reserved for the built-in variant - rename the declared error`
-        : never
+    : IsPattern<Tag> extends true
+      ? 'an error tag must be one string literal'
+      : Tag extends ''
+        ? 'an error tag must be a non-empty string'
+        : Tag extends ReservedTag
+          ? `${Tag} is reserved for the built-in variant - rename the declared error`
+          : never
+
+// The members of a schema's input that are no object of fields: an array or
+// a function, each an object to the compiler. One such member of a union
+// input is enough to refuse it, as the runtime refuses that member's value.
+type NotFieldsMembers<Input> = Extract<
+  Input,
+  readonly unknown[] | ((...args: never[]) => void)
+>
 
 /**
  * The sentence an entry's schema breaks against its tag, or `never`. The
- * schema describes the fields beside `_tag`, so its input is an object; when
- * that input carries a `_tag` literal too, it is the tag itself.
+ * schema describes the fields beside `_tag`, so its input is an object, and
+ * so is every member of a union input; when that input carries a `_tag`
+ * literal too, it is the tag itself.
  */
 // `any` and `unknown` are what an untyped schema answers; nothing can be
 // said about its fields, so nothing is refused.
@@ -97,9 +119,8 @@ type SchemaRule<Tag extends string, Input> =
       : [Input] extends [never]
         ? never
         : [Input] extends [object]
-          ? [Input] extends [readonly unknown[] | ((...args: never[]) => void)]
-            ? 'the schema must describe an object of fields beside _tag'
-            : TagLiteralsOf<Input> extends infer Literal
+          ? [NotFieldsMembers<Input>] extends [never]
+            ? TagLiteralsOf<Input> extends infer Literal
               ? [Literal] extends [never]
                 ? never
                 : string extends Literal
@@ -108,6 +129,7 @@ type SchemaRule<Tag extends string, Input> =
                     ? never
                     : `the schema's input has _tag ${Literal & string}, which must equal the tag ${Tag}`
               : never
+            : 'the schema must describe an object of fields beside _tag'
           : 'the schema must describe an object of fields beside _tag'
 
 // What JSON has no form for. Functions are not here: JSON leaves a

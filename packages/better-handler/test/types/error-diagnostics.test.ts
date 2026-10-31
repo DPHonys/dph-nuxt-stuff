@@ -73,7 +73,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(24)
+    expect(diagnostics).toHaveLength(32)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -92,6 +92,7 @@ describe('defineError refuses a tag at the tag', () => {
     ["defineError('',", SENTENCES.emptyTag],
     ['defineError(someTag,', SENTENCES.oneLiteral],
     ['defineError(eitherTag,', SENTENCES.oneLiteral],
+    ['defineError(patternTag,', SENTENCES.oneLiteral],
   ])('%s', (needle, sentence) => {
     const diagnostic = at(needle)
 
@@ -145,6 +146,16 @@ describe('defineError refuses an entry its tag cannot carry', () => {
     expect(guarding(diagnostic, SENTENCES.numericBigint)).toBe(true)
   })
 
+  it.each([
+    ['an array', "defineError('mixed-array'"],
+    ['a function', "defineError('mixed-callable'"],
+  ])('refuses a union input with %s among its members', (_, needle) => {
+    const diagnostic = at(needle)
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.objectFields)).toBe(true)
+  })
+
   it('refuses a key an entry does not take, at that key', () => {
     // The pre-rename `payload:` would otherwise silently mean "no schema".
     const diagnostic = at('payload: z.object({ id: z.number() }),')
@@ -183,6 +194,20 @@ describe("a route's errors are refused at the key", () => {
 
     expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
     expect(guarding(diagnostic, SENTENCES.nestedSymbol)).toBe(true)
+  })
+
+  it('refuses a pattern key, which is no one tag', () => {
+    const diagnostic = at('{ errors: patterned }')
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.oneLiteral)).toBe(true)
+  })
+
+  it('refuses a union input with an array member', () => {
+    const diagnostic = at("'mixed-array': {")
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.objectFields)).toBe(true)
   })
 
   it('refuses a numeric key, which names no tag the helper can reach', () => {
@@ -239,6 +264,17 @@ describe('fail pairs a declared tag with its fields', () => {
     expect(at("fail('order-locked', { id: 7 })")).toMatchObject({
       code: WRONG_ARGUMENT_COUNT,
       message: 'Expected 1 arguments, but got 2.',
+    })
+  })
+
+  it.each([
+    ["throw fail('untyped')", 'an untyped schema, whose input is any'],
+    ["throw fail('optional')", 'an entry typing its schema optional'],
+    ["throw fail('annotated')", 'an entry annotated as ErrorEntry'],
+  ])('requires the fields of %s, as the runtime does for %s', (needle) => {
+    expect(at(needle)).toMatchObject({
+      code: WRONG_ARGUMENT_COUNT,
+      message: 'Expected 2 arguments, but got 1.',
     })
   })
 
