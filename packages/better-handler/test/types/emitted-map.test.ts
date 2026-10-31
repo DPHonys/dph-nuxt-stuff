@@ -286,7 +286,7 @@ describe('the emitted map, compiled', () => {
       `export type Unbranded = KnownApiErrors['/api/legacy']['get']`,
       `export type Indexed = KnownApiErrors['/api/indexed']['get']`,
       ``,
-      `type Expected = { _tag: 'order-not-found'; id: number; at: string } | { _tag: 'order-locked' }`,
+      `type Expected = { _tag: 'order-not-found'; id: string; at: string } | { _tag: 'order-locked' }`,
       `type _declared = Expect<Equal<Declared, Expected>>`,
       `type _defaulted = Expect<Equal<Defaulted, Expected>>`,
       ``,
@@ -340,7 +340,9 @@ describe('the emitted map, compiled', () => {
 
     expect(rendered).toContain('_tag: "order-not-found"')
     expect(rendered).toContain('_tag: "order-locked"')
-    expect(rendered).toContain('id: number')
+    // The schema's input, as `fail` takes it: the transform to a number
+    // never runs on the way out.
+    expect(rendered).toContain('id: string')
     // Declared as a `Date`; the map is what arrives.
     expect(rendered).toContain('at: string')
   })

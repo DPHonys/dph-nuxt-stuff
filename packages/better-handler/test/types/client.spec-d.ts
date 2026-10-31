@@ -76,7 +76,7 @@ describe('a route’s Known errors, as they arrive', () => {
     }>()
   })
 
-  it('keeps each member of a union output its own variant', () => {
+  it('keeps each member of a union input its own variant', () => {
     expectTypeOf<Variant<'order-held'>>().toEqualTypeOf<
       | { _tag: 'order-held'; by: 'user'; userId: string }
       | { _tag: 'order-held'; by: 'system' }
@@ -116,11 +116,11 @@ describe('a route’s Known errors, as they arrive', () => {
       KnownErrorsOf<{
         'code-error': {
           status: 400
-          schema: StandardSchemaV1<unknown, CodeError>
+          schema: StandardSchemaV1<CodeError>
         }
         'formatted-error': {
           status: 400
-          schema: StandardSchemaV1<unknown, FormattedError>
+          schema: StandardSchemaV1<FormattedError>
         }
       }>
     >
@@ -142,10 +142,11 @@ describe('a route’s Known errors, as they arrive', () => {
       KnownErrorsOf<{
         'order-formatted': {
           status: 400
-          schema: StandardSchemaV1<
-            unknown,
-            { name: string; message: string; format: () => string }
-          >
+          schema: StandardSchemaV1<{
+            name: string
+            message: string
+            format: () => string
+          }>
         }
       }>
     >
@@ -155,6 +156,19 @@ describe('a route’s Known errors, as they arrive', () => {
       name: string
       message: string
     }>()
+  })
+
+  it('carries a transforming schema’s input, which fail takes and the boundary sends', () => {
+    // The schema parses `id` to a number, but nothing runs it on the way
+    // out: what is thrown, and so what arrives, is the input.
+    const _transforming = z.object({ id: z.string().transform(Number) })
+    type Sent = Wire<
+      KnownErrorsOf<{
+        'order-parsed': { status: 400; schema: typeof _transforming }
+      }>
+    >
+
+    expectTypeOf<Sent>().toEqualTypeOf<{ _tag: 'order-parsed'; id: string }>()
   })
 
   it('reads the tag alone from an untyped schema, rather than collapsing to any', () => {
