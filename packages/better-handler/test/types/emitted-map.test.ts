@@ -130,6 +130,30 @@ function ordersFiles(definitions: string) {
       ``,
     ].join('\n'),
 
+    // A `get` handler beside a `default` one on the same path, each
+    // declaring its own failure: a union method reads both.
+    'server/api/both.get.ts': [
+      `import { defineBetterEventHandler } from '@dphonys/better-handler/server'`,
+      ``,
+      `export default defineBetterEventHandler({ errors: { 'both-get': { status: 404 } } }, () => null)`,
+      ``,
+    ].join('\n'),
+
+    'server/api/both.ts': [
+      `import { defineBetterEventHandler } from '@dphonys/better-handler/server'`,
+      ``,
+      `export default defineBetterEventHandler({ errors: { 'both-default': { status: 409 } } }, () => null)`,
+      ``,
+    ].join('\n'),
+
+    // A JavaScript catch-all every `/api` path also matches, as a module
+    // might ship: its unreadable entry must not erase the errors of the
+    // routes it overlaps.
+    'server/api/[...].mjs': [
+      `export default () => ({ caught: true })`,
+      ``,
+    ].join('\n'),
+
     // An index signature would satisfy a string-keyed slot; the private
     // symbol key and `Wire` keep it out.
     'server/api/indexed.get.ts': [
@@ -180,6 +204,13 @@ function ordersHandlers(root: string): HandlerEntry[] {
       method: 'get',
       handler: join(root, 'server/api/shipped.get.mjs'),
     },
+    {
+      route: '/api/both',
+      method: 'get',
+      handler: join(root, 'server/api/both.get.ts'),
+    },
+    { route: '/api/both', handler: join(root, 'server/api/both.ts') },
+    { route: '/api/**', handler: join(root, 'server/api/[...].mjs') },
   ]
 }
 
@@ -192,6 +223,8 @@ const ORDERS_NITRO_ROUTES = [
   `'/api/legacy': { get: unknown }`,
   `'/api/indexed': { get: unknown }`,
   `'/api/shipped': { get: unknown }`,
+  `'/api/both': { get: unknown; default: unknown }`,
+  `'/api/**': { default: unknown }`,
 ]
 
 interface App {
@@ -443,7 +476,7 @@ describe('the emitted map, compiled', () => {
       `export type Unbranded = KnownApiErrors['/api/legacy']['get']`,
       `export type Indexed = KnownApiErrors['/api/indexed']['get']`,
       ``,
-      `type Expected = { _tag: 'order-not-found'; id: number; at: string } | { _tag: 'order-locked' }`,
+      `type Expected = { _tag: 'order-not-found'; id: string; at: string } | { _tag: 'order-locked' }`,
       `type _declared = Expect<Equal<Declared, Expected>>`,
       `type _defaulted = Expect<Equal<Defaulted, Expected>>`,
       ``,
@@ -470,6 +503,16 @@ describe('the emitted map, compiled', () => {
       `type _vanilla = Expect<Equal<Vanilla, NuxtError<unknown>>>`,
       `type _unresolved = Expect<Equal<Unresolved, NuxtError<unknown>>>`,
       ``,
+      `type BothGet = { _tag: 'both-get' }`,
+      `type BothDefault = { _tag: 'both-default' }`,
+      `export type EitherMethod = KnownErrorsOfRoute<'/api/both', 'get' | 'post'>`,
+      `export type EitherMethodNoDefault = KnownErrorsOfRoute<'/api/orders/7', 'get' | 'POST'>`,
+      `type _eitherMethod = Expect<Equal<EitherMethod, BothGet | BothDefault>>`,
+      `type _eitherMethodNoDefault = Expect<Equal<EitherMethodNoDefault, Expected>>`,
+      ``,
+      `export type Root = KnownErrorsOfRoute<'/'>`,
+      `type _root = Expect<Equal<Root, Expected | ValidationFailed | BothGet>>`,
+      ``,
       `export type Tried = TryResult<{ id: number }, ByPath | RequestFailed>`,
       `export function handled(result: Tried): string {`,
       `  if (result.error === undefined) return String(result.data.id)`,
@@ -493,7 +536,9 @@ describe('the emitted map, compiled', () => {
 
     expect(rendered).toContain('_tag: "order-not-found"')
     expect(rendered).toContain('_tag: "order-locked"')
-    expect(rendered).toContain('id: number')
+    // The schema's input, as `fail` takes it: the transform to a number
+    // never runs on the way out.
+    expect(rendered).toContain('id: string')
     // Declared as a `Date`; the map is what arrives.
     expect(rendered).toContain('at: string')
   })
@@ -537,6 +582,33 @@ describe('the emitted map, compiled', () => {
   it('leaves a route whose module the compiler cannot resolve vanilla, not `any`', () => {
     expect(compilation.renderHover('UnresolvedErrors')).toBe('never')
     expect(compilation.renderHover('Unresolved')).toBe('NuxtError<unknown>')
+  })
+
+  it('keeps a route’s errors beside an unreadable catch-all it overlaps', () => {
+    // `/api/orders/7` matches `/api/**` too, whose entry is the compiler's
+    // error type: left out per key, it cannot absorb the union.
+    expect(compilation.renderHover('ByPath')).toContain('"order-not-found"')
+    expect(compilation.renderHover('Vanilla')).toBe('NuxtError<unknown>')
+  })
+
+  it('reads each method of a union method on its own, `default` included', () => {
+    const either = compilation.renderHover('EitherMethod')
+
+    expect(either).toContain('"both-get"')
+    expect(either).toContain('"both-default"')
+    expect(compilation.renderHover('EitherMethodNoDefault')).toBe(
+      compilation.renderHover('Declared')
+    )
+  })
+
+  it('answers `/` with every readable route’s errors for the method', () => {
+    // Nitro matches `/` against every key, as its own typed `$fetch` does.
+    const root = compilation.renderHover('Root')
+
+    expect(root).toContain('"order-not-found"')
+    expect(root).toContain('"validation-failed"')
+    expect(root).toContain('"both-get"')
+    expect(root).not.toContain('"both-default"')
   })
 })
 

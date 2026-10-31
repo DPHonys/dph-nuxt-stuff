@@ -54,6 +54,33 @@ export const primitive = defineBetterEventHandler(
   () => null
 )
 
+export const laterPassthrough = defineBetterEventHandler(
+  {
+    input: {
+      query: [pagination, z.looseObject({ sort: z.string() })],
+    },
+  },
+  () => null
+)
+
+export const laterLoose = defineBetterEventHandler(
+  {
+    input: {
+      query: [pagination, v.looseObject({ sort: v.string() })],
+    },
+  },
+  () => null
+)
+
+export const recordBetweenClash = defineBetterEventHandler(
+  {
+    input: {
+      query: [pagination, z.record(z.string(), z.unknown()), paging],
+    },
+  },
+  () => null
+)
+
 // --- a value a URL or a header cannot carry ---------------------------------
 
 export const numericQuery = defineBetterEventHandler(

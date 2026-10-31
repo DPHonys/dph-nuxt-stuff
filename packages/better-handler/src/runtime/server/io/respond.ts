@@ -3,7 +3,8 @@
  * delivery when the route module is evaluated, and run on whatever the
  * Handler hands back. Beside the source readers, the one file importing an h3
  * runtime helper outside the h3 seam: `setResponseStatus`, which on h3 v2 is
- * a write to `event.res.status` instead.
+ * a write to `event.res.status` instead, and the status message cleared beside
+ * it, which on h3 v2 is `event.res.statusText`.
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec'
@@ -40,7 +41,7 @@ interface RespondedEnvelope {
 /**
  * The Respond helper as the runtime knows it, before a declaration types it:
  * the wrapper casts the whole context it hands over, and the public
- * `Respond<Outputs>` is what an author sees at the call site.
+ * `Respond<Outputs, Bodiless>` is what an author sees at the call site.
  */
 export type RespondFn = (
   status: number,
@@ -97,9 +98,26 @@ function isStatusMap<Output>(output: Output): output is Output & StatusMap {
   return isPlainObject(output) && !('~standard' in output)
 }
 
-/** Each status's slot checked: a Standard Schema, or `null` for no body. */
+// A success status as an object key spells it: an integer from 100 to 399,
+// in its plain decimal form. A failure status is no reply of `output`'s: a
+// client fetch throws on 400 and above, so its body would never arrive as
+// data, and it is declared under `errors` instead, as a Known error.
+const STATUS_KEY = /^[1-3]\d{2}$/
+
+/**
+ * Each key checked to be a status from 100 to 399, and each status's slot a
+ * Standard Schema or `null` for no body. A key h3 cannot send as a status
+ * would otherwise leave the current status in place under a reply declared
+ * for another.
+ */
 function checkStatusMap(statuses: StatusMap): void {
   for (const [status, slot] of Object.entries(statuses)) {
+    if (!STATUS_KEY.test(status)) {
+      throw declarationFault(
+        `The output's key "${status}" must be a status, an integer from 100 to 399 - a failure status is declared under errors, by tag.`
+      )
+    }
+
     if (slot === null || isStandardSchema(slot)) continue
 
     throw declarationFault(
@@ -111,10 +129,10 @@ function checkStatusMap(statuses: StatusMap): void {
 /**
  * Resolve a route's `output` once, when the route module is evaluated, so a
  * route pays nothing per request for the form it did not declare. Refuses, as
- * a declaration fault, an `output` that is neither form and a status whose
- * slot is neither a schema nor `null`: the compile guard's answer for a caller
- * the types never saw. A map naming no status declares nothing, as an empty
- * `input` or `errors` does.
+ * a declaration fault, an `output` that is neither form, a key that is no
+ * status from 100 to 399, and a status whose slot is neither a schema nor
+ * `null`: the compile guard's answer for a caller the types never saw. A map
+ * naming no status declares nothing, as an empty `input` or `errors` does.
  */
 export function responseDelivery(
   output: ResponseOutput | undefined
@@ -140,6 +158,19 @@ export function responseDelivery(
   }
 }
 
+/**
+ * Set the status a reply goes out under, and clear the status message. h3's
+ * `setResponseStatus` writes a message only when given one, so one a
+ * middleware or the Handler set earlier would ride the new status -
+ * `HTTP/1.1 200 Not Found`. Cleared, the server writes the status's own
+ * reason phrase.
+ */
+function setStatus(event: H3Event, status: number): void {
+  setResponseStatus(event, status)
+
+  event.node.res.statusMessage = ''
+}
+
 /** The bare form: one `200` reply, returned plainly. */
 function bareDelivery(schema: StandardSchemaV1): ResponseDelivery {
   return {
@@ -150,7 +181,7 @@ function bareDelivery(schema: StandardSchemaV1): ResponseDelivery {
       // declared schema answers for - set, as the map form sets its status,
       // and before the check, so a status a Handler or a middleware changed
       // cannot carry the 200 body.
-      setResponseStatus(event, 200)
+      setStatus(event, 200)
 
       if (devChecksEnabled()) await checkResponse(event, 200, schema, returned)
 
@@ -191,7 +222,7 @@ async function sendResponded<Returned>(
   // check alone would find nothing to assert and let it through.
   if (devChecksEnabled()) checkRespondedStatus(event, statuses, status)
 
-  setResponseStatus(event, status)
+  setStatus(event, status)
 
   if (devChecksEnabled()) {
     await checkResponse(event, status, statuses[status], body)

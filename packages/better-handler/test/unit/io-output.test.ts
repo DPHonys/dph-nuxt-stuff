@@ -76,6 +76,27 @@ describe('a route declaring a bare output', () => {
     expect(response.status).toBe(200)
   })
 
+  it('drops a status message set before the Handler ran', async () => {
+    // h3 writes a status message only when given one, so a message left
+    // behind would ride the new status: `HTTP/1.1 200 Not Found`. Cleared, a
+    // server writes the status's own reason phrase in its place.
+    const route = defineBetterEventHandler({ output: receipt }, () => ({
+      id: 'r-1',
+      total: 3,
+    }))
+
+    const response = await answer(
+      defineEventHandler((event) => {
+        setResponseStatus(event, 404, 'Not Found')
+
+        return route(event)
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.statusText).toBe('')
+  })
+
   it('hands an output-only route an empty context', async () => {
     const route = defineBetterEventHandler(
       { output: z.object({ keys: z.array(z.string()) }) },
@@ -181,6 +202,38 @@ describe('a route declaring a status map', () => {
 
     expect(response.status).toBe(204)
     await expect(response.text()).resolves.toBe('')
+  })
+
+  it('drops a status message set before the Handler ran', async () => {
+    const route = defineBetterEventHandler(
+      { output: { 201: created } },
+      (_event, { respond }) =>
+        respond(201, { id: '1', createdAt: '2026-10-25' })
+    )
+
+    const response = await answer(
+      defineEventHandler((event) => {
+        setResponseStatus(event, 404, 'Not Found')
+
+        return route(event)
+      })
+    )
+
+    expect(response.status).toBe(201)
+    expect(response.statusText).toBe('')
+  })
+
+  it('sends null as the body of a schema whose input is null', async () => {
+    // A `z.null()` slot declares a body that is `null`, not a bodiless reply:
+    // `respond(201, null)` is the call that answers it.
+    const route = defineBetterEventHandler(
+      { output: { 201: z.null() } },
+      (_event, { respond }) => respond(201, null)
+    )
+
+    const response = await answer(route)
+
+    expect(response.status).toBe(201)
   })
 
   it('lets any status be declared null, not only 204', async () => {
@@ -355,6 +408,34 @@ describe('an output that is neither form', () => {
         '[better-handler] The output for status 201 must be a Standard Schema, or null for a reply with no body, not a plain object.'
       )
     )
+  })
+
+  it.each([400, 404, 500, 599, 600])(
+    'refuses %i, pointing a failure status at errors',
+    (status) => {
+      // A client fetch throws on 400 and above, so a body declared there
+      // would never arrive as data; a failure is a Known error instead.
+      expect(declaring({ 200: existing, [status]: existing })).toThrow(
+        new Error(
+          `[better-handler] The output's key "${status}" must be a status, an integer from 100 to 399 - a failure status is declared under errors, by tag.`
+        )
+      )
+    }
+  )
+
+  it.each(['99', '200.5', 'ok', '0200', '-200'])(
+    'refuses the key %j, which is no status at all',
+    (key) => {
+      expect(declaring({ [key]: existing })).toThrow(
+        new Error(
+          `[better-handler] The output's key "${key}" must be a status, an integer from 100 to 399 - a failure status is declared under errors, by tag.`
+        )
+      )
+    }
+  )
+
+  it.each([100, 200, 302, 399])('takes %i as a status', (status) => {
+    expect(declaring({ [status]: existing })).not.toThrow()
   })
 
   it('refuses a status left undefined, which names no reply', () => {

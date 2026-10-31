@@ -19,8 +19,10 @@ import type {
   ValidationFailed,
 } from './io/input'
 import type {
+  BodilessStatuses,
   HasOutput,
   IsStatusMap,
+  OutputGuard,
   Respond,
   ResponseOutput,
   ResponseOutputs,
@@ -66,7 +68,7 @@ export type BetterHandlerOptions<
 > = DeclareSomething<Input, Errors, Output> & {
   readonly input?: Input & InputGuard<Input>
   readonly errors?: Errors & ErrorDeclarationsGuard<Errors>
-  readonly output?: Output
+  readonly output?: Output & OutputGuard<Output>
 }
 
 /** `'fail'` when the route declares a tag, and no key at all otherwise. */
@@ -96,7 +98,7 @@ export type HandlerContext<
     | RespondKey<Output>]: Key extends 'fail'
     ? Fail<Errors>
     : Key extends 'respond'
-      ? Respond<ResponseOutputs<Output>>
+      ? Respond<ResponseOutputs<Output>, BodilessStatuses<Output>>
       : Key extends keyof Input
         ? SourceValue<Input[Key]>
         : never

@@ -38,9 +38,16 @@ export function checkRespondedStatus(
   // an undeclared one would.
   if (Object.hasOwn(statuses, status)) return
 
+  // `output` names no status from 400 up, so a failure is pointed at
+  // `errors` rather than at a declaration that would be refused.
+  const declareIt =
+    status >= 400
+      ? 'declare the failure under `errors` and throw it with `fail`'
+      : `name ${status} in \`output\``
+
   throw developerFault(
     `cannot send the response: ${describeRoute(event)} answered ${status}, a status its declared Response output never names - the map names ${describeStatuses(statuses)}. ` +
-      `Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or name ${status} in \`output\`, or set \`devChecks: false\`.`
+      `Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or ${declareIt}, or set \`devChecks: false\`.`
   )
 }
 
