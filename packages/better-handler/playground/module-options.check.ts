@@ -9,8 +9,12 @@ import type { NuxtConfig } from 'nuxt/schema'
 /** The development-only assertions, turned off from a consumer's config. */
 export const devChecksOff: NuxtConfig['betterHandler'] = { devChecks: false }
 
-export const retiredOption: NuxtConfig['betterHandler'] = {
+/**
+ * Any other key is refused: the earlier design's channel token option, which
+ * this design retired, is no exception.
+ */
+export const anyOtherKey: NuxtConfig['betterHandler'] = {
   devChecks: true,
-  // @ts-expect-error the channel token no longer exists in this design
-  channelToken: 'x',
+  // @ts-expect-error `devChecks` is the module's only option
+  unknownOption: 'x',
 }

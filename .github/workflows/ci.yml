@@ -141,10 +141,11 @@ jobs:
       - run: pnpm publint
 
   # The Nuxt floor: the module claims every Nuxt from 4.0.0, the lockfile pins
-  # the latest 4.x, so this job installs 4.0.x on purpose. Only the new package's
-  # suites run here, because the three handler packages stay on the committed
-  # lockfile until they are deleted; from then on these steps become
-  # `pnpm typecheck` and `pnpm test`.
+  # the latest 4.x, so this job installs 4.0.x on purpose and runs the root
+  # typecheck, every workspace's, against it, and the tests of every package
+  # under `packages/`. The other suites test repository tooling, not a Nuxt
+  # range; the Scaffolder's acceptance test even requires a generated package
+  # to resolve at least the Nuxt it claims, which the overrides break by design.
   floor:
     name: Nuxt 4.0 floor
     runs-on: ubuntu-latest
@@ -163,10 +164,10 @@ jobs:
           version=$(node -p "require('./packages/better-handler/node_modules/nuxt/package.json').version")
           [[ $version == 4.0.* ]] || { echo "::error::@dphonys/better-handler resolved nuxt $version, not 4.0.x."; exit 1; }
       - name: Typecheck
-        run: pnpm exec turbo run typecheck --filter=@dphonys/better-handler
+        run: pnpm typecheck
       - name: Test
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: pnpm exec turbo run test --filter=@dphonys/better-handler
+        run: pnpm exec turbo run test --filter='./packages/*'
 
   report:
     name: Pull request report
