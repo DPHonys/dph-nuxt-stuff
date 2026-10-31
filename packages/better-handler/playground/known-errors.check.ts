@@ -3,6 +3,7 @@ import type {
   KnownErrorFor,
   KnownErrorsOfRoute,
   RequestFailed,
+  ValidationFailed,
 } from '@dphonys/better-handler/types'
 import type { NuxtError } from 'nuxt/app'
 
@@ -42,6 +43,34 @@ export type EffectErrorHolds = Assert<
   >
 >
 
+/**
+ * A route declaring `input` carries the Built-in validation-failed variant:
+ * as its whole union when it declares nothing else, beside its declared
+ * errors when it does.
+ */
+export type InputOnlyHolds = Assert<
+  Equal<KnownErrorsOfRoute<'/api/search'>, ValidationFailed>
+>
+
+export type InputAndErrorsHold = Assert<
+  Equal<
+    KnownErrorsOfRoute<'/api/invoices/7'>,
+    { _tag: 'invoice-not-found'; id: number } | ValidationFailed
+  >
+>
+
+/** The variant's issues, as a client reads them. */
+export type ValidationFailedHolds = Assert<
+  Equal<
+    ValidationFailed['issues'][number],
+    {
+      source: 'route' | 'query' | 'headers' | 'body'
+      message: string
+      path: Array<string | number>
+    }
+  >
+>
+
 /** A fetched error carries the Tagged error at `data.data`. */
 export type FetchedErrorHolds = Assert<
   Equal<
@@ -59,6 +88,24 @@ export type VanillaHolds = Assert<
 >
 
 declare const ordersError: KnownErrorFor<'/api/orders/7'> | undefined
+
+declare const invoiceError: KnownErrorFor<'/api/invoices/7'> | undefined
+
+/** A rejected input is one more arm, typed with its issues. */
+export function handleInvoices(): void {
+  matchError(
+    invoiceError,
+    {
+      'validation-failed': ({ issues }) =>
+        console.warn(
+          issues.map(({ source, path }) => `${source}.${path.join('.')}`)
+        ),
+      'invoice-not-found': ({ id }) => console.warn('missing', id),
+      'request-failed': ({ status }) => console.warn('failed', status),
+    },
+    (unknown) => console.warn('unknown failure', unknown._tag)
+  )
+}
 
 /** Every tag an arm, the Request-failed variant included, and a fallback. */
 export function handleOrders(): void {
