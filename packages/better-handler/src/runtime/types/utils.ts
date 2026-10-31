@@ -103,14 +103,18 @@ type Ranked<Key, Entry> = [Entry] extends [never]
       : { rank: Specificity<Key>; entry: [Entry] }
     : { rank: Specificity<Key>; entry: [Entry] }
 
-// Distributes over the matched keys; a key without the method, and without
-// `default`, serves nothing, and h3 falls through to a less specific one.
+// Distributes over the matched keys and over the method, one lowercase
+// method at a time, as `MethodEntry` looks one up: a key without the method,
+// and without `default`, serves nothing, and h3 falls through to a less
+// specific one.
 type Candidate<Map, Key, Method extends string> = Key extends keyof Map
-  ? Lowercase<Method> extends keyof Map[Key]
-    ? Ranked<Key, Map[Key][Lowercase<Method>]>
-    : 'default' extends keyof Map[Key]
-      ? Ranked<Key, Map[Key]['default']>
-      : never
+  ? Method extends unknown
+    ? Method extends keyof Map[Key]
+      ? Ranked<Key, Map[Key][Method]>
+      : 'default' extends keyof Map[Key]
+        ? Ranked<Key, Map[Key]['default']>
+        : never
+    : never
   : never
 
 type MostSpecific<Candidates> = [Extract<Candidates, { rank: 0 }>] extends [
@@ -130,17 +134,26 @@ type MostSpecific<Candidates> = [Extract<Candidates, { rank: 0 }>] extends [
  * with an entry for the method (or `default`), an exact static key beats a
  * key with params, which beats a catch-all, and keys that tie answer the
  * union of their entries. A key whose entry is `any` is skipped first.
+ *
+ * A union method is served one method at a time, each by its own most
+ * specific key, and answers the union of what each accepts: ranked together,
+ * the key serving one method would outrank, and drop, the key serving
+ * another.
  */
 // The route lookup runs once, inferred into `Key` as `RouteEntry` does: a
 // generic `MatchedRoutes` compared against anything reports a stack-depth
 // error at every route key.
 export type ServingEntry<Map, Route extends string, Method extends string> =
   RouteKeyOf<Route> extends infer Key
-    ? MostSpecific<
-        Key extends unknown
-          ? Serves<Route, Key> extends true
-            ? Candidate<Map, Key, Method>
-            : never
-          : never
-      >['entry'][0]
+    ? Lowercase<Method> extends infer Lower extends string
+      ? Lower extends unknown
+        ? MostSpecific<
+            Key extends unknown
+              ? Serves<Route, Key> extends true
+                ? Candidate<Map, Key, Lower>
+                : never
+              : never
+          >['entry'][0]
+        : never
+      : never
     : never

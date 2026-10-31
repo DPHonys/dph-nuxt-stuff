@@ -709,6 +709,11 @@ describe('a request path that several route keys match', () => {
       `type _outranked = Expect<Equal<Outranked, { body: { script: string } } | Localised>>`,
       `type _shared = Expect<Equal<Shared, { body: { a: string } } | { body: { b: string } }>>`,
       ``,
+      `export type EitherMethod = RequestInputOfRoute<'/api/files/7', 'post' | 'GET'>`,
+      `export type EitherMethodBody = Extract<EitherMethod, { body: unknown }>['body']`,
+      `export type EitherMethodQuery = Extract<EitherMethod, { query: unknown }>['query']`,
+      `type _eitherMethod = Expect<Equal<EitherMethod, Named | Localised>>`,
+      ``,
     ].join('\n')
   )
 
@@ -750,6 +755,19 @@ describe('a request path that several route keys match', () => {
     // `/api/scripts/:id` is a module the compiler cannot read; its `any`
     // says nothing, so the catch-alls answer, tied with the root one.
     expect(compilation.renderHover('OutrankedBody')).toBe('{ script: string; }')
+  })
+
+  it('finds the serving key of each method of a union method on its own', () => {
+    // `post` is served by the `:id` key, `get` only by the root catch-all:
+    // ranked together, the `:id` key would outrank the catch-all and drop
+    // the `get` request's input, and the union method itself is no key of
+    // either.
+    expect(compilation.renderHover('EitherMethodBody')).toBe(
+      '{ name: string; }'
+    )
+    expect(compilation.renderHover('EitherMethodQuery')).toBe(
+      '{ lang: string; }'
+    )
   })
 
   it('keeps the union of two handlers on one route and method', () => {
