@@ -178,6 +178,41 @@ describe('the merge of a tuple’s outputs', () => {
     expect(await response.json()).toEqual({ page: '1', sort: 'asc' })
   })
 
+  it('keeps an enumerable symbol key, as the merged type does', async () => {
+    const marker = Symbol('marker')
+    const hidden = Symbol('hidden')
+
+    const marked = v.pipe(
+      v.unknown(),
+      v.transform(() => {
+        const output = { [marker]: 'marked' }
+
+        // Not enumerable, so no spread or merge carries it: dropped alike.
+        Object.defineProperty(output, hidden, { value: 'hidden' })
+
+        return output
+      })
+    )
+
+    const route = defineBetterEventHandler(
+      { input: { query: [marked, sorting] } },
+      (_event, { query }) => ({
+        marker: query[marker],
+        hidden: Object.getOwnPropertySymbols(query).includes(hidden),
+        sort: query.sort,
+      })
+    )
+
+    const response = await request(route, '/api/test?sort=asc')
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      marker: 'marked',
+      hidden: false,
+      sort: 'asc',
+    })
+  })
+
   it('runs async elements one after another, in tuple order', async () => {
     const order: string[] = []
 

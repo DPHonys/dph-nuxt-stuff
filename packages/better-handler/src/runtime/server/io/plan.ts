@@ -266,13 +266,23 @@ function mergeOutputs<Slot extends SourceSchemas>(
       )
     }
 
-    // Defined rather than assigned, so a `__proto__` key lands as an own
-    // property instead of calling the setter that would swap the merged
-    // object's prototype. h3's readers drop that key before this point; the
-    // guarantee is held here rather than borrowed from them.
-    for (const [key, entry] of Object.entries(value)) {
+    // Every own enumerable key, symbols included, as the merged type keeps
+    // them; `Object.entries` would drop a symbol. Defined rather than
+    // assigned, so a `__proto__` key lands as an own property instead of
+    // calling the setter that would swap the merged object's prototype. h3's
+    // readers drop that key before this point; the guarantee is held here
+    // rather than borrowed from them.
+    for (const key of Reflect.ownKeys(value)) {
+      const property = Object.getOwnPropertyDescriptor(value, key)
+
+      if (property?.enumerable !== true) continue
+
       Object.defineProperty(merged, key, {
-        value: entry,
+        // Read as a property read would, a getter's included.
+        value:
+          property.get === undefined
+            ? property.value
+            : property.get.call(value),
         writable: true,
         enumerable: true,
         configurable: true,
