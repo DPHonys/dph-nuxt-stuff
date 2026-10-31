@@ -1,4 +1,6 @@
 import { addServerImports, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { emitMap, KNOWN_ERRORS_SLOT } from './build/emit-map'
+import { addRouteTypeTemplate } from './build/routes'
 import { addRuntimeServerPlugin } from './build/server-plugins'
 
 export interface ModuleOptions {
@@ -48,5 +50,10 @@ export default defineNuxtModule<ModuleOptions>({
         resolver.resolve('./runtime/server/plugins/dev-checks')
       )
     }
+
+    // The generated `KnownApiErrors` map. It augments this package's own
+    // `/types`, which the package's `exports` resolves from every generated
+    // tsconfig, so nothing is hoisted.
+    addRouteTypeTemplate(nuxt, (routes) => emitMap(routes, [KNOWN_ERRORS_SLOT]))
   },
 })

@@ -9,12 +9,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import { isFunction, isRecordLike, isString } from '../../shared/guards'
-import { httpError } from '../../shared/h3'
 import type { TaggedError } from '../../types/errors/tagged'
 import { devChecksEnabled } from '../dev-checks'
-import { developerFault } from '../faults'
+import { describeRoute, developerFault } from '../faults'
 import { describeDeclaredTags } from './declaration'
 import type { ResolvedErrorEntry, ResolvedErrors } from './declaration'
+import { createKnownError } from './known-error'
 
 /**
  * The `_tag` a thrown value carries, read by property access because a class
@@ -58,11 +58,6 @@ function taggedErrorOf<Fields extends object>(
   return { _tag: tag, ...fields }
 }
 
-/** The route as a sentence names it: its method and the path it was asked. */
-function describeRoute(event: H3Event): string {
-  return `${event.method} ${event.path}`
-}
-
 // The keys an issue's path names, joined; a segment may be a key or an object
 // carrying one, and its key may be a symbol, which a template cannot print.
 function describePath(path: StandardSchemaV1.Issue['path']): string {
@@ -100,18 +95,30 @@ async function checkFields<Fields extends object>(
   if (entry.schema === undefined) return
 
   // Called on `~standard`, not detached from it, as a library may read
-  // `this`. Awaited: a Standard Schema may answer asynchronously, and a
-  // promise read for `issues` would look like every value that passes.
+  // `this`.
   const standard = entry.schema['~standard']
+  let issues: readonly StandardSchemaV1.Issue[] | undefined
 
-  if ((await standard.validate(fields)).issues === undefined) return
+  try {
+    // Awaited: a Standard Schema may answer asynchronously, and a promise
+    // read for `issues` would look like every value that passes.
+    if ((await standard.validate(fields)).issues === undefined) return
 
-  const result = await standard.validate(tagged)
+    issues = (await standard.validate(tagged)).issues
+  } catch (cause) {
+    // A schema that throws instead of answering would otherwise replace the
+    // Known error with its own exception, naming neither route nor tag.
+    throw developerFault(
+      `cannot send the error: ${describeRoute(event)} threw ${JSON.stringify(entry.tag)}, and the schema it declares threw while checking the fields instead of reporting issues - the cause is what it threw. ` +
+        'Nothing runs the schema in production, so this route would send the fields unchecked: fix the schema, or set `devChecks: false`.',
+      cause
+    )
+  }
 
-  if (result.issues === undefined) return
+  if (issues === undefined) return
 
   throw developerFault(
-    `cannot send the error: ${describeRoute(event)} threw ${JSON.stringify(entry.tag)} with fields its declared schema rejects - ${describeIssues(result.issues)}. ` +
+    `cannot send the error: ${describeRoute(event)} threw ${JSON.stringify(entry.tag)} with fields its declared schema rejects - ${describeIssues(issues)}. ` +
       'Nothing checks the fields in production, so this route would send them as they are: fix the handler or the schema, or set `devChecks: false`.'
   )
 }
@@ -121,20 +128,25 @@ async function checkFields<Fields extends object>(
  * route never declared - a typo, or a tag declared on another route - which
  * production would let propagate as an unrecognised failure.
  */
-function refuseUndeclaredTag(
+function refuseUndeclaredTag<Thrown>(
   event: H3Event,
   errors: ResolvedErrors,
-  tag: string
+  tag: string,
+  thrown: Thrown
 ): never {
+  // The thrown value rides along as the cause: a `_tag` is not only ours -
+  // Effect's own failures carry one - and the original's stack is what finds
+  // the bug.
   throw developerFault(
     `cannot send the error: ${describeRoute(event)} threw a value tagged ${JSON.stringify(tag)}, which this route does not declare - it declares ${describeDeclaredTags(errors)}. ` +
-      'Nothing checks this in production, where the value propagates as it was thrown: declare the tag in `errors` or throw a declared one, or set `devChecks: false`.'
+      'Nothing checks this in production, where the value propagates as it was thrown: declare the tag in `errors` or throw a declared one, or set `devChecks: false`.',
+    thrown
   )
 }
 
 /**
  * Answer what a route's body threw, by throwing in its place: the Known error
- * a declared tag names, built through the h3 seam with the declared status,
+ * a declared tag names, built by `createKnownError` with the declared status,
  * the tag as its `message`, the Tagged error as its `data` and the thrown
  * value as its `cause`; or the thrown value itself, untouched. Status always
  * comes from the declaration, never from the thrown value.
@@ -153,7 +165,7 @@ export async function answerThrown<Thrown>(
   const entry = Object.hasOwn(errors, tag) ? errors[tag] : undefined
 
   if (entry === undefined) {
-    if (devChecksEnabled()) refuseUndeclaredTag(event, errors, tag)
+    if (devChecksEnabled()) refuseUndeclaredTag(event, errors, tag, thrown)
 
     throw thrown
   }
@@ -165,10 +177,5 @@ export async function answerThrown<Thrown>(
 
   // The thrown value rides along as the cause, so an error hook or a
   // reporter sees the stack of the line that raised it, not this one's.
-  throw httpError({
-    status: entry.status,
-    message: tag,
-    data: tagged,
-    cause: thrown,
-  })
+  throw createKnownError(entry.status, tagged, thrown)
 }

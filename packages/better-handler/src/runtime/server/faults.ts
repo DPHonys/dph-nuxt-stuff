@@ -4,7 +4,7 @@
  * time, where the route answers `500`. Neither is ever a Known error.
  */
 
-import type { H3Error } from 'h3'
+import type { H3Error, H3Event } from 'h3'
 import {
   isFunction,
   isPlainObject,
@@ -19,16 +19,19 @@ const PREFIX = '[better-handler]'
 /**
  * A mistake found while a request is served: a plain `500` carrying the
  * sentence, built through the h3 seam. It has no `data`, so it never carries
- * a `_tag` and `recognizeKnownError` never answers for a bug.
+ * a `_tag` and `recognizeKnownError` never answers for a bug. A fault that
+ * stands in for something thrown keeps it as its `cause`, so the logs still
+ * show the original and its stack; the wire never carries it.
  *
  * Unhandled, as any server bug is: Nitro logs it with its stack in
  * development and production alike, a development client reads the sentence,
  * and a production client gets Nitro's generic `500` without it.
  */
-export function developerFault(message: string): H3Error {
+export function developerFault(message: string, cause?: unknown): H3Error {
   return httpError({
     status: 500,
     message: `${PREFIX} ${message}`,
+    cause,
     unhandled: true,
   })
 }
@@ -69,4 +72,9 @@ export function describeValue<Value>(value: Value): string {
   }
 
   return Object.keys(value).length === 0 ? 'an empty object' : 'a plain object'
+}
+
+/** The route as a sentence names it: its method and the path it was asked. */
+export function describeRoute(event: H3Event): string {
+  return `${event.method} ${event.path}`
 }

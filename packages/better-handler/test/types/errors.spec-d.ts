@@ -101,6 +101,22 @@ describe('defineError', () => {
     expectTypeOf(tagged).toHaveProperty('order-missing')
   })
 
+  it('accepts both ends of the status range, and a status it cannot know', () => {
+    // Plain `number` is what a computed status widens to; only a literal can
+    // be held to the range here, and the declaration-time throw holds the rest.
+    const status: number = 404
+    const range = {
+      ...defineError('too-early', { status: 400 }),
+      ...defineError('too-late', { status: 599 }),
+      ...defineError('order-computed', { status }),
+    } satisfies ErrorDeclarations
+
+    expectTypeOf<keyof typeof range>().toEqualTypeOf<
+      'too-early' | 'too-late' | 'order-computed'
+    >()
+    expectTypeOf(range['order-computed'].status).toEqualTypeOf<number>()
+  })
+
   it('reads the _tag literal off the schema input, which the check validates', () => {
     const renamed = defineError('order-renamed', {
       status: 404,

@@ -44,6 +44,9 @@ const SENTENCES = {
   strayKey:
     'payload is not an error entry key - an entry takes status and schema',
   numericKey: 'an error tag must be a string key - quote a numeric one',
+  redirectStatus: 'the status must be an integer from 400 to 599, not 302',
+  fractionalStatus: 'the status must be an integer from 400 to 599, not 404.5',
+  successStatus: 'the status must be an integer from 400 to 599, not 200',
   bigintField:
     'the field total cannot go out as JSON - it holds a bigint or a symbol',
   indexedBigint:
@@ -73,7 +76,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(32)
+    expect(diagnostics).toHaveLength(35)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -132,6 +135,21 @@ describe('defineError refuses an entry its tag cannot carry', () => {
     expect(guarding(diagnostic, SENTENCES.bigintField)).toBe(true)
   })
 
+  it.each([
+    ['status: 302,', SENTENCES.redirectStatus],
+    ['status: 404.5', SENTENCES.fractionalStatus],
+  ])(
+    'refuses a status outside 400-599, at the status: %s',
+    (needle, sentence) => {
+      // The same rule the declaration-time throw enforces, caught before the
+      // route module ever loads.
+      const diagnostic = at(needle)
+
+      expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+      expect(guarding(diagnostic, sentence)).toBe(true)
+    }
+  )
+
   it('refuses a bigint under a numeric index signature, at the tag', () => {
     const diagnostic = at("defineError('order-indexed'")
 
@@ -187,6 +205,13 @@ describe("a route's errors are refused at the key", () => {
 
     expect(diagnostic?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
     expect(guarding(diagnostic, SENTENCES.strayKey)).toBe(true)
+  })
+
+  it('refuses a status outside 400-599, at the status', () => {
+    const diagnostic = at("'order-fine': { status: 200 }")
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.successStatus)).toBe(true)
   })
 
   it('refuses a field holding what JSON cannot carry, however deep', () => {

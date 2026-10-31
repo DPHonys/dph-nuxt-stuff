@@ -66,7 +66,11 @@ export default {
 
       // The inherited `@nuxt/schema` exemption suppresses nothing in this
       // package, and an idle ignore fails the run via the hint promotion above.
-      ignoreDependencies: ['@nuxt/devtools'],
+      // `nitropack` is imported for types only, by the response-typing seam:
+      // every Nuxt 4 app's generated tsconfig maps `nitropack/types` onto the
+      // app's own Nitro, which is the one whose route types must be read, so
+      // the package installs no copy of its own.
+      ignoreDependencies: ['@nuxt/devtools', 'nitropack'],
 
       entry: [
         ...nuxtModuleWorkspace.entry,
@@ -81,10 +85,10 @@ export default {
     'packages/better-handler/playground': {
       ...playgroundWorkspace,
 
-      // Compiler-asserted by `vue-tsc`, never imported. It lives in an app
-      // because the config typing it asserts only exists in a generated
-      // `.nuxt`.
-      entry: ['module-options.check.ts'],
+      // Compiler-asserted by `vue-tsc`, never imported. They live in an app
+      // because the config typing and the route map they assert only exist
+      // in a generated `.nuxt`.
+      entry: ['*.check.ts'],
     },
 
     'packages/nuxt-handler-errors': {

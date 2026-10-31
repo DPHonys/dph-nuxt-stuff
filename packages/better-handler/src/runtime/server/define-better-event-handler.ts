@@ -1,7 +1,9 @@
-import type { H3Event } from 'h3'
+import type { EventHandlerRequest, H3Event } from 'h3'
+import { isRecordLike } from '../shared/guards'
 import { makeEventHandler } from '../shared/h3'
 import type { ErrorDeclarations } from '../types/errors/declaration'
 import type { Fail } from '../types/errors/fail'
+import type { KnownErrorsOf } from '../types/errors/tagged'
 import type {
   BetterEventHandler,
   BetterHandlerFn,
@@ -10,6 +12,36 @@ import type {
 import { answerThrown } from './errors/boundary'
 import { resolveErrors } from './errors/declaration'
 import { createFail } from './errors/fail'
+import { declarationFault, describeValue } from './faults'
+
+/**
+ * The compile guard's answer for a caller the types never saw: options that
+ * are no object, declare nothing, or hold an `errors` that is no map would
+ * otherwise fail inside the package with a TypeError naming none of them.
+ */
+function checkOptions<Errors extends ErrorDeclarations>(
+  options: BetterHandlerOptions<Errors>
+): void {
+  const given: unknown = options
+
+  if (!isRecordLike(given)) {
+    throw declarationFault(
+      `defineBetterEventHandler takes its declarations as an object, not ${describeValue(given)}.`
+    )
+  }
+
+  const errors = 'errors' in given ? given.errors : undefined
+
+  if (errors === undefined) {
+    throw declarationFault('defineBetterEventHandler must declare errors.')
+  }
+
+  if (!isRecordLike(errors)) {
+    throw declarationFault(
+      `The errors of defineBetterEventHandler must be a map of error declarations keyed by tag, not ${describeValue(errors)}.`
+    )
+  }
+}
 
 /**
  * Declare what a route can fail with, and raise it from the Handler context:
@@ -39,7 +71,9 @@ import { createFail } from './errors/fail'
  * same body to every caller. Everything else propagates as it was thrown.
  *
  * The declarations are checked here, when the route module is evaluated, so
- * a misdeclared route throws before it serves anything.
+ * a misdeclared route throws before it serves anything. The returned
+ * Handler's type carries the declared Known errors, which the generated type
+ * map reads to type every call site of the route.
  */
 export function defineBetterEventHandler<
   const Errors extends ErrorDeclarations,
@@ -47,7 +81,13 @@ export function defineBetterEventHandler<
 >(
   options: BetterHandlerOptions<Errors>,
   handler: BetterHandlerFn<Errors, Response>
-): BetterEventHandler<Response> {
+): BetterEventHandler<
+  EventHandlerRequest,
+  Promise<Awaited<Response>>,
+  KnownErrorsOf<Errors>
+> {
+  checkOptions(options)
+
   const errors = resolveErrors(options.errors)
 
   // The Fail helper as `Fail<Errors>` types it, handed over through an `any`
