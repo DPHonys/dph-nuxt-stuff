@@ -34,6 +34,7 @@ const GENERATED = join(FIXTURE, '.nuxt/generated')
 const NATIVE_CHECK = join(FIXTURE, 'checks/native.ts')
 const AGREEMENT_CHECK = join(FIXTURE, 'checks/agreement.spec-d.ts')
 const BETTER_FETCH_CHECK = join(FIXTURE, 'checks/better-fetch.ts')
+const COMPOSABLES_CHECK = join(FIXTURE, 'checks/composables.ts')
 
 /** What marks a call the generated engine must refuse, at the end of its line. */
 const REFUSED = '// refused natively'
@@ -177,4 +178,38 @@ describe('the fetch family, typed from the generated map whatever the route engi
       )
     }
   )
+})
+
+describe('the composables, typed from the generated map whatever the route engine', () => {
+  it('refuse exactly the marked calls on Nitro’s route types', () => {
+    const refused = markedRefusals(COMPOSABLES_CHECK)
+
+    // Guards the comparison below against a file that lost its markers.
+    expect(refused.length).toBeGreaterThanOrEqual(13)
+    expect(compileInApp(INTERNAL_API, COMPOSABLES_CHECK).map(located)).toEqual(
+      refused
+    )
+  })
+
+  it.skipIf(!HAS_GENERATED_ENGINE)(
+    'refuse the same calls, and type every other the same, on the generated route engine',
+    () => {
+      expect(compileInApp(GENERATED, COMPOSABLES_CHECK).map(located)).toEqual(
+        markedRefusals(COMPOSABLES_CHECK)
+      )
+    }
+  )
+
+  it('refuse a handler that forgot .try with the sentence that says so', () => {
+    const forgotten = compileInApp(INTERNAL_API, COMPOSABLES_CHECK).filter(
+      ({ code }) => code === NO_OVERLOAD_MATCHES
+    )
+
+    expect(forgotten).toHaveLength(2)
+    for (const { message } of forgotten) {
+      expect(message).toContain(
+        'AsyncDataHandlerError<"resolve to a .try result, such as $betterFetch.try(…)">'
+      )
+    }
+  })
 })

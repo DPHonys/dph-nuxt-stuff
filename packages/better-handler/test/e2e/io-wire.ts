@@ -269,7 +269,7 @@ export function theInputWire(nitroExtras: NitroExtras): void {
 
 /**
  * The output half's wire, in one copy for both servers as the input half's
- * is: the bare form answering `200`, a mapped status and a bodiless one.
+ * is: the bare form answering `200`, a mapped status and bodiless ones.
  */
 export function theOutputWire(): void {
   it('answers the bare form 200, whatever status the Handler set', async () => {
@@ -292,6 +292,24 @@ export function theOutputWire(): void {
     })
 
     expect(response.status).toBe(204)
+    expect(response.headers.get('content-type')).toBeNull()
+    expect(await response.text()).toBe('')
+  })
+
+  // h3 alone answers a `null` under `200` with a `204`, a status neither
+  // route declares.
+  it('answers a 200 declared null with 200 and no body', async () => {
+    const response = await fetch('/api/receipts', { method: 'PUT' })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBeNull()
+    expect(await response.text()).toBe('')
+  })
+
+  it('answers the bare form’s null with 200 and no body', async () => {
+    const response = await fetch('/api/receipts/latest')
+
+    expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBeNull()
     expect(await response.text()).toBe('')
   })

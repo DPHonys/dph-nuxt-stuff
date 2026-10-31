@@ -13,5 +13,5 @@ describe('the fetch family’s wire, against a dev server', async () => {
     dev: true,
   })
 
-  theFetchWire()
+  theFetchWire({ dev: true })
 })

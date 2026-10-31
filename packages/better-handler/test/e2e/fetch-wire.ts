@@ -11,6 +11,40 @@ import { expect, it } from 'vitest'
 /** The route's Known error, as `.try` hands it over. */
 const ORDER_NOT_FOUND = { _tag: 'order-not-found', id: 404 }
 
+/** The JSON a `<pre>` of the fixture's page rendered, unescaped. */
+function renderedJson(html: string, id: string): string {
+  const escaped =
+    new RegExp(`<pre id="${id}">(.*?)</pre>`, 's').exec(html)?.[1] ?? ''
+
+  return escaped
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&')
+}
+
+/** An error ref as the fixture's page reports it. */
+interface ReportedErrorRef {
+  readonly nuxtError: boolean
+  readonly statusCode: number
+  /** The error's `data`: the whole Nitro error body of the failed fetch. */
+  readonly body: unknown
+}
+
+/** An error ref holding the `NuxtError` of a fetched Known error. */
+function knownErrorRef(tagged: { _tag: string }): ReportedErrorRef {
+  return {
+    nuxtError: true,
+    statusCode: 404,
+    body: expect.objectContaining({
+      statusCode: 404,
+      message: tagged._tag,
+      data: tagged,
+    }),
+  }
+}
+
 /** What both relays report alike. */
 const OBSERVED = {
   order: { id: 7 },
@@ -20,7 +54,13 @@ const OBSERVED = {
   unavailable: { _tag: 'request-failed', status: 503 },
 }
 
-export function theFetchWire(): void {
+/** Which server a wire runs against. */
+interface WireServer {
+  /** A development server, which runs Nuxt's development checks. */
+  readonly dev: boolean
+}
+
+export function theFetchWire(server: WireServer): void {
   it('$betterFetch answers, and .try classifies every failure, from a Nitro handler', async () => {
     expect(await $fetch('/api/relay/global')).toEqual({
       ...OBSERVED,
@@ -41,12 +81,69 @@ export function theFetchWire(): void {
   })
 
   it('$betterFetch answers during server-side rendering', async () => {
-    const html = await $fetch<string>('/')
-    const rendered = /<pre id="rendered">(.*?)<\/pre>/s.exec(html)?.[1] ?? ''
-
-    expect(JSON.parse(rendered.replaceAll('&quot;', '"'))).toEqual({
+    expect(
+      JSON.parse(renderedJson(await $fetch<string>('/'), 'rendered'))
+    ).toEqual({
       order: { id: 7 },
       missing: ORDER_NOT_FOUND,
+    })
+  })
+
+  // Each error ref is reported as `{ nuxtError, statusCode, body }`, `body`
+  // being the error's `data`: the whole Nitro error body of the failed fetch.
+  it('every composable answers during server-side rendering, a Known error reaching its error ref intact', async () => {
+    const html = await $fetch<string>('/', {
+      headers: { cookie: 'session=abc' },
+    })
+
+    expect(JSON.parse(renderedJson(html, 'composables'))).toEqual({
+      useBetterFetch: {
+        data: { id: 7 },
+        error: knownErrorRef(ORDER_NOT_FOUND),
+        // During rendering `useFetch` forwards the rendered request's cookie.
+        echoed: { accept: 'application/json', cookie: 'session=abc' },
+      },
+      // From `server/routes/`, answered as JSON because the composable asked.
+      useLazyBetterFetch: { error: knownErrorRef(ORDER_NOT_FOUND) },
+      useBetterAsyncData: {
+        // Two keyless calls, each with its own key and its own answer.
+        data: { id: 7 },
+        // Not Nuxt's `500` around a plain object: the error the fetch threw.
+        error: knownErrorRef(ORDER_NOT_FOUND),
+        // `useRequestBetterFetch` is the rendered request's own fetch.
+        echoed: { accept: 'application/json', cookie: 'session=abc' },
+      },
+      // The Request-failed variant's own error, with the response's status.
+      useLazyBetterAsyncData: {
+        error: {
+          nuxtError: true,
+          statusCode: 503,
+          body: expect.objectContaining({
+            statusCode: 503,
+            message: 'down for maintenance',
+          }),
+        },
+      },
+    })
+  })
+
+  // The async-data composables hand Nuxt a handler of their own: Nuxt's
+  // check, which hashes each handler's source text, still has to tell two
+  // callers' handlers apart.
+  it('keeps Nuxt’s development warning for two different handlers under one key', async () => {
+    const collisions: unknown = JSON.parse(
+      renderedJson(await $fetch<string>('/'), 'collisions')
+    )
+
+    expect(collisions).toEqual({
+      sameHandler: [],
+      differentHandlers: server.dev
+        ? [
+            expect.stringMatching(
+              /"different-handlers"[\s\S]*different handler/
+            ),
+          ]
+        : [],
     })
   })
 

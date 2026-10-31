@@ -6,9 +6,22 @@ import type { $BetterFetch, BetterFetch } from './fetch'
 import type { RouteEntry } from './utils'
 
 export type {
+  AsyncDataErrorOf,
+  AsyncDataHandlerError,
+  BetterAsyncDataHandler,
+  FailureOf,
+  SuccessOf,
+  TrySource,
+  UseBetterAsyncData,
+  UseBetterFetch,
+  UseBetterFetchOptions,
+  UseRequestBetterFetch,
+} from './composables'
+export type {
   ErrorArms,
   KnownErrorBody,
   KnownErrorFor,
+  KnownErrorOf,
   MatchableError,
   MatchError,
   RequestFailed,

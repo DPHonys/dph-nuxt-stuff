@@ -477,6 +477,38 @@ describe('the development checks', () => {
     )
   })
 
+  it('name a path through null-prototype segments and keys, rather than throwing', async () => {
+    // `String()` throws on a key without a prototype: the check would answer
+    // with a `TypeError` of its own, naming neither route nor tag.
+    const issues: StandardSchemaV1.Issue[] = [
+      {
+        message: 'must be listed',
+        path: [
+          Object.assign(Object.create(null), { key: 'items' }),
+          { key: Object.create(null) },
+        ],
+      },
+    ]
+    const odd = { _tag: 'order-odd' }
+    const rejecting: StandardSchemaV1 = {
+      '~standard': { version: 1, vendor: 'test', validate: () => ({ issues }) },
+    }
+
+    const route = defineBetterEventHandler(
+      { errors: { 'order-odd': { status: 422, schema: rejecting } } },
+      () => {
+        throw odd
+      }
+    )
+
+    const { thrown } = await answer(route)
+
+    expect(thrown.statusCode).toBe(500)
+    expect(thrown.message).toContain(
+      'threw "order-odd" with fields its declared schema rejects - items.an empty object: must be listed. '
+    )
+  })
+
   it('check nothing for an error declared without a schema', async () => {
     const { response } = await answer(
       throwing(() => ({ _tag: 'order-locked', since: 'noon' }))

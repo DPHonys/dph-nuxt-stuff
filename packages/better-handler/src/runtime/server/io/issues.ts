@@ -50,6 +50,35 @@ export function projectPath(
   })
 }
 
+/** What a development check calls the value it asserted, in its sentence. */
+export interface CheckedValueNames {
+  /** An issue at the value itself, which has no path of its own. */
+  readonly root: string
+  /** A rejection that reported no issue at all. */
+  readonly unexplained: string
+}
+
+/**
+ * Issues as a development check's refusal names them: each one's path,
+ * projected as a client-input issue's is and joined with dots, then its
+ * message. Projected rather than printed, so a null-prototype segment or key
+ * cannot turn the refusal into an unhandled throw of its own.
+ */
+export function describeIssues(
+  issues: readonly StandardSchemaV1.Issue[],
+  names: CheckedValueNames
+): string {
+  if (issues.length === 0) return names.unexplained
+
+  return issues
+    .map((issue) => {
+      const path = projectPath(issue.path)
+
+      return `${path.length === 0 ? names.root : path.join('.')}: ${issue.message}`
+    })
+    .join('; ')
+}
+
 /**
  * Projection by construction, never by filtering: nothing is copied across
  * but the message and the normalised path, with the source named, so no

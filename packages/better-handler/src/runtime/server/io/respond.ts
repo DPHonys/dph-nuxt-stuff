@@ -1,14 +1,15 @@
 /**
  * The io half's response side: a route's `output` resolved once into a
  * delivery when the route module is evaluated, and run on whatever the
- * Handler hands back. Beside the source readers, the one file importing an h3
- * runtime helper outside the h3 seam: `setResponseStatus`, which on h3 v2 is
- * a write to `event.res.status` instead.
+ * Handler hands back. Beside the source readers, the one file importing h3
+ * runtime helpers outside the h3 seam: `setResponseStatus`, which on h3 v2 is
+ * a write to `event.res.status` instead, and `send`, for the one bodiless
+ * reply h3 v1 cannot send from a returned `null`.
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandlerResponse, H3Event } from 'h3'
-import { setResponseStatus } from 'h3'
+import { send, setResponseStatus } from 'h3'
 import {
   isPlainObject,
   isRecordLike,
@@ -97,9 +98,24 @@ function isStatusMap<Output>(output: Output): output is Output & StatusMap {
   return isPlainObject(output) && !('~standard' in output)
 }
 
-/** Each status's slot checked: a Standard Schema, or `null` for no body. */
+// A status as an object key spells it: an integer from 100 to 599, HTTP's
+// whole range of codes, in its plain decimal form. The old packages bounded no
+// success status, so the map takes any code h3 can send.
+const STATUS_KEY = /^[1-5]\d{2}$/
+
+/**
+ * Each key checked to be a status, and each status's slot a Standard Schema
+ * or `null` for no body. A key h3 cannot send as a status would otherwise
+ * leave the current status in place under a reply declared for another.
+ */
 function checkStatusMap(statuses: StatusMap): void {
   for (const [status, slot] of Object.entries(statuses)) {
+    if (!STATUS_KEY.test(status)) {
+      throw declarationFault(
+        `The output's key "${status}" must be a status, an integer from 100 to 599.`
+      )
+    }
+
     if (slot === null || isStandardSchema(slot)) continue
 
     throw declarationFault(
@@ -111,8 +127,8 @@ function checkStatusMap(statuses: StatusMap): void {
 /**
  * Resolve a route's `output` once, when the route module is evaluated, so a
  * route pays nothing per request for the form it did not declare. Refuses, as
- * a declaration fault, an `output` that is neither form and a status whose
- * slot is neither a schema nor `null`: the compile guard's answer for a caller
+ * a declaration fault, an `output` that is neither form, a key that is no
+ * status, and a status whose slot is neither a schema nor `null`: the compile guard's answer for a caller
  * the types never saw. A map naming no status declares nothing, as an empty
  * `input` or `errors` does.
  */
@@ -154,9 +170,28 @@ function bareDelivery(schema: StandardSchemaV1): ResponseDelivery {
 
       if (devChecksEnabled()) await checkResponse(event, 200, schema, returned)
 
+      // A nullable schema's `null` is the reply with no body, under the 200
+      // the bare form promised.
+      if (returned === null) return await noBody(event, 200)
+
       return returned
     },
   }
+}
+
+/**
+ * Answer `status` with no body. h3 sends a returned `null` itself under every
+ * status but `200`, which it turns into a `204`, a status the declaration
+ * never named; that one reply is sent here, ahead of h3, and the `null` handed
+ * back then leaves h3 nothing to send. The settled value stays `null` either
+ * way, as `SentResponse` types it.
+ */
+async function noBody(event: H3Event, status: number): Promise<null> {
+  // An empty string with no type: no `content-type`, and a `content-length`
+  // of 0 rather than h3's `sendNoContent`, whose `200` goes out chunked.
+  if (status === 200) await send(event, '')
+
+  return null
 }
 
 function isResponded<Returned>(
@@ -167,8 +202,8 @@ function isResponded<Returned>(
 
 /**
  * Send what a map-form Handler responded with: the declared status, and its
- * value as the body. A status declared `null` sends `null`, h3's own spelling
- * for "no body", whatever a caller the types never saw passed beside it.
+ * value as the body. A status declared `null` sends no body under that same
+ * status, whatever a caller the types never saw passed beside it.
  */
 async function sendResponded<Returned>(
   event: H3Event,
@@ -200,7 +235,9 @@ async function sendResponded<Returned>(
   // The declaration decides, not the envelope: the runtime helper takes any
   // arguments, so a plain-JavaScript `respond(204, value)` carries a body the
   // declared `null` promised never to send.
-  if (statuses[status] === null || body === undefined) return null
+  if (statuses[status] === null || body === undefined) {
+    return await noBody(event, status)
+  }
 
   return body
 }

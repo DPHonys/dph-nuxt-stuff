@@ -286,6 +286,59 @@ describe('the skew guard: no event.$fetch at runtime', () => {
     })
   })
 
+  // A promise-returning API that throws synchronously escapes a caller's
+  // `.catch` and `.then(onRejected)`: both report the skew by rejecting.
+  it('rejects rather than throwing while the call is made', async () => {
+    const better = createEventBetterFetch(() => undefined)
+    let pending: Promise<unknown> | undefined
+
+    expect(() => {
+      pending = better('/api/anything')
+    }).not.toThrow()
+    await expect(pending).rejects.toBeInstanceOf(EventFetchUnavailableError)
+  })
+
+  it('rejects .try rather than throwing while the call is made', async () => {
+    const better = createEventBetterFetch(() => undefined)
+    let pending: Promise<unknown> | undefined
+
+    expect(() => {
+      pending = better.try('/api/anything')
+    }).not.toThrow()
+    await expect(pending).rejects.toBeInstanceOf(EventFetchUnavailableError)
+  })
+
+  it('rejects a later loss rather than throwing it, past the check', async () => {
+    let base: RawEventFetch<string> | undefined = echoPath
+    const better = createEventBetterFetch(() => base)
+
+    await better('/api/anything')
+
+    base = undefined
+
+    let pending: Promise<unknown> | undefined
+
+    expect(() => {
+      pending = better.try('/api/anything')
+    }).not.toThrow()
+    await expect(pending).rejects.toBeInstanceOf(TypeError)
+  })
+
+  it('reads event.$fetch once per .try call', async () => {
+    let reads = 0
+    const better = createEventBetterFetch(() => {
+      reads += 1
+
+      return echoPath
+    })
+
+    expect(await better.try('/api/anything')).toEqual({
+      data: '/api/anything',
+      error: undefined,
+    })
+    expect(reads).toBe(1)
+  })
+
   it('checks once: a verified wrapper reports a later loss as h3 would', async () => {
     let base: RawEventFetch<string> | undefined = echoPath
     const better = createEventBetterFetch(() => base)

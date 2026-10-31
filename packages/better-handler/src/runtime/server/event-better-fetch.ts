@@ -5,6 +5,7 @@
  */
 
 import type { H3Event } from 'h3'
+import { flatHeadersAcceptingJson } from '../shared/better-fetch'
 import { toTryResult } from '../shared/errors/try-result'
 import type { BetterFetch } from '../types/fetch'
 
@@ -23,28 +24,17 @@ export type RawEventFetch<Body> = (
   init?: RawInit
 ) => Promise<Body>
 
-const ACCEPT = 'accept'
-
-// Why the header is forced: see the global's twin in `shared/better-fetch.ts`.
-const ACCEPT_JSON = 'application/json'
-
-// Flattened to a plain object, the inverse of the global's rule: underneath is
-// h3's `fetchWithEvent`, which merges headers by object spread, and a
-// `Headers` instance spreads to nothing. h3 never forwards the incoming
-// request's own `accept`, so only the caller's can be present.
+// The caller's init with the JSON `accept` merged into its headers, flattened
+// for h3's `fetchWithEvent`, which spreads them.
 function withAcceptJson(init: RawInit | undefined): RawInit {
-  const headers = new Headers(init?.headers)
-
-  if (!headers.has(ACCEPT)) headers.set(ACCEPT, ACCEPT_JSON)
-
-  return { ...init, headers: Object.fromEntries(headers) }
+  return { ...init, headers: flatHeadersAcceptingJson(init?.headers) }
 }
 
 /**
- * Thrown when `event.$fetch` is missing the first time `event.$betterFetch`
- * is called: the package wraps Nitro's experimental `event.$fetch`, and a
- * newer Nitro or h3 may stop providing it. Names the version skew instead of
- * a bare `TypeError`.
+ * What `event.$betterFetch` and its `.try` reject with when `event.$fetch` is
+ * missing the first time either is called: the package wraps Nitro's
+ * experimental `event.$fetch`, and a newer Nitro or h3 may stop providing it.
+ * Names the version skew instead of a bare `TypeError`.
  */
 export class EventFetchUnavailableError extends Error {
   override name = 'EventFetchUnavailableError'
@@ -88,16 +78,21 @@ export function createEventBetterFetch<Body>(
     return base
   }
 
-  const call = (request: string | Request, init?: RawInit): Promise<Body> =>
-    verifiedBase()(request, withAcceptJson(init))
+  // Async, so a missing base rejects the returned promise rather than
+  // throwing while the call is made, past a caller's `.catch`.
+  const call = async (
+    request: string | Request,
+    init?: RawInit
+  ): Promise<Body> => await verifiedBase()(request, withAcceptJson(init))
 
   const better = Object.assign(call, {
     // The skew check runs outside `toTryResult`: version skew is not a
-    // failed request, and classifying it would bury the message naming it.
-    try: (request: string | Request, init?: RawInit) => {
-      verifiedBase()
+    // failed request, and classifying it would bury the message naming it,
+    // so `.try` rejects with it. The base it checked is the one called.
+    try: async (request: string | Request, init?: RawInit) => {
+      const base = verifiedBase()
 
-      return toTryResult(() => call(request, init))
+      return await toTryResult(() => base(request, withAcceptJson(init)))
     },
   })
 

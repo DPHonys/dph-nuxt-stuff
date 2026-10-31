@@ -10,5 +10,5 @@ describe('the fetch family’s wire, against a production build', async () => {
     browser: false,
   })
 
-  theFetchWire()
+  theFetchWire({ dev: false })
 })
