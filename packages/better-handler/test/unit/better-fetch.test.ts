@@ -49,9 +49,15 @@ function server(): (request: Request) => Promise<Response> {
 function vanillaFetch() {
   const web = server()
 
+  // A `Request` is re-made as `fetch` would: the init's headers, which ofetch
+  // always passes, replace the request's own.
   return createFetch({
     fetch: (input, init) =>
-      web(new Request(new URL(String(input), ORIGIN), init)),
+      web(
+        input instanceof Request
+          ? new Request(input, init)
+          : new Request(new URL(String(input), ORIGIN), init)
+      ),
   })
 }
 
@@ -130,6 +136,71 @@ describe('the accept header, on the global', () => {
   })
 })
 
+describe('a Request’s own headers, on the global', () => {
+  /** A `Request` to `/echo` carrying `headers`. */
+  const echo = (headers: HeadersInit) =>
+    new Request(`${ORIGIN}/echo`, { headers })
+
+  // ofetch reads a `Request`'s headers only when the call passes none, as
+  // vanilla `$fetch` does; past that, `fetch` replaces them with the call's.
+  it.each([
+    [
+      'the call',
+      (better: typeof $betterFetch, request: Request) => better(request),
+    ],
+    [
+      '.raw',
+      async (better: typeof $betterFetch, request: Request) =>
+        (await better.raw(request))._data,
+    ],
+    [
+      '.try',
+      async (better: typeof $betterFetch, request: Request) =>
+        (await better.try(request)).data,
+    ],
+  ])('reach the server through %s, its own accept kept', async (_, send) => {
+    expect(
+      await received((better) =>
+        send(better, echo({ authorization: 'Bearer t', accept: 'text/csv' }))
+      )
+    ).toEqual({ authorization: 'Bearer t', accept: 'text/csv' })
+  })
+
+  it('gain the JSON accept when they carry none', async () => {
+    expect(
+      await received((better) => better(echo({ authorization: 'Bearer t' })))
+    ).toEqual({ authorization: 'Bearer t', accept: 'application/json' })
+  })
+
+  it('sit under an instance’s defaults, as ofetch merges them', async () => {
+    expect(
+      await received((better) =>
+        better.create({ headers: { 'x-trace': '7', accept: 'text/html' } })(
+          echo({ authorization: 'Bearer t' })
+        )
+      )
+    ).toEqual({
+      authorization: 'Bearer t',
+      'x-trace': '7',
+      accept: 'text/html',
+    })
+  })
+
+  it('give way to the call’s own headers, as on vanilla', async () => {
+    const request = echo({ authorization: 'Bearer t' })
+    const vanilla = await vanillaFetch()(request, {
+      headers: { 'x-trace': '7' },
+    })
+
+    expect(vanilla).toEqual({ 'x-trace': '7' })
+    expect(
+      await received((better) =>
+        better(request, { headers: { 'x-trace': '7' } })
+      )
+    ).toEqual({ 'x-trace': '7', accept: 'application/json' })
+  })
+})
+
 describe('the accept header, through create(defaults)', () => {
   it('keeps an instance’s own accept', async () => {
     expect(
@@ -155,6 +226,18 @@ describe('the accept header, through create(defaults)', () => {
           .create({ headers: { 'x-trace': '7' } })('/echo')
       )
     ).toEqual({ 'x-trace': '7', accept: 'application/json' })
+  })
+
+  // ofetch keeps an instance's defaults inside its closure and exposes them
+  // on no member, so an `accept` set on the `$fetch` underneath is not seen.
+  it('does not see an accept among the defaults of the $fetch underneath', async () => {
+    const underneath = vanillaFetch().create({
+      headers: { accept: 'text/html' },
+    })
+
+    expect(await createBetterFetch(underneath)('/echo')).toEqual({
+      accept: 'application/json',
+    })
   })
 
   it('keeps .try on a created instance', async () => {
