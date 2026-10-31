@@ -47,13 +47,3 @@
   dir: packages/nuxt-handler-validation
   intents:
     - validation-boundary-parsing
-"@dphonys/nuxt-typed-handler@0.1.0":
-  dir: packages/nuxt-typed-handler
-  intents:
-    - dull-pens-love
-    - local-error-factories
-"@dphonys/nuxt-typed-handler@0.2.0":
-  dir: packages/nuxt-typed-handler
-  intents:
-    - errors-boundary-parsing
-    - validation-boundary-parsing
