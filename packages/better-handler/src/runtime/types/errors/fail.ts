@@ -1,10 +1,23 @@
 import type { ArgsFor, IsAny } from '../utils'
 import type { EntryInput, ErrorDeclarations } from './declaration'
 
+// A member left with no key beside `_tag` names no field: an `object` input,
+// or one carrying only `_tag`. The runtime still takes only a record of them,
+// empty or not, and an index signature refuses a primitive, an array and a
+// function, as it does. Spelled out rather than aliased, so a diagnostic
+// prints the type itself; its values are `unknown` because the schema says no
+// more than that.
+type NamedOrOpen<Fields> = [keyof Fields] extends [never]
+  ? // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
+    Record<string, unknown>
+  : Fields
+
 // Distributes over a union input, so each member keeps its own keys, and
 // remaps rather than `Omit`s, so a hover shows the fields themselves.
 type WithoutTag<Input> = Input extends unknown
-  ? { [Key in keyof Input as Key extends '_tag' ? never : Key]: Input[Key] }
+  ? NamedOrOpen<{
+      [Key in keyof Input as Key extends '_tag' ? never : Key]: Input[Key]
+    }>
   : never
 
 /**
@@ -18,7 +31,12 @@ export type FieldsOf<Entry> = [EntryInput<Entry>] extends [never]
   : IsAny<EntryInput<Entry>> extends true
     ? // `any` is the answer an untyped schema gives, and stays one.
       any
-    : WithoutTag<EntryInput<Entry>>
+    : unknown extends EntryInput<Entry>
+      ? // An `unknown` input says nothing of the fields either, and takes
+        // any record of them, as an input naming none does.
+        // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
+        Record<string, unknown>
+      : WithoutTag<EntryInput<Entry>>
 
 /**
  * What the Fail helper returns for the handler to throw: an `Error` carrying

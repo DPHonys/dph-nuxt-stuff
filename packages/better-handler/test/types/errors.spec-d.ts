@@ -67,6 +67,24 @@ declare const failUntyped: Fail<{
   untyped: { readonly status: 400; readonly schema: StandardSchemaV1<any, any> }
 }>
 
+declare const failOpaque: Fail<{
+  opaque: {
+    readonly status: 400
+    readonly schema: StandardSchemaV1<unknown, unknown>
+  }
+}>
+
+declare const objectSchema: StandardSchemaV1<unknown, object>
+
+const keyless = {
+  ...defineError('tag-only', {
+    status: 400,
+    schema: z.object({ _tag: z.literal('tag-only') }),
+  }),
+  'object-output': { status: 400, schema: objectSchema },
+} satisfies ErrorDeclarations
+declare const failKeyless: Fail<typeof keyless>
+
 declare const failOptional: Fail<{
   optional: { readonly status: 400; readonly schema?: typeof orderRef }
 }>
@@ -213,6 +231,41 @@ describe('the Fail helper on a loosely typed schema', () => {
     expectTypeOf(
       failUntyped('untyped', { x: 1 })._tag
     ).toEqualTypeOf<'untyped'>()
+  })
+
+  it('takes a record of fields for a schema whose output is unknown', () => {
+    // The runtime takes only a record of fields, so a primitive, an array or
+    // a function is refused here rather than thrown as a developer fault.
+    type OpaqueFields = Parameters<typeof failOpaque<'opaque'>>[1]
+
+    expectTypeOf<number>().not.toExtend<OpaqueFields>()
+    expectTypeOf<number[]>().not.toExtend<OpaqueFields>()
+    expectTypeOf<() => number>().not.toExtend<OpaqueFields>()
+    expectTypeOf<{ id: number }>().toExtend<OpaqueFields>()
+    expectTypeOf(failOpaque('opaque', { id: 7 })._tag).toEqualTypeOf<'opaque'>()
+  })
+
+  // A schema whose output carries only `_tag`, or is `object`, names no
+  // field; the runtime still takes only a record, empty or not.
+  it('takes a record of fields for a schema whose output is only _tag', () => {
+    expectTypeOf(keyless).toExtend<ErrorDeclarations>()
+
+    type TagOnlyFields = Parameters<typeof failKeyless<'tag-only'>>[1]
+
+    expectTypeOf<number>().not.toExtend<TagOnlyFields>()
+    expectTypeOf<number[]>().not.toExtend<TagOnlyFields>()
+    expectTypeOf<() => number>().not.toExtend<TagOnlyFields>()
+    expectTypeOf(failKeyless).toBeCallableWith('tag-only', {})
+    expectTypeOf(failKeyless('tag-only', {})._tag).toEqualTypeOf<'tag-only'>()
+  })
+
+  it('takes a record of fields for a schema whose output is object', () => {
+    type ObjectFields = Parameters<typeof failKeyless<'object-output'>>[1]
+
+    expectTypeOf<number>().not.toExtend<ObjectFields>()
+    expectTypeOf<number[]>().not.toExtend<ObjectFields>()
+    expectTypeOf<() => number>().not.toExtend<ObjectFields>()
+    expectTypeOf<{ id: number }>().toExtend<ObjectFields>()
   })
 
   it('reads the fields off a schema typed optional', () => {

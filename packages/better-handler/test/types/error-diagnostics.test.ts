@@ -73,7 +73,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(32)
+    expect(diagnostics).toHaveLength(41)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -276,6 +276,92 @@ describe('fail pairs a declared tag with its fields', () => {
       code: WRONG_ARGUMENT_COUNT,
       message: 'Expected 2 arguments, but got 1.',
     })
+  })
+
+  it.each([
+    [
+      "fail('opaque', 7)",
+      'a primitive',
+      "Argument of type 'number' is not assignable to parameter of type 'Record<string, unknown>'.",
+    ],
+    [
+      "fail('opaque', [7])",
+      'an array',
+      "Argument of type 'number[]' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type 'number[]'.",
+    ],
+    [
+      "fail('opaque', () => 7)",
+      'a function',
+      "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
+    ],
+  ])(
+    '%s refuses %s for a schema whose output is unknown, as the runtime does',
+    (needle, _, message) => {
+      expect(at(needle)).toMatchObject({
+        code: ARGUMENT_NOT_ASSIGNABLE,
+        message,
+      })
+    }
+  )
+
+  it('takes a record of fields for a schema whose output is unknown', () => {
+    const line = lineContaining(FIXTURE, "fail('opaque', { id: 7 })")
+
+    expect(
+      diagnostics.filter((diagnostic) => diagnostic.line === line)
+    ).toEqual([])
+  })
+
+  it.each([
+    [
+      "fail('tag-only', 7)",
+      'a primitive',
+      "Argument of type 'number' is not assignable to parameter of type 'Record<string, unknown>'.",
+    ],
+    [
+      "fail('tag-only', [7])",
+      'an array',
+      "Argument of type 'number[]' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type 'number[]'.",
+    ],
+    [
+      "fail('tag-only', () => 7)",
+      'a function',
+      "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
+    ],
+    [
+      "fail('object-output', 7)",
+      'a primitive',
+      "Argument of type 'number' is not assignable to parameter of type 'Record<string, unknown>'.",
+    ],
+    [
+      "fail('object-output', [7])",
+      'an array',
+      "Argument of type 'number[]' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type 'number[]'.",
+    ],
+    [
+      "fail('object-output', () => 7)",
+      'a function',
+      "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
+    ],
+  ])(
+    '%s refuses %s for a schema naming no fields, as the runtime does',
+    (needle, _, message) => {
+      expect(at(needle)).toMatchObject({
+        code: ARGUMENT_NOT_ASSIGNABLE,
+        message,
+      })
+    }
+  )
+
+  it.each([
+    "fail('tag-only', {})",
+    "fail('object-output', { id: 7 })",
+  ])('%s takes a record for a schema naming no fields', (needle) => {
+    const line = lineContaining(FIXTURE, needle)
+
+    expect(
+      diagnostics.filter((diagnostic) => diagnostic.line === line)
+    ).toEqual([])
   })
 
   it('refuses a tag a Pick narrowed away, at the tag', () => {

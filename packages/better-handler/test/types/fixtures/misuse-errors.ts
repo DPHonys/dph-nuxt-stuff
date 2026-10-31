@@ -234,6 +234,50 @@ export const annotatedWithoutFields = defineBetterEventHandler(
   }
 )
 
+// A schema whose output is `unknown`, as `ErrorEntry` types one, says nothing
+// of its fields, and the runtime still takes only a record of them: no
+// primitive, no array, no function.
+declare const opaqueSchema: StandardSchemaV1<unknown, unknown>
+export const opaqueFields = defineBetterEventHandler(
+  { errors: { opaque: { status: 400, schema: opaqueSchema } } },
+  (_event, { fail }) => {
+    fail('opaque', 7)
+    fail('opaque', [7])
+    fail('opaque', () => 7)
+    throw fail('opaque', { id: 7 })
+  }
+)
+
+// A schema whose output carries only `_tag` leaves no fields beside it, and
+// one whose output is `object` names none; the runtime still takes only a
+// record, empty or not.
+declare const objectSchema: StandardSchemaV1<unknown, object>
+
+export const keylessFields = defineBetterEventHandler(
+  {
+    errors: {
+      'tag-only': {
+        status: 400,
+        schema: z.object({ _tag: z.literal('tag-only') }),
+      },
+      'object-output': {
+        status: 400,
+        schema: objectSchema,
+      },
+    },
+  },
+  (_event, { fail }) => {
+    fail('tag-only', 7)
+    fail('tag-only', [7])
+    fail('tag-only', () => 7)
+    fail('tag-only', {})
+    fail('object-output', 7)
+    fail('object-output', [7])
+    fail('object-output', () => 7)
+    throw fail('object-output', { id: 7 })
+  }
+)
+
 // --- narrowing is Pick ------------------------------------------------------
 
 const common = {
