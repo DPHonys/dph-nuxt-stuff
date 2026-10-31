@@ -55,6 +55,8 @@ Nuxt 4.6 ships its own typed `$fetch`, opt-in through `experimental.routeTypedFe
 
 The handler `defineBetterEventHandler` returns therefore fills the slot: `EventHandler<{ body, query }, Response>`, each key present only when declared, each the schemas' **input** type, for the same reason as the family. The module never reads or sets the flag; an app that turns it on gets correct native typing on these routes, and one that does not sees nothing change.
 
+The slot is one type per handler, and Nuxt applies it to every method a handler serves. A method-less handler (`server/api/items/[id].ts`) that declares a required `body` therefore makes vanilla `$fetch` require that body on a `GET` too, which `fetch` refuses to send. The slot cannot say otherwise without a type per method, so this is a known difference, not fixed: the family takes no `body` on `get` or `head`, and a route file named for its method (`[id].post.ts`) has no `GET` to mistype.
+
 The handler's own `event` stays h3's default. The slot describes what a client sends; claiming it on the handler's `event` would type `readBody(event)` as validated when it is not.
 
 The query is restated key for key before it fills the slot, for two reasons found while prototyping. h3's slot constraint requires a query concretely assignable to a record of query values, and an interface-typed input has no implicit index signature until restated. And a value no query can carry (`unknown` from every `z.coerce`, a `bigint`) is widened to any query value, because otherwise Nuxt's extractor reads the whole route as `never` without reporting anything. A query that is no record is `never`, as Nuxt would answer anyway, so it cannot take the body down with it.

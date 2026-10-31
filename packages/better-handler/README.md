@@ -357,6 +357,7 @@ On the native path, beyond arrays and primitives, the known differences from the
 - **A body that is a union of records and non-records**: Nuxt keeps the records.
 - **Requiredness is Nuxt's own**, and **`headers` are not typed natively**: Nitro carries the body and the query only.
 - **Known errors stay the family's.** Nuxt's `useFetch` error remains `NuxtError<unknown>`; the failure union is typed only through the family.
+- **A method-less handler that declares `body`**, such as `server/api/items/[id].ts`: Nuxt types the body for every method of the route, so with the flag on, vanilla `$fetch('/api/items/7')`, a `GET`, requires the body too when the body is required, and `fetch` refuses to send a `GET` with a body. `$betterFetch` takes no `body` on `get`. Name the method in the file (`[id].post.ts`), or call the route through `$betterFetch`.
 
 Where the two can both be exact, the package's suite asserts they agree; where they differ, the family is the more precise one, and it is never made less precise to match.
 
