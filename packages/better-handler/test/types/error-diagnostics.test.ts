@@ -295,7 +295,7 @@ describe('fail pairs a declared tag with its fields', () => {
       "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
     ],
   ])(
-    '%s refuses %s for a schema whose output is unknown, as the runtime does',
+    '%s refuses %s for a schema whose input is unknown, as the runtime does',
     (needle, _, message) => {
       expect(at(needle)).toMatchObject({
         code: ARGUMENT_NOT_ASSIGNABLE,
@@ -304,7 +304,7 @@ describe('fail pairs a declared tag with its fields', () => {
     }
   )
 
-  it('takes a record of fields for a schema whose output is unknown', () => {
+  it('takes a record of fields for a schema whose input is unknown', () => {
     const line = lineContaining(FIXTURE, "fail('opaque', { id: 7 })")
 
     expect(
@@ -329,17 +329,17 @@ describe('fail pairs a declared tag with its fields', () => {
       "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
     ],
     [
-      "fail('object-output', 7)",
+      "fail('object-input', 7)",
       'a primitive',
       "Argument of type 'number' is not assignable to parameter of type 'Record<string, unknown>'.",
     ],
     [
-      "fail('object-output', [7])",
+      "fail('object-input', [7])",
       'an array',
       "Argument of type 'number[]' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type 'number[]'.",
     ],
     [
-      "fail('object-output', () => 7)",
+      "fail('object-input', () => 7)",
       'a function',
       "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
     ],
@@ -353,16 +353,16 @@ describe('fail pairs a declared tag with its fields', () => {
     }
   )
 
-  it.each([
-    "fail('tag-only', {})",
-    "fail('object-output', { id: 7 })",
-  ])('%s takes a record for a schema naming no fields', (needle) => {
-    const line = lineContaining(FIXTURE, needle)
+  it.each(["fail('tag-only', {})", "fail('object-input', { id: 7 })"])(
+    '%s takes a record for a schema naming no fields',
+    (needle) => {
+      const line = lineContaining(FIXTURE, needle)
 
-    expect(
-      diagnostics.filter((diagnostic) => diagnostic.line === line)
-    ).toEqual([])
-  })
+      expect(
+        diagnostics.filter((diagnostic) => diagnostic.line === line)
+      ).toEqual([])
+    }
+  )
 
   it('refuses a tag a Pick narrowed away, at the tag', () => {
     expect(at("throw fail('forbidden'")).toMatchObject({

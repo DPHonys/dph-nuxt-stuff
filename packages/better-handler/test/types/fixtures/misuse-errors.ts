@@ -234,7 +234,7 @@ export const annotatedWithoutFields = defineBetterEventHandler(
   }
 )
 
-// A schema whose output is `unknown`, as `ErrorEntry` types one, says nothing
+// A schema whose input is `unknown`, as `ErrorEntry` types one, says nothing
 // of its fields, and the runtime still takes only a record of them: no
 // primitive, no array, no function.
 declare const opaqueSchema: StandardSchemaV1<unknown, unknown>
@@ -248,10 +248,10 @@ export const opaqueFields = defineBetterEventHandler(
   }
 )
 
-// A schema whose output carries only `_tag` leaves no fields beside it, and
-// one whose output is `object` names none; the runtime still takes only a
+// A schema whose input carries only `_tag` leaves no fields beside it, and
+// one whose input is `object` names none; the runtime still takes only a
 // record, empty or not.
-declare const objectSchema: StandardSchemaV1<unknown, object>
+declare const objectSchema: StandardSchemaV1<object>
 
 export const keylessFields = defineBetterEventHandler(
   {
@@ -260,7 +260,7 @@ export const keylessFields = defineBetterEventHandler(
         status: 400,
         schema: z.object({ _tag: z.literal('tag-only') }),
       },
-      'object-output': {
+      'object-input': {
         status: 400,
         schema: objectSchema,
       },
@@ -271,10 +271,10 @@ export const keylessFields = defineBetterEventHandler(
     fail('tag-only', [7])
     fail('tag-only', () => 7)
     fail('tag-only', {})
-    fail('object-output', 7)
-    fail('object-output', [7])
-    fail('object-output', () => 7)
-    throw fail('object-output', { id: 7 })
+    fail('object-input', 7)
+    fail('object-input', [7])
+    fail('object-input', () => 7)
+    throw fail('object-input', { id: 7 })
   }
 )
 

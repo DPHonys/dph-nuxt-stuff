@@ -74,14 +74,23 @@ declare const failOpaque: Fail<{
   }
 }>
 
-declare const objectSchema: StandardSchemaV1<unknown, object>
+// The fields are the input, so an `unknown` input says nothing of them
+// whatever the output says.
+declare const failOpaqueInput: Fail<{
+  'opaque-input': {
+    readonly status: 400
+    readonly schema: StandardSchemaV1<unknown, { id: number }>
+  }
+}>
+
+declare const objectSchema: StandardSchemaV1<object>
 
 const keyless = {
   ...defineError('tag-only', {
     status: 400,
     schema: z.object({ _tag: z.literal('tag-only') }),
   }),
-  'object-output': { status: 400, schema: objectSchema },
+  'object-input': { status: 400, schema: objectSchema },
 } satisfies ErrorDeclarations
 declare const failKeyless: Fail<typeof keyless>
 
@@ -233,7 +242,7 @@ describe('the Fail helper on a loosely typed schema', () => {
     ).toEqualTypeOf<'untyped'>()
   })
 
-  it('takes a record of fields for a schema whose output is unknown', () => {
+  it('takes a record of fields for a schema whose input is unknown', () => {
     // The runtime takes only a record of fields, so a primitive, an array or
     // a function is refused here rather than thrown as a developer fault.
     type OpaqueFields = Parameters<typeof failOpaque<'opaque'>>[1]
@@ -245,9 +254,25 @@ describe('the Fail helper on a loosely typed schema', () => {
     expectTypeOf(failOpaque('opaque', { id: 7 })._tag).toEqualTypeOf<'opaque'>()
   })
 
-  // A schema whose output carries only `_tag`, or is `object`, names no
+  it('takes a record of fields for a schema whose input is unknown, whatever its output', () => {
+    type OpaqueInputFields = Parameters<
+      typeof failOpaqueInput<'opaque-input'>
+    >[1]
+
+    expectTypeOf<OpaqueInputFields>().toEqualTypeOf<
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
+      Record<string, unknown>
+    >()
+    expectTypeOf<number>().not.toExtend<OpaqueInputFields>()
+    expectTypeOf<{ name: string }>().toExtend<OpaqueInputFields>()
+    expectTypeOf(
+      failOpaqueInput('opaque-input', { name: 'order' })._tag
+    ).toEqualTypeOf<'opaque-input'>()
+  })
+
+  // A schema whose input carries only `_tag`, or is `object`, names no
   // field; the runtime still takes only a record, empty or not.
-  it('takes a record of fields for a schema whose output is only _tag', () => {
+  it('takes a record of fields for a schema whose input is only _tag', () => {
     expectTypeOf(keyless).toExtend<ErrorDeclarations>()
 
     type TagOnlyFields = Parameters<typeof failKeyless<'tag-only'>>[1]
@@ -259,8 +284,13 @@ describe('the Fail helper on a loosely typed schema', () => {
     expectTypeOf(failKeyless('tag-only', {})._tag).toEqualTypeOf<'tag-only'>()
   })
 
-  it('takes a record of fields for a schema whose output is object', () => {
-    type ObjectFields = Parameters<typeof failKeyless<'object-output'>>[1]
+  it('takes a record of fields for a schema whose input is object', () => {
+    type ObjectFields = Parameters<typeof failKeyless<'object-input'>>[1]
+
+    expectTypeOf<ObjectFields>().toEqualTypeOf<
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
+      Record<string, unknown>
+    >()
 
     expectTypeOf<number>().not.toExtend<ObjectFields>()
     expectTypeOf<number[]>().not.toExtend<ObjectFields>()
