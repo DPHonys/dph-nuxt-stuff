@@ -334,7 +334,8 @@ The family's rules, which `BetterRequestOptions<R, M>` spells:
 
 - **Typed per route and method.** The method defaults to `get` when the route has one, else to the methods it has (Nuxt's own rule), and may be written in either case: `'post'` or `'POST'`, not `'Post'`.
 - **The input types, not the handler's.** A call site sends what the schema accepts before its transforms: a query declared `z.string().transform(Number)` takes a `string` at the call site and arrives as a `number` in the handler.
-- **A declared source is required unless `{}` fits its input type.** An all-optional schema stays optional but typed.
+- **A declared source is required unless `{}` fits its input type.** An all-optional schema stays optional but typed. On `$betterFetch`, its `.raw` and `.try`, and `event.$betterFetch`, a call that leaves the options out on a route and method with a required source is refused (`TS2554`), as is one passing `undefined` for them (`TS2345`).
+- **One route serves a path, and its inputs type the call.** When several route files match a path, such as `/api/files/[id]` and `/api/files/[...path]`, the options come from the one Nitro serves for the method: an exact static path over one with params over a catch-all. The error union keeps every matching route's errors, a safe superset.
 - **A `body` or `query` key the schema does not name is refused**, on a plain object literal.
 - **A declared `body` replaces vanilla's**, so a string or `FormData` is refused where the schema describes an object.
 - **Declared `headers` type the keys they name, and every other header stays an open string**: a client sends more headers than a route validates. Declared headers are a plain record, never a `Headers` object or a list of pairs.
@@ -344,7 +345,7 @@ The family's rules, which `BetterRequestOptions<R, M>` spells:
 
 What the types cannot see:
 
-- **A call with no options at all skips the requiredness check.** `$betterFetch('/api/search')` compiles even when the route requires a `query`, a known limit of the typing; the route answers `validation-failed`.
+- **A composable call with no options at all skips the requiredness check.** The composables keep vanilla's optional options, so `useBetterFetch('/api/search')` compiles even when the route requires a `query`; the route answers `validation-failed`. A call that passes options is checked as the family's is.
 - **A reactive source loses the excess-key check.** On the composables a plain object literal is checked for extra keys; the same value behind a `ref()` or a getter is not, though its values' types still are.
 - **`$betterFetch<T, R, M>` is not type-argument-compatible with `$fetch<T, R, O>`.** A call that names its type arguments explicitly passes the method, not the options.
 

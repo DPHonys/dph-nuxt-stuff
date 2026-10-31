@@ -21,21 +21,22 @@ The map augments only the package's own `/types`. Nothing is hoisted: `typescrip
 
 ## The family's contract
 
-Every member of the family takes the same call signature, `<T, R, const M>(request: R, opts?: BetterRequestOptions<R, M>)`: the method is inferred from `opts.method`, and the options are a concrete type computed from the route and method. This is Nuxt's own `useFetch` pattern, chosen over inferring the whole options object as a type parameter:
+Every member of the family takes the same call signature, `<T, R, const M>(request: R, ...opts: RequestArgs<R, M>)`, the rest tuple holding the options, optional only when `{}` fits them: the method is inferred from `opts.method`, and the options are a concrete type computed from the route and method. This is Nuxt's own `useFetch` pattern, chosen over inferring the whole options object as a type parameter:
 
 - **An inferred options type cannot reject excess keys**, because TypeScript's excess-property check never fires through a type parameter, and it breaks calls that pass no options.
 - **A concrete options type gets required sources and excess-key refusal natively**, with TypeScript's own messages at the offending key.
 
 The rules that follow from it:
 
-- A declared source is required unless `{}` fits its input type, so an all-optional schema stays optional but typed.
+- A declared source is required unless `{}` fits its input type, so an all-optional schema stays optional but typed. A call that leaves the options out where a source is required is refused (`TS2554`), as is one passing `undefined` (`TS2345`): an optional parameter alone would let both through.
+- A request is served by one route, so its options come from the most specific route key that has an entry for the method: an exact static key over a key with params over a catch-all, keys that tie unioned. The error union keeps every matching key's errors instead, a safe superset of what may answer.
 - A declared `body` replaces vanilla's union, so no `FormData` or string side door remains where the schema describes an object.
 - Declared headers type the keys they name and leave the rest open: a client sends more headers than any route validates.
 - A route of this package takes no `body` on `get` or `head`. A route the map does not type keeps vanilla's options key for key, `body` on `get` included, so adopting the package is incremental and a route never types worse than vanilla.
 - ofetch's deprecated `params` alias of `query` is gone from the whole family, since it is a back door past the query's checks.
 - The method is accepted in either case, `get` by default when the route has one; every lookup lowercases it.
 
-**Known limits, accepted.** A call with no options at all skips the requiredness check, because `opts` itself is optional. A source passed through a `ref()` or a getter on the composables loses the excess-key check, because the option is a union of reactive forms and `ref()` infers its own type; the values are still checked. `$betterFetch<T, R, M>` is not type-argument-compatible with `$fetch<T, R, O>`.
+**Known limits, accepted.** A composable call with no options at all skips the requiredness check, because the composables keep vanilla's optional options argument. A source passed through a `ref()` or a getter on the composables loses the excess-key check, because the option is a union of reactive forms and `ref()` infers its own type; the values are still checked. `$betterFetch<T, R, M>` is not type-argument-compatible with `$fetch<T, R, O>`.
 
 ## Stack depth, and the route ceiling
 
