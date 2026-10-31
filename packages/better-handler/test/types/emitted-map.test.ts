@@ -64,7 +64,7 @@ const DEFINITIONS_B = [
 ].join('\n')
 
 /** The route files every orders app shares; only the declarations differ. */
-function ordersFiles(definitions: string): Record<string, string> {
+function ordersFiles(definitions: string) {
   return {
     'server/errors/orders.ts': definitions,
 
@@ -298,6 +298,17 @@ function buildApp(
   }
 }
 
+/** A route of this package declaring `input` and nothing else. */
+function inputRoute(input: string): string {
+  return [
+    `import { defineBetterEventHandler } from '@dphonys/better-handler/server'`,
+    `import { z } from 'zod'`,
+    ``,
+    `export default defineBetterEventHandler({ input: ${input} }, () => null)`,
+    ``,
+  ].join('\n')
+}
+
 /**
  * An app whose request paths match several keys: a param key beside a
  * catch-all under one prefix; catch-alls that tie, one of them a module the
@@ -305,37 +316,28 @@ function buildApp(
  * package; a root catch-all beside Nuxt's renderer key, which the compiler
  * cannot read either; and two handlers on one route and method.
  */
-function filesFiles(): Record<string, string> {
-  const route = (input: string): string =>
-    [
-      `import { defineBetterEventHandler } from '@dphonys/better-handler/server'`,
-      `import { z } from 'zod'`,
-      ``,
-      `export default defineBetterEventHandler({ input: ${input} }, () => null)`,
-      ``,
-    ].join('\n')
-
+function filesFiles() {
   return {
-    'server/api/files/[id].post.ts': route(
+    'server/api/files/[id].post.ts': inputRoute(
       '{ body: z.object({ name: z.string() }) }'
     ),
-    'server/api/files/[...].post.ts': route(
+    'server/api/files/[...].post.ts': inputRoute(
       '{ body: z.object({ path: z.string() }) }'
     ),
-    'server/api/files/latest.post.ts': route(
+    'server/api/files/latest.post.ts': inputRoute(
       '{ body: z.object({ latest: z.literal(true) }) }'
     ),
-    'server/api/blobs/[...].post.ts': route(
+    'server/api/blobs/[...].post.ts': inputRoute(
       '{ body: z.object({ path: z.string() }) }'
     ),
     // No method in the file name, so it serves every method.
-    'server/routes/[...].ts': route(
+    'server/routes/[...].ts': inputRoute(
       '{ query: z.object({ lang: z.string() }) }'
     ),
-    'server/api/twice/one.post.ts': route(
+    'server/api/twice/one.post.ts': inputRoute(
       '{ body: z.object({ a: z.string() }) }'
     ),
-    'server/api/twice/two.post.ts': route(
+    'server/api/twice/two.post.ts': inputRoute(
       '{ body: z.object({ b: z.string() }) }'
     ),
     // Nuxt's renderer error route, and a catch-all a module ships as
@@ -345,7 +347,7 @@ function filesFiles(): Record<string, string> {
       '\n'
     ),
     'server/shipped/script.mjs': [`export default () => null`, ``].join('\n'),
-    'server/api/scripts/[...].post.ts': route(
+    'server/api/scripts/[...].post.ts': inputRoute(
       '{ body: z.object({ script: z.string() }) }'
     ),
   }
