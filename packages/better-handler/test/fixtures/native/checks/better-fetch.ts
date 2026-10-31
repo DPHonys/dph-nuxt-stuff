@@ -304,14 +304,14 @@ export async function vanillaDegradation(): Promise<void> {
   await $betterFetch('/api/plain', { params: { a: 1 } }) // refused TS2353
 }
 
-/** The response: the declared output's output type, as it crosses the wire. */
+/** The response: the declared output's input type, as it crosses the wire. */
 export async function responses(): Promise<void> {
   const _report = await $betterFetch('/api/report')
 
   type _ReportIsOutput = Expect<
     Equal<
       typeof _report,
-      Wire<StandardSchemaV1.InferOutput<typeof reportOutput>>
+      Wire<StandardSchemaV1.InferInput<typeof reportOutput>>
     >
   >
   type _ReportArrives = Expect<
