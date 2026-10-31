@@ -36,6 +36,15 @@ export const tagMismatch = defineError('order-not-found', {
   status: 404,
   schema: missingOrder,
 })
+// The schema's input carries the tag the check validates, whatever it outputs.
+export const tagMismatchInput = defineError('order-relabelled', {
+  status: 404,
+  schema: z.object({
+    _tag: z
+      .literal('order-missing')
+      .transform(() => 'order-relabelled' as const),
+  }),
+})
 export const scalarFields = defineError('scalar-fields', {
   status: 400,
   schema: z.string(),
@@ -116,6 +125,21 @@ export const failPairing = defineBetterEventHandler(
     if (Math.random() > 0.5) throw fail('order-locked', { id: 7 })
 
     return null
+  }
+)
+
+// The fields are what is thrown and sent: a transforming schema's input.
+export const failTransformed = defineBetterEventHandler(
+  {
+    errors: {
+      'order-dated': {
+        status: 409,
+        schema: z.object({ id: z.string().transform(Number) }),
+      },
+    },
+  },
+  (_event, { fail }) => {
+    throw fail('order-dated', { id: 7 })
   }
 )
 

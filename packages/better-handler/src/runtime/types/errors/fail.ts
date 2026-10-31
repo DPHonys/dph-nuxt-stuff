@@ -1,22 +1,24 @@
 import type { ArgsFor, IsAny } from '../utils'
-import type { EntryOutput, ErrorDeclarations } from './declaration'
+import type { EntryInput, ErrorDeclarations } from './declaration'
 
-// Distributes over a union output, so each member keeps its own keys, and
+// Distributes over a union input, so each member keeps its own keys, and
 // remaps rather than `Omit`s, so a hover shows the fields themselves.
-type WithoutTag<Output> = Output extends unknown
-  ? { [Key in keyof Output as Key extends '_tag' ? never : Key]: Output[Key] }
+type WithoutTag<Input> = Input extends unknown
+  ? { [Key in keyof Input as Key extends '_tag' ? never : Key]: Input[Key] }
   : never
 
 /**
- * The fields a Known error carries beside `_tag`: its schema's output without
- * `_tag`, or `null` for an entry without a schema, which carries none.
+ * The fields a Known error carries beside `_tag`: its schema's input without
+ * `_tag` - what the handler throws and the wire carries, which a transforming
+ * schema's output is not - or `null` for an entry without a schema, which
+ * carries none.
  */
-export type FieldsOf<Entry> = [EntryOutput<Entry>] extends [never]
+export type FieldsOf<Entry> = [EntryInput<Entry>] extends [never]
   ? null
-  : IsAny<EntryOutput<Entry>> extends true
+  : IsAny<EntryInput<Entry>> extends true
     ? // `any` is the answer an untyped schema gives, and stays one.
       any
-    : WithoutTag<EntryOutput<Entry>>
+    : WithoutTag<EntryInput<Entry>>
 
 /**
  * What the Fail helper returns for the handler to throw: an `Error` carrying

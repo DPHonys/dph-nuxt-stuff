@@ -108,6 +108,15 @@ describe('the fields guard', () => {
     expectTypeOf(declared).toHaveProperty('order-dated')
   })
 
+  it('reads the fields a schema accepts, not what it outputs', () => {
+    const declared = defineError('order-total', {
+      status: 409,
+      schema: z.object({ total: z.string().transform(BigInt) }),
+    })
+
+    expectTypeOf(declared).toHaveProperty('order-total')
+  })
+
   it('admits an Effect error class, whose methods are not fields', () => {
     const declared = defineError('OrderMissing', {
       status: 404,

@@ -53,6 +53,15 @@ declare const failEither: Fail<typeof either>
 
 declare const failPicked: Fail<Pick<typeof declared, 'order-locked'>>
 
+// A schema that transforms: what is thrown, and sent, is its input.
+const dated = {
+  ...defineError('order-dated', {
+    status: 409,
+    schema: z.object({ id: z.string().transform(Number) }),
+  }),
+}
+declare const failDated: Fail<typeof dated>
+
 describe('defineError', () => {
   it('returns a one-key map of the tag to its entry', () => {
     expectTypeOf(orderNotFound).toEqualTypeOf<{
@@ -73,6 +82,17 @@ describe('defineError', () => {
 
   it('accepts a schema whose _tag literal is the tag', () => {
     expectTypeOf(tagged).toHaveProperty('order-missing')
+  })
+
+  it('reads the _tag literal off the schema input, which the check validates', () => {
+    const renamed = defineError('order-renamed', {
+      status: 404,
+      schema: z.object({
+        _tag: z.literal('order-renamed').transform(() => 'legacy' as const),
+      }),
+    })
+
+    expectTypeOf(renamed).toHaveProperty('order-renamed')
   })
 
   it('accepts a schema whose _tag is only a string', () => {
@@ -101,10 +121,20 @@ describe('spread reuse', () => {
 })
 
 describe('the Fail helper', () => {
-  it('takes the schema output as the fields of a schema-bearing tag', () => {
+  it('takes the schema input as the fields of a schema-bearing tag', () => {
     expectTypeOf(fail<'order-not-found'>).parameters.toEqualTypeOf<
       [tag: 'order-not-found', value: { id: number }]
     >()
+  })
+
+  it('takes what a transforming schema accepts, which is what goes out', () => {
+    expectTypeOf(dated).toExtend<ErrorDeclarations>()
+    expectTypeOf(failDated<'order-dated'>).parameters.toEqualTypeOf<
+      [tag: 'order-dated', value: { id: string }]
+    >()
+    expectTypeOf(
+      failDated('order-dated', { id: '7' }).id
+    ).toEqualTypeOf<string>()
   })
 
   it('takes the tag alone for a tag declared without a schema', () => {
@@ -148,7 +178,7 @@ describe('the Fail helper', () => {
     expectTypeOf(failed.cause).toEqualTypeOf<boolean>()
   })
 
-  it('keeps each member of a union output its own fields', () => {
+  it('keeps each member of a union input its own fields', () => {
     expectTypeOf(either).toExtend<ErrorDeclarations>()
     expectTypeOf(failEither<'order-held'>)
       .parameter(1)

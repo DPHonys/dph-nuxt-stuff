@@ -402,6 +402,27 @@ describe('the development checks', () => {
     expect(await dataOf(response)).toEqual({ _tag: 'order-doubled', id: 7 })
   })
 
+  it('accept the input a transforming schema takes, which is what fail is typed by', async () => {
+    const route = defineBetterEventHandler(
+      {
+        errors: {
+          'order-dated': {
+            status: 409,
+            schema: z.object({ id: z.string().transform(Number) }),
+          },
+        },
+      },
+      (_event, { fail }) => {
+        throw fail('order-dated', { id: '7' })
+      }
+    )
+
+    const { response } = await answer(route)
+
+    expect(response.status).toBe(409)
+    expect(await dataOf(response)).toEqual({ _tag: 'order-dated', id: '7' })
+  })
+
   it('hand the schema the whole Tagged error, which an Effect error class requires', async () => {
     const route = defineBetterEventHandler(
       {

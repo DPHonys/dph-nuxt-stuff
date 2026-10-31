@@ -37,7 +37,9 @@ const SENTENCES = {
   emptyTag: 'an error tag must be a non-empty string',
   oneLiteral: 'an error tag must be one string literal',
   tagMismatch:
-    "the schema's output has _tag order-missing, which must equal the tag order-not-found",
+    "the schema's input has _tag order-missing, which must equal the tag order-not-found",
+  tagMismatchInput:
+    "the schema's input has _tag order-missing, which must equal the tag order-relabelled",
   objectFields: 'the schema must describe an object of fields beside _tag',
   strayKey:
     'payload is not an error entry key - an entry takes status and schema',
@@ -67,7 +69,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(20)
+    expect(diagnostics).toHaveLength(22)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -102,7 +104,14 @@ describe('defineError refuses an entry its tag cannot carry', () => {
     expect(guarding(diagnostic, SENTENCES.tagMismatch)).toBe(true)
   })
 
-  it('refuses a schema whose output is not an object of fields', () => {
+  it('reads the _tag literal off the schema input, which is what is thrown', () => {
+    const diagnostic = at("defineError('order-relabelled'")
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.tagMismatchInput)).toBe(true)
+  })
+
+  it('refuses a schema whose input is not an object of fields', () => {
     const diagnostic = at("defineError('scalar-fields'")
 
     expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
@@ -194,10 +203,17 @@ describe('fail pairs a declared tag with its fields', () => {
     })
   })
 
-  it('checks the fields against the schema output', () => {
+  it('checks the fields against the schema input', () => {
     expect(at("fail('order-not-found', { id: 'seven' })")).toMatchObject({
       code: NOT_ASSIGNABLE,
       message: "Type 'string' is not assignable to type 'number'.",
+    })
+  })
+
+  it('refuses the output of a transforming schema, which is not what is sent', () => {
+    expect(at("fail('order-dated', { id: 7 })")).toMatchObject({
+      code: NOT_ASSIGNABLE,
+      message: "Type 'number' is not assignable to type 'string'.",
     })
   })
 

@@ -51,18 +51,23 @@ export interface ErrorDeclarationError<Msg extends string> {
   'error-declaration-error': Msg
 }
 
-/** What an entry's schema produces, or `never` for an entry without one. */
-export type EntryOutput<Entry> = Entry extends {
+/**
+ * What an entry's schema accepts, or `never` for an entry without one. The
+ * input, not the output: the fields go out as they were thrown, and the
+ * development check validates that thrown value, so a transforming schema's
+ * output is never what is raised or sent.
+ */
+export type EntryInput<Entry> = Entry extends {
   readonly schema: infer Schema extends StandardSchemaV1
 }
-  ? StandardSchemaV1.InferOutput<Schema>
+  ? StandardSchemaV1.InferInput<Schema>
   : never
 
-// The `_tag` literals a schema's output carries, over every member of a union
-// output; `never` when no member has the key.
-type TagLiteralsOf<Output> = Output extends unknown
-  ? '_tag' extends keyof Output
-    ? Exclude<Output['_tag'], undefined>
+// The `_tag` literals a schema's input carries, over every member of a union
+// input; `never` when no member has the key.
+type TagLiteralsOf<Input> = Input extends unknown
+  ? '_tag' extends keyof Input
+    ? Exclude<Input['_tag'], undefined>
     : never
   : never
 
@@ -79,36 +84,36 @@ type TagRule<Tag extends string> = string extends Tag
 
 /**
  * The sentence an entry's schema breaks against its tag, or `never`. The
- * schema describes the fields beside `_tag`, so its output is an object; when
- * that output carries a `_tag` literal too, it is the tag itself.
+ * schema describes the fields beside `_tag`, so its input is an object; when
+ * that input carries a `_tag` literal too, it is the tag itself.
  */
 // `any` and `unknown` are what an untyped schema answers; nothing can be
 // said about its fields, so nothing is refused.
-type SchemaRule<Tag extends string, Output> =
-  IsAny<Output> extends true
+type SchemaRule<Tag extends string, Input> =
+  IsAny<Input> extends true
     ? never
-    : unknown extends Output
+    : unknown extends Input
       ? never
-      : [Output] extends [never]
+      : [Input] extends [never]
         ? never
-        : [Output] extends [object]
-          ? [Output] extends [readonly unknown[] | ((...args: never[]) => void)]
+        : [Input] extends [object]
+          ? [Input] extends [readonly unknown[] | ((...args: never[]) => void)]
             ? 'the schema must describe an object of fields beside _tag'
-            : TagLiteralsOf<Output> extends infer Literal
+            : TagLiteralsOf<Input> extends infer Literal
               ? [Literal] extends [never]
                 ? never
                 : string extends Literal
                   ? never
                   : [Literal] extends [Tag]
                     ? never
-                    : `the schema's output has _tag ${Literal & string}, which must equal the tag ${Tag}`
+                    : `the schema's input has _tag ${Literal & string}, which must equal the tag ${Tag}`
               : never
           : 'the schema must describe an object of fields beside _tag'
 
 // What JSON has no form for. Functions are not here: JSON leaves a
 // function-valued field out, the boundary never collects one, and a class
-// instance's methods - an Effect error's `toJSON` and `pipe` among them - are
-// not fields at all, so refusing them would refuse every Effect error class.
+// instance's methods - a `toJSON` among them - are not fields at all, so
+// refusing them would refuse every schema typed by a class.
 type NoJsonForm = bigint | symbol
 
 // Whether a value inside `data` holds anything JSON has no form for, followed
@@ -141,29 +146,29 @@ type HoldsNoJsonForm<Value, Depth extends unknown[] = []> =
                     : false
                   : false
 
-// The fields of a schema's output that cannot go out as JSON, over every
-// member of a union output. The output itself is never serialised whole -
+// The fields of a schema's input that cannot go out as JSON, over every
+// member of a union input. The thrown value itself is never serialised whole -
 // the boundary copies its own fields - so its own `toJSON` is not followed.
-type UnsendableFields<Output> = Output extends unknown
+type UnsendableFields<Input> = Input extends unknown
   ? {
-      [Key in keyof Output & string]-?: Key extends '_tag'
+      [Key in keyof Input & string]-?: Key extends '_tag'
         ? never
-        : true extends HoldsNoJsonForm<Output[Key]>
+        : true extends HoldsNoJsonForm<Input[Key]>
           ? Key
           : never
-    }[keyof Output & string]
+    }[keyof Input & string]
   : never
 
 /**
  * The sentence an entry's fields break, or `never`: each goes out inside
  * `data` through JSON, so a field JSON cannot carry is refused.
  */
-type FieldsRule<Output> =
-  IsAny<Output> extends true
+type FieldsRule<Input> =
+  IsAny<Input> extends true
     ? never
-    : unknown extends Output
+    : unknown extends Input
       ? never
-      : UnsendableFields<Output> extends infer Field extends string
+      : UnsendableFields<Input> extends infer Field extends string
         ? [Field] extends [never]
           ? never
           : `the field ${Field} cannot go out as JSON - it holds a bigint or a symbol`
@@ -175,11 +180,11 @@ type FieldsRule<Output> =
  * the identity of `&`, when the declaration holds.
  */
 export type TagGuard<Tag extends string, Entry> = [TagRule<Tag>] extends [never]
-  ? [SchemaRule<Tag, EntryOutput<Entry>>] extends [never]
-    ? [FieldsRule<EntryOutput<Entry>>] extends [never]
+  ? [SchemaRule<Tag, EntryInput<Entry>>] extends [never]
+    ? [FieldsRule<EntryInput<Entry>>] extends [never]
       ? unknown
-      : ErrorDeclarationError<FieldsRule<EntryOutput<Entry>>>
-    : ErrorDeclarationError<SchemaRule<Tag, EntryOutput<Entry>>>
+      : ErrorDeclarationError<FieldsRule<EntryInput<Entry>>>
+    : ErrorDeclarationError<SchemaRule<Tag, EntryInput<Entry>>>
   : ErrorDeclarationError<TagRule<Tag>>
 
 /**
