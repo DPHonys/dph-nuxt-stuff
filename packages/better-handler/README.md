@@ -10,7 +10,7 @@ The package is under construction and private: it installs, takes its one option
 
 Every Nuxt 4 (`>=4.0.0 <5.0.0`).
 
-CI holds that range at both edges. The default jobs install the committed lockfile, which pins the latest 4.x. On every push to `main` and every pull request, the `Nuxt 4.0 floor` job also runs this package's typecheck and tests with `nuxt`, `@nuxt/kit` and `@nuxt/schema` 4.0.x installed in their place, without changing the committed lockfile, and must pass.
+CI holds that range at both edges. The default jobs install the committed lockfile, which pins the latest 4.x. On every push to `main` and every pull request into `main`, the `Nuxt 4.0 floor` job also runs this package's typecheck and tests with `nuxt`, `@nuxt/kit` and `@nuxt/schema` 4.0.x installed in their place, without changing the committed lockfile, and must pass.
 
 ## Registration and configuration
 

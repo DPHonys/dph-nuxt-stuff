@@ -16,10 +16,13 @@ runs:
   using: composite
   steps:
     - uses: pnpm/action-setup@v4
+    # The pnpm store cache is keyed on the committed lockfile. An install
+    # against compatibility settings resolves a different tree, so it neither
+    # restores nor saves that cache; an empty `cache` turns caching off.
     - uses: actions/setup-node@v4
       with:
         node-version-file: .nvmrc
-        cache: pnpm
+        cache: ${{ inputs.compat-settings == '' && 'pnpm' || '' }}
     - uses: actions/cache@v4
       with:
         path: .turbo
@@ -44,7 +47,14 @@ runs:
       shell: bash
       env:
         SETTINGS: ${{ inputs.compat-settings }}
+      # A failing `jq` inside the loop's `$(...)` does not stop the step, so
+      # without this check a missing or malformed file would install the
+      # committed tree and pass.
       run: |
+        if ! jq -e 'type == "object"' "$SETTINGS" >/dev/null; then
+          echo "::error file=${SETTINGS}::${SETTINGS} must exist and hold a JSON object."
+          exit 1
+        fi
         for key in $(jq -r 'keys[]' "$SETTINGS"); do
           if grep -q "^${key}:" pnpm-workspace.yaml; then
             echo "::error file=${SETTINGS}::pnpm-workspace.yaml already sets \`${key}\`; merge it into ${SETTINGS} instead."

@@ -155,8 +155,13 @@ jobs:
         uses: ./.github/actions/setup
         with:
           compat-settings: .github/compat/floor.json
-      - name: Show the Nuxt this job resolved
-        run: pnpm --filter @dphonys/better-handler list nuxt @nuxt/kit @nuxt/schema @nuxt/test-utils
+      # Fails rather than only prints, so a settings file that no longer takes
+      # effect cannot leave this job testing the committed Nuxt.
+      - name: Show the Nuxt this job resolved and require 4.0.x
+        run: |
+          pnpm --filter @dphonys/better-handler list nuxt @nuxt/kit @nuxt/schema @nuxt/test-utils
+          version=$(node -p "require('./packages/better-handler/node_modules/nuxt/package.json').version")
+          [[ $version == 4.0.* ]] || { echo "::error::@dphonys/better-handler resolved nuxt $version, not 4.0.x."; exit 1; }
       - name: Typecheck
         run: pnpm exec turbo run typecheck --filter=@dphonys/better-handler
       - name: Test
