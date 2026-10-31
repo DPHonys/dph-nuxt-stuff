@@ -63,7 +63,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(21)
+    expect(diagnostics).toHaveLength(26)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -82,6 +82,7 @@ describe('defineError refuses a tag at the tag', () => {
     ["defineError('',", SENTENCES.emptyTag],
     ['defineError(someTag,', SENTENCES.oneLiteral],
     ['defineError(eitherTag,', SENTENCES.oneLiteral],
+    ['defineError(patternTag,', SENTENCES.oneLiteral],
   ])('%s', (needle, sentence) => {
     const diagnostic = at(needle)
 
@@ -100,6 +101,16 @@ describe('defineError refuses an entry its tag cannot carry', () => {
 
   it('refuses a schema whose output is not an object of fields', () => {
     const diagnostic = at("defineError('scalar-fields'")
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.objectFields)).toBe(true)
+  })
+
+  it.each([
+    ['an array', "defineError('mixed-array'"],
+    ['a function', "defineError('mixed-callable'"],
+  ])('refuses a union output with %s among its members', (_, needle) => {
+    const diagnostic = at(needle)
 
     expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
     expect(guarding(diagnostic, SENTENCES.objectFields)).toBe(true)
@@ -136,6 +147,20 @@ describe("a route's errors map is refused at the key", () => {
 
     expect(diagnostic?.code).toBe(NOT_ASSIGNABLE_EXACT_OPTIONAL)
     expect(guarding(diagnostic, SENTENCES.strayKey)).toBe(true)
+  })
+
+  it('refuses a pattern key, which is no one tag', () => {
+    const diagnostic = at('route(patterned)')
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.oneLiteral)).toBe(true)
+  })
+
+  it('refuses a union output with an array member', () => {
+    const diagnostic = at("'mixed-array': {")
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.objectFields)).toBe(true)
   })
 
   it('refuses a numeric key, which names no tag the helper can reach', () => {

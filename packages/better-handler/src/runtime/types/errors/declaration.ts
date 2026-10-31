@@ -75,21 +75,37 @@ type TagLiteralsOf<Output> = Output extends unknown
     : never
   : never
 
+// A template-literal pattern such as `x-${string}` is no one literal: as a key
+// it makes an index signature, which an empty object already satisfies.
+type IsPattern<Tag extends string> =
+  Record<never, never> extends Record<Tag, true> ? true : false
+
 /** The sentence a tag itself breaks, or `never` when it is a tag. */
 type TagRule<Tag extends string> = string extends Tag
   ? 'an error tag must be one string literal'
   : IsUnion<Tag> extends true
     ? 'an error tag must be one string literal'
-    : Tag extends ''
-      ? 'an error tag must be a non-empty string'
-      : Tag extends ReservedTag
-        ? `${Tag} is reserved for the built-in variant - rename the declared error`
-        : never
+    : IsPattern<Tag> extends true
+      ? 'an error tag must be one string literal'
+      : Tag extends ''
+        ? 'an error tag must be a non-empty string'
+        : Tag extends ReservedTag
+          ? `${Tag} is reserved for the built-in variant - rename the declared error`
+          : never
+
+// The members of a schema's output that are no object of fields: an array or
+// a function, each an object to the compiler. One such member of a union
+// output is enough to refuse it, as the runtime refuses that member's value.
+type NotFieldsMembers<Output> = Extract<
+  Output,
+  readonly unknown[] | ((...args: never[]) => void)
+>
 
 /**
  * The sentence an entry's schema breaks against its tag, or `never`. The
- * schema describes the fields beside `_tag`, so its output is an object; when
- * that output carries a `_tag` literal too, it is the tag itself.
+ * schema describes the fields beside `_tag`, so its output is an object, and
+ * so is every member of a union output; when that output carries a `_tag`
+ * literal too, it is the tag itself.
  */
 // `any` and `unknown` are what an untyped schema answers; nothing can be
 // said about its fields, so nothing is refused.
@@ -101,9 +117,8 @@ type SchemaRule<Tag extends string, Output> =
       : [Output] extends [never]
         ? never
         : [Output] extends [object]
-          ? [Output] extends [readonly unknown[] | ((...args: never[]) => void)]
-            ? 'the schema must describe an object of fields beside _tag'
-            : TagLiteralsOf<Output> extends infer Literal
+          ? [NotFieldsMembers<Output>] extends [never]
+            ? TagLiteralsOf<Output> extends infer Literal
               ? [Literal] extends [never]
                 ? never
                 : string extends Literal
@@ -112,6 +127,7 @@ type SchemaRule<Tag extends string, Output> =
                     ? never
                     : `the schema's output has _tag ${Literal & string}, which must equal the tag ${Tag}`
               : never
+            : 'the schema must describe an object of fields beside _tag'
           : 'the schema must describe an object of fields beside _tag'
 
 /**

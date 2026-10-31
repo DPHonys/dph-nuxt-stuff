@@ -40,6 +40,10 @@ export const widenedTag = defineError(someTag, { status: 400 })
 declare const eitherTag: 'order-locked' | 'order-paid'
 export const unionTag = defineError(eitherTag, { status: 409 })
 
+// A pattern is no one literal: spread, it would admit `fail('x-anything')`.
+declare const patternTag: `x-${string}`
+export const patternedTag = defineError(patternTag, { status: 400 })
+
 // --- defineError: the entry -------------------------------------------------
 
 export const tagMismatch = defineError('order-not-found', {
@@ -49,6 +53,19 @@ export const tagMismatch = defineError('order-not-found', {
 export const scalarFields = defineError('scalar-fields', {
   status: 400,
   schema: z.string(),
+})
+// One member of a union output that is no object of fields is enough.
+export const mixedArrayFields = defineError('mixed-array', {
+  status: 400,
+  schema: z.union([z.object({ id: z.number() }), z.array(z.number())]),
+})
+declare const mixedCallable: StandardSchemaV1<
+  unknown,
+  { id: number } | (() => void)
+>
+export const mixedCallableFields = defineError('mixed-callable', {
+  status: 400,
+  schema: mixedCallable,
 })
 export const strayKey = defineError('stray-key', {
   status: 400,
@@ -67,6 +84,18 @@ export const mapMismatch = route({
 
 export const mapStray = route({
   'stray-key': { status: 400, payload: z.object({ id: z.number() }) },
+})
+
+declare const patterned: {
+  readonly [Tag in `x-${string}`]: { readonly status: 400 }
+}
+export const mapPatterned = route(patterned)
+
+export const mapMixed = route({
+  'mixed-array': {
+    status: 400,
+    schema: z.union([z.object({ id: z.number() }), z.array(z.number())]),
+  },
 })
 
 export const mapNumeric = route({
