@@ -192,10 +192,12 @@ export default defineBetterEventHandler(
 ```
 
 - **`respond(status, value)` pairs a declared status with that status's body** at compile time; `respond(status)` answers a status declared `null`. Another status, a wrong value, a value for a `null` status or a missing one is a compile error.
+- **`respond` takes one status literal at a time.** A union status, such as `respond(isNew ? 201 : 200, value)`, is a compile error at the status (`RespondError`), since its value would only have to fit one of the bodies: respond under each status in its own branch.
+- **Only a status declared `null` is bodiless.** A `z.null()` schema declares the body `null`, so its status takes the value: `respond(201, null)`.
 - **A map-form handler must return the Respond helper's result.** A plain return is a compile error, and at runtime it answers a plain `500`, in production too, since no status can be read off it; [The wire](#the-wire) says who reads its sentence.
 - **A status declared `null` sends no body**, whatever a JavaScript caller passed.
 - **A `200` with no body stays `200`.** A map's `200: null`, or a bare form whose schema admits `null` and whose handler returns `null`, answers `200` with no body and no `content-type`, not h3's `204`.
-- **A map key is a status in plain decimal, from `100` to `599`**, and each value a Standard Schema or `null`; anything else is refused at declaration.
+- **A map key is a status in plain decimal, from `100` to `399`**, and each value a Standard Schema or `null`; anything else is refused at declaration, and a key outside the range is also a compile error at `output` (`OutputDeclarationError`). A failure status is declared under `errors`, by tag, and raised with `fail`: a client's fetch throws on a status from `400` up, so a body declared there would never reach its typed response.
 - **Nothing runs the output schema in production.** The handed-over value is sent as it is. A development server asserts it against the schema and discards the result, so both send the same bytes; see [Development checks](#development-checks).
 - **The client receives the schemas' input types as JSON carries them** (a `Date` input still arrives as a `string`): the bare schema's input type, or the union of the map's bodies, `null` for a bodiless status. What the handler hands over is what goes out, so a transform's output is never sent or typed. A route without `output` is typed by what its handler returns, as any Nitro handler is.
 
@@ -546,6 +548,8 @@ The package's own compile-time rules arrive as a sentence inside a type, at the 
 
 ```text
 HandlerDeclarationError<"declare input, errors, output, or any combination">
+OutputDeclarationError<"the status must be an integer from 100 to 399, not 404 - a failure status is declared under errors, by tag">
+RespondError<"respond takes one status literal - respond under each status in its own branch">
 ErrorDeclarationError<"validation-failed is reserved for the built-in variant - rename the declared error">
 ErrorDeclarationError<"request-failed is reserved for the built-in variant - rename the declared error">
 ErrorDeclarationError<"an error tag must be a non-empty string">
@@ -563,6 +567,8 @@ AsyncDataHandlerError<"resolve to a .try result, such as $betterFetch.try(…)">
 ```
 
 - `HandlerDeclarationError` is at the options: the route declares nothing, or only empty maps.
+- `OutputDeclarationError` is at `output`: a status map names a status outside `100` to `399`.
+- `RespondError` is at the status of a `respond` call handed a union of statuses.
 - `ErrorDeclarationError` is at the offending tag, `status` or entry key, in a route's `errors` or a `defineError` call. A migrating `payload:` key is refused so it never silently means "no schema".
 - `InputDeclarationError` is at the offending source key. A misspelled key standing alone in `input` is refused by TypeScript's own check instead: `Object literal may only specify known properties, and 'routerParams' does not exist in type 'InputDeclaration & InputGuard<InputDeclaration>'.`
 - `AsyncDataHandlerError` is at a `useBetterAsyncData` handler that does not resolve to a `.try` result.
@@ -637,7 +643,7 @@ A misdeclaration the types did not see (a JavaScript route, an `any`-typed value
 [better-handler] The query input holds a plain object at index 1, which is not a Standard Schema.
 [better-handler] The headers input is an empty tuple. Declare at least one schema, or remove the key.
 [better-handler] The output of defineBetterEventHandler must be a Standard Schema, for one 200 reply returned plainly, or a map from status to schema, not an instance of Map.
-[better-handler] The output's key "600" must be a status, an integer from 100 to 599.
+[better-handler] The output's key "600" must be a status, an integer from 100 to 399 - a failure status is declared under errors, by tag.
 [better-handler] The output for status 201 must be a Standard Schema, or null for a reply with no body, not a plain object.
 [better-handler] defineBetterEventHandler must declare input, errors, output, or any combination.
 ```
@@ -666,7 +672,7 @@ These come from the [development checks](#development-checks), on a development 
 
 ```text
 [better-handler] cannot send the response: GET /api/receipts answered 200 with a value its declared Response output rejects - id: Invalid input: expected string, received number; total: Invalid input: expected number, received string. Nothing checks the response in production, so this route would send that value as it is: fix the handler or the schema, or set `devChecks: false`.
-[better-handler] cannot send the response: GET /api/receipts answered 404, a status its declared Response output never names - the map names 200, 201. Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or name 404 in `output`, or set `devChecks: false`.
+[better-handler] cannot send the response: GET /api/receipts answered 404, a status its declared Response output never names - the map names 200, 201. Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or declare the failure under `errors` and throw it with `fail`, or set `devChecks: false`.
 [better-handler] cannot send the response: GET /api/receipts answered 200, and the schema its Response output declares threw while checking the value instead of reporting issues - the cause is what it threw. Nothing runs the schema in production, so this route would send the value unchecked: fix the schema, or set `devChecks: false`.
 [better-handler] cannot send the error: GET /api/orders/7 threw "order-not-found" with fields its declared schema rejects - id: id must be a number. Nothing checks the fields in production, so this route would send them as they are: fix the handler or the schema, or set `devChecks: false`.
 [better-handler] cannot send the error: GET /api/orders/7 threw "order-odd", and the schema it declares threw while checking the fields instead of reporting issues - the cause is what it threw. Nothing runs the schema in production, so this route would send the fields unchecked: fix the schema, or set `devChecks: false`.
@@ -741,7 +747,7 @@ h3 memoises the body parse. A middleware that read the body before the route, wi
 | Reading a handler | `KnownErrorsOfHandler`, `RequestInputOfHandler`, `ResponseOutputOfHandler`, `RouteKnownErrors`                                                                                                                                                                |
 | Errors            | `ErrorDeclarations`, `ErrorEntry`, `ErrorStatus`, `ErrorDeclarationError`, `ReservedTag`, `Fail`, `FailedError`, `TaggedError`, `KnownErrorsOf`                                                                                                               |
 | Input             | `InputDeclaration`, `InputDeclarationError`, `InputGuard`, `InputOf`, `OutputOf`, `MergedInput`, `MergedOutput`, `RequestInput`, `SourceInput`, `SourceSchemas`, `SourceValue`, `ValidatedContext`, `ValidationSource`, `ValidationIssue`, `ValidationFailed` |
-| Output            | `ResponseOutput`, `StatusMap`, `ResponseOutputs`, `ResponseBodies`, `HandlerReturn`, `SentResponse`, `Respond`, `Responded`                                                                                                                                   |
+| Output            | `ResponseOutput`, `StatusMap`, `ResponseOutputs`, `ResponseBodies`, `HandlerReturn`, `SentResponse`, `Respond`, `Responded`, `RespondError`, `OutputDeclarationError`, `OutputGuard`                                                                          |
 | Routes            | `KnownApiErrors`, `KnownApiRequestInputs` (generated, never written by hand), `KnownErrorsOfRoute`, `RequestInputOfRoute`, `Wire`                                                                                                                             |
 | Fetching          | `$BetterFetch`, `BetterFetch`, `BetterFetchTry`, `BetterFetchError`, `BetterRequestOptions`, `TryResult`, `RequestFailed`, `KnownErrorBody`, `KnownErrorFor`, `KnownErrorOf`                                                                                  |
 | Matching          | `MatchError`, `MatchableError`, `ErrorArms`, `VariantsOf`, `UnknownTagFallback`                                                                                                                                                                               |
