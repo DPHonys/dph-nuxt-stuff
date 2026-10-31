@@ -79,6 +79,57 @@ const collisions = {
   }),
 }
 
+/** What a fetch resolved to, spelled so `undefined` survives JSON. */
+function spelled<Body>(value: Body): string {
+  return value === undefined ? 'undefined' : JSON.stringify(value)
+}
+
+// The two replies with nothing in them, during server-side rendering: a
+// nullable schema's `null`, sent as JSON, and a `200` declared `null`, sent
+// with no body. What the global and every composable resolve each to.
+const fetchedReplies = await useAsyncData('replies', async () => ({
+  none: spelled(await $betterFetch('/api/replies/none')),
+  bodiless: spelled(await $betterFetch('/api/replies/bodiless')),
+}))
+const replyCalls = {
+  useBetterFetch: {
+    none: await useBetterFetch('/api/replies/none'),
+    bodiless: await useBetterFetch('/api/replies/bodiless'),
+  },
+  useLazyBetterFetch: {
+    none: await useLazyBetterFetch('/api/replies/none'),
+    bodiless: await useLazyBetterFetch('/api/replies/bodiless'),
+  },
+  useBetterAsyncData: {
+    none: await useBetterAsyncData('replies-none', () =>
+      $betterFetch.try('/api/replies/none')
+    ),
+    bodiless: await useBetterAsyncData('replies-bodiless', () =>
+      $betterFetch.try('/api/replies/bodiless')
+    ),
+  },
+  useLazyBetterAsyncData: {
+    none: await useLazyBetterAsyncData('replies-lazy-none', () =>
+      requestFetch.try('/api/replies/none')
+    ),
+    bodiless: await useLazyBetterAsyncData('replies-lazy-bodiless', () =>
+      requestFetch.try('/api/replies/bodiless')
+    ),
+  },
+}
+const replies = {
+  $betterFetch: fetchedReplies.data.value,
+  ...Object.fromEntries(
+    Object.entries(replyCalls).map(([name, { none, bodiless }]) => [
+      name,
+      {
+        none: spelled(none.data.value),
+        bodiless: spelled(bodiless.data.value),
+      },
+    ])
+  ),
+}
+
 const composables = {
   useBetterFetch: {
     data: order.data.value,
@@ -99,4 +150,5 @@ const composables = {
   <pre id="rendered">{{ JSON.stringify(data) }}</pre>
   <pre id="composables">{{ JSON.stringify(composables) }}</pre>
   <pre id="collisions">{{ JSON.stringify(collisions) }}</pre>
+  <pre id="replies">{{ JSON.stringify(replies) }}</pre>
 </template>

@@ -325,7 +325,7 @@ export async function responses(): Promise<void> {
   })
 
   type _StatusMap = Expect<
-    Equal<typeof _document, { id: string; title: string } | null>
+    Equal<typeof _document, { id: string; title: string } | undefined>
   >
 
   // An explicit type argument still overrides, as on vanilla.
@@ -391,7 +391,7 @@ export async function tryResults(): Promise<void> {
   } else {
     // Narrowed by the sibling alone, with no second guard.
     type _Data = Expect<
-      Equal<typeof tried.data, { id: string; title: string } | null>
+      Equal<typeof tried.data, { id: string; title: string } | undefined>
     >
   }
 

@@ -85,20 +85,22 @@ export type HasOutput<Output> = [Output] extends [ResponseOutput]
   : false
 
 /**
- * What one status-map slot sends: its schema's input, or `null` for a status
- * declared `null`. Distributes, so the `StandardSchemaV1 | null` slot of a map
- * annotated with the public `StatusMap` keeps a body - `unknown`, as an
- * untyped schema's - rather than reading as bodiless.
+ * What one status-map slot sends: its schema's input, or `undefined` for a
+ * status declared `null`, which sends no body and which a client fetch
+ * resolves to `undefined`. Distributes, so the `StandardSchemaV1 | null` slot
+ * of a map annotated with the public `StatusMap` keeps a body - `unknown`, as
+ * an untyped schema's - rather than reading as bodiless.
  */
-type SlotBody<Slot> = Slot extends StandardSchemaV1 ? InputOf<Slot> : null
+type SlotBody<Slot> = Slot extends StandardSchemaV1 ? InputOf<Slot> : undefined
 
 /**
  * The replies a Response output declares, as a map from status to the body
  * that status sends: the bare form is a single `200`, and each body is its
  * schema's _input_ type - what the Handler hands over, what the development
  * check validates and what goes out, as nothing transforms it on the way; a
- * status declared `null` maps to `null`. `never` when the route declares no
- * Response output.
+ * status declared `null` maps to `undefined`, the no body a client reads,
+ * while a schema admitting `null` keeps `null`, sent as JSON. `never` when the
+ * route declares no Response output.
  */
 export type ResponseOutputs<Output> = Output extends StandardSchemaV1
   ? { 200: InputOf<Output> }
@@ -109,7 +111,7 @@ export type ResponseOutputs<Output> = Output extends StandardSchemaV1
 /**
  * The statuses a status map declares `null`: the bodiless replies, which take
  * no value. Told apart on the declaration, not on the body, because a schema
- * whose input is `null` sends a body of `null` too and takes it as its value.
+ * whose input is `undefined` would read as bodiless too, and takes a value.
  * `never` for the bare form and for a map annotated with `StatusMap`, whose
  * slots may each be a schema.
  */
@@ -206,10 +208,14 @@ export type HandlerReturn<Output> = Output extends StandardSchemaV1
     : unknown
 
 /**
- * What the returned Handler answers with, once settled: the bare form's
- * input type, the union of a status map's bodies rather than the Respond
- * helper's result that carried them, and the Handler's own return when the
- * route declares no Response output.
+ * What the returned Handler answers a client with: the bare form's input
+ * type, the union of a status map's bodies rather than the Respond helper's
+ * result that carried them, and the Handler's own return when the route
+ * declares no Response output. A body of `null` is sent as JSON `null`, and a
+ * status declared `null` goes out as a web `Response` with no body, which a
+ * client fetch resolves to `undefined` - the value this type gives it - when
+ * it fetches in-process or the status is `204`; ofetch over a socket reads
+ * an empty `200` as `''`.
  */
 export type SentResponse<Output, Response> = Output extends StandardSchemaV1
   ? InputOf<Output>

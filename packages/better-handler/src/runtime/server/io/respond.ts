@@ -4,13 +4,14 @@
  * Handler hands back. Beside the source readers, the one file importing h3
  * runtime helpers outside the h3 seam: `setResponseStatus`, which on h3 v2 is
  * a write to `event.res.status` instead, with the status message cleared
- * beside it, which on h3 v2 is `event.res.statusText`; and `send`, for the one
- * bodiless reply h3 v1 cannot send from a returned `null`.
+ * beside it, which on h3 v2 is `event.res.statusText`; and
+ * `setResponseHeader`, for the JSON type of a body of `null`, which h3 would
+ * otherwise send as no body at all.
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandlerResponse, H3Event } from 'h3'
-import { send, setResponseStatus } from 'h3'
+import { setResponseHeader, setResponseStatus } from 'h3'
 import {
   isPlainObject,
   isRecordLike,
@@ -186,28 +187,47 @@ function bareDelivery(schema: StandardSchemaV1): ResponseDelivery {
 
       if (devChecksEnabled()) await checkResponse(event, 200, schema, returned)
 
-      // A nullable schema's `null` is the reply with no body, under the 200
-      // the bare form promised.
-      if (returned === null) return await noBody(event, 200)
+      // A nullable schema's `null` is a body, sent as JSON under the 200 the
+      // bare form promised.
+      if (returned === null) return jsonNull(event)
 
       return returned
     },
   }
 }
 
-/**
- * Answer `status` with no body. h3 sends a returned `null` itself under every
- * status but `200`, which it turns into a `204`, a status the declaration
- * never named; that one reply is sent here, ahead of h3, and the `null` handed
- * back then leaves h3 nothing to send. The settled value stays `null` either
- * way, as `SentResponse` types it.
- */
-async function noBody(event: H3Event, status: number): Promise<null> {
-  // An empty string with no type: no `content-type`, and a `content-length`
-  // of 0 rather than h3's `sendNoContent`, whose `200` goes out chunked.
-  if (status === 200) await send(event, '')
+// The statuses that may not carry a `content-length` at all: a `204`, and a
+// `304`, whose length would be the representation's it stands in for.
+const NO_CONTENT_LENGTH = new Set([204, 304])
 
-  return null
+/**
+ * The reply under `status` with no body, for a status declared `null`: a web
+ * `Response`, which h3 sends once every hook before the response has run, so
+ * a Nitro `beforeResponse` hook can still set a header. A returned `null`
+ * would not do: h3 sends it as a `204` under `200`, a status the declaration
+ * never named. No `content-type`, and a `content-length` of 0 wherever a
+ * status may carry one, so a client reads no body rather than a stream that
+ * never ends. A client fetch resolves the reply to `undefined`, as
+ * `SentResponse` types it - in-process, and under `204` - though ofetch over
+ * a socket reads an empty body under a status that may carry one as `''`.
+ */
+function noBody(status: number): Response {
+  return new Response(null, {
+    status,
+    headers: NO_CONTENT_LENGTH.has(status) ? {} : { 'content-length': '0' },
+  })
+}
+
+/**
+ * A body of `null`, a nullable schema's, as JSON: the text `null` under the
+ * JSON type, returned for h3 to send after every hook, as any other body is.
+ * A returned `null` would go out with no body, which a client cannot read as
+ * `null`, and under `200` as a `204`.
+ */
+function jsonNull(event: H3Event): string {
+  setResponseHeader(event, 'content-type', 'application/json')
+
+  return 'null'
 }
 
 function isResponded<Returned>(
@@ -218,8 +238,9 @@ function isResponded<Returned>(
 
 /**
  * Send what a map-form Handler responded with: the declared status, and its
- * value as the body. A status declared `null` sends no body under that same
- * status, whatever a caller the types never saw passed beside it.
+ * value as the body, a `null` one as JSON. A status declared `null` sends no
+ * body under that same status, whatever a caller the types never saw passed
+ * beside it.
  */
 async function sendResponded<Returned>(
   event: H3Event,
@@ -251,9 +272,10 @@ async function sendResponded<Returned>(
   // The declaration decides, not the envelope: the runtime helper takes any
   // arguments, so a plain-JavaScript `respond(204, value)` carries a body the
   // declared `null` promised never to send.
-  if (statuses[status] === null || body === undefined) {
-    return await noBody(event, status)
-  }
+  if (statuses[status] === null || body === undefined) return noBody(status)
+
+  // A schema admitting `null` declared it a body, as the bare form's does.
+  if (body === null) return jsonNull(event)
 
   return body
 }

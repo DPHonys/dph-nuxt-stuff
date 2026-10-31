@@ -14,6 +14,8 @@ import { createApp, createRouter, toWebHandler } from 'h3'
  * only way to get real route params. `onError` is h3's error hook, the only
  * place a suite sees the thrown error rather than its serialized body - and h3
  * wraps whatever was thrown into an `H3Error` before the hook sees it.
+ * `onBeforeResponse` is h3's hook between a handler's return and the reply,
+ * the one Nitro's `beforeResponse` hooks run in.
  */
 export function request(
   handler: EventHandler,
@@ -23,11 +25,16 @@ export function request(
     debug?: boolean
     route?: string
     onError?: (error: H3Error) => void
+    onBeforeResponse?: AppOptions['onBeforeResponse']
   } = {}
 ): Promise<Response> {
   const appOptions: AppOptions = { debug: options.debug ?? false }
 
   if (options.onError !== undefined) appOptions.onError = options.onError
+
+  if (options.onBeforeResponse !== undefined) {
+    appOptions.onBeforeResponse = options.onBeforeResponse
+  }
 
   const app = createApp(appOptions)
 

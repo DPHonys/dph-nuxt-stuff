@@ -58,7 +58,7 @@ export async function receipt(): Promise<void> {
   })
 
   type _Sent = Assert<
-    Equal<typeof _sent, { id: number; total: number; at: string } | null>
+    Equal<typeof _sent, { id: number; total: number; at: string } | undefined>
   >
 }
 

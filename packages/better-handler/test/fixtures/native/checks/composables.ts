@@ -41,7 +41,7 @@ interface UserList {
 }
 
 /** What `/api/everything/:id` answers on `post`: the status map's bodies. */
-type Document = { id: string; title: string } | null
+type Document = { id: string; title: string } | undefined
 
 /** The Built-in validation-failed variant, as it arrives. */
 interface ValidationFailedArrived {

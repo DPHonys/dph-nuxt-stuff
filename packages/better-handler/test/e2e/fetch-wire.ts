@@ -54,6 +54,20 @@ const OBSERVED = {
   unavailable: { _tag: 'request-failed', status: 503 },
 }
 
+/**
+ * The two replies with nothing in them, as a relay or the page reports them:
+ * a nullable schema's `null` arrives as `null`, and a status declared `null`
+ * as `undefined`, which is what each is typed as.
+ */
+const REPLIES = { none: 'null', bodiless: 'undefined' }
+
+/** The same, read by a relay both as the call and as `.try`'s `data`. */
+const RELAYED_REPLIES = {
+  ...REPLIES,
+  triedNone: REPLIES.none,
+  triedBodiless: REPLIES.bodiless,
+}
+
 /** Which server a wire runs against. */
 interface WireServer {
   /** A development server, which runs Nuxt's development checks. */
@@ -67,6 +81,7 @@ export function theFetchWire(server: WireServer): void {
       // The global is no request's: it forwards no cookie.
       echoed: { accept: 'application/json', cookie: null },
       ownAccept: { accept: 'text/plain', cookie: null },
+      replies: RELAYED_REPLIES,
     })
   })
 
@@ -77,6 +92,7 @@ export function theFetchWire(server: WireServer): void {
       ...OBSERVED,
       echoed: { accept: 'application/json', cookie: 'session=abc' },
       ownAccept: { accept: 'text/plain', cookie: 'session=abc' },
+      replies: RELAYED_REPLIES,
     })
   })
 
@@ -89,6 +105,7 @@ export function theFetchWire(server: WireServer): void {
       ...OBSERVED,
       echoed: { accept: 'application/json', cookie: null },
       ownAccept: { accept: 'text/plain', cookie: null },
+      replies: RELAYED_REPLIES,
     })
   })
 
@@ -136,6 +153,20 @@ export function theFetchWire(server: WireServer): void {
           }),
         },
       },
+    })
+  })
+
+  // A body of `null` and no body at all are two different answers, and each
+  // surface hands them over as the types say: `null` and `undefined`.
+  it('resolves JSON null to null and no body to undefined, on the global and every composable', async () => {
+    expect(
+      JSON.parse(renderedJson(await $fetch<string>('/'), 'replies'))
+    ).toEqual({
+      $betterFetch: REPLIES,
+      useBetterFetch: REPLIES,
+      useLazyBetterFetch: REPLIES,
+      useBetterAsyncData: REPLIES,
+      useLazyBetterAsyncData: REPLIES,
     })
   })
 

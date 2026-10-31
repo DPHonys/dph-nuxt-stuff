@@ -5,7 +5,7 @@ import {
   untyped,
   wire,
 } from '@dphonys/test-utils/h3-app'
-import { defineEventHandler, setResponseStatus } from 'h3'
+import { defineEventHandler, setResponseHeader, setResponseStatus } from 'h3'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineBetterEventHandler } from '../../src/runtime/server'
@@ -151,9 +151,10 @@ describe('a route declaring a bare output', () => {
     await expect((await answer(route)).json()).resolves.toEqual({ keys: [] })
   })
 
-  it('answers 200 with no body when the Handler returns null', async () => {
-    // A nullable schema's `null`, which h3 alone would send as a `204`: a
-    // status the declaration never named.
+  it('answers 200 with JSON null when the Handler returns null', async () => {
+    // A nullable schema's `null` is a body, which h3 alone would send as a
+    // `204` with none: a status the declaration never named, and nothing a
+    // client could read as `null`.
     const route = defineBetterEventHandler(
       { output: receipt.nullable() },
       () => null
@@ -162,8 +163,8 @@ describe('a route declaring a bare output', () => {
     const response = await answer(route)
 
     expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toBeNull()
-    await expect(response.text()).resolves.toBe('')
+    expect(response.headers.get('content-type')).toMatch(/^application\/json/)
+    await expect(response.text()).resolves.toBe('null')
   })
 
   it('takes a hand-written Standard Schema, plain object and all', async () => {
@@ -231,7 +232,19 @@ describe('a route declaring a status map', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBeNull()
+    expect(response.headers.get('content-length')).toBe('0')
     await expect(response.text()).resolves.toBe('')
+  })
+
+  it('sends no content-length under 204, which may carry none', async () => {
+    const route = defineBetterEventHandler(
+      { output: { 204: null } },
+      (_event, { respond }) => respond(204)
+    )
+
+    const response = await answer(route)
+
+    expect(response.headers.get('content-length')).toBeNull()
   })
 
   it('drops a status message set before the Handler ran', async () => {
@@ -255,7 +268,8 @@ describe('a route declaring a status map', () => {
 
   it('sends null as the body of a schema whose input is null', async () => {
     // A `z.null()` slot declares a body that is `null`, not a bodiless reply:
-    // `respond(201, null)` is the call that answers it.
+    // `respond(201, null)` is the call that answers it, and JSON `null` is
+    // what goes out.
     const route = defineBetterEventHandler(
       { output: { 201: z.null() } },
       (_event, { respond }) => respond(201, null)
@@ -264,6 +278,22 @@ describe('a route declaring a status map', () => {
     const response = await answer(route)
 
     expect(response.status).toBe(201)
+    expect(response.headers.get('content-type')).toMatch(/^application\/json/)
+    await expect(response.text()).resolves.toBe('null')
+  })
+
+  it('sends JSON null under 200 for a nullable schema’s null', async () => {
+    // h3 alone sends `null` under `200` as a `204` with no body.
+    const route = defineBetterEventHandler(
+      { output: { 200: existing.nullable(), 201: created } },
+      (_event, { respond }) => respond(200, null)
+    )
+
+    const response = await answer(route)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toMatch(/^application\/json/)
+    await expect(response.text()).resolves.toBe('null')
   })
 
   it('lets any status be declared null, not only 204', async () => {
@@ -392,6 +422,81 @@ describe('a route declaring a status map', () => {
 
     expect(thrown.statusCode).toBe(500)
     expect(thrown.message).toContain('a plain object is not one')
+  })
+})
+
+// h3's `onBeforeResponse` is the hook Nitro's `beforeResponse` hooks run in,
+// between the Handler's return and the reply. A reply sent ahead of it would
+// have its headers out before a hook could set one.
+describe('a reply with no body, or a body of null, and the hooks before it', () => {
+  /**
+   * A hook as Nitro's `beforeResponse` would run it, setting one header and
+   * saying whether the reply had already gone out. h3's web seam lets a
+   * header be set on an ended reply, which a Node server refuses with
+   * `ERR_HTTP_HEADERS_SENT`, so the header alone would prove nothing here.
+   */
+  const tagging = {
+    onBeforeResponse: (event: Parameters<typeof setResponseHeader>[0]) => {
+      setResponseHeader(
+        event,
+        'x-hooked',
+        event.node.res.writableEnded ? 'after the reply' : 'yes'
+      )
+    },
+  }
+
+  it('lets a hook set a header on a 200 declared null', async () => {
+    const route = defineBetterEventHandler(
+      { output: { 200: null } },
+      (_event, { respond }) => respond(200)
+    )
+
+    const response = await request(route, ROUTE, { route: ROUTE, ...tagging })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-hooked')).toBe('yes')
+    await expect(response.text()).resolves.toBe('')
+  })
+
+  it('lets a hook set a header on a 200 of JSON null', async () => {
+    const route = defineBetterEventHandler(
+      { output: receipt.nullable() },
+      () => null
+    )
+
+    const response = await request(route, ROUTE, { route: ROUTE, ...tagging })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-hooked')).toBe('yes')
+    await expect(response.text()).resolves.toBe('null')
+  })
+
+  it('lets a hook set a header on a status other than 200 declared null', async () => {
+    const route = defineBetterEventHandler(
+      { output: { 202: null } },
+      (_event, { respond }) => respond(202)
+    )
+
+    const response = await request(route, ROUTE, { route: ROUTE, ...tagging })
+
+    expect(response.status).toBe(202)
+    expect(response.headers.get('x-hooked')).toBe('yes')
+  })
+
+  it('sends the body a hook put in place of JSON null', async () => {
+    const route = defineBetterEventHandler(
+      { output: receipt.nullable() },
+      () => null
+    )
+
+    const response = await request(route, ROUTE, {
+      route: ROUTE,
+      onBeforeResponse: (_event, reply) => {
+        reply.body = { rewritten: true }
+      },
+    })
+
+    await expect(response.json()).resolves.toEqual({ rewritten: true })
   })
 })
 

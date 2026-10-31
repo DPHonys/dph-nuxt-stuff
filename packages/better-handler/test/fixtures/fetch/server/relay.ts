@@ -15,6 +15,26 @@ interface Observed {
     | undefined
   readonly echoed: unknown
   readonly ownAccept: unknown
+  readonly replies: Replies
+}
+
+/** A body as a relay reports it, `undefined` included, which JSON drops. */
+export type Reported = string
+
+/** The two replies with nothing in them, as one fetch surface resolved them. */
+export interface Replies {
+  /** A nullable schema's `null`, sent as JSON. */
+  readonly none: Reported
+  /** A status declared `null`, sent with no body. */
+  readonly bodiless: Reported
+  /** The same two through `.try`, as its `data`. */
+  readonly triedNone: Reported
+  readonly triedBodiless: Reported
+}
+
+/** What a fetch resolved to, spelled so `undefined` survives JSON. */
+export function reported<Body>(value: Body): Reported {
+  return value === undefined ? 'undefined' : JSON.stringify(value)
 }
 
 /**
@@ -40,5 +60,11 @@ export async function observe(fetch: BetterFetch): Promise<Observed> {
         : unavailable.error,
     echoed: await fetch('/api/echo'),
     ownAccept: await fetch('/api/echo', { headers: { accept: 'text/plain' } }),
+    replies: {
+      none: reported(await fetch('/api/replies/none')),
+      bodiless: reported(await fetch('/api/replies/bodiless')),
+      triedNone: reported((await fetch.try('/api/replies/none')).data),
+      triedBodiless: reported((await fetch.try('/api/replies/bodiless')).data),
+    },
   }
 }
