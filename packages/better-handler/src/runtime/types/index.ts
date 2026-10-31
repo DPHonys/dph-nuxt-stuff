@@ -33,6 +33,7 @@ export type {
   HandlerDeclarationError,
   KnownErrorsOfHandler,
   RequestInputOfHandler,
+  ResponseOutputOfHandler,
   RouteKnownErrors,
 } from './handler'
 export type { InputDeclarationError, InputGuard } from './io/guard'
@@ -51,6 +52,19 @@ export type {
   ValidationIssue,
   ValidationSource,
 } from './io/input'
+export type {
+  HandlerReturn,
+  OutputDeclarationError,
+  OutputGuard,
+  Respond,
+  Responded,
+  RespondError,
+  ResponseBodies,
+  ResponseOutput,
+  ResponseOutputs,
+  SentResponse,
+  StatusMap,
+} from './io/output'
 
 /**
  * The generated map of every route's Known errors - never written by hand.

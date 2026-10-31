@@ -205,12 +205,18 @@ describe('defineBetterEventHandler refuses what declares nothing', () => {
     ['an empty input', { input: {} }],
     ['an input whose slots are all undefined', { input: { query: undefined } }],
     ['an empty input beside an empty errors map', { input: {}, errors: {} }],
+    ['an empty output map', { output: {} }],
+    ['output left undefined', { output: undefined }],
+    [
+      'an empty map for each of the three',
+      { input: {}, errors: {}, output: {} },
+    ],
   ])('refuses %s, which declares nothing', (_, options) => {
     expect(() =>
       defineBetterEventHandler(untyped(options), () => null)
     ).toThrow(
       new Error(
-        '[better-handler] defineBetterEventHandler must declare input, errors, or both.'
+        '[better-handler] defineBetterEventHandler must declare input, errors, output, or any combination.'
       )
     )
   })
