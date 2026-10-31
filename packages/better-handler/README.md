@@ -152,7 +152,7 @@ export default defineBetterEventHandler(
 - **Each source reaches its schema exactly as h3 yields it**, nothing coerced on the way: route params URL-decoded, a catch-all slash-joined under one key; query values `string | string[]`; header keys lowercased, so a headers schema names them in lower case. Coercion belongs in the schema (`z.coerce.number()` and the like).
 - **Every `route`, `query` and `headers` key must take a string as input**, or an array of strings, since a URL or a header carries nothing else: a `z.number()` query key would type a call sending `2` and then refuse the `'2'` that arrives. Such a key is a compile error at the source, in a lone schema or any element of a tuple; read it through a coercing schema, whose input admits a string. A key typed `unknown` or `any` passes.
 - **The body is read only on `POST`, `PUT`, `PATCH` and `DELETE`**, through h3's strict body read. On any other method, and for an empty body, a declared body schema validates `undefined`. A body h3 refuses to parse, such as malformed JSON, is one body issue, `Request body could not be parsed`, with an empty `path`; a `5xx` or a dropped connection during the read propagates untouched.
-- **A schema that reports a failure with no issues** (`{ issues: [] }`) answers a plain `500` whose sentence names the route, the source and the element; a `validate` that throws propagates as it was thrown. Asynchronous schemas are awaited.
+- **A schema that reports a failure with no issues** (`{ issues: [] }`) answers a plain `500` whose sentence names the route, the source and the element, unless another element of the same tuple reports issues: then the source answers its `400` with those issues, and the failure with none goes unreported. A `validate` that throws propagates as it was thrown. Asynchronous schemas are awaited.
 - **A route without `input` validates nothing and never reads the body**, so an `errors`-only route costs no parsing.
 - **A route with `input` carries the Built-in validation-failed variant** in its typed error union, beside whatever it declares in `errors`.
 
@@ -222,7 +222,7 @@ export default defineBetterEventHandler(
 )
 ```
 
-- **A tag is any non-empty string literal**, written as a string key; a numeric key is refused. The package's own tags are kebab-case; yours need not be.
+- **A tag is any non-empty string literal**, written as a string key. A numeric key is a compile error; from JavaScript it arrives as the string it spells, so `{ 404: … }` declares the tag `'404'`. The package's own tags are kebab-case; yours need not be.
 - **`validation-failed` and `request-failed` are reserved** for the package's built-in variants. Declaring either is a compile error and a declaration-time throw, on every route.
 - **`status` is an integer from `400` to `599`.** Two tags may share a status.
 - **`schema`, when given, is a Standard Schema describing the fields beside `_tag`.** Its input must be an object of fields. If the input carries a `_tag` literal, it must equal the key. A field holding a `bigint` or a `symbol`, at any depth, is refused, since the fields go out as JSON. A tag declared without a schema is typed as the tag alone, and `fail` gives it no fields.
@@ -256,7 +256,7 @@ A Known error is a failure a route declares. It goes out with its declared statu
 if (!order) throw fail('order-not-found', { id: route.id })
 ```
 
-An undeclared tag, `validation-failed` included, missing fields, wrong fields, or fields for a schema-less tag are compile errors. A JavaScript caller that gets past them gets a plain `500` whose sentence names the mistake in the server log and to a development client; a production client sees Nitro's generic `500`. A field named `message`, `name`, `stack` or `cause` is a field like any other.
+An undeclared tag, `validation-failed` included, missing fields, wrong fields, or fields for a schema-less tag are compile errors. A JavaScript caller that names a tag the route does not declare, hands fields to a schema-less tag, or passes no fields object for a tag with a schema gets a plain `500` whose sentence names the mistake in the server log and to a development client; a production client sees Nitro's generic `500`. Missing or wrong field _values_ inside the fields object are caught only by the development server's [thrown-fields check](#development-checks); a production build sends them as given. A field named `message`, `name`, `stack` or `cause` is a field like any other.
 
 **Any thrown value with a declared `_tag`.** The route's boundary reads the `_tag` of whatever the handler throws, on the value itself or its prototype. A string `_tag` the route declares makes the value a Known error: an instance of your own error class, an Effect error (see [Effect](#effect)), or a plain object.
 
