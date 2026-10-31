@@ -21,10 +21,14 @@ interface Booted {
  * `ready: true`: `nitro:init` fires during `ready()`, and the instance it
  * hands over is the only public route to the resolved Nitro options.
  */
-async function boot(overrides?: NuxtConfig): Promise<Booted> {
+async function boot(overrides?: NuxtConfig, dev = false): Promise<Booted> {
   // Added only when present: kit types `overrides` without `undefined`, and
   // this repo compiles with `exactOptionalPropertyTypes`.
-  const options: Parameters<typeof loadNuxt>[0] = { cwd: FIXTURE, ready: false }
+  const options: Parameters<typeof loadNuxt>[0] = {
+    cwd: FIXTURE,
+    ready: false,
+    dev,
+  }
   if (overrides !== undefined) options.overrides = overrides
   const nuxt = await loadNuxt(options)
   let nitro: NitroInstance | undefined
@@ -86,15 +90,27 @@ describe('module setup', () => {
 })
 
 describe('the `devChecks` option', () => {
-  it('registers the Nitro plugin that turns the checks off, and only then', async () => {
+  it('registers the Nitro plugin that turns the checks off in a development build', async () => {
+    let disabled: Booted | undefined
+
+    try {
+      disabled = await boot({ betterHandler: { devChecks: false } }, true)
+
+      expect(registrationsOf(disabled).nitroPlugins).toEqual([
+        expect.stringMatching(/\/runtime\/server\/plugins\/dev-checks$/),
+      ])
+    } finally {
+      await disabled?.nuxt.close()
+    }
+  })
+
+  it('registers no plugin in a production build, which never runs the checks', async () => {
     let disabled: Booted | undefined
 
     try {
       disabled = await boot({ betterHandler: { devChecks: false } })
 
-      expect(registrationsOf(disabled).nitroPlugins).toEqual([
-        expect.stringMatching(/\/runtime\/server\/plugins\/dev-checks$/),
-      ])
+      expect(registrationsOf(disabled).nitroPlugins).toEqual([])
     } finally {
       await disabled?.nuxt.close()
     }

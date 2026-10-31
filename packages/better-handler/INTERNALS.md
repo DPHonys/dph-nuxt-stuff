@@ -16,7 +16,7 @@ Neither runtime name may be an h3 v2 export: Nuxt 5 auto-imports every lowercase
 
 ## Shared plumbing
 
-- **The `devChecks` flag** (`src/runtime/server/dev-checks.ts`): starts as `import.meta.dev`, and the Nitro plugin `src/runtime/server/plugins/dev-checks.ts`, registered only when the app sets `devChecks: false`, turns it off.
+- **The `devChecks` flag** (`src/runtime/server/dev-checks.ts`): starts as `import.meta.dev`, and the Nitro plugin `src/runtime/server/plugins/dev-checks.ts`, registered only in a development build of an app that sets `devChecks: false`, turns it off.
 
 ## errors
 
