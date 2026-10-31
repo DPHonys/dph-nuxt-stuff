@@ -87,19 +87,19 @@ A Nitro route handler produced by `defineBetterEventHandler`; at runtime always 
 _Avoid_: Endpoint, route function
 
 **Known error**:
-A failure a route declares under its `errors` key and a Handler raises through the Fail helper or by throwing any value whose `_tag` is a declared tag; it goes out with the declared status and its Tagged error as the error body's `data`, and is typed at every call site from the route path.
+A failure a route declares under its `errors` key and a Handler raises through the Fail helper or by throwing any value whose `_tag` is a declared tag; it goes out with the declared status and its Tagged error as the error body's `data`, and is typed at every call site from the route path, with the Known errors of every route key that matches the path.
 _Avoid_: Expected error, business error
 
 **Error declaration**:
-One entry of a route's `errors` map: a tag as the key, any non-empty string literal, and `{ status, schema? }`, the status an integer from `400` to `599` and the optional Standard Schema describing the fields beside `_tag`. Reused by object spread (`defineError(tag, entry)` returns a one-key map) and narrowed by `Pick`.
+One entry of a route's `errors` map: a tag as the key, any non-empty string literal, and `{ status, schema? }`, the status an integer from `400` to `599` and the optional Standard Schema whose _input_ type describes the fields beside `_tag`. Reused by object spread (`defineError(tag, entry)` returns a one-key map) and narrowed by `Pick`.
 _Avoid_: Error record, registry entry, error group
 
 **Tagged error**:
-The value a Known error carries, `{ _tag, ...fields }`: sent flat as the error body's `data`, the same to every caller, and read at a call site as one member of a union exhaustive on `_tag`.
+The value a Known error carries, `{ _tag, ...fields }`, its fields the declared schema's _input_ type: sent flat as the error body's `data`, the same to every caller, and read at a call site as one member of a union exhaustive on `_tag`.
 _Avoid_: Marker, envelope, error payload
 
 **Fail helper**:
-The Handler-context function `fail(tag, fields)`, present when the route declares `errors`; it pairs a declared tag with the fields its schema describes at compile time, as the Respond helper pairs a status with a body, and returns an `Error` carrying `_tag` and the fields for the Handler to throw.
+The Handler-context function `fail(tag, fields)`, present when the route declares `errors`; it pairs a declared tag with fields of its schema's _input_ type at compile time, as the Respond helper pairs a status with a body, and returns an `Error` carrying `_tag` and the fields for the Handler to throw.
 _Avoid_: Error factory, error raiser
 
 **Reserved tag**:
@@ -131,11 +131,11 @@ The Handler's second parameter, flat and fresh per request: the Validated contex
 _Avoid_: Context object, helpers, second argument
 
 **Response output**:
-A Handler's declared success shape: either a single schema (one `200` reply, returned plainly) or a status map from HTTP status to schema, where `null` declares a bodiless status. Production runs nothing on the response; a development server asserts the handed-over value against the declared schema and discards the result, so both send the same bytes. The client receives the schemas' _output_ types.
+A Handler's declared success shape: either a single schema (one `200` reply, returned plainly) or a status map from HTTP status (100 to 399) to schema, where `null` declares a bodiless status; a failure status is declared under `errors`, by tag. The Handler hands over the schemas' _input_ types. Production runs nothing on the response; a development server asserts the handed-over value against the declared schema and discards the result, so both send the same bytes. The client receives the schemas' _input_ types.
 _Avoid_: Response schema, return type
 
 **Respond helper**:
-The Validated-context function a Handler with a status-map Response output must return through; it pairs one declared status with a value of that status's shape - or with no value at all when the status declares a bodiless reply - and rejects any other pairing at compile time.
+The Validated-context function a Handler with a status-map Response output must return through; it pairs one status literal, one of those declared, with a value of that status's shape - or with no value at all when the status is declared `null`, the only bodiless declaration - and rejects any other pairing, a union of statuses included, at compile time.
 _Avoid_: Reply, send, status setter
 
 **Request input**:
@@ -143,12 +143,20 @@ The shape a client must send for a route, per Validation source: the declared sc
 _Avoid_: Validation input, request schema
 
 **Request typing**:
-Typing a call's `body`, `query` and `headers` options per `(route, method)` from the route's Request input; compile-time only. A Declared source is required unless `{}` fits its input type, and an undeclared one is exactly what the vanilla fetch accepts. The Better fetch family is typed on every Nuxt 4; on Nuxt 4.6 and later, Nuxt's own `$fetch` and `useFetch` also type `body` and `query` through the Handler's `H3Event<Request>` slot.
+Typing a call's `body`, `query` and `headers` options per `(route, method)` from the Request input of the one route key Nitro serves for that method, the most specific that matches (an exact static key over one with params over a catch-all), while the Known-error union keeps every matching key's errors; compile-time only. A Declared source is required unless `{}` fits its input type, and an undeclared one is exactly what the vanilla fetch accepts. The Better fetch family is typed on every Nuxt 4; on Nuxt 4.6 and later, Nuxt's own `$fetch` and `useFetch` also type `body` and `query` through the Handler's `H3Event<Request>` slot.
 _Avoid_: Client validation, request schema
 
 **Better fetch family**:
 `$betterFetch` with `.try`, `event.$betterFetch`, and the five composables (`useBetterFetch`, `useLazyBetterFetch`, `useBetterAsyncData`, `useLazyBetterAsyncData`, `useRequestBetterFetch`): Nuxt's fetch styles carrying a route's Request typing, its response and its Known-error union to the call site.
 _Avoid_: Typed fetch, checked fetch
+
+**Development check**:
+One of the three assertions a development server runs, all behind the `devChecks` option, and a production build never: the handed-over response against its Response output, a Known error's fields against their declared schema (the fields alone first, then the whole Tagged error, so a strict schema passes without listing `_tag`), and a thrown `_tag` against the declared tags. Each discards its result and refuses only with a Developer fault.
+_Avoid_: Response validation, runtime check
+
+**Developer fault**:
+A developer's mistake the package finds while serving a request, such as a Development check's refusal or a Fail helper handed an undeclared tag: a plain `500` with no `data`, so never a Known error, marked unhandled as any server bug is. Its `[better-handler]` sentence goes to the server log with its stack and to a development client; a production client gets Nitro's generic `500`, `Server Error`.
+_Avoid_: Internal error, misuse error
 
 **Module layer**:
 The thin `src/module.ts`: the `betterHandler` config key and its `devChecks` option, auto-imports, plugins and the type template; Nuxt wiring rather than logic.
