@@ -147,10 +147,12 @@ export default defineBetterEventHandler(
 - **Sources are validated before the handler is entered**, in the order `route`, `query`, `headers`, `body`, whatever order the declaration names them in. The first source with issues answers `400` with the [Built-in validation-failed variant](#the-wire), and the sources after it, the body included, are never read.
 - **Within a source every issue arrives together.** A tuple runs every element, one after another in tuple order, each against the whole source, and their issues are reported together.
 - **A tuple's outputs are merged into one value.** Every element must produce an object (not a primitive, an array or a function), and no two elements may produce the same key; both are compile errors at the source key. Merge overlapping schemas in your schema library instead. At runtime an element whose output is not a plain object answers a plain `500`; this catches what the types could not see, such as a `z.custom` that claims an object.
+- **Only the first element may keep keys it does not name.** A passthrough, loose or record schema hands back the raw source's keys, so after another element it would write the raw values over that element's converted ones in the merge. Put it first. An element after the first whose output type has an index signature is a compile error at the source key, and one whose Standard JSON Schema output admits unnamed keys is refused at declaration. A schema whose output is typed `unknown` or `any`, such as a bare `StandardSchemaV1`, composes anywhere; what it produces is the runtime merge's to judge.
 - **A lone schema, bare or a tuple of one, passes its output through untouched**, so a body may be an array or a primitive.
 - **Each source reaches its schema exactly as h3 yields it**, nothing coerced on the way: route params URL-decoded, a catch-all slash-joined under one key; query values `string | string[]`; header keys lowercased, so a headers schema names them in lower case. Coercion belongs in the schema (`z.coerce.number()` and the like).
+- **Every `route`, `query` and `headers` key must take a string as input**, or an array of strings, since a URL or a header carries nothing else: a `z.number()` query key would type a call sending `2` and then refuse the `'2'` that arrives. Such a key is a compile error at the source, in a lone schema or any element of a tuple; read it through a coercing schema, whose input admits a string. A key typed `unknown` or `any` passes.
 - **The body is read only on `POST`, `PUT`, `PATCH` and `DELETE`**, through h3's strict body read. On any other method, and for an empty body, a declared body schema validates `undefined`. A body h3 refuses to parse, such as malformed JSON, is one body issue, `Request body could not be parsed`, with an empty `path`; a `5xx` or a dropped connection during the read propagates untouched.
-- **A schema that reports a failure with no issues** (`{ issues: [] }`) answers a plain `500` naming the route, the source and the element; a `validate` that throws propagates as it was thrown. Asynchronous schemas are awaited.
+- **A schema that reports a failure with no issues** (`{ issues: [] }`) answers a plain `500` whose sentence names the route, the source and the element; a `validate` that throws propagates as it was thrown. Asynchronous schemas are awaited.
 - **A route without `input` validates nothing and never reads the body**, so an `errors`-only route costs no parsing.
 - **A route with `input` carries the Built-in validation-failed variant** in its typed error union, beside whatever it declares in `errors`.
 
@@ -169,7 +171,7 @@ export default defineBetterEventHandler(
 )
 ```
 
-The handler must return the schema's output type, and the route answers `200` whatever status the handler or a middleware set before.
+The handler must return the schema's input type, the value the development check validates and the wire carries: a schema that transforms `string` into `Date` takes the `string`. The route answers `200` whatever status the handler or a middleware set before.
 
 **The map form** maps a status to a schema, or to `null` for a status with no body, and the handler answers through the Respond helper:
 
@@ -192,12 +194,14 @@ export default defineBetterEventHandler(
 ```
 
 - **`respond(status, value)` pairs a declared status with that status's body** at compile time; `respond(status)` answers a status declared `null`. Another status, a wrong value, a value for a `null` status or a missing one is a compile error.
-- **A map-form handler must return the Respond helper's result.** A plain return is a compile error, and at runtime it answers a plain `500`, in production too, since no status can be read off it.
+- **`respond` takes one status literal at a time.** A union status, such as `respond(isNew ? 201 : 200, value)`, is a compile error at the status (`RespondError`), since its value would only have to fit one of the bodies: respond under each status in its own branch.
+- **Only a status declared `null` is bodiless.** A `z.null()` schema declares the body `null`, so its status takes the value: `respond(201, null)`.
+- **A map-form handler must return the Respond helper's result.** A plain return is a compile error, and at runtime it answers a plain `500`, in production too, since no status can be read off it; [The wire](#the-wire) says who reads its sentence.
 - **A status declared `null` sends no body**, whatever a JavaScript caller passed.
 - **A `200` with no body stays `200`.** A map's `200: null`, or a bare form whose schema admits `null` and whose handler returns `null`, answers `200` with no body and no `content-type`, not h3's `204`.
-- **A map key is a status in plain decimal, from `100` to `599`**, and each value a Standard Schema or `null`; anything else is refused at declaration.
+- **A map key is a status in plain decimal, from `100` to `399`**, and each value a Standard Schema or `null`; anything else is refused at declaration, and a key outside the range is also a compile error at `output` (`OutputDeclarationError`). A failure status is declared under `errors`, by tag, and raised with `fail`: a client's fetch throws on a status from `400` up, so a body declared there would never reach its typed response.
 - **Nothing runs the output schema in production.** The handed-over value is sent as it is. A development server asserts it against the schema and discards the result, so both send the same bytes; see [Development checks](#development-checks).
-- **The client receives the schemas' output types as JSON carries them** (a `Date` arrives as a `string`): the bare schema's type, or the union of the map's bodies, `null` for a bodiless status. A route without `output` is typed by what its handler returns, as any Nitro handler is.
+- **The client receives the schemas' input types as JSON carries them** (a `Date` input still arrives as a `string`): the bare schema's input type, or the union of the map's bodies, `null` for a bodiless status. What the handler hands over is what goes out, so a transform's output is never sent or typed. A route without `output` is typed by what its handler returns, as any Nitro handler is.
 
 ### `errors`
 
@@ -221,7 +225,7 @@ export default defineBetterEventHandler(
 - **A tag is any non-empty string literal**, written as a string key; a numeric key is refused. The package's own tags are kebab-case; yours need not be.
 - **`validation-failed` and `request-failed` are reserved** for the package's built-in variants. Declaring either is a compile error and a declaration-time throw, on every route.
 - **`status` is an integer from `400` to `599`.** Two tags may share a status.
-- **`schema`, when given, is a Standard Schema describing the fields beside `_tag`.** Its output must be an object of fields. If the output carries a `_tag` literal, it must equal the key. A field holding a `bigint` or a `symbol`, at any depth, is refused, since the fields go out as JSON. A tag declared without a schema is typed as the tag alone, and `fail` gives it no fields.
+- **`schema`, when given, is a Standard Schema describing the fields beside `_tag`.** Its input must be an object of fields. If the input carries a `_tag` literal, it must equal the key. A field holding a `bigint` or a `symbol`, at any depth, is refused, since the fields go out as JSON. A tag declared without a schema is typed as the tag alone, and `fail` gives it no fields.
 - **An entry takes `status` and `schema` and nothing else.** Any other key is refused.
 - **A route with `errors` gets the Fail helper**; one without has none.
 
@@ -246,13 +250,13 @@ export const commonErrors = {
 
 A Known error is a failure a route declares. It goes out with its declared status and the Tagged error, `{ _tag, ...fields }`, as the body's `data`. There are two ways to raise one.
 
-**The Fail helper.** `fail(tag, fields)` pairs a declared tag with the fields its schema describes, at compile time, exactly as `respond` pairs a status with its body. A tag declared without a schema takes no fields: `fail('order-locked')`. It returns an `Error` carrying `_tag` and the fields, so there is a stack trace; the handler `throw`s it.
+**The Fail helper.** `fail(tag, fields)` pairs a declared tag with the fields its schema describes, at compile time, exactly as `respond` pairs a status with its body. The fields are the schema's input, which is what the wire carries and the development check validates: for a schema that transforms `{ id: string }` into `{ id: number }`, `fail` takes `{ id: string }`, and so does the client's variant. A tag declared without a schema takes no fields: `fail('order-locked')`. It returns an `Error` carrying `_tag` and the fields, so there is a stack trace; the handler `throw`s it.
 
 ```ts
 if (!order) throw fail('order-not-found', { id: route.id })
 ```
 
-An undeclared tag, `validation-failed` included, missing fields, wrong fields, or fields for a schema-less tag are compile errors. A JavaScript caller that gets past them gets a plain `500` naming the mistake. A field named `message`, `name`, `stack` or `cause` is a field like any other.
+An undeclared tag, `validation-failed` included, missing fields, wrong fields, or fields for a schema-less tag are compile errors. A JavaScript caller that gets past them gets a plain `500` whose sentence names the mistake in the server log and to a development client; a production client sees Nitro's generic `500`. A field named `message`, `name`, `stack` or `cause` is a field like any other.
 
 **Any thrown value with a declared `_tag`.** The route's boundary reads the `_tag` of whatever the handler throws, on the value itself or its prototype. A string `_tag` the route declares makes the value a Known error: an instance of your own error class, an Effect error (see [Effect](#effect)), or a plain object.
 
@@ -315,7 +319,7 @@ The route answers `404` with `data: { _tag: 'OrderMissing', id: 7 }`, and its ca
 
 - **Effect is not a dependency of this package.** The package reads the class through Standard Schema alone; install `effect` in your app.
 - **The class is `Schema.TaggedError<Self>()(tag, fields)`**, as Effect 4.0.6 names its tagged error class builder. The route declares it under the class's own tag: the schema's `_tag` must equal the key, so another key is a compile error.
-- **The development check validates the whole Tagged error, `_tag` included**, against the class's schema, which requires `_tag`.
+- **The development check passes the whole Tagged error, `_tag` included**, against the class's schema, which requires `_tag`: the fields alone fail it, so the check validates them again with `_tag`.
 - **A field named `message` never goes out.** Effect keeps it non-enumerable, so the development check reports it missing.
 
 ## Request typing
@@ -330,7 +334,8 @@ The family's rules, which `BetterRequestOptions<R, M>` spells:
 
 - **Typed per route and method.** The method defaults to `get` when the route has one, else to the methods it has (Nuxt's own rule), and may be written in either case: `'post'` or `'POST'`, not `'Post'`.
 - **The input types, not the handler's.** A call site sends what the schema accepts before its transforms: a query declared `z.string().transform(Number)` takes a `string` at the call site and arrives as a `number` in the handler.
-- **A declared source is required unless `{}` fits its input type.** An all-optional schema stays optional but typed.
+- **A declared source is required unless `{}` fits its input type.** An all-optional schema stays optional but typed. On `$betterFetch`, its `.raw` and `.try`, and `event.$betterFetch`, a call that leaves the options out on a route and method with a required source is refused (`TS2554`), as is one passing `undefined` for them (`TS2345`).
+- **One route serves a path, and its inputs type the call.** When several route files match a path, such as `/api/files/[id]` and `/api/files/[...path]`, the options come from the one Nitro serves for the method: an exact static path over one with params over a catch-all. The error union keeps every matching route's errors, a safe superset.
 - **A `body` or `query` key the schema does not name is refused**, on a plain object literal.
 - **A declared `body` replaces vanilla's**, so a string or `FormData` is refused where the schema describes an object.
 - **Declared `headers` type the keys they name, and every other header stays an open string**: a client sends more headers than a route validates. Declared headers are a plain record, never a `Headers` object or a list of pairs.
@@ -340,7 +345,7 @@ The family's rules, which `BetterRequestOptions<R, M>` spells:
 
 What the types cannot see:
 
-- **A call with no options at all skips the requiredness check.** `$betterFetch('/api/search')` compiles even when the route requires a `query`, a known limit of the typing; the route answers `validation-failed`.
+- **A composable call with no options at all skips the requiredness check.** The composables keep vanilla's optional options, so `useBetterFetch('/api/search')` compiles even when the route requires a `query`; the route answers `validation-failed`. A call that passes options is checked as the family's is.
 - **A reactive source loses the excess-key check.** On the composables a plain object literal is checked for extra keys; the same value behind a `ref()` or a getter is not, though its values' types still are.
 - **`$betterFetch<T, R, M>` is not type-argument-compatible with `$fetch<T, R, O>`.** A call that names its type arguments explicitly passes the method, not the options.
 
@@ -352,6 +357,7 @@ On the native path, beyond arrays and primitives, the known differences from the
 - **A body that is a union of records and non-records**: Nuxt keeps the records.
 - **Requiredness is Nuxt's own**, and **`headers` are not typed natively**: Nitro carries the body and the query only.
 - **Known errors stay the family's.** Nuxt's `useFetch` error remains `NuxtError<unknown>`; the failure union is typed only through the family.
+- **A method-less handler that declares `body`**, such as `server/api/items/[id].ts`: Nuxt types the body for every method of the route, so with the flag on, vanilla `$fetch('/api/items/7')`, a `GET`, requires the body too when the body is required, and `fetch` refuses to send a `GET` with a body. `$betterFetch` takes no `body` on `get`. Name the method in the file (`[id].post.ts`), or call the route through `$betterFetch`.
 
 Where the two can both be exact, the package's suite asserts they agree; where they differ, the family is the more precise one, and it is never made less precise to match.
 
@@ -386,7 +392,7 @@ async function invoiceTotal(): Promise<number | undefined> {
 
 `.try` resolves to `{ data, error: undefined }` or `{ data: undefined, error }`; checking `error` narrows `data`. `error` is exhaustive on `_tag`:
 
-- **each Known error the route declares for that method**, `{ _tag, ...fields }`, the fields being the schema's output as JSON carries it;
+- **each Known error the route declares for that method**, `{ _tag, ...fields }`, the fields being the schema's input as JSON carries it, the same input `fail` takes;
 - **`validation-failed`**, `{ _tag: 'validation-failed', issues }`, on a route that declares `input`;
 - **`request-failed`**, `{ _tag: 'request-failed', status: number | undefined, cause: NuxtError }`, for every other failure: a network error, an abort, a status nobody declared, a body that carries no Tagged error. `status` is the response's, `undefined` when no response arrived; `cause` is the failure as a `NuxtError`.
 
@@ -438,7 +444,9 @@ const { data: invoice } = await useBetterAsyncData('invoice', () =>
 
 ### The `accept` header
 
-Every member of the family sends `accept: application/json`. Nitro answers an error as JSON outside `/api/**` only to a request that asks for JSON, so without it a Known error from a route under `server/routes/` would arrive as an HTML page and read as `request-failed`. A caller's own `accept`, per call or per `.create` instance, wins. The family sends no other header of its own.
+Every member of the family sends `accept: application/json`. Nitro answers an error as JSON outside `/api/**` only to a request that asks for JSON, so without it a Known error from a route under `server/routes/` would arrive as an HTML page and read as `request-failed`. A caller's own `accept` wins: per call, on a `Request` passed with no per-call `headers` (on the global and the fetch composables), or through a `$betterFetch.create` instance. An `accept` among the defaults of an app-installed `globalThis.$fetch`, such as `$fetch.create({ headers: { accept: … } })`, is not seen and is overridden: ofetch keeps an instance's defaults out of reach. The family sends no other header of its own.
+
+A `Request` passed with no `headers` option sends its own headers, `authorization` and a chosen `accept` included, on the global, its `.raw` and `.try`, and the fetch composables, as vanilla `$fetch` does; a call that passes `headers` replaces them. `event.$betterFetch` never sends a `Request`'s headers, as vanilla `event.$fetch` does not.
 
 ### `event.$betterFetch`
 
@@ -451,7 +459,7 @@ export default defineEventHandler(async (event) => {
 })
 ```
 
-It is the call and `.try` only, typed as the global is, and forwards the incoming request's headers and cookies as Nitro's `event.$fetch` does, whose experimental API it wraps.
+It is the call and `.try` only, typed as the global is, and forwards the incoming request's headers and cookies as Nitro's `event.$fetch` does, whose experimental API it wraps. It is on every event, so it also works in a `defineCachedEventHandler` and under a `cache` or `swr` route rule, where Nitro runs the handler on an event of its own that carries only the headers the cache varies on, so no cookie by default.
 
 ## The wire
 
@@ -488,12 +496,12 @@ It is the call and `.try` only, typed as the global is, and forwards the incomin
 }
 ```
 
-Each issue is `{ source, message, path }`: the source that failed, the schema's message, and the path into that source as a list of keys and indexes.
+Each issue is `{ source, message, path }`: the source that failed, the schema's message, and the path into that source as a list of keys and indexes. A raw request value the message quotes, such as valibot's default `but received "…"`, is replaced with `<redacted>`, so a header's credential reaches neither the body nor an error hook.
 
 - **Every caller receives the same body.** No header, cookie or credential changes what a Known error carries.
 - **A development server and a production build send the same Known error**, apart from Nitro's `stack`, unless a [development check](#development-checks) refuses it.
 - **A fetched error carries the Tagged error at `error.data.data`**: ofetch's `data` is the whole body.
-- **A developer's mistake is a plain `500`** whose `message` starts with `[better-handler]` and which has no `data`, so it is never a Known error and never reads as one.
+- **A developer's mistake is a plain `500`** with no `data`, so it is never a Known error and never reads as one. It is an unhandled server error, as any server bug is: its sentence, which starts with `[better-handler]`, goes to the server log with its stack and to a development client as `message`, while a production client gets Nitro's generic `500`, `message: "Server Error"`, without it.
 - **Nitro's error hooks see the thrown error untouched.**
 
 ## Observability
@@ -521,7 +529,7 @@ It is the one recognizer: validation is `_tag === 'validation-failed'`. It takes
 A development server runs three checks, all behind the `devChecks` option. Each refuses with a plain `500` naming the route, never a Known error. A production build runs none of them and sends what the handler handed over; `devChecks: false` makes a development server answer as production does.
 
 1. **The response check.** The value a handler hands over (the bare form's return, or the value inside `respond(status, value)`) is validated against the schema its status declares, and the result discarded, so a development server sends the bytes production sends. A status the map does not declare is refused before it reaches the response. A status declared `null` has nothing to check.
-2. **The thrown-fields check.** A Known error's Tagged error, about to go out, is validated against its declared schema and the result discarded. It catches wrong and missing fields; a schema that strips unknown keys reports no extra ones, which go out as thrown. The schema is handed the whole Tagged error, `_tag` included, so a strict schema, one that refuses unknown keys, must list `_tag`.
+2. **The thrown-fields check.** A Known error's Tagged error, about to go out, is validated against its declared schema and the result discarded. It catches wrong and missing fields; a schema that strips unknown keys reports no extra ones, which go out as thrown. The schema is handed the fields alone first and, when they fail, the whole Tagged error, `_tag` included; a refusal reports that second attempt's issues. So a strict schema, one that refuses unknown keys, passes without listing `_tag`, and a schema that requires `_tag`, such as an Effect error class's, passes too.
 3. **The undeclared-tag check.** A thrown value with a string `_tag` the route does not declare is refused, naming the tag and the declared ones; the thrown value is kept as the fault's `cause` for the logs. It runs only on routes that declare `errors`.
 
 A schema that throws instead of reporting issues is refused the same way, with what it threw as the `cause`. Asynchronous schemas are awaited. Each sentence is quoted under [Troubleshooting](#troubleshooting).
@@ -532,7 +540,7 @@ Every Nuxt 4 (`>=4.0.0 <5.0.0`).
 
 Every feature works identically from Nuxt 4.0.0 up, with one additive layer on 4.6 and later: Nuxt's own `$fetch` and `useFetch` type `body` and `query` on this package's routes when the app turns `experimental.routeTypedFetch` on. Nothing else depends on the Nuxt version. Nuxt 5 support is planned as an adapter, not yet built.
 
-CI holds that range at both edges. The default jobs install the committed lockfile, which pins the latest 4.x. On every push to `main` and every pull request, the `Nuxt 4.0 floor` job also runs this package's typecheck and tests with `nuxt`, `@nuxt/kit` and `@nuxt/schema` 4.0.x installed in their place, without changing the committed lockfile, and must pass.
+CI holds that range at both edges. The default jobs install the committed lockfile, which pins the latest 4.x. On every push to `main` and every pull request into `main`, the `Nuxt 4.0 floor` job also runs this package's typecheck and tests with `nuxt`, `@nuxt/kit` and `@nuxt/schema` 4.0.x installed in their place, without changing the committed lockfile, and must pass.
 
 - **The generated type map** augments `@dphonys/better-handler/types` from `.nuxt/types/better-handler.d.ts`. Nothing is hoisted and no tsconfig is edited: the package's `exports` resolves the specifier from every generated tsconfig.
 - **The route ceiling.** The family's types read responses through Nitro's route types (`InternalApi`), on which a call site hits `TS2589` somewhere between 176 and 201 routes, as vanilla `$fetch` does on that engine. The ceiling is accepted; it lifts with the Nuxt 5 adapter, which reads Nuxt's generated route engine.
@@ -546,12 +554,14 @@ The package's own compile-time rules arrive as a sentence inside a type, at the 
 
 ```text
 HandlerDeclarationError<"declare input, errors, output, or any combination">
+OutputDeclarationError<"the status must be an integer from 100 to 399, not 404 - a failure status is declared under errors, by tag">
+RespondError<"respond takes one status literal - respond under each status in its own branch">
 ErrorDeclarationError<"validation-failed is reserved for the built-in variant - rename the declared error">
 ErrorDeclarationError<"request-failed is reserved for the built-in variant - rename the declared error">
 ErrorDeclarationError<"an error tag must be a non-empty string">
 ErrorDeclarationError<"an error tag must be one string literal">
 ErrorDeclarationError<"an error tag must be a string key - quote a numeric one">
-ErrorDeclarationError<"the schema's output has _tag order-missing, which must equal the tag order-not-found">
+ErrorDeclarationError<"the schema's input has _tag order-missing, which must equal the tag order-not-found">
 ErrorDeclarationError<"the schema must describe an object of fields beside _tag">
 ErrorDeclarationError<"payload is not an error entry key - an entry takes status and schema">
 ErrorDeclarationError<"the status must be an integer from 400 to 599, not 302">
@@ -559,10 +569,16 @@ ErrorDeclarationError<"the field total cannot go out as JSON - it holds a bigint
 InputDeclarationError<"quary is not a validation source - the sources are route, query, headers and body">
 InputDeclarationError<"schemas composed on one source must produce disjoint output keys - merge them in your schema library instead">
 InputDeclarationError<"every schema composed on one source must produce an object output - not a primitive, an array or a function">
+InputDeclarationError<"only the first schema composed on one source may produce an index signature - put the passthrough, loose or record schema first, so the named outputs after it win the merge">
+InputDeclarationError<"every route param must take a string as input, which is all a URL carries - read anything else through a coercing schema such as z.coerce.number()">
+InputDeclarationError<"every query key must take a string as input, which is all a URL carries - read anything else through a coercing schema such as z.coerce.number()">
+InputDeclarationError<"every header must take a string as input, which is all a request header carries - read anything else through a coercing schema such as z.coerce.number()">
 AsyncDataHandlerError<"resolve to a .try result, such as $betterFetch.try(…)">
 ```
 
 - `HandlerDeclarationError` is at the options: the route declares nothing, or only empty maps.
+- `OutputDeclarationError` is at `output`: a status map names a status outside `100` to `399`.
+- `RespondError` is at the status of a `respond` call handed a union of statuses.
 - `ErrorDeclarationError` is at the offending tag, `status` or entry key, in a route's `errors` or a `defineError` call. A migrating `payload:` key is refused so it never silently means "no schema".
 - `InputDeclarationError` is at the offending source key. A misspelled key standing alone in `input` is refused by TypeScript's own check instead: `Object literal may only specify known properties, and 'routerParams' does not exist in type 'InputDeclaration & InputGuard<InputDeclaration>'.`
 - `AsyncDataHandlerError` is at a `useBetterAsyncData` handler that does not resolve to a `.try` result.
@@ -636,17 +652,18 @@ A misdeclaration the types did not see (a JavaScript route, an `any`-typed value
 [better-handler] The body input must be a Standard Schema or a non-empty tuple of them, not a function.
 [better-handler] The query input holds a plain object at index 1, which is not a Standard Schema.
 [better-handler] The headers input is an empty tuple. Declare at least one schema, or remove the key.
+[better-handler] The query input holds a schema at index 1 whose output keeps keys it does not name - a passthrough, loose or record schema. Only the first schema composed on one source may, so the named outputs after it win the merge.
 [better-handler] The output of defineBetterEventHandler must be a Standard Schema, for one 200 reply returned plainly, or a map from status to schema, not an instance of Map.
-[better-handler] The output's key "600" must be a status, an integer from 100 to 599.
+[better-handler] The output's key "600" must be a status, an integer from 100 to 399 - a failure status is declared under errors, by tag.
 [better-handler] The output for status 201 must be a Standard Schema, or null for a reply with no body, not a plain object.
 [better-handler] defineBetterEventHandler must declare input, errors, output, or any combination.
 ```
 
 Within `errors` the rules run one at a time over every entry: a reserved or empty tag, then a schema that is not a Standard Schema, then a status out of range, then a key an entry does not take.
 
-### A request answers a plain `500` starting with `[better-handler]`
+### A request answers a plain `500`
 
-A developer's mistake found while serving a request. These four answer in production too:
+A developer's mistake found while serving a request is an unhandled server error. Its sentence, starting with `[better-handler]`, goes to the server log with its stack and to a development client as the body's `message`; a production client gets Nitro's generic `500`, `message: "Server Error"`, without it, so read the server log. These four happen in production too:
 
 ```text
 [better-handler] fail("order-unknown") names no error this route declares. The route declares "order-not-found", "order-locked".
@@ -659,14 +676,14 @@ So do these two, about a schema that broke the Standard Schema contract or a tup
 
 ```text
 [better-handler] cannot validate the query of GET /api/test: the schema reported a failure with no issues. A Standard Schema answers with a value or with at least one issue, so this result names neither a value to hand the Handler nor a reason to reject the request.
-[better-handler] cannot merge the validated query of GET /api/test: the schema at index 1 produced the primitive not an object at all. Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.
+[better-handler] cannot merge the validated query of GET /api/test: the schema at index 1 produced the string "not an object at all". Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.
 ```
 
 These come from the [development checks](#development-checks), on a development server only:
 
 ```text
 [better-handler] cannot send the response: GET /api/receipts answered 200 with a value its declared Response output rejects - id: Invalid input: expected string, received number; total: Invalid input: expected number, received string. Nothing checks the response in production, so this route would send that value as it is: fix the handler or the schema, or set `devChecks: false`.
-[better-handler] cannot send the response: GET /api/receipts answered 404, a status its declared Response output never names - the map names 200, 201. Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or name 404 in `output`, or set `devChecks: false`.
+[better-handler] cannot send the response: GET /api/receipts answered 404, a status its declared Response output never names - the map names 200, 201. Nothing checks the response in production, so this route would send that status as it is: respond under one of those, or declare the failure under `errors` and throw it with `fail`, or set `devChecks: false`.
 [better-handler] cannot send the response: GET /api/receipts answered 200, and the schema its Response output declares threw while checking the value instead of reporting issues - the cause is what it threw. Nothing runs the schema in production, so this route would send the value unchecked: fix the schema, or set `devChecks: false`.
 [better-handler] cannot send the error: GET /api/orders/7 threw "order-not-found" with fields its declared schema rejects - id: id must be a number. Nothing checks the fields in production, so this route would send them as they are: fix the handler or the schema, or set `devChecks: false`.
 [better-handler] cannot send the error: GET /api/orders/7 threw "order-odd", and the schema it declares threw while checking the fields instead of reporting issues - the cause is what it threw. Nothing runs the schema in production, so this route would send the fields unchecked: fix the schema, or set `devChecks: false`.
@@ -741,7 +758,7 @@ h3 memoises the body parse. A middleware that read the body before the route, wi
 | Reading a handler | `KnownErrorsOfHandler`, `RequestInputOfHandler`, `ResponseOutputOfHandler`, `RouteKnownErrors`                                                                                                                                                                |
 | Errors            | `ErrorDeclarations`, `ErrorEntry`, `ErrorStatus`, `ErrorDeclarationError`, `ReservedTag`, `Fail`, `FailedError`, `TaggedError`, `KnownErrorsOf`                                                                                                               |
 | Input             | `InputDeclaration`, `InputDeclarationError`, `InputGuard`, `InputOf`, `OutputOf`, `MergedInput`, `MergedOutput`, `RequestInput`, `SourceInput`, `SourceSchemas`, `SourceValue`, `ValidatedContext`, `ValidationSource`, `ValidationIssue`, `ValidationFailed` |
-| Output            | `ResponseOutput`, `StatusMap`, `ResponseOutputs`, `ResponseBodies`, `HandlerReturn`, `SentResponse`, `Respond`, `Responded`                                                                                                                                   |
+| Output            | `ResponseOutput`, `StatusMap`, `ResponseOutputs`, `ResponseBodies`, `HandlerReturn`, `SentResponse`, `Respond`, `Responded`, `RespondError`, `OutputDeclarationError`, `OutputGuard`                                                                          |
 | Routes            | `KnownApiErrors`, `KnownApiRequestInputs` (generated, never written by hand), `KnownErrorsOfRoute`, `RequestInputOfRoute`, `Wire`                                                                                                                             |
 | Fetching          | `$BetterFetch`, `BetterFetch`, `BetterFetchTry`, `BetterFetchError`, `BetterRequestOptions`, `TryResult`, `RequestFailed`, `KnownErrorBody`, `KnownErrorFor`, `KnownErrorOf`                                                                                  |
 | Matching          | `MatchError`, `MatchableError`, `ErrorArms`, `VariantsOf`, `UnknownTagFallback`                                                                                                                                                                               |

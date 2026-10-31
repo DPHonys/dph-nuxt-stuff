@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
 import { defineError } from '../../src/runtime/server'
@@ -53,6 +54,31 @@ declare const failEither: Fail<typeof either>
 
 declare const failPicked: Fail<Pick<typeof declared, 'order-locked'>>
 
+// A schema that transforms: what is thrown, and sent, is its input.
+const dated = {
+  ...defineError('order-dated', {
+    status: 409,
+    schema: z.object({ id: z.string().transform(Number) }),
+  }),
+}
+declare const failDated: Fail<typeof dated>
+
+declare const failUntyped: Fail<{
+  untyped: { readonly status: 400; readonly schema: StandardSchemaV1<any, any> }
+}>
+
+declare const failOptional: Fail<{
+  optional: { readonly status: 400; readonly schema?: typeof orderRef }
+}>
+
+// Typed optional and transforming: the fields are still the input.
+declare const failOptionalDated: Fail<{
+  'optional-dated': {
+    readonly status: 409
+    readonly schema?: StandardSchemaV1<{ id: string }, { id: number }>
+  }
+}>
+
 describe('defineError', () => {
   it('returns a one-key map of the tag to its entry', () => {
     expectTypeOf(orderNotFound).toEqualTypeOf<{
@@ -91,6 +117,17 @@ describe('defineError', () => {
     expectTypeOf(range['order-computed'].status).toEqualTypeOf<number>()
   })
 
+  it('reads the _tag literal off the schema input, which the check validates', () => {
+    const renamed = defineError('order-renamed', {
+      status: 404,
+      schema: z.object({
+        _tag: z.literal('order-renamed').transform(() => 'legacy' as const),
+      }),
+    })
+
+    expectTypeOf(renamed).toHaveProperty('order-renamed')
+  })
+
   it('accepts a schema whose _tag is only a string', () => {
     const loose = defineError('order-loose', {
       status: 404,
@@ -117,10 +154,20 @@ describe('spread reuse', () => {
 })
 
 describe('the Fail helper', () => {
-  it('takes the schema output as the fields of a schema-bearing tag', () => {
+  it('takes the schema input as the fields of a schema-bearing tag', () => {
     expectTypeOf(fail<'order-not-found'>).parameters.toEqualTypeOf<
       [tag: 'order-not-found', value: { id: number }]
     >()
+  })
+
+  it('takes what a transforming schema accepts, which is what goes out', () => {
+    expectTypeOf(dated).toExtend<ErrorDeclarations>()
+    expectTypeOf(failDated<'order-dated'>).parameters.toEqualTypeOf<
+      [tag: 'order-dated', value: { id: string }]
+    >()
+    expectTypeOf(
+      failDated('order-dated', { id: '7' }).id
+    ).toEqualTypeOf<string>()
   })
 
   it('takes the tag alone for a tag declared without a schema', () => {
@@ -164,11 +211,36 @@ describe('the Fail helper', () => {
     expectTypeOf(failed.cause).toEqualTypeOf<boolean>()
   })
 
-  it('keeps each member of a union output its own fields', () => {
+  it('keeps each member of a union input its own fields', () => {
     expectTypeOf(either).toExtend<ErrorDeclarations>()
     expectTypeOf(failEither<'order-held'>)
       .parameter(1)
       .toEqualTypeOf<{ by: 'user'; userId: string } | { by: 'system' }>()
+  })
+})
+
+describe('the Fail helper on a loosely typed schema', () => {
+  it('takes a fields value for an untyped schema, whose input is any', () => {
+    // `any` is the answer an untyped schema gives; the slot is still there,
+    // as the runtime still demands a fields object.
+    expectTypeOf(failUntyped<'untyped'>).parameters.toEqualTypeOf<
+      [tag: 'untyped', value: any]
+    >()
+    expectTypeOf(
+      failUntyped('untyped', { x: 1 })._tag
+    ).toEqualTypeOf<'untyped'>()
+  })
+
+  it('reads the fields off a schema typed optional', () => {
+    expectTypeOf(failOptional<'optional'>).parameters.toEqualTypeOf<
+      [tag: 'optional', value: { id: number }]
+    >()
+  })
+
+  it('reads a schema typed optional on its input, as what is thrown', () => {
+    expectTypeOf(failOptionalDated<'optional-dated'>).parameters.toEqualTypeOf<
+      [tag: 'optional-dated', value: { id: string }]
+    >()
   })
 })
 

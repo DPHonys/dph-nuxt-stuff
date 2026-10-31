@@ -44,7 +44,7 @@ const everything = defineBetterEventHandler(
       route: z.object({ id: z.string() }),
       query: [
         z.object({ a: z.string() }),
-        z.object({ b: z.number().optional() }),
+        z.object({ b: z.union([z.string(), z.number()]).optional() }),
       ],
       headers: z.object({ 'x-tenant': z.string() }),
       body: z.object({ n: z.string().transform(Number) }),
@@ -66,11 +66,11 @@ describe('the native slot', () => {
   it('holds the declared body and query, as schema input types', () => {
     expectTypeOf<SlotOf<typeof everything>>().toEqualTypeOf<{
       body: { n: string }
-      query: { a: string; b?: number }
+      query: { a: string; b?: string | number }
     }>()
     expectTypeOf(everything).toExtend<
       EventHandler<
-        { body: { n: string }; query: { a: string; b?: number } },
+        { body: { n: string }; query: { a: string; b?: string | number } },
         Promise<{ ok: true } | null>
       >
     >()
@@ -131,20 +131,16 @@ describe('the native slot', () => {
   })
 
   it('widens a value outside the query values, and keeps every one inside them', () => {
-    interface Filters {
-      status: 'open' | 'closed'
-    }
-
+    // Every key takes a string, which the declaration guard requires; what
+    // else a key takes is carried when a query can carry it.
     const _mixed = defineBetterEventHandler(
       {
         input: {
           query: schema<{
-            id: bigint
             either: string | bigint
-            filters: Filters
-            at: Date
+            free: unknown
             tags: string[]
-            flag: boolean | null
+            flag: 'on' | null
           }>(),
         },
       },
@@ -153,12 +149,10 @@ describe('the native slot', () => {
 
     expectTypeOf<SlotOf<typeof _mixed>>().toEqualTypeOf<{
       query: {
-        id: QueryCarriable
         either: QueryCarriable
-        filters: Filters
-        at: Date
+        free: QueryCarriable
         tags: string[]
-        flag: boolean | null
+        flag: 'on' | null
       }
     }>()
   })
@@ -221,7 +215,7 @@ describe('each reader reads only its own slot', () => {
   it('reads the brands off a branded Handler, whatever the slot holds', () => {
     expectTypeOf<RequestInputOfHandler<typeof everything>>().toEqualTypeOf<{
       route: { id: string }
-      query: { a: string; b?: number }
+      query: { a: string; b?: string | number }
       headers: { 'x-tenant': string }
       body: { n: string }
     }>()

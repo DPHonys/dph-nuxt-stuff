@@ -5,11 +5,13 @@
  * let each diagnostic through so the suite can read it.
  */
 
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { z } from 'zod'
 import {
   defineBetterEventHandler,
   defineError,
 } from '../../../src/runtime/server'
+import type { ErrorEntry } from '../../../src/runtime/types'
 
 const missingOrder = z.object({
   _tag: z.literal('order-missing'),
@@ -30,15 +32,38 @@ export const widenedTag = defineError(someTag, { status: 400 })
 declare const eitherTag: 'order-locked' | 'order-paid'
 export const unionTag = defineError(eitherTag, { status: 409 })
 
+// A pattern is no one literal: spread, it would admit `fail('x-anything')`.
+declare const patternTag: `x-${string}`
+export const patternedTag = defineError(patternTag, { status: 400 })
+
 // --- defineError: the entry -------------------------------------------------
 
 export const tagMismatch = defineError('order-not-found', {
   status: 404,
   schema: missingOrder,
 })
+// The schema's input carries the tag the check validates, whatever it outputs.
+export const tagMismatchInput = defineError('order-relabelled', {
+  status: 404,
+  schema: z.object({
+    _tag: z
+      .literal('order-missing')
+      .transform(() => 'order-relabelled' as const),
+  }),
+})
 export const scalarFields = defineError('scalar-fields', {
   status: 400,
   schema: z.string(),
+})
+// One member of a union input that is no object of fields is enough.
+export const mixedArrayFields = defineError('mixed-array', {
+  status: 400,
+  schema: z.union([z.object({ id: z.number() }), z.array(z.number())]),
+})
+declare const mixedCallable: StandardSchemaV1<{ id: number } | (() => void)>
+export const mixedCallableFields = defineError('mixed-callable', {
+  status: 400,
+  schema: mixedCallable,
 })
 export const strayKey = defineError('stray-key', {
   status: 400,
@@ -52,6 +77,21 @@ export const redirectStatus = defineError('order-moved', {
   status: 302,
 })
 export const fractionalStatus = defineError('order-half', { status: 404.5 })
+
+// A numeric key is a field too, at the top and inside a record.
+declare const indexedBigints: StandardSchemaV1<{
+  values: Record<number, bigint>
+}>
+declare const numericBigint: StandardSchemaV1<{ 0: bigint }>
+
+export const indexedField = defineError('order-indexed', {
+  status: 400,
+  schema: indexedBigints,
+})
+export const numericField = defineError('order-numbered', {
+  status: 400,
+  schema: numericBigint,
+})
 
 // --- a route's errors map ---------------------------------------------------
 
@@ -86,6 +126,26 @@ export const mapSuccessStatus = defineBetterEventHandler(
   {
     errors: {
       'order-fine': { status: 200 },
+    },
+  },
+  () => null
+)
+
+declare const patterned: {
+  readonly [Tag in `x-${string}`]: { readonly status: 400 }
+}
+export const mapPatterned = defineBetterEventHandler(
+  { errors: patterned },
+  () => null
+)
+
+export const mapMixed = defineBetterEventHandler(
+  {
+    errors: {
+      'mixed-array': {
+        status: 400,
+        schema: z.union([z.object({ id: z.number() }), z.array(z.number())]),
+      },
     },
   },
   () => null
@@ -129,6 +189,61 @@ export const failPairing = defineBetterEventHandler(
     if (Math.random() > 0.5) throw fail('order-locked', { id: 7 })
 
     return null
+  }
+)
+
+// The fields are what is thrown and sent: a transforming schema's input.
+export const failTransformed = defineBetterEventHandler(
+  {
+    errors: {
+      'order-dated': {
+        status: 409,
+        schema: z.object({ id: z.string().transform(Number) }),
+      },
+    },
+  },
+  (_event, { fail }) => {
+    throw fail('order-dated', { id: 7 })
+  }
+)
+
+// An untyped schema's input is `any`, and the runtime still demands its
+// fields object.
+declare const untypedSchema: StandardSchemaV1<any, any>
+
+export const untypedWithoutFields = defineBetterEventHandler(
+  { errors: { untyped: { status: 400, schema: untypedSchema } } },
+  (_event, { fail }) => {
+    throw fail('untyped')
+  }
+)
+
+// A schema typed optional is still a schema when the entry holds one.
+const orderRef = z.object({ id: z.number() })
+
+interface OptionalSchemaEntry {
+  readonly status: 400
+  readonly schema?: typeof orderRef
+}
+
+const optionalEntry: OptionalSchemaEntry = { status: 400, schema: orderRef }
+
+export const optionalWithoutFields = defineBetterEventHandler(
+  { errors: { optional: optionalEntry } },
+  (_event, { fail }) => {
+    throw fail('optional')
+  }
+)
+
+const annotatedEntry: ErrorEntry = {
+  status: 400,
+  schema: z.object({ id: z.number() }),
+}
+
+export const annotatedWithoutFields = defineBetterEventHandler(
+  { errors: { annotated: annotatedEntry } },
+  (_event, { fail }) => {
+    throw fail('annotated')
   }
 )
 
