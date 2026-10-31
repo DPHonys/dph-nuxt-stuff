@@ -11,35 +11,36 @@ export interface TaggedError {
   readonly _tag: string
 }
 
-// Whether any key of `Output` holds a function. A record of fields never
-// does; a class instance does, through its methods.
-type HasMethod<Output> = true extends {
-  [Key in keyof Output]-?: Output[Key] extends (...args: never[]) => void
+// Whether `Output` is an `Error` instance rather than a record of fields
+// that merely has a `name` and a `message`. TypeScript cannot see a
+// prototype, so this reads the one trace inheritance leaves on a type:
+// every member of `Error`'s interface, the optional ones included - `stack`,
+// `cause`, and whatever a library merges into the global interface, as Effect
+// merges its `~effect/...` markers. A class extending `Error` inherits all of
+// them, method or none; a schema describing a plain record names its own
+// keys and never states `Error`'s optional `stack` beside them.
+type IsErrorInstance<Output> = Output extends Error
+  ? keyof Error extends keyof Output
     ? true
     : false
-}[keyof Output]
-  ? true
   : false
 
 // The keys a schema output has that the boundary never sends: `_tag`, which
-// the declared tag replaces, and on a class instance - an `Error` carrying
-// methods, such as an Effect error class's - the keys that are not its own
-// enumerable data: `Error`'s `name`, `message`, `stack` and `cause`, and the
-// markers spelled with a leading `~` that libraries keep on the prototype
-// (Effect's `~effect/...` type ids). An object literal that merely has a
-// `name` and a `message` carries no method, so its fields stay fields.
+// the declared tag replaces, and on an `Error` instance the members that are
+// not its own enumerable data - `name`, `message`, `stack` and `cause`, own
+// but not enumerable, and the markers spelled with a leading `~` that
+// libraries keep on the prototype (Effect's type ids). A record of fields
+// sends every key it has, a `name` and a `message` included.
 type UnsentKey<Output> =
   | '_tag'
-  | (Output extends Error
-      ? HasMethod<Output> extends true
-        ? keyof Error | `~${string}`
-        : never
-      : never)
+  | (IsErrorInstance<Output> extends true ? keyof Error | `~${string}` : never)
 
 /**
  * The fields a thrown Known error goes out with, as its schema's output
- * describes them: the output's keys beside `_tag`, without its methods, which
- * live on a class's prototype or are left out as JSON leaves a function out.
+ * describes them: the boundary sends a thrown value's own enumerable keys
+ * beside `_tag`, so this is the output's keys without its methods, which live
+ * on a class's prototype or are left out as JSON leaves a function out, and
+ * without the members an `Error` instance holds but does not enumerate.
  * Distributes over a union output, so each member keeps its own keys.
  */
 export type SentFields<Output> = Output extends unknown
