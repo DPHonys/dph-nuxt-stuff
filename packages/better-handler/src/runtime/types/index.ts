@@ -2,6 +2,7 @@
 // interfaces the generated type map augments.
 
 import type { RouteMethod } from './engine'
+import type { $BetterFetch, BetterFetch } from './fetch'
 import type { RouteEntry } from './utils'
 
 export type {
@@ -25,6 +26,13 @@ export type {
 export type { Fail, FailedError } from './errors/fail'
 export type { KnownErrorsOf, TaggedError } from './errors/tagged'
 export type { Wire } from './engine'
+export type {
+  $BetterFetch,
+  BetterFetch,
+  BetterFetchError,
+  BetterFetchTry,
+  BetterRequestOptions,
+} from './fetch'
 export type {
   BetterEventHandler,
   BetterHandlerFn,
@@ -118,3 +126,23 @@ type Known<Entry> = [Entry] extends [never]
       ? never
       : Entry
     : Entry
+
+declare module 'h3' {
+  interface H3Event {
+    /**
+     * The fetch family bound to this request: `$betterFetch`'s call and
+     * `.try`, forwarding the request's headers and cookies as `event.$fetch`
+     * does.
+     */
+    $betterFetch: BetterFetch
+  }
+}
+
+declare global {
+  /**
+   * The typed fetch global: callable in a Nitro handler, in `<script setup>`
+   * and in an app's `shared/` directory with no import.
+   */
+  // eslint-disable-next-line vars-on-top -- an ambient global is declared with `var`
+  var $betterFetch: $BetterFetch
+}
