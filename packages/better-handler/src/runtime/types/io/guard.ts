@@ -11,9 +11,6 @@ export interface InputDeclarationError<Msg extends string> {
   'input-declaration-error': Msg
 }
 
-/** The keys of any member of a union: distributes, unlike bare `keyof`. */
-type KeysOfUnion<T> = T extends unknown ? keyof T : never
-
 // One key, unless it is the whole key space an index signature contributes.
 type NamedKey<Key> = string extends Key
   ? never
@@ -23,23 +20,49 @@ type NamedKey<Key> = string extends Key
       ? never
       : Key
 
-// An index signature widens `keyof` and takes every named key down with it,
-// so a passthrough output would collide with every sibling. It contributes
-// nothing here instead, and the runtime's later-wins merge stands behind it.
-type NamedKeys<T> = NamedKey<KeysOfUnion<T>>
+// Member by member and key by key, before anything is unioned: an index
+// signature contributes nothing, and cannot take a named key down with it -
+// neither one standing beside it in the same output nor a sibling's, which a
+// union of whole key spaces would absorb into `string`.
+type NamedKeys<T> = T extends unknown
+  ? keyof { [Key in keyof T as NamedKey<Key>]: 0 }
+  : never
+
+// Whether any member of an output has an index signature: a passthrough,
+// loose or record output, which hands back keys it does not name. `any` and
+// `unknown` say nothing either way, and pass.
+type HasIndexSignature<Output> =
+  IsAny<Output> extends true
+    ? false
+    : Output extends unknown
+      ? string extends keyof Output
+        ? true
+        : number extends keyof Output
+          ? true
+          : symbol extends keyof Output
+            ? true
+            : false
+      : never
 
 type ElementOutputs<T extends readonly StandardSchemaV1[]> = {
   [Index in keyof T]: OutputOf<T[Index]>
 }
 
+// Each element's named keys, unioned only once they are named keys: an `any`
+// or `unknown` output would absorb its siblings' outputs into itself in a
+// union of the outputs.
+type NamedKeysOfEach<Outputs extends readonly unknown[]> = {
+  [Index in keyof Outputs]: NamedKeys<Outputs[Index]>
+}[number]
+
 /** Whether any two of a tuple's outputs share a named key. */
-// Head against the union of the rest: pairwise without the quadratic spelling.
+// Head against the rest: pairwise without the quadratic spelling.
 export type HasKeyOverlap<Outputs extends readonly unknown[]> =
   Outputs extends readonly [
     infer Head,
     ...infer Rest extends readonly unknown[],
   ]
-    ? [NamedKeys<Head> & NamedKeys<Rest[number]>] extends [never]
+    ? [NamedKeys<Head> & NamedKeysOfEach<Rest>] extends [never]
       ? HasKeyOverlap<Rest>
       : true
     : false
@@ -47,31 +70,60 @@ export type HasKeyOverlap<Outputs extends readonly unknown[]> =
 /**
  * Whether an output can be merged with its siblings': an object that is not
  * an array or a function. Structural, so a `Date` or `Map` output passes here
- * and is the runtime merge's to refuse. `any` is answered before the
- * distribution, which would otherwise send it down both branches.
+ * and is the runtime merge's to refuse. `any` and `unknown` say nothing about
+ * the output, so they pass and the runtime merge refuses what is no plain
+ * object; `any` is answered before the distribution, which would otherwise
+ * send it down both branches.
  */
 export type IsMergeableOutput<Output> =
   IsAny<Output> extends true
     ? true
-    : Output extends object
-      ? Output extends readonly unknown[] | ((...args: never[]) => void)
-        ? false
-        : true
+    : unknown extends Output
+      ? true
+      : Output extends object
+        ? Output extends readonly unknown[] | ((...args: never[]) => void)
+          ? false
+          : true
+        : false
+
+// Element by element, for the reason `NamedKeysOfEach` gives.
+type EveryMergeable<Outputs extends readonly unknown[]> = [
+  { [Index in keyof Outputs]: IsMergeableOutput<Outputs[Index]> }[number],
+] extends [true]
+  ? true
+  : false
+
+/**
+ * Whether an element after the first has an index signature. The merge is
+ * later-wins, so a later passthrough would hand back the raw source's value
+ * over every named output before it - a coerced `page` back to its string.
+ * First, its named outputs are overwritten by the converted ones after it.
+ */
+type HasLaterIndexSignature<Outputs extends readonly unknown[]> =
+  Outputs extends readonly [unknown, ...infer Rest extends readonly unknown[]]
+    ? true extends {
+        [Index in keyof Rest]: HasIndexSignature<Rest[Index]>
+      }[number]
+      ? true
       : false
+    : false
 
 /**
  * The rule a composed slot must keep, or `unknown` when it keeps it: every
- * element produces an object, and no two share an output key. The object
- * rule runs first: on a primitive output the overlap check would compare
- * `String.prototype`'s keys and print the wrong sentence.
+ * element produces an object, only the first may have an index signature,
+ * and no two share a named output key. The object rule runs first: on a
+ * primitive output the overlap check would compare `String.prototype`'s keys
+ * and print the wrong sentence.
  */
 export type ComposableSlot<T> = T extends readonly [StandardSchemaV1]
   ? unknown
   : T extends readonly [StandardSchemaV1, ...StandardSchemaV1[]]
-    ? [IsMergeableOutput<OutputOf<T[number]>>] extends [true]
-      ? HasKeyOverlap<ElementOutputs<T>> extends true
-        ? InputDeclarationError<'schemas composed on one source must produce disjoint output keys - merge them in your schema library instead'>
-        : unknown
+    ? EveryMergeable<ElementOutputs<T>> extends true
+      ? HasLaterIndexSignature<ElementOutputs<T>> extends true
+        ? InputDeclarationError<'only the first schema composed on one source may produce an index signature - put the passthrough, loose or record schema first, so the named outputs after it win the merge'>
+        : HasKeyOverlap<ElementOutputs<T>> extends true
+          ? InputDeclarationError<'schemas composed on one source must produce disjoint output keys - merge them in your schema library instead'>
+          : unknown
       : InputDeclarationError<'every schema composed on one source must produce an object output - not a primitive, an array or a function'>
     : unknown
 

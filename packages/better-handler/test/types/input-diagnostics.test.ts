@@ -36,6 +36,8 @@ const SENTENCES = {
     'schemas composed on one source must produce disjoint output keys - merge them in your schema library instead',
   primitive:
     'every schema composed on one source must produce an object output - not a primitive, an array or a function',
+  laterIndexSignature:
+    'only the first schema composed on one source may produce an index signature - put the passthrough, loose or record schema first, so the named outputs after it win the merge',
   declareSomething: 'declare input, errors, output, or any combination',
 } as const
 
@@ -51,7 +53,7 @@ function at(needle: string): Diagnostic | undefined {
 
 describe('the input diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
-    expect(diagnostics).toHaveLength(9)
+    expect(diagnostics).toHaveLength(12)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -91,6 +93,24 @@ describe('a composed slot', () => {
     expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
     expect(diagnostic?.message).toContain(
       `InputDeclarationError<"${SENTENCES.overlapping}">`
+    )
+  })
+
+  it.each([
+    ['a zod passthrough', 'z.looseObject({ sort: z.string() })],'],
+    ['a valibot loose object', 'v.looseObject({ sort: v.string() })],'],
+    [
+      'a record between a named-key clash',
+      'z.record(z.string(), z.unknown()), paging],',
+    ],
+  ])('is refused when %s comes after the first element', (_, needle) => {
+    // A later passthrough re-emits the raw source over its siblings' named
+    // outputs in the later-wins merge: a coerced `page` back to its string.
+    const diagnostic = at(needle)
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(diagnostic?.message).toContain(
+      `InputDeclarationError<"${SENTENCES.laterIndexSignature}">`
     )
   })
 

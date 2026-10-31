@@ -5,7 +5,12 @@
  */
 
 import type { H3Error, H3Event } from 'h3'
-import { isFunction, isRecordLike } from '../shared/guards'
+import {
+  isFunction,
+  isPlainObject,
+  isRecordLike,
+  isString,
+} from '../shared/guards'
 import { httpError } from '../shared/h3'
 
 /** The module's `meta.name`, leading every sentence the package raises. */
@@ -17,9 +22,18 @@ const PREFIX = '[better-handler]'
  * a `_tag` and `recognizeKnownError` never answers for a bug. A fault that
  * stands in for something thrown keeps it as its `cause`, so the logs still
  * show the original and its stack; the wire never carries it.
+ *
+ * Unhandled, as any server bug is: Nitro logs it with its stack in
+ * development and production alike, a development client reads the sentence,
+ * and a production client gets Nitro's generic `500` without it.
  */
 export function developerFault(message: string, cause?: unknown): H3Error {
-  return httpError({ status: 500, message: `${PREFIX} ${message}`, cause })
+  return httpError({
+    status: 500,
+    message: `${PREFIX} ${message}`,
+    cause,
+    unhandled: true,
+  })
 }
 
 /**
@@ -32,20 +46,21 @@ export function declarationFault(message: string): Error {
 
 /**
  * A value as the author would name it in a sentence about what they wrote or
- * sent: `null`, `an array`, `the primitive 42`, `a function`, `an instance of
- * Date`, `an empty object`, `a plain object`. Generic because it describes
- * whatever it is handed, typed or not.
+ * sent: `null`, `an array`, `the string "42"`, `the primitive 42`, `a function`,
+ * `an instance of Date`, `an empty object`, `a plain object`. Generic because it
+ * describes whatever it is handed, typed or not.
  */
 export function describeValue<Value>(value: Value): string {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
   if (Array.isArray(value)) return 'an array'
   if (isFunction(value)) return 'a function'
+  // Quoted, so the string "400" never reads as the number it is not.
+  if (isString(value)) return `the string ${JSON.stringify(value)}`
   if (Object(value) !== value) return `the primitive ${String(value)}`
 
-  const prototype: unknown = Object.getPrototypeOf(value)
-
-  if (prototype !== Object.prototype && prototype !== null) {
+  if (!isPlainObject(value)) {
+    const prototype: unknown = Object.getPrototypeOf(value)
     const name =
       isRecordLike(prototype) &&
       'constructor' in prototype &&

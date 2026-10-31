@@ -178,6 +178,62 @@ describe('the merge of a tuple’s outputs', () => {
     expect(await response.json()).toEqual({ page: '1', sort: 'asc' })
   })
 
+  it('keeps an enumerable symbol key, as the merged type does', async () => {
+    const marker = Symbol('marker')
+    const hidden = Symbol('hidden')
+
+    const marked = v.pipe(
+      v.unknown(),
+      v.transform(() => {
+        const output = { [marker]: 'marked' }
+
+        // Not enumerable, so no spread or merge carries it: dropped alike.
+        Object.defineProperty(output, hidden, { value: 'hidden' })
+
+        return output
+      })
+    )
+
+    const route = defineBetterEventHandler(
+      { input: { query: [marked, sorting] } },
+      (_event, { query }) => ({
+        marker: query[marker],
+        hidden: Object.getOwnPropertySymbols(query).includes(hidden),
+        sort: query.sort,
+      })
+    )
+
+    const response = await request(route, '/api/test?sort=asc')
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      marker: 'marked',
+      hidden: false,
+      sort: 'asc',
+    })
+  })
+
+  it('lets the named outputs after a passthrough win over its raw values', async () => {
+    // The one place a passthrough may stand: first, so the coerced `page`
+    // overwrites the raw string it also re-emits.
+    const route = defineBetterEventHandler(
+      {
+        input: {
+          query: [
+            z.looseObject({ sort: z.string() }),
+            z.object({ page: z.coerce.number() }),
+          ],
+        },
+      },
+      (_event, { query }) => ({ page: query.page, sort: query.sort })
+    )
+
+    const response = await request(route, '/api/test?page=2&sort=asc')
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ page: 2, sort: 'asc' })
+  })
+
   it('runs async elements one after another, in tuple order', async () => {
     const order: string[] = []
 
@@ -226,7 +282,7 @@ describe('an element output the merge cannot take', () => {
 
     expect(response.status).toBe(500)
     expect(thrown.message).toBe(
-      '[better-handler] cannot merge the validated query of GET /api/test: the schema at index 1 produced the primitive not an object at all. ' +
+      '[better-handler] cannot merge the validated query of GET /api/test: the schema at index 1 produced the string "not an object at all". ' +
         'Schemas composed on one source merge their outputs, so every element of the tuple must produce a plain object.'
     )
     // A bug in the route, not a client's bad input: never a Known error.
