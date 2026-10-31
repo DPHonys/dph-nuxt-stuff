@@ -4,9 +4,13 @@
  * the Handler is entered.
  */
 
-import type { StandardSchemaV1 } from '@standard-schema/spec'
+import type {
+  StandardJSONSchemaV1,
+  StandardSchemaV1,
+} from '@standard-schema/spec'
 import type { H3Event } from 'h3'
 import {
+  isFunction,
   isPlainObject,
   isRecordLike,
   isStandardSchema,
@@ -86,16 +90,97 @@ function slotSchemas(
     }
   }
 
+  // The compile guard's rule, held here too where a schema can say so: the
+  // merge is later-wins, so an open output after the first would hand the
+  // Handler the raw source's values over every converted one before it.
+  for (const [position, element] of [first, ...rest].entries()) {
+    if (position === 0 || !keepsUnnamedKeys(element)) continue
+
+    throw declarationFault(
+      `The ${source} input holds a schema at index ${position} whose output keeps keys it does not name - a passthrough, loose or record schema. ` +
+        'Only the first schema composed on one source may, so the named outputs after it win the merge.'
+    )
+  }
+
   return [first, ...rest]
+}
+
+/** A schema's `~standard`, narrowed to one that can describe its output. */
+interface DescribesOutput {
+  readonly jsonSchema: Pick<StandardJSONSchemaV1.Converter, 'output'>
+}
+
+/** Whether a schema's `~standard` carries a Standard JSON Schema converter. */
+function describesOutput<Props>(
+  standard: Props
+): standard is Props & DescribesOutput {
+  return (
+    isRecordLike(standard) &&
+    'jsonSchema' in standard &&
+    isRecordLike(standard.jsonSchema) &&
+    'output' in standard.jsonSchema &&
+    isFunction(standard.jsonSchema.output)
+  )
+}
+
+/**
+ * Whether a JSON Schema describes an object keeping keys it does not name,
+ * itself or through any branch of a union or intersection. Only an explicit
+ * `additionalProperties` other than `false`, or a `patternProperties`, says
+ * so: a vendor that leaves both out is not taken to mean an open object.
+ */
+function isOpenObject<Node>(node: Node): boolean {
+  if (!isRecordLike(node)) return false
+
+  if ('additionalProperties' in node && node.additionalProperties !== false)
+    return true
+
+  if (
+    'patternProperties' in node &&
+    isRecordLike(node.patternProperties) &&
+    Object.keys(node.patternProperties).length > 0
+  )
+    return true
+
+  return (
+    ('anyOf' in node && hasOpenBranch(node.anyOf)) ||
+    ('oneOf' in node && hasOpenBranch(node.oneOf)) ||
+    ('allOf' in node && hasOpenBranch(node.allOf))
+  )
+}
+
+/** Whether a combinator's branches hold an open object. */
+function hasOpenBranch<Branches>(branches: Branches): boolean {
+  return Array.isArray(branches) && branches.some(isOpenObject)
+}
+
+/**
+ * Whether a schema says its output keeps keys it does not name: a
+ * passthrough, loose or record output. Asked through the Standard JSON Schema
+ * converter, so any library carrying one answers. A schema without one, or
+ * one whose output has no JSON Schema (a transform), says nothing, and the
+ * compile guard alone judges it.
+ */
+function keepsUnnamedKeys(schema: StandardSchemaV1): boolean {
+  const standard = schema['~standard']
+
+  if (!describesOutput(standard)) return false
+
+  try {
+    return isOpenObject(standard.jsonSchema.output({ target: 'draft-2020-12' }))
+  } catch {
+    return false
+  }
 }
 
 /**
  * Resolve a route's `input` once, when the route module is evaluated,
  * throwing a declaration fault at the first rule it breaks: a key that names
  * no Validation source, then a slot holding something that is not a Standard
- * Schema. A slot left `undefined` declares nothing. Walking `SOURCE_WALK`
- * rather than the declaration's own keys is what makes the fail-fast order
- * the package's promise instead of the author's key order.
+ * Schema, then a tuple element after the first whose output says it keeps
+ * keys it does not name. A slot left `undefined` declares nothing. Walking
+ * `SOURCE_WALK` rather than the declaration's own keys is what makes the
+ * fail-fast order the package's promise instead of the author's key order.
  */
 export function sourcePlan<Input extends InputDeclaration>(
   input: Input

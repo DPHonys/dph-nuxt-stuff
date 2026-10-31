@@ -17,6 +17,7 @@ import type {
   ValidationFailed,
   ValidationIssue,
 } from '../../src/runtime/types'
+import type { HasKeyOverlap } from '../../src/runtime/types/io/guard'
 
 /** A page number, coerced from the string the wire always carries. */
 const pagination = z.object({ page: z.coerce.number() })
@@ -77,6 +78,29 @@ describe('the input type family', () => {
   })
 })
 
+describe('the composition guard', () => {
+  it('sees a named-key clash past an index signature among the siblings', () => {
+    expectTypeOf<
+      HasKeyOverlap<[{ id: number }, Record<string, string>, { id: string }]>
+    >().toEqualTypeOf<true>()
+    expectTypeOf<
+      HasKeyOverlap<[{ id: number }, unknown, { id: string }]>
+    >().toEqualTypeOf<true>()
+    expectTypeOf<
+      HasKeyOverlap<[{ id: number }, { id: string }]>
+    >().toEqualTypeOf<true>()
+  })
+
+  it('sees the named keys an index signature stands beside', () => {
+    expectTypeOf<
+      HasKeyOverlap<[{ page: string; [key: string]: string }, { page: number }]>
+    >().toEqualTypeOf<true>()
+    expectTypeOf<
+      HasKeyOverlap<[Record<string, string>, { page: number }]>
+    >().toEqualTypeOf<false>()
+  })
+})
+
 describe('the Handler context of a route declaring input', () => {
   it('holds each declared source’s output, coercions and transforms applied', () => {
     defineBetterEventHandler(
@@ -122,6 +146,25 @@ describe('the Handler context of a route declaring input', () => {
           page: number
           sort: 'asc' | 'desc'
         }>()
+
+        return null
+      }
+    )
+  })
+
+  it('takes a passthrough output first, before the named outputs that win the merge', () => {
+    defineBetterEventHandler(
+      {
+        input: {
+          query: [
+            z.looseObject({ sort: z.string() }),
+            z.object({ page: z.coerce.number() }),
+          ],
+        },
+      },
+      (_, { query }) => {
+        expectTypeOf(query.page).toEqualTypeOf<number>()
+        expectTypeOf(query.sort).toEqualTypeOf<string>()
 
         return null
       }

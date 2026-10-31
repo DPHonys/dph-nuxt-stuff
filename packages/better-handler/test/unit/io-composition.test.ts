@@ -213,6 +213,27 @@ describe('the merge of a tuple’s outputs', () => {
     })
   })
 
+  it('lets the named outputs after a passthrough win over its raw values', async () => {
+    // The one place a passthrough may stand: first, so the coerced `page`
+    // overwrites the raw string it also re-emits.
+    const route = defineBetterEventHandler(
+      {
+        input: {
+          query: [
+            z.looseObject({ sort: z.string() }),
+            z.object({ page: z.coerce.number() }),
+          ],
+        },
+      },
+      (_event, { query }) => ({ page: query.page, sort: query.sort })
+    )
+
+    const response = await request(route, '/api/test?page=2&sort=asc')
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ page: 2, sort: 'asc' })
+  })
+
   it('runs async elements one after another, in tuple order', async () => {
     const order: string[] = []
 

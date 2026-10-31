@@ -117,6 +117,66 @@ describe('a slot holding something that is not a Standard Schema', () => {
   })
 })
 
+/** The sentence naming the element at `position` of the query tuple. */
+function openOutputAt(position: number): Error {
+  return new Error(
+    `[better-handler] The query input holds a schema at index ${position} whose output keeps keys it does not name - a passthrough, loose or record schema. ` +
+      'Only the first schema composed on one source may, so the named outputs after it win the merge.'
+  )
+}
+
+describe('a composed tuple whose later element keeps keys it does not name', () => {
+  it.each([
+    ['a zod loose object', z.looseObject({ sort: z.string() })],
+    ['a zod catchall', z.object({ sort: z.string() }).catchall(z.string())],
+    ['a zod record', z.record(z.string(), z.unknown())],
+    [
+      'a union with a loose member',
+      z.union([
+        z.object({ all: z.string() }),
+        z.looseObject({ sort: z.string() }),
+      ]),
+    ],
+  ])('refuses %s after the first element', (_, open) => {
+    // The later-wins merge would hand the Handler `page: '2'` from the raw
+    // query over the coerced `page: 2` the types promise.
+    expect(declaring({ query: [page, open] })).toThrow(openOutputAt(1))
+  })
+
+  it('names the element by its index, past a closed one', () => {
+    const sorting = z.object({ sort: z.string() })
+
+    expect(
+      declaring({ query: [page, sorting, z.looseObject({ size: z.string() })] })
+    ).toThrow(openOutputAt(2))
+  })
+
+  it('takes one first, where the named outputs after it win the merge', () => {
+    expect(
+      declaring({ query: [z.looseObject({ sort: z.string() }), page] })
+    ).not.toThrow()
+  })
+
+  it('takes a lone one, which has nothing to merge into', () => {
+    expect(
+      declaring({ query: z.looseObject({ sort: z.string() }) })
+    ).not.toThrow()
+    expect(
+      declaring({ query: [z.looseObject({ sort: z.string() })] })
+    ).not.toThrow()
+  })
+
+  it('leaves a schema that cannot describe its output to the compile guard', () => {
+    // A transform has no JSON Schema, so the converter throws: nothing is
+    // known at runtime, and nothing is refused for it.
+    const transformed = z
+      .looseObject({ sort: z.string() })
+      .transform((query) => query)
+
+    expect(declaring({ query: [page, transformed] })).not.toThrow()
+  })
+})
+
 describe('the declaration-time order', () => {
   it('reports a misdeclared errors map before a misdeclared input', () => {
     expect(() =>
