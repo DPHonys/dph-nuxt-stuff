@@ -143,7 +143,7 @@ The shape a client must send for a route, per Validation source: the declared sc
 _Avoid_: Validation input, request schema
 
 **Request typing**:
-Typing a call's `body`, `query` and `headers` options per `(route, method)` from the Request input of the one route key Nitro serves for that method, the most specific that matches (an exact static key over one with params over a catch-all), while the Known-error union keeps every matching key's errors; compile-time only. A Declared source is required unless `{}` fits its input type, and an undeclared one is exactly what the vanilla fetch accepts. The Better fetch family is typed on every Nuxt 4; on Nuxt 4.6 and later, Nuxt's own `$fetch` and `useFetch` also type `body` and `query` through the Handler's `H3Event<Request>` slot.
+Typing a call's `body`, `query` and `headers` options per `(route, method)` from the Request input of the one route key Nitro serves for that method, the most specific that matches (an exact static key over one with params over a catch-all), while the Known-error union keeps every matching key's errors; compile-time only. A Declared source is required unless `{}` fits its input type, and an undeclared one is exactly what the vanilla fetch accepts. The Better fetch family is typed on every Nuxt 4; on Nuxt 4.6 and later, when the app sets `experimental.routeTypedFetch: true`, Nuxt's own `$fetch` and `useFetch` also type `body` and `query` through the Handler's `H3Event<Request>` slot. Nuxt reads records only there, so array, primitive and other non-record bodies and queries stay vanilla on that path, while the family types them.
 _Avoid_: Client validation, request schema
 
 **Better fetch family**:
