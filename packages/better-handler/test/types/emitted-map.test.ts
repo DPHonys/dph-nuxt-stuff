@@ -63,8 +63,8 @@ const DEFINITIONS_B = [
   ``,
 ].join('\n')
 
-/** The route files every app shares; only the declarations differ. */
-function appFiles(definitions: string) {
+/** The route files every orders app shares; only the declarations differ. */
+function ordersFiles(definitions: string): Record<string, string> {
   return {
     'server/errors/orders.ts': definitions,
 
@@ -141,8 +141,8 @@ function appFiles(definitions: string) {
   }
 }
 
-/** The handler list Nitro would have scanned for `appFiles`. */
-function appHandlers(root: string): HandlerEntry[] {
+/** The handler list Nitro would have scanned for `ordersFiles`. */
+function ordersHandlers(root: string): HandlerEntry[] {
   return [
     {
       route: '/api/orders/:id',
@@ -183,27 +183,37 @@ function appHandlers(root: string): HandlerEntry[] {
   ]
 }
 
-const NITRO_ROUTES = [
-  `declare module 'nitropack/types' {`,
-  `  interface InternalApi {`,
-  `    '/api/orders/:id': { get: unknown }`,
-  `    '/api/y': { default: unknown }`,
-  `    '/api/search': { get: unknown }`,
-  `    '/api/lookup': { get: unknown }`,
-  `    '/api/orders': { post: unknown }`,
-  `    '/api/legacy': { get: unknown }`,
-  `    '/api/indexed': { get: unknown }`,
-  `    '/api/shipped': { get: unknown }`,
-  `  }`,
-  `}`,
-  `export {}`,
-  ``,
-].join('\n')
+const ORDERS_NITRO_ROUTES = [
+  `'/api/orders/:id': { get: unknown }`,
+  `'/api/y': { default: unknown }`,
+  `'/api/search': { get: unknown }`,
+  `'/api/lookup': { get: unknown }`,
+  `'/api/orders': { post: unknown }`,
+  `'/api/legacy': { get: unknown }`,
+  `'/api/indexed': { get: unknown }`,
+  `'/api/shipped': { get: unknown }`,
+]
 
 interface App {
   readonly emitted: string
   /** Compile one consumer file inside this app, with the map in the program. */
   readonly compile: (name: string, source: string) => Compilation
+}
+
+/** One app's sources: its route files, Nitro's scan of them, its route keys. */
+interface AppLayout {
+  readonly files: Readonly<Record<string, string>>
+  readonly handlers: (root: string) => HandlerEntry[]
+  /** The `InternalApi` keys Nitro's own route types would declare. */
+  readonly nitroRoutes: readonly string[]
+}
+
+function ordersApp(definitions: string): AppLayout {
+  return {
+    files: ordersFiles(definitions),
+    handlers: ordersHandlers,
+    nitroRoutes: ORDERS_NITRO_ROUTES,
+  }
 }
 
 function write(root: string, relativePath: string, contents: string): string {
@@ -212,6 +222,19 @@ function write(root: string, relativePath: string, contents: string): string {
   writeFileSync(path, contents)
 
   return path
+}
+
+/** Nitro's route types for a set of keys, each typed by its methods. */
+function nitroRoutesDeclaration(keys: readonly string[]): string {
+  return [
+    `declare module 'nitropack/types' {`,
+    `  interface InternalApi {`,
+    ...keys.map((key) => `    ${key}`),
+    `  }`,
+    `}`,
+    `export {}`,
+    ``,
+  ].join('\n')
 }
 
 /**
@@ -223,7 +246,7 @@ function write(root: string, relativePath: string, contents: string): string {
  */
 function buildApp(
   name: string,
-  definitions: string,
+  layout: AppLayout,
   pretendBuildDir?: string
 ): App {
   const root = join(ROOT, name)
@@ -234,11 +257,11 @@ function buildApp(
     'junction'
   )
 
-  for (const [path, contents] of Object.entries(appFiles(definitions))) {
+  for (const [path, contents] of Object.entries(layout.files)) {
     write(root, path, contents)
   }
 
-  const routes = routeHandlersOf(appHandlers(root), {
+  const routes = routeHandlersOf(layout.handlers(root), {
     buildDir: pretendBuildDir ?? join(root, '.nuxt'),
     srcDir: join(root, 'server'),
     alias: {},
@@ -246,7 +269,7 @@ function buildApp(
   const emitted = emitMap(routes, BETTER_HANDLER_MAP)
 
   write(root, MAP_PATH, emitted)
-  write(root, NITRO_ROUTES_PATH, NITRO_ROUTES)
+  write(root, NITRO_ROUTES_PATH, nitroRoutesDeclaration(layout.nitroRoutes))
   write(
     root,
     'tsconfig.json',
@@ -275,6 +298,124 @@ function buildApp(
   }
 }
 
+/**
+ * An app whose request paths match several keys: a param key beside a
+ * catch-all under one prefix; catch-alls that tie, one of them a module the
+ * compiler cannot read; an unreadable param key over a catch-all of this
+ * package; a root catch-all beside Nuxt's renderer key, which the compiler
+ * cannot read either; and two handlers on one route and method.
+ */
+function filesFiles(): Record<string, string> {
+  const route = (input: string): string =>
+    [
+      `import { defineBetterEventHandler } from '@dphonys/better-handler/server'`,
+      `import { z } from 'zod'`,
+      ``,
+      `export default defineBetterEventHandler({ input: ${input} }, () => null)`,
+      ``,
+    ].join('\n')
+
+  return {
+    'server/api/files/[id].post.ts': route(
+      '{ body: z.object({ name: z.string() }) }'
+    ),
+    'server/api/files/[...].post.ts': route(
+      '{ body: z.object({ path: z.string() }) }'
+    ),
+    'server/api/files/latest.post.ts': route(
+      '{ body: z.object({ latest: z.literal(true) }) }'
+    ),
+    'server/api/blobs/[...].post.ts': route(
+      '{ body: z.object({ path: z.string() }) }'
+    ),
+    // No method in the file name, so it serves every method.
+    'server/routes/[...].ts': route(
+      '{ query: z.object({ lang: z.string() }) }'
+    ),
+    'server/api/twice/one.post.ts': route(
+      '{ body: z.object({ a: z.string() }) }'
+    ),
+    'server/api/twice/two.post.ts': route(
+      '{ body: z.object({ b: z.string() }) }'
+    ),
+    // Nuxt's renderer error route, and a catch-all a module ships as
+    // JavaScript: modules the compiler cannot resolve.
+    'server/nuxt-error.mjs': [`export default () => null`, ``].join('\n'),
+    'server/shipped/catch-all.mjs': [`export default () => null`, ``].join(
+      '\n'
+    ),
+    'server/shipped/script.mjs': [`export default () => null`, ``].join('\n'),
+    'server/api/scripts/[...].post.ts': route(
+      '{ body: z.object({ script: z.string() }) }'
+    ),
+  }
+}
+
+function filesHandlers(root: string): HandlerEntry[] {
+  return [
+    {
+      route: '/api/files/:id',
+      method: 'post',
+      handler: join(root, 'server/api/files/[id].post.ts'),
+    },
+    {
+      route: '/api/files/**',
+      method: 'post',
+      handler: join(root, 'server/api/files/[...].post.ts'),
+    },
+    {
+      route: '/api/files/latest',
+      method: 'post',
+      handler: join(root, 'server/api/files/latest.post.ts'),
+    },
+    {
+      route: '/api/blobs/**',
+      method: 'post',
+      handler: join(root, 'server/api/blobs/[...].post.ts'),
+    },
+    { route: '/**', handler: join(root, 'server/routes/[...].ts') },
+    {
+      route: '/api/twice',
+      method: 'post',
+      handler: join(root, 'server/api/twice/one.post.ts'),
+    },
+    {
+      route: '/api/twice',
+      method: 'post',
+      handler: join(root, 'server/api/twice/two.post.ts'),
+    },
+    { route: '/__nuxt_error', handler: join(root, 'server/nuxt-error.mjs') },
+    { route: '/api/**', handler: join(root, 'server/shipped/catch-all.mjs') },
+    {
+      route: '/api/scripts/:id',
+      method: 'post',
+      handler: join(root, 'server/shipped/script.mjs'),
+    },
+    {
+      route: '/api/scripts/**',
+      method: 'post',
+      handler: join(root, 'server/api/scripts/[...].post.ts'),
+    },
+  ]
+}
+
+const FILES_APP: AppLayout = {
+  files: filesFiles(),
+  handlers: filesHandlers,
+  nitroRoutes: [
+    `'/api/files/:id': { post: unknown }`,
+    `'/api/files/**': { post: unknown }`,
+    `'/api/files/latest': { post: unknown }`,
+    `'/api/blobs/**': { post: unknown }`,
+    `'/**': { default: unknown }`,
+    `'/api/twice': { post: unknown }`,
+    `'/__nuxt_error': { default: unknown }`,
+    `'/api/**': { default: unknown }`,
+    `'/api/scripts/:id': { post: unknown }`,
+    `'/api/scripts/**': { post: unknown }`,
+  ],
+}
+
 /** What every consumer opens with: the assertions inlined, one file each. */
 const PRELUDE = [
   `import type { KnownApiErrors, KnownApiRequestInputs, KnownErrorBody, KnownErrorFor, KnownErrorsOfRoute, RequestFailed, RequestInputOfRoute, TryResult } from '@dphonys/better-handler/types'`,
@@ -287,8 +428,8 @@ const PRELUDE = [
   ``,
 ]
 
-const APP_A = buildApp('app-a', DEFINITIONS_A)
-const APP_B = buildApp('app-b', DEFINITIONS_B)
+const APP_A = buildApp('app-a', ordersApp(DEFINITIONS_A))
+const APP_B = buildApp('app-b', ordersApp(DEFINITIONS_B))
 
 describe('the emitted map, compiled', () => {
   const compilation = APP_A.compile(
@@ -416,17 +557,25 @@ describe('the emitted request-inputs slot, compiled', () => {
       `export type ByDefault = RequestInputOfRoute<'/api/y', 'patch'>`,
       `export type NoMethod = RequestInputOfRoute<'/api/search', 'post'>`,
       `export type Unresolved = RequestInputOfRoute<'/api/shipped'>`,
+      `export type Root = RequestInputOfRoute<'/'>`,
       `type _byPath = Expect<Equal<ByPath, Searched>>`,
       `type _byUpper = Expect<Equal<ByUpperMethod, Created>>`,
       `type _byDefault = Expect<Equal<ByDefault, {}>>`,
       `type _noMethod = Expect<IsNever<NoMethod>>`,
       `type _unresolved = Expect<IsNever<Unresolved>>`,
+      `type _root = Expect<IsNever<Root>>`,
       ``,
     ].join('\n')
   )
 
   it('compiles clean, with the map in the program', () => {
     assertNoDiagnostics(compilation)
+  })
+
+  it('types `/` as no route of this package where no key serves it', () => {
+    // Nitro's `MatchedRoutes<'/'>` answers every key; only `/` itself or a
+    // root catch-all serves the request, and this app has neither.
+    expect(compilation.renderHover('Root')).toBe('never')
   })
 
   it('carries each declared source as its schema’s input, a coerce key unknown', () => {
@@ -460,12 +609,89 @@ describe('the emitted request-inputs slot, compiled', () => {
   })
 })
 
+describe('a request path that several route keys match', () => {
+  const compilation = buildApp('app-files', FILES_APP).compile(
+    'request-inputs.ts',
+    [
+      ...PRELUDE,
+      `type Named = { body: { name: string } }`,
+      `type Pathed = { body: { path: string } }`,
+      `type Localised = { query: { lang: string } }`,
+      ``,
+      `export type Param = RequestInputOfRoute<'/api/files/7', 'post'>`,
+      `export type Static = RequestInputOfRoute<'/api/files/latest', 'post'>`,
+      `export type CatchAll = RequestInputOfRoute<'/api/blobs/a/b', 'post'>`,
+      `export type CatchAllBody = Extract<CatchAll, { body: unknown }>['body']`,
+      `export type CatchAllQuery = Extract<CatchAll, { query: unknown }>['query']`,
+      `export type Root = RequestInputOfRoute<'/'>`,
+      `export type Outranked = RequestInputOfRoute<'/api/scripts/7', 'post'>`,
+      `export type OutrankedBody = Extract<Outranked, { body: unknown }>['body']`,
+      `export type Shared = RequestInputOfRoute<'/api/twice', 'post'>`,
+      `export type SharedBody = Shared['body']`,
+      `type _param = Expect<Equal<Param, Named>>`,
+      `type _static = Expect<Equal<Static, { body: { latest: true } }>>`,
+      `type _catchAll = Expect<Equal<CatchAll, Pathed | Localised>>`,
+      `type _root = Expect<Equal<Root, Localised>>`,
+      `type _outranked = Expect<Equal<Outranked, { body: { script: string } } | Localised>>`,
+      `type _shared = Expect<Equal<Shared, { body: { a: string } } | { body: { b: string } }>>`,
+      ``,
+    ].join('\n')
+  )
+
+  it('compiles clean, with the map in the program', () => {
+    assertNoDiagnostics(compilation)
+  })
+
+  it('takes the input of the param key, not the catch-all’s beside it', () => {
+    // The review's probe: the union would let `{ path }` through to the
+    // `:id` handler, which answers 400.
+    expect(compilation.renderHover('Param')).toBe(
+      '{ body: { name: string; }; }'
+    )
+  })
+
+  it('takes the input of an exact static key over the param and the catch-all', () => {
+    expect(compilation.renderHover('Static')).toBe(
+      '{ body: { latest: true; }; }'
+    )
+  })
+
+  it('unions the inputs of the keys that tie, past an unreadable catch-all', () => {
+    // `/api/**` ties with both, and its `any` would swallow the union.
+    // The union itself is the `Equal` assertion's; each member rendered
+    // proves neither collapsed.
+    expect(compilation.renderHover('CatchAllBody')).toBe('{ path: string; }')
+    expect(compilation.renderHover('CatchAllQuery')).toBe('{ lang: string; }')
+  })
+
+  it('reads `/` as the root catch-all’s, past the unreadable renderer key', () => {
+    // Nitro's `MatchedRoutes<'/'>` answers every key, `/__nuxt_error`'s
+    // `any` among them, which used to make the whole lookup `never`.
+    expect(compilation.renderHover('Root')).toBe(
+      '{ query: { lang: string; }; }'
+    )
+  })
+
+  it('skips an unreadable key before ranking, even a more specific one', () => {
+    // `/api/scripts/:id` is a module the compiler cannot read; its `any`
+    // says nothing, so the catch-alls answer, tied with the root one.
+    expect(compilation.renderHover('OutrankedBody')).toBe('{ script: string; }')
+  })
+
+  it('keeps the union of two handlers on one route and method', () => {
+    // The runtime cannot tell which of the two serves a request either.
+    expect(compilation.renderHover('SharedBody')).toBe(
+      '{ a: string; } | { b: string; }'
+    )
+  })
+})
+
 describe('the emitted map, when it resolves to nothing', () => {
   // The same app, with the map emitted as though it lived somewhere else: every
   // `import('…')` in it points at nothing, and nothing complains.
   const broken = buildApp(
     'app-broken',
-    DEFINITIONS_A,
+    ordersApp(DEFINITIONS_A),
     join(ROOT, 'app-broken/elsewhere/deeper')
   )
 

@@ -2,7 +2,7 @@
 // interfaces the generated type map augments.
 
 import type { RouteMethod } from './engine'
-import type { RouteEntry } from './utils'
+import type { RouteEntry, ServingEntry } from './utils'
 
 export type {
   ErrorArms,
@@ -96,12 +96,14 @@ export type KnownErrorsOfRoute<
  * A route's Request input from its request path and method alone: one key per
  * declared source, `{}` for a route of this package declaring none, and
  * `never` for a route this package does not type. The method may be named in
- * either case.
+ * either case. Read from the most specific route key the path matches, not
+ * every one: a path under both `/api/files/:id` and `/api/files/**` takes the
+ * `:id` handler's input, which is the handler that serves it.
  */
 export type RequestInputOfRoute<
   Route extends string,
   Method extends RouteMethod | Uppercase<RouteMethod> = 'get',
-> = Known<RouteEntry<KnownApiRequestInputs, Route, Method>>
+> = ServingEntry<KnownApiRequestInputs, Route, Method>
 
 // The maps' extractors never answer `any` for a handler they can read, so an
 // `any` entry is a handler module the compiler could not resolve - a
