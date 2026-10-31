@@ -3,10 +3,11 @@
  * proves nothing about what the author is shown - the sentence a guard
  * carries is only a compiler run's to answer.
  *
- * Copied from the umbrella package's harness, both flavours. Every program
- * checks its fixture first, before the declarations the fixture imports: the
- * order an editor meets a call site in, and the one in which source-form
- * declarations report a stack-depth error that dependency order hides.
+ * Copied from the earlier composing package's harness, both flavours. Every
+ * program checks its fixture first, before the declarations the fixture
+ * imports: the order an editor meets a call site in, and the one in which
+ * source-form declarations report a stack-depth error that dependency order
+ * hides.
  *
  * Not a Vitest test file, so it is not matched by vitest's `include`; knip
  * reaches it through the suites importing it.
