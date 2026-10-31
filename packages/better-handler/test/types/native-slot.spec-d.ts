@@ -71,7 +71,7 @@ describe('the native slot', () => {
     expectTypeOf(everything).toExtend<
       EventHandler<
         { body: { n: string }; query: { a: string; b?: string | number } },
-        Promise<{ ok: true } | null>
+        Promise<{ ok: true } | undefined>
       >
     >()
   })
@@ -221,7 +221,7 @@ describe('each reader reads only its own slot', () => {
     }>()
     expectTypeOf<ResponseOutputOfHandler<typeof everything>>().toEqualTypeOf<{
       200: { ok: true }
-      204: null
+      204: undefined
     }>()
     // Each variant is its tag beside its fields, so read both ways rather
     // than spelled as one literal.

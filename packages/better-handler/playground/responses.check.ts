@@ -31,9 +31,9 @@ export type BareHolds = Assert<
 export type OutputOnlyHolds = Assert<Equal<Health, { ok: true; at: string }>>
 
 /**
- * A status map answers the union of its bodies, `null` for the bodiless
- * status, never the Respond helper's result that carried them.
+ * A status map answers the union of its bodies, `undefined` for the
+ * bodiless status, never the Respond helper's result that carried them.
  */
 export type MapHolds = Assert<
-  Equal<Created, { id: number; total: number; at: string } | null>
+  Equal<Created, { id: number; total: number; at: string } | undefined>
 >

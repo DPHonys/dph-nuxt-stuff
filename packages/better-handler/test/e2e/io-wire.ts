@@ -269,7 +269,7 @@ export function theInputWire(nitroExtras: NitroExtras): void {
 
 /**
  * The output half's wire, in one copy for both servers as the input half's
- * is: the bare form answering `200`, a mapped status and a bodiless one.
+ * is: the bare form answering `200`, a mapped status and bodiless ones.
  */
 export function theOutputWire(): void {
   it('answers the bare form 200, whatever status the Handler set', async () => {
@@ -309,4 +309,40 @@ export function theOutputWire(): void {
     expect(response.headers.get('content-type')).toBeNull()
     expect(await response.text()).toBe('')
   })
+
+  // h3 alone answers a `null` under `200` with a `204`, a status neither
+  // route declares.
+  it('answers a 200 declared null with 200 and no body', async () => {
+    const response = await fetch('/api/receipts', { method: 'PUT' })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBeNull()
+    expect(response.headers.get('content-length')).toBe('0')
+    expect(await response.text()).toBe('')
+  })
+
+  // A nullable schema's `null` is a body, which a client reads as `null`.
+  it('answers the bare form’s null with 200 and JSON null', async () => {
+    const response = await fetch('/api/receipts/latest')
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toMatch(/^application\/json/)
+    expect(await response.text()).toBe('null')
+  })
+
+  // The fixture's `beforeResponse` hook sets `x-hooked` on every receipt
+  // reply. It runs after the Handler, so a reply sent ahead of the hooks
+  // would have its headers out already and refuse it.
+  it.each([
+    ['a 200 declared null', '/api/receipts', 'PUT'],
+    ['a 200 of JSON null', '/api/receipts/latest', 'GET'],
+    ['a 204 declared null', '/api/receipts?dryRun=yes', 'POST'],
+  ])(
+    'runs a beforeResponse hook before %s goes out',
+    async (_reply, path, method) => {
+      const response = await fetch(path, { method })
+
+      expect(response.headers.get('x-hooked')).toBe('yes')
+    }
+  )
 }

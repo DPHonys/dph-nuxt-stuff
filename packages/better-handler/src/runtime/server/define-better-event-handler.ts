@@ -204,9 +204,11 @@ export function defineBetterEventHandler<
     // SAFETY: `send` hands back the Handler's own value for a route without
     // `output` and for the bare form, whose value the return constraint
     // typed as the schema's input, and for a status map the body the
-    // Respond helper carried, which `Respond` typed as its status's body -
-    // or `null` for a status declared `null`. That is what `SentResponse`
-    // spells for each form; the compiler only sees h3's untyped
+    // Respond helper carried, which `Respond` typed as its status's body. A
+    // body of `null` goes back as the JSON text `null`, and a status
+    // declared `null` as a web `Response` with no body, which a client
+    // resolves to `undefined`. That is what `SentResponse` spells for each
+    // form, as a client receives it; the compiler only sees h3's untyped
     // `EventHandlerResponse`.
     return (await delivery.send(
       event,

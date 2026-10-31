@@ -1,4 +1,5 @@
 import {
+  addImports,
   addPlugin,
   addServerImports,
   createResolver,
@@ -20,6 +21,41 @@ export interface ModuleOptions {
    */
   devChecks: boolean
 }
+
+/** One composable the app auto-imports, by name, from its file. */
+interface Composable {
+  readonly name: string
+  /** Under `runtime/app/composables/`, without an extension. */
+  readonly file: string
+  /**
+   * Whether the compiler appends a key to a call, as it does to `useFetch`'s
+   * and `useAsyncData`'s: without it, two keyless calls of one composable
+   * share an entry, and a keyless `useBetterAsyncData` has no key at all.
+   */
+  readonly keyed: boolean
+}
+
+// The one list both registrations read. The lazy twins are their own
+// composables, each over Nuxt's own lazy twin.
+const COMPOSABLES: readonly Composable[] = [
+  { name: 'useBetterFetch', file: 'use-better-fetch', keyed: true },
+  { name: 'useLazyBetterFetch', file: 'use-better-fetch', keyed: true },
+  { name: 'useBetterAsyncData', file: 'use-better-async-data', keyed: true },
+  {
+    name: 'useLazyBetterAsyncData',
+    file: 'use-better-async-data',
+    keyed: true,
+  },
+  {
+    name: 'useRequestBetterFetch',
+    file: 'use-request-better-fetch',
+    keyed: false,
+  },
+]
+
+// Vanilla's own: a key is appended to a call passing fewer arguments than
+// this, `(request, opts, key)` and `(key, handler, opts)` alike.
+const KEYED_ARGUMENT_LENGTH = 3
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
@@ -45,6 +81,26 @@ export default defineNuxtModule<ModuleOptions>({
       ['defineBetterEventHandler', 'defineError', 'recognizeKnownError'].map(
         (name) => ({ name, from: serverEntry })
       )
+    )
+
+    // App-side only: every composable reaches `#app`, which the Nitro build
+    // does not have. `matchError` is not auto-imported, as an app's `shared/`
+    // directory, where app auto-imports do not reach, is among its callers.
+    const composables = COMPOSABLES.map((composable) => ({
+      ...composable,
+      from: resolver.resolve(`./runtime/app/composables/${composable.file}`),
+    }))
+
+    addImports(composables.map(({ name, from }) => ({ name, from })))
+
+    nuxt.options.optimization.keyedComposables.push(
+      ...composables
+        .filter(({ keyed }) => keyed)
+        .map(({ name, from }) => ({
+          name,
+          source: from,
+          argumentLength: KEYED_ARGUMENT_LENGTH,
+        }))
     )
 
     // `$betterFetch` on both sides' `globalThis`, and `event.$betterFetch` on

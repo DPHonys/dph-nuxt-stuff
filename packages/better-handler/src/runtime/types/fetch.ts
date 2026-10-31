@@ -89,8 +89,11 @@ type BodyOption<I, M extends string> = [I] extends [never]
       ? Declared<I, 'body'>
       : Vanilla<'body'>
 
-/** The typed sources alone, `body`, `query` and `headers`. */
-type RequestSources<
+/**
+ * The typed sources alone, `body`, `query` and `headers`, as the imperative
+ * members take them; the composables re-add each one reactive.
+ */
+export type RequestSources<
   R extends FetchRequest,
   M extends MethodArg<R>,
 > = QueryOption<InputFor<R, M>> &

@@ -15,14 +15,26 @@ import { shallowRef } from 'vue'
 import type { ShallowRef } from 'vue'
 import { z } from 'zod'
 
-type VanillaFetchArgs = Parameters<typeof vanillaUseFetch>
+type VanillaFetchOptions = Exclude<
+  Parameters<typeof vanillaUseFetch>[1],
+  string
+>
+
+// Vanilla's runtime arguments, spelled out: Nuxt 4.6's last public overload
+// declares the key the compiler appends, Nuxt 4.0's declares none, and its
+// runtime reads `(request, opts | key, key)` on both.
+type VanillaFetchArgs = [
+  request: Parameters<typeof vanillaUseFetch>[0],
+  arg1?: VanillaFetchOptions | string,
+  arg2?: string,
+]
 type VanillaAsyncDataArg = Parameters<typeof vanillaUseAsyncData>[number]
 
 /** One recorded call, split as vanilla's own runtime splits its three arguments. */
 export interface RecordedCall {
   readonly name: 'useFetch' | 'useLazyFetch'
   readonly request: VanillaFetchArgs[0]
-  readonly opts: Exclude<VanillaFetchArgs[1], string>
+  readonly opts: VanillaFetchOptions | undefined
   readonly autoKey: string | undefined
 }
 

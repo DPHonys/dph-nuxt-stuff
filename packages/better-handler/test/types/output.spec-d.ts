@@ -49,17 +49,17 @@ describe('the output type family', () => {
     }>()
   })
 
-  it('reads a status map status by status, null for a bodiless one', () => {
+  it('reads a status map status by status, undefined for a bodiless one', () => {
     const _map = { 200: existing, 201: created, 204: null }
     type Map = typeof _map
 
     expectTypeOf<ResponseOutputs<Map>>().toEqualTypeOf<{
       200: { id: string }
       201: { id: string; createdAt: string }
-      204: null
+      204: undefined
     }>()
     expectTypeOf<ResponseBodies<Map>>().toEqualTypeOf<
-      { id: string } | { id: string; createdAt: string } | null
+      { id: string } | { id: string; createdAt: string } | undefined
     >()
     expectTypeOf<HandlerReturn<Map>>().toEqualTypeOf<
       Responded<ResponseOutputs<Map>>
@@ -142,13 +142,13 @@ describe('a route declaring a status map', () => {
   it('hands the Respond helper, pairing each status with its body', () => {
     defineBetterEventHandler({ output }, (_event, context) => {
       // The second argument names the statuses declared `null`, the ones
-      // that take no value: a body of `null` alone cannot say so.
+      // that take no value: a body of `undefined` alone cannot say so.
       expectTypeOf(context).toEqualTypeOf<{
         readonly respond: Respond<
           {
             200: { id: string }
             201: { id: string; createdAt: string }
-            204: null
+            204: undefined
           },
           204
         >
@@ -172,16 +172,16 @@ describe('a route declaring a status map', () => {
     expectTypeOf(_route).toExtend<
       EventHandler<
         EventHandlerRequest,
-        Promise<{ id: string } | { id: string; createdAt: string } | null>
+        Promise<{ id: string } | { id: string; createdAt: string } | undefined>
       >
     >()
     expectTypeOf<Awaited<ReturnType<typeof _route>>>().toEqualTypeOf<
-      { id: string } | { id: string; createdAt: string } | null
+      { id: string } | { id: string; createdAt: string } | undefined
     >()
     expectTypeOf<ResponseOutputOfHandler<typeof _route>>().toEqualTypeOf<{
       200: { id: string }
       201: { id: string; createdAt: string }
-      204: null
+      204: undefined
     }>()
   })
 
@@ -248,15 +248,23 @@ describe('a status map telling a bodiless status from a null body', () => {
     )
   })
 
-  it('advertises null as both bodies to a client', () => {
-    // The distinction is the Handler's alone: on the wire neither carries a
-    // body a client could read as anything but `null`.
+  it('tells a client a body of null from no body at all', () => {
+    // On the wire the first is JSON `null`, the second no body, which a
+    // client fetch resolves to `undefined`.
     const _map = { 201: z.null(), 204: null }
 
     expectTypeOf<ResponseOutputs<typeof _map>>().toEqualTypeOf<{
       201: null
-      204: null
+      204: undefined
     }>()
+  })
+
+  it('keeps null for a nullable schema beside a bodiless status', () => {
+    const _map = { 200: existing.nullable(), 204: null }
+
+    expectTypeOf<ResponseBodies<typeof _map>>().toEqualTypeOf<
+      { id: string } | null | undefined
+    >()
   })
 })
 

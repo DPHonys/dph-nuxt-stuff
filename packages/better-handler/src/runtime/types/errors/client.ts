@@ -46,6 +46,14 @@ type DeclaredFor<
 > = Route extends string ? KnownErrorsOfRoute<Route, Method> : never
 
 /**
+ * Nuxt's error object for a failure that may carry one of `Variant` in its
+ * body; `NuxtError<unknown>` when there is no variant to carry.
+ */
+export type KnownErrorOf<Variant> = [Variant] extends [never]
+  ? NuxtError<unknown>
+  : NuxtError<KnownErrorBody<Extract<Variant, TaggedError>>>
+
+/**
  * The error one call to a route can throw: Nuxt's error object with the
  * route's Known errors inside the body; `NuxtError<unknown>` for a route that
  * declares none.
@@ -53,9 +61,7 @@ type DeclaredFor<
 export type KnownErrorFor<
   Route,
   Method extends RouteMethod | Uppercase<RouteMethod> = 'get',
-> = [DeclaredFor<Route, Method>] extends [never]
-  ? NuxtError<unknown>
-  : NuxtError<KnownErrorBody<Extract<DeclaredFor<Route, Method>, TaggedError>>>
+> = KnownErrorOf<DeclaredFor<Route, Method>>
 
 /** What `matchError` takes: a `.try` error, or a fetched `NuxtError`. */
 export type MatchableError = TaggedError | NuxtError<unknown>

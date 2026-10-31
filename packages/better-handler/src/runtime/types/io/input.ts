@@ -118,6 +118,27 @@ export type HasInput<Input> = [DeclaredSource<Input>] extends [never]
   ? false
   : true
 
+// The sources a declaration may hold: every slot whose type admits a schema,
+// guaranteed or not.
+type PossibleSource<Input> = keyof {
+  [Key in Extract<keyof Input, ValidationSource> as [
+    Exclude<Input[Key], undefined>,
+  ] extends [never]
+    ? never
+    : Key]: 0
+}
+
+/**
+ * Whether a declaration may hold a Validation source, which is when the
+ * runtime may raise the Built-in validation-failed variant: it validates
+ * whatever the value holds, so a declaration annotated
+ * `const input: InputDeclaration = { query }`, which guarantees no source,
+ * still may. `false` only when the sources are proven empty.
+ */
+export type MayHaveInput<Input> = [PossibleSource<Input>] extends [never]
+  ? false
+  : true
+
 /**
  * The Validated context: one key per declared source, holding that slot's
  * validated value. Undeclared sources are absent rather than `unknown`.
