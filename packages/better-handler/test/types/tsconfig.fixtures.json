@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+
+  // The options the diagnostic fixtures compile under, read by
+  // `compile-harness.ts` rather than built as a project. It extends the repo
+  // base so a fixture is read under a consumer's settings, and stops there:
+  // the package's `./.nuxt/tsconfig.json` only adds Nuxt globals and aliases,
+  // which a fixture importing by relative path never uses.
+  "extends": "../../../../tsconfig.json",
+
+  "compilerOptions": {
+    "noEmit": true
+  }
+}

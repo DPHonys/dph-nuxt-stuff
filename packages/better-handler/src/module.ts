@@ -1,4 +1,5 @@
-import { defineNuxtModule } from '@nuxt/kit'
+import { addServerImports, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { addRuntimeServerPlugin } from './build/server-plugins'
 
 export interface ModuleOptions {
   /**
@@ -25,5 +26,26 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     devChecks: true,
+  },
+  setup(options, nuxt) {
+    const resolver = createResolver(import.meta.url)
+
+    // By name from the `/server` entry, never a directory scan, which would
+    // widen an app's ambient surface whenever a runtime file is added.
+    addServerImports([
+      {
+        name: 'defineError',
+        from: resolver.resolve('./runtime/server/index'),
+      },
+    ])
+
+    // Registered only to turn the checks off: the option carries no value
+    // into the bundle, so the plugin's presence is the whole of the setting.
+    // A production build never runs the checks, so it never gets the plugin.
+    if (nuxt.options.dev && !options.devChecks) {
+      addRuntimeServerPlugin(
+        resolver.resolve('./runtime/server/plugins/dev-checks')
+      )
+    }
   },
 })
