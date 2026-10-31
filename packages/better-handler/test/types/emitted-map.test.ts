@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
-import { emitMap, KNOWN_ERRORS_SLOT } from '../../src/build/emit-map'
+import { BETTER_HANDLER_MAP, emitMap } from '../../src/build/emit-map'
 import { routeHandlersOf } from '../../src/build/routes'
 import type { HandlerEntry } from '../../src/build/routes'
 import { assertNoDiagnostics, compileForHover } from './compile-harness'
@@ -105,6 +105,15 @@ function appFiles(definitions: string) {
       ``,
     ].join('\n'),
 
+    // A body, a coerce key in it: our map keeps the schema's input exactly.
+    'server/api/orders.post.ts': [
+      `import { defineBetterEventHandler } from '@dphonys/better-handler/server'`,
+      `import { z } from 'zod'`,
+      ``,
+      `export default defineBetterEventHandler({ input: { body: z.object({ sku: z.string(), qty: z.coerce.number(), note: z.string().transform((note) => note.length).optional() }) } }, () => null)`,
+      ``,
+    ].join('\n'),
+
     // Not this package's, and keyed anyway: what makes the lookup total.
     'server/api/legacy.get.ts': [
       `import { defineEventHandler } from 'h3'`,
@@ -152,6 +161,11 @@ function appHandlers(root: string): HandlerEntry[] {
       handler: join(root, 'server/api/lookup.get.ts'),
     },
     {
+      route: '/api/orders',
+      method: 'post',
+      handler: join(root, 'server/api/orders.post.ts'),
+    },
+    {
       route: '/api/legacy',
       method: 'get',
       handler: join(root, 'server/api/legacy.get.ts'),
@@ -176,6 +190,7 @@ const NITRO_ROUTES = [
   `    '/api/y': { default: unknown }`,
   `    '/api/search': { get: unknown }`,
   `    '/api/lookup': { get: unknown }`,
+  `    '/api/orders': { post: unknown }`,
   `    '/api/legacy': { get: unknown }`,
   `    '/api/indexed': { get: unknown }`,
   `    '/api/shipped': { get: unknown }`,
@@ -228,7 +243,7 @@ function buildApp(
     srcDir: join(root, 'server'),
     alias: {},
   })
-  const emitted = emitMap(routes, [KNOWN_ERRORS_SLOT])
+  const emitted = emitMap(routes, BETTER_HANDLER_MAP)
 
   write(root, MAP_PATH, emitted)
   write(root, NITRO_ROUTES_PATH, NITRO_ROUTES)
@@ -262,7 +277,7 @@ function buildApp(
 
 /** What every consumer opens with: the assertions inlined, one file each. */
 const PRELUDE = [
-  `import type { KnownApiErrors, KnownErrorBody, KnownErrorFor, KnownErrorsOfRoute, RequestFailed, TryResult } from '@dphonys/better-handler/types'`,
+  `import type { KnownApiErrors, KnownApiRequestInputs, KnownErrorBody, KnownErrorFor, KnownErrorsOfRoute, RequestFailed, RequestInputOfRoute, TryResult } from '@dphonys/better-handler/types'`,
   `import type { NuxtError } from 'nuxt/app'`,
   ``,
   `type Equal<X, Y> =`,
@@ -379,6 +394,69 @@ describe('the emitted map, compiled', () => {
   it('leaves a route whose module the compiler cannot resolve vanilla, not `any`', () => {
     expect(compilation.renderHover('UnresolvedErrors')).toBe('never')
     expect(compilation.renderHover('Unresolved')).toBe('NuxtError<unknown>')
+  })
+})
+
+describe('the emitted request-inputs slot, compiled', () => {
+  const compilation = APP_A.compile(
+    'request-inputs.ts',
+    [
+      ...PRELUDE,
+      `export type Searched = KnownApiRequestInputs['/api/search']['get']`,
+      `export type Created = KnownApiRequestInputs['/api/orders']['post']`,
+      `export type ErrorsOnly = KnownApiRequestInputs['/api/orders/:id']['get']`,
+      `export type Unbranded = KnownApiRequestInputs['/api/legacy']['get']`,
+      `export type Indexed = KnownApiRequestInputs['/api/indexed']['get']`,
+      ``,
+      `type _searched = Expect<Equal<Searched, { query: { q: string } }>>`,
+      `type _created = Expect<Equal<Created, { body: { sku: string; qty: unknown; note?: string | undefined } }>>`,
+      ``,
+      `export type ByPath = RequestInputOfRoute<'/api/search'>`,
+      `export type ByUpperMethod = RequestInputOfRoute<'/api/orders', 'POST'>`,
+      `export type ByDefault = RequestInputOfRoute<'/api/y', 'patch'>`,
+      `export type NoMethod = RequestInputOfRoute<'/api/search', 'post'>`,
+      `export type Unresolved = RequestInputOfRoute<'/api/shipped'>`,
+      `type _byPath = Expect<Equal<ByPath, Searched>>`,
+      `type _byUpper = Expect<Equal<ByUpperMethod, Created>>`,
+      `type _byDefault = Expect<Equal<ByDefault, {}>>`,
+      `type _noMethod = Expect<IsNever<NoMethod>>`,
+      `type _unresolved = Expect<IsNever<Unresolved>>`,
+      ``,
+    ].join('\n')
+  )
+
+  it('compiles clean, with the map in the program', () => {
+    assertNoDiagnostics(compilation)
+  })
+
+  it('carries each declared source as its schema’s input, a coerce key unknown', () => {
+    expect(compilation.renderHover('Searched')).toBe(
+      '{ query: { q: string; }; }'
+    )
+    // Before the transform, and `unknown` rather than nitropack's `{}`.
+    expect(compilation.renderHover('Created')).toBe(
+      '{ body: { sku: string; qty: unknown; note?: string | undefined; }; }'
+    )
+  })
+
+  it('finds a route by its request path and either method case', () => {
+    expect(compilation.renderHover('ByPath')).toBe(
+      compilation.renderHover('Searched')
+    )
+    expect(compilation.renderHover('ByUpperMethod')).toBe(
+      compilation.renderHover('Created')
+    )
+  })
+
+  it('carries no source for a branded route declaring none', () => {
+    expect(compilation.renderHover('ErrorsOnly')).toBe('{}')
+    expect(compilation.renderHover('ByDefault')).toBe('{}')
+  })
+
+  it('extracts nothing from a handler this package did not brand, or could not resolve', () => {
+    expect(compilation.renderHover('Unbranded')).toBe('never')
+    expect(compilation.renderHover('Indexed')).toBe('never')
+    expect(compilation.renderHover('Unresolved')).toBe('never')
   })
 })
 

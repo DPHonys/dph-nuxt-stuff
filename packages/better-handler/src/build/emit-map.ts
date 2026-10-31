@@ -55,6 +55,25 @@ export const KNOWN_ERRORS_SLOT: EmitMapSlot = {
   extract: (handlerType) => `Wire<KnownErrorsOfHandler<${handlerType}>>`,
 }
 
+/**
+ * The `KnownApiRequestInputs` slot: each handler's Request input, every
+ * declared source as its schemas' input type. Unwrapped: the input is what a
+ * client sends, so nothing is serialised, and nothing is simplified either -
+ * nitropack's `Simplify` would turn a coerce input's `unknown` into `{}`,
+ * refusing a `null` the schema accepts.
+ */
+export const REQUEST_INPUTS_SLOT: EmitMapSlot = {
+  interfaceName: 'KnownApiRequestInputs',
+  imports: ['RequestInputOfHandler'],
+  extract: (handlerType) => `RequestInputOfHandler<${handlerType}>`,
+}
+
+/** The slots of the one generated type map the module registers. */
+export const BETTER_HANDLER_MAP: readonly EmitMapSlot[] = [
+  KNOWN_ERRORS_SLOT,
+  REQUEST_INPUTS_SLOT,
+]
+
 /** A TypeScript string literal for `value`, single-quoted. */
 export function stringLiteral(value: string): string {
   return `'${value.replaceAll(NEEDS_ESCAPE, (char) => STRING_ESCAPES.get(char) ?? char)}'`

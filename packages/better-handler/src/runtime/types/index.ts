@@ -75,6 +75,15 @@ export type {
 export interface KnownApiErrors {}
 
 /**
+ * The generated map of every route's Request input - never written by hand.
+ * Keyed and reopened exactly as `KnownApiErrors` is, in the same generated
+ * file: each value is what a client must send, every declared source as its
+ * schemas' input type.
+ */
+// Declared here for the same reason `KnownApiErrors` is.
+export interface KnownApiRequestInputs {}
+
+/**
  * A route's Known errors from its request path and method alone; `never`
  * means the route declares none. The method may be named in either case.
  */
@@ -83,7 +92,18 @@ export type KnownErrorsOfRoute<
   Method extends RouteMethod | Uppercase<RouteMethod> = 'get',
 > = Known<RouteEntry<KnownApiErrors, Route, Method>>
 
-// The map's extractor never answers `any` for a handler it can read, so an
+/**
+ * A route's Request input from its request path and method alone: one key per
+ * declared source, `{}` for a route of this package declaring none, and
+ * `never` for a route this package does not type. The method may be named in
+ * either case.
+ */
+export type RequestInputOfRoute<
+  Route extends string,
+  Method extends RouteMethod | Uppercase<RouteMethod> = 'get',
+> = Known<RouteEntry<KnownApiRequestInputs, Route, Method>>
+
+// The maps' extractors never answer `any` for a handler they can read, so an
 // `any` entry is a handler module the compiler could not resolve - a
 // JavaScript route a module ships without declarations, Nuxt's own renderer.
 // Nothing is known of what it declares, so it declares nothing here, and the

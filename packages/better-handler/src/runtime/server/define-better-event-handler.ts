@@ -1,4 +1,4 @@
-import type { EventHandlerRequest, EventHandlerResponse, H3Event } from 'h3'
+import type { EventHandlerResponse, H3Event } from 'h3'
 import { isRecordLike } from '../shared/guards'
 import { makeEventHandler } from '../shared/h3'
 import type { ErrorDeclarations } from '../types/errors/declaration'
@@ -11,6 +11,7 @@ import type {
   RouteKnownErrors,
 } from '../types/handler'
 import type { InputDeclaration, RequestInput } from '../types/io/input'
+import type { NativeRequest } from '../types/io/native'
 import type {
   HandlerReturn,
   ResponseOutput,
@@ -111,7 +112,10 @@ function checkOptions<
  * a misdeclared route throws before it serves anything. The returned
  * Handler's type carries the route's Known errors, its Request input and its
  * Response output, which the generated type map reads to type every call
- * site of the route.
+ * site of the route. It also fills h3's `H3Event<Request>` slot with the
+ * declared body and query, which Nuxt 4.6's own typed `$fetch` reads when an
+ * app turns `experimental.routeTypedFetch` on; the Handler's own `event`
+ * stays h3's default.
  */
 export function defineBetterEventHandler<
   // `{}` is the "declared nothing" default for each map: no key, so no
@@ -127,7 +131,7 @@ export function defineBetterEventHandler<
   options: BetterHandlerOptions<Input, Errors, Output>,
   handler: BetterHandlerFn<Input, Errors, Output, Response>
 ): BetterEventHandler<
-  EventHandlerRequest,
+  NativeRequest<Input>,
   Promise<SentResponse<Output, Response>>,
   RouteKnownErrors<Input, Errors>,
   RequestInput<Input>,
@@ -167,43 +171,46 @@ export function defineBetterEventHandler<
   if (fail !== undefined) helpers.fail = fail
   if (delivery.respond !== undefined) helpers.respond = delivery.respond
 
-  return makeEventHandler(
-    async (event: H3Event): Promise<SentResponse<Output, Response>> => {
-      // Before the Handler is entered and outside the boundary below: the
-      // variant is raised already built, and a route without `input` skips
-      // the whole walk, so it never reads the body.
-      const validated =
-        plan.length === 0
-          ? undefined
-          : await validatedContext(event, plan, raiseValidationFailed)
+  // The event is h3's own whatever the slot holds: the slot describes what
+  // a client sends, which the Handler reads only through its context.
+  return makeEventHandler<
+    NativeRequest<Input>,
+    Promise<SentResponse<Output, Response>>
+  >(async (event: H3Event): Promise<SentResponse<Output, Response>> => {
+    // Before the Handler is entered and outside the boundary below: the
+    // variant is raised already built, and a route without `input` skips
+    // the whole walk, so it never reads the body.
+    const validated =
+      plan.length === 0
+        ? undefined
+        : await validatedContext(event, plan, raiseValidationFailed)
 
-      // SAFETY: `validated` is `validatedContext` over this `Input`'s plan,
-      // so it holds exactly the sources `Input` declares, each its slot's
-      // value; `helpers` holds `fail` exactly when `errors` declares a tag
-      // and `respond` exactly when `output` is a status map naming a status.
-      // Those are the keys `HandlerContext<Input, Errors, Output>` spells. A
-      // fresh object per request, so a Handler may decorate its own.
-      const context = { ...validated, ...helpers } as HandlerContext<
-        Input,
-        Errors,
-        Output
-      >
+    // SAFETY: `validated` is `validatedContext` over this `Input`'s plan,
+    // so it holds exactly the sources `Input` declares, each its slot's
+    // value; `helpers` holds `fail` exactly when `errors` declares a tag
+    // and `respond` exactly when `output` is a status map naming a status.
+    // Those are the keys `HandlerContext<Input, Errors, Output>` spells. A
+    // fresh object per request, so a Handler may decorate its own.
+    const context = { ...validated, ...helpers } as HandlerContext<
+      Input,
+      Errors,
+      Output
+    >
 
-      // Sent outside the boundary, so a refusal of the response is never
-      // read as something the Handler threw.
-      // SAFETY: `send` hands back the Handler's own value for a route without
-      // `output` and for the bare form, whose value the return constraint
-      // typed as the schema's output, and for a status map the body the
-      // Respond helper carried, which `Respond` typed as its status's body -
-      // or `null` for a status declared `null`. That is what `SentResponse`
-      // spells for each form; the compiler only sees h3's untyped
-      // `EventHandlerResponse`.
-      return (await delivery.send(
-        event,
-        await answered(event, context)
-      )) as SentResponse<Output, Response>
-    }
-  )
+    // Sent outside the boundary, so a refusal of the response is never
+    // read as something the Handler threw.
+    // SAFETY: `send` hands back the Handler's own value for a route without
+    // `output` and for the bare form, whose value the return constraint
+    // typed as the schema's output, and for a status map the body the
+    // Respond helper carried, which `Respond` typed as its status's body -
+    // or `null` for a status declared `null`. That is what `SentResponse`
+    // spells for each form; the compiler only sees h3's untyped
+    // `EventHandlerResponse`.
+    return (await delivery.send(
+      event,
+      await answered(event, context)
+    )) as SentResponse<Output, Response>
+  })
 
   /**
    * The Handler's settled return. A route without `errors` has no boundary:
