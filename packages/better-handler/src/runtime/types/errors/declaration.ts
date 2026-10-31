@@ -105,14 +105,80 @@ type SchemaRule<Tag extends string, Output> =
               : never
           : 'the schema must describe an object of fields beside _tag'
 
+// What JSON has no form for. Functions are not here: JSON leaves a
+// function-valued field out, the boundary never collects one, and a class
+// instance's methods - an Effect error's `toJSON` and `pipe` among them - are
+// not fields at all, so refusing them would refuse every Effect error class.
+type NoJsonForm = bigint | symbol
+
+// Whether a value inside `data` holds anything JSON has no form for, followed
+// into objects, arrays and a nested value's own `toJSON`, which JSON calls.
+// Bounded, and `true` only for a member it can name: an `unknown` or `any`
+// field says nothing, so it is never refused.
+type HoldsNoJsonForm<Value, Depth extends unknown[] = []> =
+  IsAny<Value> extends true
+    ? false
+    : unknown extends Value
+      ? false
+      : Depth['length'] extends 8
+        ? false
+        : Value extends NoJsonForm
+          ? true
+          : Value extends (...args: never[]) => void
+            ? false
+            : Value extends { toJSON: (...args: never[]) => infer Json }
+              ? HoldsNoJsonForm<Json, [...Depth, unknown]>
+              : Value extends readonly (infer Item)[]
+                ? HoldsNoJsonForm<Item, [...Depth, unknown]>
+                : Value extends object
+                  ? true extends {
+                      [Key in keyof Value & string]-?: HoldsNoJsonForm<
+                        Value[Key],
+                        [...Depth, unknown]
+                      >
+                    }[keyof Value & string]
+                    ? true
+                    : false
+                  : false
+
+// The fields of a schema's output that cannot go out as JSON, over every
+// member of a union output. The output itself is never serialised whole -
+// the boundary copies its own fields - so its own `toJSON` is not followed.
+type UnsendableFields<Output> = Output extends unknown
+  ? {
+      [Key in keyof Output & string]-?: Key extends '_tag'
+        ? never
+        : true extends HoldsNoJsonForm<Output[Key]>
+          ? Key
+          : never
+    }[keyof Output & string]
+  : never
+
+/**
+ * The sentence an entry's fields break, or `never`: each goes out inside
+ * `data` through JSON, so a field JSON cannot carry is refused.
+ */
+type FieldsRule<Output> =
+  IsAny<Output> extends true
+    ? never
+    : unknown extends Output
+      ? never
+      : UnsendableFields<Output> extends infer Field extends string
+        ? [Field] extends [never]
+          ? never
+          : `the field ${Field} cannot go out as JSON - it holds a bigint or a symbol`
+        : never
+
 /**
  * Every sentence a tag and its entry break, checked at the tag: the tag
- * rules first, then the schema's against it. `unknown`, the identity of `&`,
- * when the declaration holds.
+ * rules first, then the schema's against it, then its fields'. `unknown`,
+ * the identity of `&`, when the declaration holds.
  */
 export type TagGuard<Tag extends string, Entry> = [TagRule<Tag>] extends [never]
   ? [SchemaRule<Tag, EntryOutput<Entry>>] extends [never]
-    ? unknown
+    ? [FieldsRule<EntryOutput<Entry>>] extends [never]
+      ? unknown
+      : ErrorDeclarationError<FieldsRule<EntryOutput<Entry>>>
     : ErrorDeclarationError<SchemaRule<Tag, EntryOutput<Entry>>>
   : ErrorDeclarationError<TagRule<Tag>>
 

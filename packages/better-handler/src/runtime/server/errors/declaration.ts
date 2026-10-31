@@ -32,6 +32,18 @@ export interface ResolvedErrorEntry {
  */
 export type ResolvedErrors = Readonly<Record<string, ResolvedErrorEntry>>
 
+/**
+ * A route's declared tags, quoted, for a sentence about what it declares:
+ * `"order-not-found", "order-locked"`, or `none`.
+ */
+export function describeDeclaredTags(errors: ResolvedErrors): string {
+  const tags = Object.keys(errors)
+
+  return tags.length === 0
+    ? 'none'
+    : tags.map((tag) => JSON.stringify(tag)).join(', ')
+}
+
 function isErrorStatus(status: unknown): status is number {
   return (
     Number.isInteger(status) && Number(status) >= 400 && Number(status) <= 599

@@ -2,7 +2,7 @@ import { untyped } from '@dphonys/test-utils/h3-app'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { defineError } from '../../src/runtime/server'
+import { defineBetterEventHandler, defineError } from '../../src/runtime/server'
 import { resolveErrors } from '../../src/runtime/server/errors/declaration'
 
 // Declaration-time behaviour, without a Nuxt boot: what `defineError` returns,
@@ -176,6 +176,11 @@ describe('defineError refuses a misdeclared error', () => {
   })
 })
 
+/** A route declaring `errors`, as a plain-JavaScript route file would. */
+function declare<Errors>(errors: Errors) {
+  return defineBetterEventHandler(untyped({ errors }), () => null)
+}
+
 describe('the declaration-time throw order', () => {
   // Each rule runs over every entry before the next rule starts: a reserved
   // tag, then a schema that is not a Standard Schema, then a status out of
@@ -202,22 +207,26 @@ describe('the declaration-time throw order', () => {
     ).toThrow(/The status of error "order-not-found" must be an integer/)
   })
 
-  it('holds across a whole map, whatever order its keys were written in', () => {
-    // The function a route's `errors` goes through.
+  it('holds across a whole route, whatever order its keys were written in', () => {
     const misdeclared = {
       'bad-status': { status: 99 },
       'bad-schema': { status: 404, schema: 'nope' },
       'request-failed': { status: 502 },
     }
-
-    expect(() => resolveErrors(untyped(misdeclared))).toThrow(
+    expect(() => declare(misdeclared)).toThrow(
       /The error tag "request-failed" is reserved/
     )
 
     const { 'request-failed': _reserved, ...withoutReserved } = misdeclared
 
-    expect(() => resolveErrors(untyped(withoutReserved))).toThrow(
+    expect(() => declare(withoutReserved)).toThrow(
       /The schema of error "bad-schema" must be a Standard Schema/
+    )
+
+    const { 'bad-schema': _schema, ...onlyStatus } = withoutReserved
+
+    expect(() => declare(onlyStatus)).toThrow(
+      /The status of error "bad-status" must be an integer/
     )
   })
 })
