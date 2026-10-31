@@ -120,6 +120,8 @@ type NoJsonForm = bigint | symbol
 // into objects, arrays and a nested value's own `toJSON`, which JSON calls.
 // Bounded, and `true` only for a member it can name: an `unknown` or `any`
 // field says nothing, so it is never refused.
+// Every key but a symbol is followed: JSON and the boundary skip symbol keys,
+// but a numeric key or index signature is a key JSON writes.
 type HoldsNoJsonForm<Value, Depth extends unknown[] = []> =
   IsAny<Value> extends true
     ? false
@@ -137,11 +139,11 @@ type HoldsNoJsonForm<Value, Depth extends unknown[] = []> =
                 ? HoldsNoJsonForm<Item, [...Depth, unknown]>
                 : Value extends object
                   ? true extends {
-                      [Key in keyof Value & string]-?: HoldsNoJsonForm<
+                      [Key in Exclude<keyof Value, symbol>]-?: HoldsNoJsonForm<
                         Value[Key],
                         [...Depth, unknown]
                       >
-                    }[keyof Value & string]
+                    }[Exclude<keyof Value, symbol>]
                     ? true
                     : false
                   : false
@@ -151,12 +153,12 @@ type HoldsNoJsonForm<Value, Depth extends unknown[] = []> =
 // the boundary copies its own fields - so its own `toJSON` is not followed.
 type UnsendableFields<Input> = Input extends unknown
   ? {
-      [Key in keyof Input & string]-?: Key extends '_tag'
+      [Key in Exclude<keyof Input, symbol>]-?: Key extends '_tag'
         ? never
         : true extends HoldsNoJsonForm<Input[Key]>
           ? Key
           : never
-    }[keyof Input & string]
+    }[Exclude<keyof Input, symbol>]
   : never
 
 /**
@@ -168,7 +170,7 @@ type FieldsRule<Input> =
     ? never
     : unknown extends Input
       ? never
-      : UnsendableFields<Input> extends infer Field extends string
+      : UnsendableFields<Input> extends infer Field extends string | number
         ? [Field] extends [never]
           ? never
           : `the field ${Field} cannot go out as JSON - it holds a bigint or a symbol`

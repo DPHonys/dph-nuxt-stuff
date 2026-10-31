@@ -46,6 +46,10 @@ const SENTENCES = {
   numericKey: 'an error tag must be a string key - quote a numeric one',
   bigintField:
     'the field total cannot go out as JSON - it holds a bigint or a symbol',
+  indexedBigint:
+    'the field values cannot go out as JSON - it holds a bigint or a symbol',
+  numericBigint:
+    'the field 0 cannot go out as JSON - it holds a bigint or a symbol',
   nestedSymbol:
     'the field lines cannot go out as JSON - it holds a bigint or a symbol',
 } as const
@@ -69,7 +73,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(22)
+    expect(diagnostics).toHaveLength(24)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -125,6 +129,20 @@ describe('defineError refuses an entry its tag cannot carry', () => {
 
     expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
     expect(guarding(diagnostic, SENTENCES.bigintField)).toBe(true)
+  })
+
+  it('refuses a bigint under a numeric index signature, at the tag', () => {
+    const diagnostic = at("defineError('order-indexed'")
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.indexedBigint)).toBe(true)
+  })
+
+  it('refuses a bigint field under a numeric key, at the tag', () => {
+    const diagnostic = at("defineError('order-numbered'")
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.numericBigint)).toBe(true)
   })
 
   it('refuses a key an entry does not take, at that key', () => {

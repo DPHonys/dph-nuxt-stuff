@@ -5,6 +5,7 @@
  * let each diagnostic through so the suite can read it.
  */
 
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { z } from 'zod'
 import {
   defineBetterEventHandler,
@@ -56,6 +57,21 @@ export const strayKey = defineError('stray-key', {
 export const bigintField = defineError('order-big', {
   status: 400,
   schema: z.object({ total: z.bigint() }),
+})
+
+// A numeric key is a field too, at the top and inside a record.
+declare const indexedBigints: StandardSchemaV1<{
+  values: Record<number, bigint>
+}>
+declare const numericBigint: StandardSchemaV1<{ 0: bigint }>
+
+export const indexedField = defineError('order-indexed', {
+  status: 400,
+  schema: indexedBigints,
+})
+export const numericField = defineError('order-numbered', {
+  status: 400,
+  schema: numericBigint,
 })
 
 // --- a route's errors map ---------------------------------------------------
