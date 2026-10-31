@@ -12,7 +12,7 @@ import type {
   useAsyncData as nuxtUseAsyncData,
 } from 'nuxt/app'
 import type { MaybeRefOrGetter, Ref } from 'vue'
-import type { FetchRequest, VanillaUseFetchOptions } from './engine'
+import type { FetchRequest, KeysOf, VanillaUseFetchOptions } from './engine'
 import type {
   KnownErrorFor,
   KnownErrorOf,
@@ -48,18 +48,37 @@ type Reactive<T> = T extends object
 // target is a union, and `ref()` infers its own type.
 type ReactiveSources<O> = { [K in keyof O]: Reactive<O[K]> }
 
+// Nuxt's `PickFrom`, with its `any`s spelled as what they admit: an array
+// and any object are handed back whole unless keys are picked off an object.
+type PickFrom<T, K extends Array<string>> =
+  KeysOf<T> extends K
+    ? T
+    : T extends readonly unknown[]
+      ? T
+      : T extends object
+        ? keyof T extends K[number]
+          ? T
+          : K[number] extends never
+            ? T
+            : Pick<T, Extract<K[number], keyof T>>
+        : T
+
 /**
  * `useFetch`'s options for a route and method: Nuxt's own, with `body`,
  * `query` and `headers` typed as the fetch family types them and each
  * accepted plain, through a ref or through a getter, `params` gone, and the
- * method in either case.
+ * method in either case. `transform`, `pick` and `default` are vanilla's,
+ * over `DataT`, `PickKeys` and `DefaultT`, so they shape `data` as there.
  */
 export type UseBetterFetchOptions<
   ResT,
   ReqT extends FetchRequest,
   Method extends MethodArg<ReqT>,
+  DataT = ResT,
+  PickKeys extends KeysOf<DataT> = KeysOf<DataT>,
+  DefaultT = undefined,
 > = Omit<
-  VanillaUseFetchOptions<ResT, ReqT, Method>,
+  VanillaUseFetchOptions<ResT, ReqT, Method, DataT, PickKeys, DefaultT>,
   // `method` is restated rather than kept: Nuxt 4.6's own spelling, through
   // its route engine, reports an excessive stack depth at the call site on
   // Nitro's route types.
@@ -69,16 +88,28 @@ export type UseBetterFetchOptions<
 /**
  * `useFetch` with the route's Request input typed on the options, its
  * response on `data`, and its Known errors in the body of the `error` ref.
+ * `data` is what vanilla makes of the response: `transform`'s result, the
+ * keys `pick` names, or `default`'s value beside it.
  */
+// One signature rather than vanilla's pair, whose second differs only in
+// `DefaultT`'s default: `default` infers it either way, and with two
+// signatures every refused call would report "no overload matches" instead
+// of the option it got wrong.
 export interface UseBetterFetch {
   <
     ReqT extends FetchRequest,
     const Method extends MethodArg<ReqT> = DefaultMethod<ReqT>,
     ResT = BetterResponse<ReqT, unknown, Method>,
+    DataT = ResT,
+    PickKeys extends KeysOf<DataT> = KeysOf<DataT>,
+    DefaultT = undefined,
   >(
     request: Ref<ReqT> | ReqT | (() => ReqT),
-    opts?: UseBetterFetchOptions<ResT, ReqT, Method>
-  ): AsyncData<ResT | undefined, KnownErrorFor<ReqT, Method> | undefined>
+    opts?: UseBetterFetchOptions<ResT, ReqT, Method, DataT, PickKeys, DefaultT>
+  ): AsyncData<
+    PickFrom<DataT, PickKeys> | DefaultT,
+    KnownErrorFor<ReqT, Method> | undefined
+  >
 }
 
 /**
@@ -145,25 +176,6 @@ type TryResultCheck<Result> = [Result] extends [TrySource]
 type CheckedHandler<Result> = BetterAsyncDataHandler<
   Result & TryResultCheck<Result>
 >
-
-// Nuxt's `KeysOf`, read off the `pick` option of its own `AsyncDataOptions`,
-// as Nuxt 4.0 exports neither it nor `PickFrom` from `nuxt/app`.
-type KeysOf<T> = NonNullable<AsyncDataOptions<unknown, T>['pick']>
-
-// Nuxt's `PickFrom`, with its `any`s spelled as what they admit: an array
-// and any object are handed back whole unless keys are picked off an object.
-type PickFrom<T, K extends Array<string>> =
-  KeysOf<T> extends K
-    ? T
-    : T extends readonly unknown[]
-      ? T
-      : T extends object
-        ? keyof T extends K[number]
-          ? T
-          : K[number] extends never
-            ? T
-            : Pick<T, Extract<K[number], keyof T>>
-        : T
 
 /** What one `useBetterAsyncData` call answers. */
 type BetterAsyncData<

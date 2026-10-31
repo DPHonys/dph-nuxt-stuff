@@ -184,6 +184,36 @@ export function useBetterFetchCallSites(): void {
     key: 'users',
   })
 
+  // `transform`, `pick` and `default` change `data`'s type, as on vanilla.
+  const _counted = useBetterFetch('/api/users', {
+    transform: (r) => r.users.length,
+  })
+
+  type _Counted = Expect<Equal<typeof _counted.data.value, number | undefined>>
+
+  const _ids = useBetterFetch('/api/users', {
+    method: 'post',
+    body: { name: 'Ada', age: '36' },
+    query: { team: 'core' },
+    pick: ['id'],
+  })
+
+  type _Ids = Expect<
+    Equal<typeof _ids.data.value, Pick<Created, 'id'> | undefined>
+  >
+
+  const _defaulted = useBetterFetch('/api/users', { default: () => [] })
+
+  type _Defaulted = Expect<
+    Equal<typeof _defaulted.data.value, UserList | never[]>
+  >
+
+  // `transform` still reads the route's response, so a wrong key is caught.
+  useBetterFetch('/api/users', {
+    transform: (r) => r.missing, // refused TS2339
+  })
+  useBetterFetch('/api/users', { pick: ['missing'] }) // refused TS2322
+
   // The error ref goes to `matchError` as it is, one arm per variant.
   matchError(
     created.error,
@@ -218,6 +248,29 @@ export function useLazyBetterFetchCallSites(): void {
   >
 
   useLazyBetterFetch('/api/users', { method: 'POST', query: { team: 'c' } }) // refused TS2345
+
+  const _counted = useLazyBetterFetch('/api/users', {
+    transform: (r) => r.users.length,
+  })
+
+  type _Counted = Expect<Equal<typeof _counted.data.value, number | undefined>>
+
+  const _ids = useLazyBetterFetch('/api/users', {
+    method: 'post',
+    body: { name: 'Ada', age: '36' },
+    query: { team: 'core' },
+    pick: ['id'],
+  })
+
+  type _Ids = Expect<
+    Equal<typeof _ids.data.value, Pick<Created, 'id'> | undefined>
+  >
+
+  const _defaulted = useLazyBetterFetch('/api/users', { default: () => [] })
+
+  type _Defaulted = Expect<
+    Equal<typeof _defaulted.data.value, UserList | never[]>
+  >
 }
 
 /** `useBetterAsyncData`: the handler's `.try` result, unwrapped. */

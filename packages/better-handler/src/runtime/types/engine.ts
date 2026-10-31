@@ -21,7 +21,7 @@ import type {
   Simplify,
   TypedInternalResponse,
 } from 'nitropack/types'
-import type { UseFetchOptions } from 'nuxt/app'
+import type { AsyncDataOptions, UseFetchOptions } from 'nuxt/app'
 
 /** A method a route can be fetched with, lowercase as Nitro keys them. */
 export type RouteMethod = RouterMethod
@@ -86,8 +86,9 @@ export type Wire<T> = Simplify<Serialize<T>>
 
 /**
  * Nuxt's own `useFetch` options for a request path and method, read for the
- * keys the fetch family leaves as they are: the async-data options and the
- * ofetch options beside the request.
+ * keys the fetch family leaves as they are: the async-data options, over
+ * `DataT`, `PickKeys` and `DefaultT` as vanilla's own are, and the ofetch
+ * options beside the request.
  *
  * Nuxt's declaration changes shape between 4.0 and 4.6: the path is a
  * `NitroFetchRequest` at 4.0 and any string at 4.6, and the method parameter
@@ -100,11 +101,21 @@ export type VanillaUseFetchOptions<
   ResT,
   Request extends FetchRequest,
   Method extends string,
+  DataT,
+  PickKeys extends KeysOf<DataT>,
+  DefaultT,
 > = UseFetchOptions<
   ResT,
-  ResT,
-  never,
-  undefined,
+  DataT,
+  PickKeys,
+  DefaultT,
   Request & string,
   Extract<Lowercase<Method>, RouteMethodOf<Request & string>>
 >
+
+/**
+ * Nuxt's `KeysOf`, the keys `pick` may name, read off the `pick` option of
+ * its own `AsyncDataOptions`, as Nuxt 4.0 exports neither it nor `PickFrom`
+ * from `nuxt/app`.
+ */
+export type KeysOf<T> = NonNullable<AsyncDataOptions<unknown, T>['pick']>
