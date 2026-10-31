@@ -772,7 +772,7 @@ describe('any Standard Schema', () => {
     // reason: read as a success it invents a value, read as a failure it
     // sends a validation failure with nothing in it.
     const handler = defineBetterEventHandler(
-      { input: { query: schemaReturning<{ page: number }>({ issues: [] }) } },
+      { input: { query: schemaReturning<{ page: string }>({ issues: [] }) } },
       (_event, { query }) => ({ received: query })
     )
 

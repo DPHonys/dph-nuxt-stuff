@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { IsAny } from '../utils'
-import type { OutputOf, ValidationSource } from './input'
+import type { InputOf, OutputOf, ValidationSource } from './input'
 
 /**
  * A rule an `input` declaration broke. Nothing the author writes can satisfy
@@ -75,14 +75,82 @@ export type ComposableSlot<T> = T extends readonly [StandardSchemaV1]
       : InputDeclarationError<'every schema composed on one source must produce an object output - not a primitive, an array or a function'>
     : unknown
 
+// One value as the schema takes it: a string, or an array of them, is what a
+// URL or a header hands over. `unknown` and `any` take anything, a coerce
+// schema's input among them.
+type TakesString<Value> = unknown extends Value
+  ? true
+  : true extends (
+        Value extends readonly (infer Element)[]
+          ? unknown extends Element
+            ? true
+            : Element extends string
+              ? true
+              : false
+          : Value extends string
+            ? true
+            : false
+      )
+    ? true
+    : false
+
+// The keys of one schema's input that take no string. A record only: a
+// non-record input is no set of keys a URL names. Distributed, so each
+// member of a union input answers for its own keys.
+type StringlessKeys<Input> =
+  IsAny<Input> extends true
+    ? never
+    : Input extends readonly unknown[]
+      ? never
+      : Input extends object
+        ? {
+            [Key in keyof Input]-?: TakesString<Input[Key]> extends true
+              ? never
+              : Key
+          }[keyof Input]
+        : never
+
+/** What carries each string-only source, and how its keys are named. */
+interface StringCarriers {
+  route: ['route param', 'a URL']
+  query: ['query key', 'a URL']
+  headers: ['header', 'a request header']
+}
+
+/**
+ * The rule a `route`, `query` or `headers` slot must keep, or `unknown` when
+ * it keeps it: every key of every schema's input takes a string, the only
+ * value its source carries. A `z.number()` key type-checks a call sending
+ * `2`, and then refuses the `'2'` that arrives.
+ */
+export type StringSlot<Source, T> = Source extends keyof StringCarriers
+  ? [
+      StringlessKeys<
+        InputOf<T extends readonly StandardSchemaV1[] ? T[number] : T>
+      >,
+    ] extends [never]
+    ? unknown
+    : InputDeclarationError<`every ${StringCarriers[Source][0]} must take a string as input, which is all ${StringCarriers[Source][1]} carries - read anything else through a coercing schema such as z.coerce.number()`>
+  : unknown
+
+// The composition rule first, as its sentence names the shape a tuple must
+// have before anything is read of its elements' keys.
+type SlotRule<Source, T> =
+  ComposableSlot<T> extends infer Rule
+    ? unknown extends Rule
+      ? StringSlot<Source, T>
+      : Rule
+    : never
+
 /**
  * The guard a route's `input` intersects with, so a misspelled key beside a
  * valid one is a compile error at that key rather than a source that silently
- * never validates.
+ * never validates, and a `route`, `query` or `headers` key typed as something
+ * no URL or header carries is one at its source.
  */
 export type InputGuard<Input> = {
   readonly [Key in keyof Input]: Key extends ValidationSource
-    ? ComposableSlot<Input[Key]>
+    ? SlotRule<Key, Input[Key]>
     : Key extends string
       ? InputDeclarationError<`${Key} is not a validation source - the sources are route, query, headers and body`>
       : never

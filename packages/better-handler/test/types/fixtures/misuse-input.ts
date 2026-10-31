@@ -54,6 +54,44 @@ export const primitive = defineBetterEventHandler(
   () => null
 )
 
+// --- a value a URL or a header cannot carry ---------------------------------
+
+export const numericQuery = defineBetterEventHandler(
+  {
+    input: {
+      query: z.object({ page: z.number() }),
+    },
+  },
+  () => null
+)
+
+export const booleanRoute = defineBetterEventHandler(
+  {
+    input: {
+      route: z.object({ draft: z.boolean().optional() }),
+    },
+  },
+  () => null
+)
+
+export const objectHeader = defineBetterEventHandler(
+  {
+    input: {
+      headers: z.object({ 'x-filter': z.object({ q: z.string() }) }),
+    },
+  },
+  () => null
+)
+
+export const composedNumeric = defineBetterEventHandler(
+  {
+    input: {
+      query: [sorting, z.object({ size: z.array(z.number()) })],
+    },
+  },
+  () => null
+)
+
 // --- a declaration that declares nothing ------------------------------------
 
 export const bare = defineBetterEventHandler({}, () => null)
