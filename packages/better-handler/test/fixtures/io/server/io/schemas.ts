@@ -21,3 +21,6 @@ export const pagination = z.object({
 export const sorting = v.object({
   sort: v.picklist(['asc', 'desc'], 'sort must be asc or desc'),
 })
+
+/** A receipt, the body both output routes promise. */
+export const receipt = z.object({ id: z.string(), total: z.number() })

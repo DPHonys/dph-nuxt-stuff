@@ -24,3 +24,13 @@ export const invoiceRef = z.object({
     .transform(Number)
     .refine(Number.isSafeInteger, 'invoice id is out of range'),
 })
+
+/** A receipt as the output routes send it: `at` an ISO string on the wire. */
+export const receipt = z.object({
+  id: z.number(),
+  total: z.number(),
+  at: z.iso.datetime(),
+})
+
+/** What a client posts to create a receipt. */
+export const receiptDraft = z.object({ total: z.number().nonnegative() })

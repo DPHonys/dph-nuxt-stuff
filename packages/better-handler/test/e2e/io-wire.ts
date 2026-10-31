@@ -6,7 +6,7 @@ import { toNuxtError } from '../../src/runtime/shared/h3'
 import type { NitroExtras } from './errors-wire'
 
 /**
- * The input half's wire, in one copy, run by `io-wire.test.ts` against a
+ * The io half's wire, in one copy, run by `io-wire.test.ts` against a
  * production build and `io-wire-dev.test.ts` against a dev server, so
  * "identical in development and production" is asserted by there being one.
  * The fixture is `test/fixtures/io`.
@@ -264,5 +264,49 @@ export function theInputWire(nitroExtras: NitroExtras): void {
     const after = await $fetch<Observed[]>('/api/observed')
 
     expect(after.slice(before.length)).toEqual([{ status: 500 }])
+  })
+}
+
+/**
+ * The output half's wire, in one copy for both servers as the input half's
+ * is: the bare form answering `200`, a mapped status and a bodiless one.
+ */
+export function theOutputWire(): void {
+  it('answers the bare form 200, whatever status the Handler set', async () => {
+    const response = await fetch('/api/receipts')
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ id: 'r-1', total: 3 })
+  })
+
+  it('answers the bare form with 200’s own reason phrase, not one set earlier', async () => {
+    // The Handler set `404 Not Found` first; a message left behind would
+    // have gone out as `HTTP/1.1 200 Not Found`.
+    const response = await fetch('/api/receipts')
+
+    expect(response.statusText).toBe('OK')
+  })
+
+  it('answers a mapped status with its body', async () => {
+    const response = await fetch('/api/receipts', { method: 'POST' })
+
+    expect(response.status).toBe(201)
+    expect(await response.json()).toEqual({ id: 'r-2', total: 5 })
+  })
+
+  it('answers a mapped status with its own reason phrase, not one set earlier', async () => {
+    const response = await fetch('/api/receipts', { method: 'POST' })
+
+    expect(response.statusText).toBe('Created')
+  })
+
+  it('answers a status declared null with no body', async () => {
+    const response = await fetch('/api/receipts?dryRun=yes', {
+      method: 'POST',
+    })
+
+    expect(response.status).toBe(204)
+    expect(response.headers.get('content-type')).toBeNull()
+    expect(await response.text()).toBe('')
   })
 }

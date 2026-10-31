@@ -38,7 +38,7 @@ const SENTENCES = {
     'every schema composed on one source must produce an object output - not a primitive, an array or a function',
   laterIndexSignature:
     'only the first schema composed on one source may produce an index signature - put the passthrough, loose or record schema first, so the named outputs after it win the merge',
-  declareSomething: 'declare input, errors, or both',
+  declareSomething: 'declare input, errors, output, or any combination',
 } as const
 
 /** The one diagnostic reported on the fixture line containing `needle`. */
