@@ -71,6 +71,14 @@ declare const failOptional: Fail<{
   optional: { readonly status: 400; readonly schema?: typeof orderRef }
 }>
 
+// Typed optional and transforming: the fields are still the input.
+declare const failOptionalDated: Fail<{
+  'optional-dated': {
+    readonly status: 409
+    readonly schema?: StandardSchemaV1<{ id: string }, { id: number }>
+  }
+}>
+
 describe('defineError', () => {
   it('returns a one-key map of the tag to its entry', () => {
     expectTypeOf(orderNotFound).toEqualTypeOf<{
@@ -210,6 +218,12 @@ describe('the Fail helper on a loosely typed schema', () => {
   it('reads the fields off a schema typed optional', () => {
     expectTypeOf(failOptional<'optional'>).parameters.toEqualTypeOf<
       [tag: 'optional', value: { id: number }]
+    >()
+  })
+
+  it('reads a schema typed optional on its input, as what is thrown', () => {
+    expectTypeOf(failOptionalDated<'optional-dated'>).parameters.toEqualTypeOf<
+      [tag: 'optional-dated', value: { id: string }]
     >()
   })
 })
