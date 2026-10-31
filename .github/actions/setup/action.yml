@@ -23,12 +23,16 @@ runs:
       with:
         node-version-file: .nvmrc
         cache: ${{ inputs.compat-settings == '' && 'pnpm' || '' }}
+    # The Turborepo cache gets its own key namespace per install kind, so a
+    # compatibility install neither restores nor saves the default jobs'
+    # entries. Neither prefix is a prefix of the other, so neither restore
+    # key can match an entry from the other namespace.
     - uses: actions/cache@v4
       with:
         path: .turbo
-        key: turbo-${{ runner.os }}-${{ github.sha }}
+        key: turbo-${{ inputs.compat-settings == '' && 'default' || 'compat' }}-${{ runner.os }}-${{ github.sha }}
         restore-keys: |
-          turbo-${{ runner.os }}-
+          turbo-${{ inputs.compat-settings == '' && 'default' || 'compat' }}-${{ runner.os }}-
     - if: ${{ inputs.compat-settings == '' }}
       run: pnpm install --frozen-lockfile
       shell: bash
