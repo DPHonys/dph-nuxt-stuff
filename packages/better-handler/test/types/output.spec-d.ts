@@ -140,12 +140,17 @@ describe('a route declaring a status map', () => {
 
   it('hands the Respond helper, pairing each status with its body', () => {
     defineBetterEventHandler({ output }, (_event, context) => {
+      // The second argument names the statuses declared `null`, the ones
+      // that take no value: a body of `null` alone cannot say so.
       expectTypeOf(context).toEqualTypeOf<{
-        readonly respond: Respond<{
-          200: { id: string }
-          201: { id: string; createdAt: string }
-          204: null
-        }>
+        readonly respond: Respond<
+          {
+            200: { id: string }
+            201: { id: string; createdAt: string }
+            204: null
+          },
+          204
+        >
       }>()
       expectTypeOf(context.respond<200>).parameters.toEqualTypeOf<
         [status: 200, value: { id: string }]
@@ -198,6 +203,59 @@ describe('a route declaring a status map', () => {
     expectTypeOf<KnownErrorsOfHandler<typeof _route>>().toEqualTypeOf<
       { _tag: 'order-locked' } | ValidationFailed
     >()
+  })
+})
+
+describe('a status map telling a bodiless status from a null body', () => {
+  it('takes null for a schema whose input is null', () => {
+    defineBetterEventHandler(
+      { output: { 200: existing, 201: z.null() } },
+      (_event, context) => {
+        expectTypeOf(context.respond<201>).parameters.toEqualTypeOf<
+          [status: 201, value: null]
+        >()
+
+        return context.respond(201, null)
+      }
+    )
+  })
+
+  it('takes any value for a schema whose input is any', () => {
+    defineBetterEventHandler(
+      { output: { 200: z.any() } },
+      (_event, { respond }) => respond(200, { a: 1 })
+    )
+
+    const untypedSchema: StandardSchemaV1<any, any> = z.any()
+
+    defineBetterEventHandler(
+      { output: { 200: untypedSchema } },
+      (_event, { respond }) => respond(200, 'anything')
+    )
+  })
+
+  it('takes no value for a status declared null', () => {
+    defineBetterEventHandler(
+      { output: { 200: existing, 204: null } },
+      (_event, context) => {
+        expectTypeOf(context.respond<204>).parameters.toEqualTypeOf<
+          [status: 204]
+        >()
+
+        return context.respond(204)
+      }
+    )
+  })
+
+  it('advertises null as both bodies to a client', () => {
+    // The distinction is the Handler's alone: on the wire neither carries a
+    // body a client could read as anything but `null`.
+    const _map = { 201: z.null(), 204: null }
+
+    expectTypeOf<ResponseOutputs<typeof _map>>().toEqualTypeOf<{
+      201: null
+      204: null
+    }>()
   })
 })
 

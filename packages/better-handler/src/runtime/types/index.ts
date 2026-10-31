@@ -56,6 +56,7 @@ export type {
   HandlerReturn,
   Respond,
   Responded,
+  RespondError,
   ResponseBodies,
   ResponseOutput,
   ResponseOutputs,

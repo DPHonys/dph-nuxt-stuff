@@ -94,11 +94,12 @@ function checkOptions<
  * input type plainly, and the route answers `200` whatever status was set
  * before. `output: { 200: a, 201: b, 204: null }` declares a status map: the
  * Handler context gains the Respond helper and the Handler returns
- * `respond(status, value)`, or `respond(status)` for a status declared
- * `null`, which sends no body whatever was passed. Nothing runs the schema in
- * production; a development server asserts the handed-over value against the
- * schema its status declares, refuses an undeclared status, and discards the
- * result, so both send the same bytes.
+ * `respond(status, value)`, one status literal at a time, or
+ * `respond(status)` for a status declared `null`, which sends no body
+ * whatever was passed. Nothing runs the schema in production; a development
+ * server asserts the handed-over value against the schema its status
+ * declares, refuses an undeclared status, and discards the result, so both
+ * send the same bytes.
  *
  * Any thrown value whose `_tag` the route declares in `errors` is a Known
  * error, the Fail helper's result and an Effect error class instance alike:

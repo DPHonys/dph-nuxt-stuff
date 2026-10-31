@@ -183,6 +183,19 @@ describe('a route declaring a status map', () => {
     await expect(response.text()).resolves.toBe('')
   })
 
+  it('sends null as the body of a schema whose input is null', async () => {
+    // A `z.null()` slot declares a body that is `null`, not a bodiless reply:
+    // `respond(201, null)` is the call that answers it.
+    const route = defineBetterEventHandler(
+      { output: { 201: z.null() } },
+      (_event, { respond }) => respond(201, null)
+    )
+
+    const response = await answer(route)
+
+    expect(response.status).toBe(201)
+  })
+
   it('lets any status be declared null, not only 204', async () => {
     const route = defineBetterEventHandler(
       { output: { 205: null } },

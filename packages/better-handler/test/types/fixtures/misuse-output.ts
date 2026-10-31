@@ -17,6 +17,8 @@ const receipt = z.object({
   at: z.string().transform((at) => new Date(at)),
 })
 
+declare const isNew: boolean
+
 // --- the Respond helper's pairings ------------------------------------------
 
 export const undeclaredStatus = defineBetterEventHandler(
@@ -37,6 +39,21 @@ export const valueOnBodilessStatus = defineBetterEventHandler(
 export const missingValue = defineBetterEventHandler(
   { output: { 200: existing, 204: null } },
   (_event, { respond }) => respond(200)
+)
+
+export const missingNullBody = defineBetterEventHandler(
+  { output: { 200: existing, 201: z.null() } },
+  (_event, { respond }) => respond(201)
+)
+
+export const unionStatus = defineBetterEventHandler(
+  { output: { 200: existing, 201: created } },
+  (_event, { respond }) => respond(isNew ? 201 : 200, { id: '1' })
+)
+
+export const unionBodilessStatus = defineBetterEventHandler(
+  { output: { 204: null, 205: null } },
+  (_event, { respond }) => respond(isNew ? 204 : 205)
 )
 
 // --- a plain return where the map asks for the helper -----------------------

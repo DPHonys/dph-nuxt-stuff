@@ -19,6 +19,7 @@ import type {
   ValidationFailed,
 } from './io/input'
 import type {
+  BodilessStatuses,
   HasOutput,
   IsStatusMap,
   Respond,
@@ -96,7 +97,7 @@ export type HandlerContext<
     | RespondKey<Output>]: Key extends 'fail'
     ? Fail<Errors>
     : Key extends 'respond'
-      ? Respond<ResponseOutputs<Output>>
+      ? Respond<ResponseOutputs<Output>, BodilessStatuses<Output>>
       : Key extends keyof Input
         ? SourceValue<Input[Key]>
         : never

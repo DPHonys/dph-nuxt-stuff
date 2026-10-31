@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { ArgsFor } from '../utils'
+import type { IsUnion } from '../utils'
 import type { InputOf } from './input'
 
 /**
@@ -67,6 +67,22 @@ export type ResponseOutputs<Output> = Output extends StandardSchemaV1
     ? { [Status in keyof Output]: SlotBody<Output[Status]> }
     : never
 
+/**
+ * The statuses a status map declares `null`: the bodiless replies, which take
+ * no value. Told apart on the declaration, not on the body, because a schema
+ * whose input is `null` sends a body of `null` too and takes it as its value.
+ * `never` for the bare form and for a map annotated with `StatusMap`, whose
+ * slots may each be a schema.
+ */
+export type BodilessStatuses<Output> =
+  IsStatusMap<Output> extends true
+    ? {
+        [Status in keyof Output]-?: [Output[Status]] extends [null]
+          ? Status
+          : never
+      }[keyof Output]
+    : never
+
 /** Every body a Response output can send, as one union: what a client sees. */
 export type ResponseBodies<Output> =
   ResponseOutputs<Output>[keyof ResponseOutputs<Output>]
@@ -86,10 +102,43 @@ export interface Responded<Outputs> {
 }
 
 /**
+ * A rule a call to the Respond helper broke. Nothing the author passes can
+ * satisfy it, so the diagnostic prints at the status with this sentence
+ * inside it.
+ */
+export interface RespondError<Msg extends string> {
+  readonly 'respond-error': Msg
+}
+
+// The status a call names, checked: one declared status. `Status` is
+// inferred from anything a status can be rather than from the declared ones,
+// so an undeclared status is refused here, against the declared ones, rather
+// than on an argument count the fallback to the constraint would pick. A
+// union is refused whole: its value would only have to fit one of its
+// statuses' bodies, and the pairing is the helper's whole promise.
+type RespondStatus<Outputs, Status> = [Status] extends [keyof Outputs]
+  ? IsUnion<Status> extends true
+    ? RespondError<'respond takes one status literal - respond under each status in its own branch'>
+    : Status
+  : keyof Outputs
+
+// The value a call takes after a valid status: none for a status declared
+// `null`, its body otherwise - `null` itself for a schema whose input is
+// `null`, anything for one whose input is `any`. Any arguments at all after a
+// status refused above, so that status is the one diagnostic.
+type RespondArgs<Outputs, Bodiless, Status> = [Status] extends [keyof Outputs]
+  ? IsUnion<Status> extends true
+    ? unknown[]
+    : [Status] extends [Bodiless]
+      ? []
+      : [value: Outputs[Status]]
+  : unknown[]
+
+/**
  * The Respond helper on the Handler context of a route whose `output` is a
- * status map. It pairs a declared status with that status's body, as the Fail
- * helper pairs a tag with its fields: a status declared `null` takes no value,
- * and refuses one.
+ * status map. It pairs one declared status with that status's body, as the
+ * Fail helper pairs a tag with its fields: a status declared `null`, one of
+ * `Bodiless`, takes no value and refuses one.
  *
  * ```ts
  * return respond(201, order)
@@ -99,10 +148,10 @@ export interface Responded<Outputs> {
 // One signature with the value on a rest tuple the status picks, rather than
 // an overload per arity: a rejected call reports the one pairing it broke
 // instead of an essay over every overload.
-export interface Respond<Outputs> {
-  <Status extends keyof Outputs>(
-    status: Status,
-    ...value: ArgsFor<Outputs[Status]>
+export interface Respond<Outputs, Bodiless extends PropertyKey = never> {
+  <Status extends PropertyKey>(
+    status: RespondStatus<Outputs, Status>,
+    ...value: RespondArgs<Outputs, Bodiless, Status>
   ): Responded<Outputs>
 }
 

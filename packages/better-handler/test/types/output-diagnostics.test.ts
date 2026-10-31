@@ -31,6 +31,10 @@ const WRONG_ARGUMENT_COUNT = 2554
 /** The guard's sentence, verbatim. */
 const DECLARE_SOMETHING = 'declare input, errors, output, or any combination'
 
+/** The Respond helper's sentence for a status that is not one literal. */
+const ONE_STATUS =
+  'respond takes one status literal - respond under each status in its own branch'
+
 /** The one diagnostic reported on the fixture line containing `needle`. */
 function at(needle: string): Diagnostic | undefined {
   const line = lineContaining(FIXTURE, needle)
@@ -43,7 +47,7 @@ function at(needle: string): Diagnostic | undefined {
 
 describe('the output diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
-    expect(diagnostics).toHaveLength(12)
+    expect(diagnostics).toHaveLength(15)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -95,6 +99,33 @@ describe('the Respond helper', () => {
       expect.objectContaining({
         code: WRONG_ARGUMENT_COUNT,
         message: 'Expected 2 arguments, but got 1.',
+      })
+    )
+  })
+
+  it('requires the value for a schema whose input is null', () => {
+    // A `z.null()` slot sends a body, `null`; only a status declared `null`
+    // is bodiless.
+    expect(at('respond(201)')).toEqual(
+      expect.objectContaining({
+        code: WRONG_ARGUMENT_COUNT,
+        message: 'Expected 2 arguments, but got 1.',
+      })
+    )
+  })
+
+  it.each([
+    ['carrying a value', "respond(isNew ? 201 : 200, { id: '1' })"],
+    ['of bodiless statuses', 'respond(isNew ? 204 : 205)'],
+  ])('refuses a union status %s, at the status', (_, needle) => {
+    // The value of a union would only have to fit one of its statuses'
+    // bodies, so the union is refused whole and each branch responds alone.
+    expect(at(needle)).toEqual(
+      expect.objectContaining({
+        code: ARGUMENT_NOT_ASSIGNABLE,
+        message:
+          `Argument of type 'number' is not assignable to parameter of type 'RespondError<"${ONE_STATUS}">'.\n` +
+          `  Type 'number' is not assignable to type 'RespondError<"${ONE_STATUS}">'.`,
       })
     )
   })
