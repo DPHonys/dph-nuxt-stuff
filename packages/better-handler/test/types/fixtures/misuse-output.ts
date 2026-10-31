@@ -11,6 +11,12 @@ import { defineBetterEventHandler } from '../../../src/runtime/server'
 const existing = z.object({ id: z.string() })
 const created = z.object({ id: z.string(), createdAt: z.string() })
 
+/** A receipt whose `at` is a string on the wire and a `Date` once parsed. */
+const receipt = z.object({
+  id: z.string(),
+  at: z.string().transform((at) => new Date(at)),
+})
+
 // --- the Respond helper's pairings ------------------------------------------
 
 export const undeclaredStatus = defineBetterEventHandler(
@@ -62,6 +68,11 @@ export const respondWithoutOutput = defineBetterEventHandler(
 export const wrongBareReturn = defineBetterEventHandler(
   { output: existing },
   () => ({ id: 1 })
+)
+
+export const transformedBareReturn = defineBetterEventHandler(
+  { output: receipt },
+  () => ({ id: '1', at: new Date() })
 )
 
 // --- a declaration that declares nothing ------------------------------------

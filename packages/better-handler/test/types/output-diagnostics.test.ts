@@ -43,7 +43,7 @@ function at(needle: string): Diagnostic | undefined {
 
 describe('the output diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
-    expect(diagnostics).toHaveLength(11)
+    expect(diagnostics).toHaveLength(12)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -148,6 +148,19 @@ describe('a bare-form route', () => {
       expect.objectContaining({
         code: NOT_ASSIGNABLE,
         message: "Type 'number' is not assignable to type 'string'.",
+      })
+    )
+  })
+})
+
+describe('a bare-form route whose schema transforms', () => {
+  it('returns the schema’s input, refusing the transform’s output', () => {
+    // The development check validates exactly what the Handler returns, so
+    // the type it must return is the one the check can pass.
+    expect(at('at: new Date()')).toEqual(
+      expect.objectContaining({
+        code: NOT_ASSIGNABLE,
+        message: "Type 'Date' is not assignable to type 'string'.",
       })
     )
   })

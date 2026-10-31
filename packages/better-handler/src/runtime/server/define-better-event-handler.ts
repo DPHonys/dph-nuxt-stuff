@@ -91,7 +91,7 @@ function checkOptions<
  * body again with `readBody` yields h3's memoized parse, unvalidated.
  *
  * `output: schema` declares one `200` reply: the Handler returns the schema's
- * output type plainly, and the route answers `200` whatever status was set
+ * input type plainly, and the route answers `200` whatever status was set
  * before. `output: { 200: a, 201: b, 204: null }` declares a status map: the
  * Handler context gains the Respond helper and the Handler returns
  * `respond(status, value)`, or `respond(status)` for a status declared
@@ -193,7 +193,7 @@ export function defineBetterEventHandler<
       // read as something the Handler threw.
       // SAFETY: `send` hands back the Handler's own value for a route without
       // `output` and for the bare form, whose value the return constraint
-      // typed as the schema's output, and for a status map the body the
+      // typed as the schema's input, and for a status map the body the
       // Respond helper carried, which `Respond` typed as its status's body -
       // or `null` for a status declared `null`. That is what `SentResponse`
       // spells for each form; the compiler only sees h3's untyped

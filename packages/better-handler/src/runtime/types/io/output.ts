@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { ArgsFor } from '../utils'
-import type { OutputOf } from './input'
+import type { InputOf } from './input'
 
 /**
  * The map form of a Response output: one HTTP status per reply the route can
@@ -46,20 +46,25 @@ export type HasOutput<Output> = [Output] extends [ResponseOutput]
   : false
 
 /**
+ * What one status-map slot sends: its schema's input, or `null` for a status
+ * declared `null`. Distributes, so the `StandardSchemaV1 | null` slot of a map
+ * annotated with the public `StatusMap` keeps a body - `unknown`, as an
+ * untyped schema's - rather than reading as bodiless.
+ */
+type SlotBody<Slot> = Slot extends StandardSchemaV1 ? InputOf<Slot> : null
+
+/**
  * The replies a Response output declares, as a map from status to the body
  * that status sends: the bare form is a single `200`, and each body is its
- * schema's _output_ type, so a transform is already applied by the time the
- * value is sent; a status declared `null` maps to `null`. `never` when the
- * route declares no Response output.
+ * schema's _input_ type - what the Handler hands over, what the development
+ * check validates and what goes out, as nothing transforms it on the way; a
+ * status declared `null` maps to `null`. `never` when the route declares no
+ * Response output.
  */
 export type ResponseOutputs<Output> = Output extends StandardSchemaV1
-  ? { 200: OutputOf<Output> }
+  ? { 200: InputOf<Output> }
   : IsStatusMap<Output> extends true
-    ? {
-        [Status in keyof Output]: Output[Status] extends StandardSchemaV1
-          ? OutputOf<Output[Status]>
-          : null
-      }
+    ? { [Status in keyof Output]: SlotBody<Output[Status]> }
     : never
 
 /** Every body a Response output can send, as one union: what a client sees. */
@@ -102,24 +107,24 @@ export interface Respond<Outputs> {
 }
 
 /**
- * What a Handler must hand back: the schema's output for the bare form, the
+ * What a Handler must hand back: the schema's input for the bare form, the
  * Respond helper's result for the map form, and anything at all when the
  * route declares no Response output.
  */
 export type HandlerReturn<Output> = Output extends StandardSchemaV1
-  ? OutputOf<Output>
+  ? InputOf<Output>
   : IsStatusMap<Output> extends true
     ? Responded<ResponseOutputs<Output>>
     : unknown
 
 /**
  * What the returned Handler answers with, once settled: the bare form's
- * output type, the union of a status map's bodies rather than the Respond
+ * input type, the union of a status map's bodies rather than the Respond
  * helper's result that carried them, and the Handler's own return when the
  * route declares no Response output.
  */
 export type SentResponse<Output, Response> = Output extends StandardSchemaV1
-  ? OutputOf<Output>
+  ? InputOf<Output>
   : IsStatusMap<Output> extends true
     ? ResponseBodies<Output>
     : Awaited<Response>

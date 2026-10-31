@@ -94,6 +94,29 @@ describe('a development server checking a bare-form response', () => {
     })
   })
 
+  it('passes the schema’s input, which a transform turns into another type', async () => {
+    // `at` is a string on the wire and a `Date` once parsed. The Handler
+    // returns the input side, typed so without a cast, and the check
+    // validates exactly that value: a `Date` here would be the mismatch.
+    const stamped = z.object({
+      id: z.string(),
+      at: z.string().transform((at) => new Date(at)),
+    })
+
+    const route = defineBetterEventHandler({ output: stamped }, () => ({
+      id: 'r-1',
+      at: '2026-10-31T00:00:00.000Z',
+    }))
+
+    const response = await request(route, ROUTE, { route: ROUTE })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      id: 'r-1',
+      at: '2026-10-31T00:00:00.000Z',
+    })
+  })
+
   it('awaits an async Standard Schema', async () => {
     const asyncSchema: StandardSchemaV1 = {
       '~standard': {
