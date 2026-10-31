@@ -64,7 +64,7 @@ const NATIVE_SOURCE = /\{\s*\[native code\]\s*\}\s*$/
 
 /**
  * `substitute`, as Nuxt's development check on a key two calls share sees
- * `handler`. The check hashes each call's handler from its source text, read
+ * `handler`; a development build's alone, as only that build runs the check. The check hashes each call's handler from its source text, read
  * with `Function.prototype.toString`, and every substitute has the same
  * source, so two different handlers under one key would never warn. A bound
  * function's source is native code, which Nuxt hashes by name instead (4.0
@@ -101,8 +101,9 @@ function isTrySource<Resolved>(
  * delegate answers so a recording double wraps as readily as vanilla: the
  * handler, wherever vanilla's rule finds it, is replaced by one that resolves
  * a success to its data and throws a failure, and that Nuxt's development
- * check tells apart as it would the handler; every other argument, the
- * appended key included, is forwarded as it came. A handler resolving
+ * check, in a development build, tells apart as it would the handler; every
+ * other argument, the appended key included, is forwarded as it came. A
+ * handler resolving
  * anything but a `.try` result is a developer fault naming `name`, the
  * composable called, and the `.try` it left out.
  */
@@ -119,22 +120,28 @@ export function wrapRawAsyncData<Result>(
 
     const forwarded = [...args]
 
-    forwarded[at] = carryingHandlerSource(
-      async (...rest: Parameters<BetterAsyncDataHandler<TrySource>>) => {
-        const result = await handler(...rest)
+    const substitute: BetterAsyncDataHandler<TrySource['data']> = async (
+      ...rest
+    ) => {
+      const result = await handler(...rest)
 
-        if (!isTrySource(result)) {
-          throw developerFault(
-            `${name}'s handler resolved ${describeValue(result)}, not a .try result - call the fetch through .try, such as $betterFetch.try(…).`
-          )
-        }
+      if (!isTrySource(result)) {
+        throw developerFault(
+          `${name}'s handler resolved ${describeValue(result)}, not a .try result - call the fetch through .try, such as $betterFetch.try(…).`
+        )
+      }
 
-        if (result.error) throw rethrown(result.error)
+      if (result.error) throw rethrown(result.error)
 
-        return result.data
-      },
-      handler
-    )
+      return result.data
+    }
+
+    // Only Nuxt's development check hashes the handler's source, and
+    // `import.meta.dev` is a build-time constant, so a production bundle
+    // neither reads the source nor binds a function per call.
+    forwarded[at] = import.meta.dev
+      ? carryingHandlerSource(substitute, handler)
+      : substitute
 
     return delegate(...forwarded)
   }

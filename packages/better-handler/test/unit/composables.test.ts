@@ -407,6 +407,24 @@ describe('useBetterAsyncData: the arguments vanilla gets', () => {
     expect(last?.args[2]).toBe(options)
   })
 
+  // Only Nuxt's development check reads the handler's source, so only a
+  // development build pays to carry it; a suite run builds none, as a
+  // production bundle does.
+  it('hands vanilla the substitute as it is outside a development build', () => {
+    const handler = async () => ({ data: order, error: undefined })
+
+    useBetterAsyncData('order', handler)
+
+    const handed = substituted()
+
+    // Its own source, not a bound function's native code, and not named for
+    // the caller's handler.
+    expect(Function.prototype.toString.call(handed)).not.toMatch(
+      /\[native code\]/
+    )
+    expect(handed.name).not.toBe(Function.prototype.toString.call(handler))
+  })
+
   it('finds the handler first in a keyless call', async () => {
     useBetterAsyncData(async () => ({ data: order, error: undefined }))
 
