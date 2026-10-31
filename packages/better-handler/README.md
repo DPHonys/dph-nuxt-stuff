@@ -150,7 +150,7 @@ export default defineBetterEventHandler(
 - **A lone schema, bare or a tuple of one, passes its output through untouched**, so a body may be an array or a primitive.
 - **Each source reaches its schema exactly as h3 yields it**, nothing coerced on the way: route params URL-decoded, a catch-all slash-joined under one key; query values `string | string[]`; header keys lowercased, so a headers schema names them in lower case. Coercion belongs in the schema (`z.coerce.number()` and the like).
 - **The body is read only on `POST`, `PUT`, `PATCH` and `DELETE`**, through h3's strict body read. On any other method, and for an empty body, a declared body schema validates `undefined`. A body h3 refuses to parse, such as malformed JSON, is one body issue, `Request body could not be parsed`, with an empty `path`; a `5xx` or a dropped connection during the read propagates untouched.
-- **A schema that reports a failure with no issues** (`{ issues: [] }`) answers a plain `500` naming the route, the source and the element; a `validate` that throws propagates as it was thrown. Asynchronous schemas are awaited.
+- **A schema that reports a failure with no issues** (`{ issues: [] }`) answers a plain `500` whose sentence names the route, the source and the element; a `validate` that throws propagates as it was thrown. Asynchronous schemas are awaited.
 - **A route without `input` validates nothing and never reads the body**, so an `errors`-only route costs no parsing.
 - **A route with `input` carries the Built-in validation-failed variant** in its typed error union, beside whatever it declares in `errors`.
 
@@ -192,7 +192,7 @@ export default defineBetterEventHandler(
 ```
 
 - **`respond(status, value)` pairs a declared status with that status's body** at compile time; `respond(status)` answers a status declared `null`. Another status, a wrong value, a value for a `null` status or a missing one is a compile error.
-- **A map-form handler must return the Respond helper's result.** A plain return is a compile error, and at runtime it answers a plain `500`, in production too, since no status can be read off it.
+- **A map-form handler must return the Respond helper's result.** A plain return is a compile error, and at runtime it answers a plain `500`, in production too, since no status can be read off it; [The wire](#the-wire) says who reads its sentence.
 - **A status declared `null` sends no body**, whatever a JavaScript caller passed.
 - **A `200` with no body stays `200`.** A map's `200: null`, or a bare form whose schema admits `null` and whose handler returns `null`, answers `200` with no body and no `content-type`, not h3's `204`.
 - **A map key is a status in plain decimal, from `100` to `599`**, and each value a Standard Schema or `null`; anything else is refused at declaration.
@@ -252,7 +252,7 @@ A Known error is a failure a route declares. It goes out with its declared statu
 if (!order) throw fail('order-not-found', { id: route.id })
 ```
 
-An undeclared tag, `validation-failed` included, missing fields, wrong fields, or fields for a schema-less tag are compile errors. A JavaScript caller that gets past them gets a plain `500` naming the mistake. A field named `message`, `name`, `stack` or `cause` is a field like any other.
+An undeclared tag, `validation-failed` included, missing fields, wrong fields, or fields for a schema-less tag are compile errors. A JavaScript caller that gets past them gets a plain `500` whose sentence names the mistake in the server log and to a development client; a production client sees Nitro's generic `500`. A field named `message`, `name`, `stack` or `cause` is a field like any other.
 
 **Any thrown value with a declared `_tag`.** The route's boundary reads the `_tag` of whatever the handler throws, on the value itself or its prototype. A string `_tag` the route declares makes the value a Known error: an instance of your own error class, an Effect error (see [Effect](#effect)), or a plain object.
 
@@ -493,7 +493,7 @@ Each issue is `{ source, message, path }`: the source that failed, the schema's 
 - **Every caller receives the same body.** No header, cookie or credential changes what a Known error carries.
 - **A development server and a production build send the same Known error**, apart from Nitro's `stack`, unless a [development check](#development-checks) refuses it.
 - **A fetched error carries the Tagged error at `error.data.data`**: ofetch's `data` is the whole body.
-- **A developer's mistake is a plain `500`** whose `message` starts with `[better-handler]` and which has no `data`, so it is never a Known error and never reads as one.
+- **A developer's mistake is a plain `500`** with no `data`, so it is never a Known error and never reads as one. It is an unhandled server error, as any server bug is: its sentence, which starts with `[better-handler]`, goes to the server log with its stack and to a development client as `message`, while a production client gets Nitro's generic `500`, `message: "Server Error"`, without it.
 - **Nitro's error hooks see the thrown error untouched.**
 
 ## Observability
@@ -644,9 +644,9 @@ A misdeclaration the types did not see (a JavaScript route, an `any`-typed value
 
 Within `errors` the rules run one at a time over every entry: a reserved or empty tag, then a schema that is not a Standard Schema, then a status out of range, then a key an entry does not take.
 
-### A request answers a plain `500` starting with `[better-handler]`
+### A request answers a plain `500`
 
-A developer's mistake found while serving a request. These four answer in production too:
+A developer's mistake found while serving a request is an unhandled server error. Its sentence, starting with `[better-handler]`, goes to the server log with its stack and to a development client as the body's `message`; a production client gets Nitro's generic `500`, `message: "Server Error"`, without it, so read the server log. These four happen in production too:
 
 ```text
 [better-handler] fail("order-unknown") names no error this route declares. The route declares "order-not-found", "order-locked".
