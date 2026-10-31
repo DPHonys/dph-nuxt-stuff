@@ -2,6 +2,7 @@ import { loadNuxt } from '@nuxt/kit'
 import type { Nuxt, NuxtConfig, NuxtHooks } from '@nuxt/schema'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { isString } from '../../src/runtime/shared/guards'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/basic', import.meta.url))
 
@@ -42,7 +43,7 @@ async function boot(overrides?: NuxtConfig, dev = false): Promise<Booted> {
   return { nuxt, nitro }
 }
 
-/** What this module put into the server build. */
+/** What this module put into the server build and the app. */
 function registrationsOf({ nuxt, nitro }: Booted) {
   const imports = nitro?.options.imports
   const resolved = imports === false ? undefined : imports
@@ -58,8 +59,19 @@ function registrationsOf({ nuxt, nitro }: Booted) {
     nitroPlugins: (nuxt.options.nitro.plugins ?? []).filter((plugin) =>
       FROM_THIS_PACKAGE.test(plugin ?? '')
     ),
+
+    // Nuxt normalises every entry to an object once a module adds it.
+    appPlugins: nuxt.options.plugins
+      .map((plugin) => (isString(plugin) ? { src: plugin } : plugin))
+      .filter((plugin) => FROM_THIS_PACKAGE.test(plugin.src))
+      .map(({ src, mode }) => ({ src, mode })),
   }
 }
+
+/** The Nitro plugin installing `$betterFetch` and `event.$betterFetch`. */
+const BETTER_FETCH_NITRO_PLUGIN = expect.stringMatching(
+  /\/runtime\/server\/plugins\/better-fetch$/
+)
 
 describe('module setup', () => {
   let booted: Booted
@@ -86,8 +98,18 @@ describe('module setup', () => {
     )
   })
 
-  it('registers no Nitro plugin while the development checks stay on', () => {
-    expect(registrationsOf(booted).nitroPlugins).toEqual([])
+  it('installs the fetch family on both sides, the app half in the browser only', () => {
+    expect(registrationsOf(booted).nitroPlugins).toEqual([
+      BETTER_FETCH_NITRO_PLUGIN,
+    ])
+    expect(registrationsOf(booted).appPlugins).toEqual([
+      {
+        src: expect.stringMatching(
+          /\/runtime\/app\/plugins\/better-fetch\.client\.ts$/
+        ),
+        mode: 'client',
+      },
+    ])
   })
 })
 
@@ -99,6 +121,7 @@ describe('the `devChecks` option', () => {
       disabled = await boot({ betterHandler: { devChecks: false } }, true)
 
       expect(registrationsOf(disabled).nitroPlugins).toEqual([
+        BETTER_FETCH_NITRO_PLUGIN,
         expect.stringMatching(/\/runtime\/server\/plugins\/dev-checks$/),
       ])
     } finally {
@@ -106,13 +129,15 @@ describe('the `devChecks` option', () => {
     }
   })
 
-  it('registers no plugin in a production build, which never runs the checks', async () => {
+  it('registers no dev-checks plugin in a production build, which never runs the checks', async () => {
     let disabled: Booted | undefined
 
     try {
       disabled = await boot({ betterHandler: { devChecks: false } })
 
-      expect(registrationsOf(disabled).nitroPlugins).toEqual([])
+      expect(registrationsOf(disabled).nitroPlugins).toEqual([
+        BETTER_FETCH_NITRO_PLUGIN,
+      ])
     } finally {
       await disabled?.nuxt.close()
     }

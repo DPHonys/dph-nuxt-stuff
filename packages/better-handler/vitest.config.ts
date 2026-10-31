@@ -1,4 +1,11 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
+
+// `#app` only exists inside a Nuxt build: the unit suites import the client
+// plugin through the shared double, its `defineNuxtPlugin` the identity.
+const NUXT_APP_DOUBLE = fileURLToPath(
+  import.meta.resolve('@dphonys/test-utils/doubles/nuxt-app')
+)
 
 export default defineConfig({
   test: {
@@ -7,6 +14,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           include: ['test/unit/**/*.test.ts'],
+          alias: [{ find: /^#app$/, replacement: NUXT_APP_DOUBLE }],
           // Each file boots a real Nuxt through `loadNuxt`.
           testTimeout: 120_000,
           hookTimeout: 120_000,

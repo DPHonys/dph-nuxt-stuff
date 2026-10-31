@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -227,6 +228,20 @@ const ORDERS_NITRO_ROUTES = [
   `'/api/**': { default: unknown }`,
 ]
 
+/** One of the package's entries as it ships: its built declarations. */
+function builtEntry(entry: string): string {
+  const path = join(PACKAGE_ROOT, `dist/runtime/${entry}/index.d.ts`)
+
+  if (!existsSync(path)) {
+    throw new Error(
+      'No `dist` for the emitted map to resolve. Run `pnpm run build` in this ' +
+        'package, or run the suite through `turbo run test`, which builds it first.'
+    )
+  }
+
+  return path
+}
+
 interface App {
   readonly emitted: string
   /** Compile one consumer file inside this app, with the map in the program. */
@@ -273,7 +288,10 @@ function nitroRoutesDeclaration(keys: readonly string[]): string {
 /**
  * Materialise one app: route files, the emitted map, Nitro's route keys and
  * a tsconfig. `node_modules` is the package's, so `zod` and `h3` resolve; the
- * package's own specifiers are mapped onto `src/`; `include` names the map,
+ * package's own specifiers are mapped onto its built declarations, the
+ * `.d.ts` an app's compiler reads: in source form, the fetch family's generic
+ * declarations, checked after the consumer as this harness checks them,
+ * report a stack-depth error no consumer meets; `include` names the map,
  * because an augmentation reaches a program by membership alone and the
  * wildcard skips the dot-directory it lives in.
  */
@@ -313,7 +331,7 @@ function buildApp(
           paths: Object.fromEntries(
             ['types', 'server', 'shared'].map((entry) => [
               `@dphonys/better-handler/${entry}`,
-              [join(PACKAGE_ROOT, `src/runtime/${entry}/index.ts`)],
+              [builtEntry(entry)],
             ])
           ),
         },

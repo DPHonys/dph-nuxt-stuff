@@ -1,4 +1,9 @@
-import { addServerImports, createResolver, defineNuxtModule } from '@nuxt/kit'
+import {
+  addPlugin,
+  addServerImports,
+  createResolver,
+  defineNuxtModule,
+} from '@nuxt/kit'
 import { BETTER_HANDLER_MAP, emitMap } from './build/emit-map'
 import { addRouteTypeTemplate } from './build/routes'
 import { addRuntimeServerPlugin } from './build/server-plugins'
@@ -40,6 +45,17 @@ export default defineNuxtModule<ModuleOptions>({
       ['defineBetterEventHandler', 'defineError', 'recognizeKnownError'].map(
         (name) => ({ name, from: serverEntry })
       )
+    )
+
+    // `$betterFetch` on both sides' `globalThis`, and `event.$betterFetch` on
+    // every request. The app half is client-only: during server-side
+    // rendering the one global is Nitro's.
+    addPlugin({
+      src: resolver.resolve('./runtime/app/plugins/better-fetch.client'),
+      mode: 'client',
+    })
+    addRuntimeServerPlugin(
+      resolver.resolve('./runtime/server/plugins/better-fetch')
     )
 
     // Registered only to turn the checks off: the option carries no value
