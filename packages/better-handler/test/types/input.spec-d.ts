@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { EventHandler, EventHandlerRequest, H3Event } from 'h3'
 import { defineEventHandler } from 'h3'
 import * as v from 'valibot'
@@ -17,7 +18,10 @@ import type {
   ValidationFailed,
   ValidationIssue,
 } from '../../src/runtime/types'
-import type { HasKeyOverlap } from '../../src/runtime/types/io/guard'
+import type {
+  HasKeyOverlap,
+  IsMergeableOutput,
+} from '../../src/runtime/types/io/guard'
 
 /** A page number, coerced from the string the wire always carries. */
 const pagination = z.object({ page: z.coerce.number() })
@@ -99,6 +103,12 @@ describe('the composition guard', () => {
       HasKeyOverlap<[Record<string, string>, { page: number }]>
     >().toEqualTypeOf<false>()
   })
+
+  it('merges an unknown output as it merges any', () => {
+    expectTypeOf<IsMergeableOutput<unknown>>().toEqualTypeOf<true>()
+    expectTypeOf<IsMergeableOutput<any>>().toEqualTypeOf<true>()
+    expectTypeOf<IsMergeableOutput<string>>().toEqualTypeOf<false>()
+  })
 })
 
 describe('the Handler context of a route declaring input', () => {
@@ -146,6 +156,21 @@ describe('the Handler context of a route declaring input', () => {
           page: number
           sort: 'asc' | 'desc'
         }>()
+
+        return null
+      }
+    )
+  })
+
+  it('merges an untyped schema’s output as whatever the runtime hands over', () => {
+    // A hand-written or untyped vendor schema: its output is `unknown`, which
+    // the runtime merges when it is a plain object and refuses otherwise.
+    const untyped: StandardSchemaV1 = pagination
+
+    defineBetterEventHandler(
+      { input: { query: [pagination, untyped] } },
+      (_, { query }) => {
+        expectTypeOf(query).toEqualTypeOf<{ page: number }>()
 
         return null
       }

@@ -70,17 +70,21 @@ export type HasKeyOverlap<Outputs extends readonly unknown[]> =
 /**
  * Whether an output can be merged with its siblings': an object that is not
  * an array or a function. Structural, so a `Date` or `Map` output passes here
- * and is the runtime merge's to refuse. `any` is answered before the
- * distribution, which would otherwise send it down both branches.
+ * and is the runtime merge's to refuse. `any` and `unknown` say nothing about
+ * the output, so they pass and the runtime merge refuses what is no plain
+ * object; `any` is answered before the distribution, which would otherwise
+ * send it down both branches.
  */
 export type IsMergeableOutput<Output> =
   IsAny<Output> extends true
     ? true
-    : Output extends object
-      ? Output extends readonly unknown[] | ((...args: never[]) => void)
-        ? false
-        : true
-      : false
+    : unknown extends Output
+      ? true
+      : Output extends object
+        ? Output extends readonly unknown[] | ((...args: never[]) => void)
+          ? false
+          : true
+        : false
 
 // Element by element, for the reason `NamedKeysOfEach` gives.
 type EveryMergeable<Outputs extends readonly unknown[]> = [
