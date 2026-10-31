@@ -315,7 +315,7 @@ The route answers `404` with `data: { _tag: 'OrderMissing', id: 7 }`, and its ca
 
 - **Effect is not a dependency of this package.** The package reads the class through Standard Schema alone; install `effect` in your app.
 - **The class is `Schema.TaggedError<Self>()(tag, fields)`**, as Effect 4.0.6 names its tagged error class builder. The route declares it under the class's own tag: the schema's `_tag` must equal the key, so another key is a compile error.
-- **The development check validates the whole Tagged error, `_tag` included**, against the class's schema, which requires `_tag`.
+- **The development check passes the whole Tagged error, `_tag` included**, against the class's schema, which requires `_tag`: the fields alone fail it, so the check validates them again with `_tag`.
 - **A field named `message` never goes out.** Effect keeps it non-enumerable, so the development check reports it missing.
 
 ## Request typing
@@ -521,7 +521,7 @@ It is the one recognizer: validation is `_tag === 'validation-failed'`. It takes
 A development server runs three checks, all behind the `devChecks` option. Each refuses with a plain `500` naming the route, never a Known error. A production build runs none of them and sends what the handler handed over; `devChecks: false` makes a development server answer as production does.
 
 1. **The response check.** The value a handler hands over (the bare form's return, or the value inside `respond(status, value)`) is validated against the schema its status declares, and the result discarded, so a development server sends the bytes production sends. A status the map does not declare is refused before it reaches the response. A status declared `null` has nothing to check.
-2. **The thrown-fields check.** A Known error's Tagged error, about to go out, is validated against its declared schema and the result discarded. It catches wrong and missing fields; a schema that strips unknown keys reports no extra ones, which go out as thrown. The schema is handed the whole Tagged error, `_tag` included, so a strict schema, one that refuses unknown keys, must list `_tag`.
+2. **The thrown-fields check.** A Known error's Tagged error, about to go out, is validated against its declared schema and the result discarded. It catches wrong and missing fields; a schema that strips unknown keys reports no extra ones, which go out as thrown. The schema is handed the fields alone first and, when they fail, the whole Tagged error, `_tag` included; a refusal reports that second attempt's issues. So a strict schema, one that refuses unknown keys, passes without listing `_tag`, and a schema that requires `_tag`, such as an Effect error class's, passes too.
 3. **The undeclared-tag check.** A thrown value with a string `_tag` the route does not declare is refused, naming the tag and the declared ones; the thrown value is kept as the fault's `cause` for the logs. It runs only on routes that declare `errors`.
 
 A schema that throws instead of reporting issues is refused the same way, with what it threw as the `cause`. Asynchronous schemas are awaited. Each sentence is quoted under [Troubleshooting](#troubleshooting).
