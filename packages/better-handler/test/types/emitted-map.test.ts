@@ -85,6 +85,26 @@ function appFiles(definitions: string) {
       ``,
     ].join('\n'),
 
+    // A route declaring `input` beside its `errors`: the Built-in
+    // validation-failed variant joins the declared ones.
+    'server/api/search.get.ts': [
+      `import { defineBetterEventHandler } from '@dphonys/better-handler/server'`,
+      `import { z } from 'zod'`,
+      `import { orderErrors } from '../errors/orders'`,
+      ``,
+      `export default defineBetterEventHandler({ input: { query: z.object({ q: z.string() }) }, errors: orderErrors }, () => null)`,
+      ``,
+    ].join('\n'),
+
+    // A route declaring only `input`: the variant is its whole union.
+    'server/api/lookup.get.ts': [
+      `import { defineBetterEventHandler } from '@dphonys/better-handler/server'`,
+      `import { z } from 'zod'`,
+      ``,
+      `export default defineBetterEventHandler({ input: { query: z.object({ q: z.string() }) } }, () => null)`,
+      ``,
+    ].join('\n'),
+
     // Not this package's, and keyed anyway: what makes the lookup total.
     'server/api/legacy.get.ts': [
       `import { defineEventHandler } from 'h3'`,
@@ -146,6 +166,16 @@ function appHandlers(root: string): HandlerEntry[] {
     },
     { route: '/api/y', handler: join(root, 'server/api/y.ts') },
     {
+      route: '/api/search',
+      method: 'get',
+      handler: join(root, 'server/api/search.get.ts'),
+    },
+    {
+      route: '/api/lookup',
+      method: 'get',
+      handler: join(root, 'server/api/lookup.get.ts'),
+    },
+    {
       route: '/api/legacy',
       method: 'get',
       handler: join(root, 'server/api/legacy.get.ts'),
@@ -175,6 +205,8 @@ const NITRO_ROUTES = [
   `  interface InternalApi {`,
   `    '/api/orders/:id': { get: unknown }`,
   `    '/api/y': { default: unknown }`,
+  `    '/api/search': { get: unknown }`,
+  `    '/api/lookup': { get: unknown }`,
   `    '/api/legacy': { get: unknown }`,
   `    '/api/indexed': { get: unknown }`,
   `    '/api/shipped': { get: unknown }`,
@@ -299,6 +331,12 @@ describe('the emitted map, compiled', () => {
       `type _byDefault = Expect<Equal<ByDefault, Expected>>`,
       `type _noMethod = Expect<IsNever<NoMethod>>`,
       ``,
+      `type ValidationFailed = { _tag: 'validation-failed'; issues: { source: 'route' | 'query' | 'headers' | 'body'; message: string; path: (string | number)[] }[] }`,
+      `export type Validated = KnownErrorsOfRoute<'/api/search'>`,
+      `export type InputOnly = KnownErrorsOfRoute<'/api/lookup'>`,
+      `type _validated = Expect<Equal<Validated, Expected | ValidationFailed>>`,
+      `type _inputOnly = Expect<Equal<InputOnly, ValidationFailed>>`,
+      ``,
       `export type Thrown = KnownErrorFor<'/api/orders/7'>`,
       `export type Vanilla = KnownErrorFor<'/api/legacy'>`,
       `export type Unresolved = KnownErrorFor<'/api/shipped'>`,
@@ -315,7 +353,7 @@ describe('the emitted map, compiled', () => {
       `type _eitherMethodNoDefault = Expect<Equal<EitherMethodNoDefault, Expected>>`,
       ``,
       `export type Root = KnownErrorsOfRoute<'/'>`,
-      `type _root = Expect<Equal<Root, Expected | BothGet>>`,
+      `type _root = Expect<Equal<Root, Expected | ValidationFailed | BothGet>>`,
       ``,
       `export type Tried = TryResult<{ id: number }, ByPath | RequestFailed>`,
       `export function handled(result: Tried): string {`,
@@ -353,6 +391,21 @@ describe('the emitted map, compiled', () => {
     )
     expect(compilation.renderHover('ByUpperMethod')).toBe(
       compilation.renderHover('Declared')
+    )
+  })
+
+  it('carries the Built-in validation-failed variant for a route declaring input', () => {
+    // The issues' structure is the `Equal` assertions' above; the rendering
+    // proves the lookup resolved rather than collapsed.
+    const rendered = compilation.renderHover('InputOnly')
+
+    expect(rendered).toMatch(/^\{ _tag: "validation-failed"; issues: /)
+    expect(rendered).toContain('ValidationIssue')
+    expect(compilation.renderHover('Validated')).toContain(
+      '_tag: "validation-failed"'
+    )
+    expect(compilation.renderHover('Validated')).toContain(
+      '_tag: "order-locked"'
     )
   })
 
@@ -395,6 +448,7 @@ describe('the emitted map, compiled', () => {
     const root = compilation.renderHover('Root')
 
     expect(root).toContain('"order-not-found"')
+    expect(root).toContain('"validation-failed"')
     expect(root).toContain('"both-get"')
     expect(root).not.toContain('"both-default"')
   })
