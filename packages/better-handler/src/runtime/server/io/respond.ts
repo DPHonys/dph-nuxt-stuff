@@ -41,7 +41,7 @@ interface RespondedEnvelope {
 /**
  * The Respond helper as the runtime knows it, before a declaration types it:
  * the wrapper casts the whole context it hands over, and the public
- * `Respond<Outputs>` is what an author sees at the call site.
+ * `Respond<Outputs, Bodiless>` is what an author sees at the call site.
  */
 export type RespondFn = (
   status: number,
