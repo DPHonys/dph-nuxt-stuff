@@ -58,6 +58,18 @@ export type VanillaHolds = Assert<
   Equal<KnownErrorFor<'/__nuxt_error'>, NuxtError<unknown>>
 >
 
+/**
+ * `/` matches every route, Nuxt's unreadable `/__nuxt_error` among them, and
+ * still answers the readable routes' errors rather than nothing.
+ */
+export type RootHolds = Assert<
+  [OrderErrors] extends [KnownErrorsOfRoute<'/'>]
+    ? [KnownErrorsOfRoute<'/'>] extends [never]
+      ? false
+      : true
+    : false
+>
+
 declare const ordersError: KnownErrorFor<'/api/orders/7'> | undefined
 
 /** Every tag an arm, the Request-failed variant included, and a fallback. */

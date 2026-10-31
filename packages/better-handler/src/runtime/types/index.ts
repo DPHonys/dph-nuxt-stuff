@@ -51,20 +51,4 @@ export interface KnownApiErrors {}
 export type KnownErrorsOfRoute<
   Route extends string,
   Method extends RouteMethod | Uppercase<RouteMethod> = 'get',
-> = Known<RouteEntry<KnownApiErrors, Route, Method>>
-
-// The map's extractor never answers `any` for a handler it can read, so an
-// `any` entry is a handler module the compiler could not resolve - a
-// JavaScript route a module ships without declarations, Nuxt's own renderer.
-// Nothing is known of what it declares, so it declares nothing here, and the
-// route stays as vanilla as Nitro's own types leave it. Boxed in tuples
-// rather than `IsAny`: an unresolved import is the compiler's error type,
-// which a conditional type over it answers with itself; boxed, it behaves as
-// `any` does and is assignable to two different literals at once.
-type Known<Entry> = [Entry] extends [never]
-  ? never
-  : [Entry] extends [0]
-    ? [Entry] extends [1]
-      ? never
-      : Entry
-    : Entry
+> = RouteEntry<KnownApiErrors, Route, Method>
