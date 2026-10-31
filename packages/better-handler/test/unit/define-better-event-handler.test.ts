@@ -423,6 +423,78 @@ describe('the development checks', () => {
     expect(await dataOf(response)).toEqual({ _tag: 'order-dated', id: '7' })
   })
 
+  it('accept the fields alone, which a strict schema not listing _tag requires', async () => {
+    const route = defineBetterEventHandler(
+      {
+        errors: {
+          'order-strict': {
+            status: 404,
+            schema: z.strictObject({ id: z.number() }),
+          },
+        },
+      },
+      (_event, { fail }) => {
+        throw fail('order-strict', { id: 7 })
+      }
+    )
+
+    const { response } = await answer(route)
+
+    expect(response.status).toBe(404)
+    expect(await dataOf(response)).toEqual({ _tag: 'order-strict', id: 7 })
+  })
+
+  it('accept the fields with _tag, which a schema requiring _tag needs', async () => {
+    const route = defineBetterEventHandler(
+      {
+        errors: {
+          'order-missing': {
+            status: 404,
+            schema: z.strictObject({
+              _tag: z.literal('order-missing'),
+              id: z.number(),
+            }),
+          },
+        },
+      },
+      (_event, { fail }) => {
+        throw fail('order-missing', { id: 7 })
+      }
+    )
+
+    const { response } = await answer(route)
+
+    expect(response.status).toBe(404)
+    expect(await dataOf(response)).toEqual({ _tag: 'order-missing', id: 7 })
+  })
+
+  it('report what a schema requiring _tag rejects with _tag given', async () => {
+    const route = defineBetterEventHandler(
+      {
+        errors: {
+          'order-missing': {
+            status: 404,
+            schema: z.object({
+              _tag: z.literal('order-missing'),
+              id: z.number({ error: 'id must be a number' }),
+            }),
+          },
+        },
+      },
+      (_event, { fail }) => {
+        throw fail('order-missing', untyped({ id: 'seven' }))
+      }
+    )
+
+    const { response, thrown } = await answer(route)
+
+    expect(response.status).toBe(500)
+    expect(thrown.message).toBe(
+      '[better-handler] cannot send the error: GET /api/orders/7 threw "order-missing" with fields its declared schema rejects - id: id must be a number. ' +
+        'Nothing checks the fields in production, so this route would send them as they are: fix the handler or the schema, or set `devChecks: false`.'
+    )
+  })
+
   it('hand the schema the whole Tagged error, which an Effect error class requires', async () => {
     const route = defineBetterEventHandler(
       {

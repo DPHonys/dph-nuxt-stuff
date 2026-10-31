@@ -27,27 +27,35 @@ function tagOf<Thrown>(thrown: Thrown): string | undefined {
 }
 
 /**
- * The Tagged error a thrown value goes out as: the declared tag first, then
- * the value's own enumerable properties beside `_tag`, so a field can never
- * displace the tag. An `Error`'s `message`, `stack` and `name` are its own
- * but not enumerable, and a class's methods live on its prototype, so neither
- * is a field.
+ * The fields a thrown value goes out with: its own enumerable properties
+ * beside `_tag`. An `Error`'s `message`, `stack` and `name` are its own but
+ * not enumerable, and a class's methods live on its prototype, so neither is
+ * a field.
  *
  * A function-valued field is left out, as JSON would leave it out - and a
  * `toJSON` among them would otherwise replace the whole of `data` when the
  * error body is serialised.
  */
-function taggedErrorOf<Thrown extends object>(
-  tag: string,
-  thrown: Thrown
-): TaggedError {
+function fieldsOf<Thrown extends object>(thrown: Thrown): object {
   const fields = Object.entries(thrown).filter(
     ([key, value]) => key !== '_tag' && !isFunction(value)
   )
 
-  // `fromEntries` and the spread define every key, so a field named
-  // `__proto__` stays a field rather than becoming the prototype.
-  return { _tag: tag, ...Object.fromEntries(fields) }
+  // `fromEntries` defines every key, so a field named `__proto__` stays a
+  // field rather than becoming the prototype.
+  return Object.fromEntries(fields)
+}
+
+/**
+ * The Tagged error a thrown value goes out as: the declared tag first, then
+ * the fields, so a field can never displace the tag. The spread defines every
+ * key, as `fromEntries` does.
+ */
+function taggedErrorOf<Fields extends object>(
+  tag: string,
+  fields: Fields
+): TaggedError {
+  return { _tag: tag, ...fields }
 }
 
 /** The route as a sentence names it: its method and the path it was asked. */
@@ -74,22 +82,31 @@ function describeIssues(issues: readonly StandardSchemaV1.Issue[]): string {
 }
 
 /**
- * The thrown-fields check: the Tagged error about to go out, asserted against
- * the schema its entry declares. The schema describes the fields beside
- * `_tag` and may describe `_tag` too, as an Effect error class's does, so it
- * is handed the whole Tagged error. An assertion, never a transform: the
- * result is discarded, so a development server sends what production sends.
+ * The thrown-fields check: the fields about to go out, asserted against the
+ * schema their entry declares. The schema describes the fields beside `_tag`
+ * and may describe `_tag` too, as an Effect error class's does, so the fields
+ * pass when they validate alone - which a strict schema not listing `_tag`
+ * needs - or with `_tag` beside them, which a schema requiring it needs. When
+ * neither does, the issues reported are the attempt with `_tag`'s. An
+ * assertion, never a transform: the result is discarded, so a development
+ * server sends what production sends.
  */
-async function checkFields(
+async function checkFields<Fields extends object>(
   event: H3Event,
   entry: ResolvedErrorEntry,
+  fields: Fields,
   tagged: TaggedError
 ): Promise<void> {
   if (entry.schema === undefined) return
 
-  // Awaited: a Standard Schema may answer asynchronously, and a promise read
-  // for `issues` would look like every value that passes.
-  const result = await entry.schema['~standard'].validate(tagged)
+  // Called on `~standard`, not detached from it, as a library may read
+  // `this`. Awaited: a Standard Schema may answer asynchronously, and a
+  // promise read for `issues` would look like every value that passes.
+  const standard = entry.schema['~standard']
+
+  if ((await standard.validate(fields)).issues === undefined) return
+
+  const result = await standard.validate(tagged)
 
   if (result.issues === undefined) return
 
@@ -141,9 +158,10 @@ export async function answerThrown<Thrown>(
     throw thrown
   }
 
-  const tagged = taggedErrorOf(tag, thrown)
+  const fields = fieldsOf(thrown)
+  const tagged = taggedErrorOf(tag, fields)
 
-  if (devChecksEnabled()) await checkFields(event, entry, tagged)
+  if (devChecksEnabled()) await checkFields(event, entry, fields, tagged)
 
   throw httpError({ status: entry.status, message: tag, data: tagged })
 }
