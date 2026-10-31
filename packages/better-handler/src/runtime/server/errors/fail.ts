@@ -1,4 +1,4 @@
-import { isRecordLike } from '../../shared/guards'
+import { isRecordLike, isString } from '../../shared/guards'
 import { describeValue, developerFault } from '../faults'
 import type { ResolvedErrors } from './declaration'
 
@@ -69,13 +69,21 @@ function describeTags(errors: ResolvedErrors): string {
 /**
  * The Fail helper for one route's checked declarations. The compile-time
  * pairing is the guard; what is checked here is only what a caller the types
- * never saw can get wrong, each a developer fault: a tag the route does not
- * declare, fields for a tag declared without a schema, or no fields object
- * for a tag declared with one. The fields themselves are not validated here;
- * nothing runs the schema in production.
+ * never saw can get wrong, each a developer fault: a tag that is not a
+ * string, a tag the route does not declare, fields for a tag declared without
+ * a schema, or no fields object for a tag declared with one. The fields
+ * themselves are not validated here; nothing runs the schema in production.
  */
 export function createFail(errors: ResolvedErrors): RuntimeFail {
   const fail: RuntimeFail = (tag, ...args) => {
+    // Before the lookup, which would coerce a number to the key it spells and
+    // hand back an error whose `_tag` is the number.
+    if (!isString(tag)) {
+      throw developerFault(
+        `fail takes an error tag, a string, and was handed ${describeValue(tag)}. The route declares ${describeTags(errors)}.`
+      )
+    }
+
     // `hasOwn` on a prototype-less map, so `toString` is a tag this route
     // declares or no tag at all.
     const entry = Object.hasOwn(errors, tag) ? errors[tag] : undefined

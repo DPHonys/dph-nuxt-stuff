@@ -147,6 +147,26 @@ describe('fail refuses a call the types would have refused', () => {
     })
   })
 
+  it.each([
+    [404, 'the primitive 404'],
+    [10n, 'the primitive 10'],
+    [Symbol('404'), 'the primitive Symbol(404)'],
+    [{ toString: () => '404' }, 'a plain object'],
+    [undefined, 'undefined'],
+  ])('refuses the tag %o, which is not a string', (tag, handed) => {
+    // The lookup would coerce a number to the declared key '404' and hand
+    // back an error whose `_tag` is the number.
+    const failNumeric = untyped(
+      createFail(resolveErrors({ '404': { status: 404 } }))
+    )
+
+    expect(faultOf(() => failNumeric(tag))).toMatchObject({
+      statusCode: 500,
+      message: `[better-handler] fail takes an error tag, a string, and was handed ${handed}. The route declares "404".`,
+      data: undefined,
+    })
+  })
+
   it('refuses fields for a tag declared without a schema', () => {
     expect(faultOf(() => fail('order-locked', { id: 7 }))).toMatchObject({
       statusCode: 500,
