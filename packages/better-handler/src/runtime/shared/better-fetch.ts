@@ -6,6 +6,7 @@
 
 import type { $BetterFetch } from '../types/fetch'
 import { toTryResult } from './errors/try-result'
+import { isString } from './guards'
 
 /** The one option this wrapper reads; everything else is forwarded untouched. */
 export interface RawOptions {
@@ -61,13 +62,25 @@ export function flatHeadersAcceptingJson(
 // Built through a `Headers`, the one merge that accepts every form a caller
 // may pass, and handed on as one: ofetch merges a `Headers` correctly. Apart
 // from `flatHeadersAcceptingJson` because it also reads the instance's own
-// headers, which ofetch merges in below it. A caller's own `accept`, per call
-// or per instance, wins.
+// headers, which ofetch merges in below it.
+//
+// Seeded as ofetch seeds its own merge, `input.headers ?? request.headers`: a
+// call that passes headers replaces a `Request`'s, and one that passes none
+// sends them. Always handing on a `headers` would hide the `Request`'s from
+// ofetch, `authorization` and a chosen `accept` with them.
+//
+// A caller's own `accept` wins: per call, on the `Request`, or set through
+// this wrapper's `.create`. Defaults of the `$fetch` instance underneath are
+// not seen: ofetch keeps them inside the instance's closure and exposes them
+// on no member, so an `accept` set there is overridden.
 function withAcceptJson(
+  request: RawRequest,
   opts: RawOptions | undefined,
   instanceHeaders: Headers
 ): RawOptions {
-  const headers = new Headers(opts?.headers)
+  const headers = new Headers(
+    opts?.headers ?? (isString(request) ? undefined : request.headers)
+  )
 
   if (!headers.has(ACCEPT) && !instanceHeaders.has(ACCEPT)) {
     headers.set(ACCEPT, ACCEPT_JSON)
@@ -90,14 +103,14 @@ function build<Body, Raw>(
   instanceHeaders: Headers
 ): $BetterFetch {
   const call = (request: RawRequest, opts?: RawOptions): Promise<Body> =>
-    base(request, withAcceptJson(opts, instanceHeaders))
+    base(request, withAcceptJson(request, opts, instanceHeaders))
 
   const better = Object.assign(call, {
     try: (request: RawRequest, opts?: RawOptions) =>
       toTryResult(() => call(request, opts)),
 
     raw: (request: RawRequest, opts?: RawOptions): Promise<Raw> =>
-      base.raw(request, withAcceptJson(opts, instanceHeaders)),
+      base.raw(request, withAcceptJson(request, opts, instanceHeaders)),
 
     native: (...args: Parameters<typeof globalThis.fetch>): Promise<Response> =>
       base.native(...args),

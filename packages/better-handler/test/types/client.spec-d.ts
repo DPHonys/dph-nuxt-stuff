@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { Schema } from 'effect'
 import { defineEventHandler } from 'h3'
 import type { NuxtError } from 'nuxt/app'
@@ -75,7 +76,7 @@ describe('a route’s Known errors, as they arrive', () => {
     }>()
   })
 
-  it('keeps each member of a union output its own variant', () => {
+  it('keeps each member of a union input its own variant', () => {
     expectTypeOf<Variant<'order-held'>>().toEqualTypeOf<
       | { _tag: 'order-held'; by: 'user'; userId: string }
       | { _tag: 'order-held'; by: 'system' }
@@ -96,6 +97,78 @@ describe('a route’s Known errors, as they arrive', () => {
       readonly id: number
       readonly at: string
     }>()
+  })
+
+  it('carries an Error subclass’s own fields alone, method or none', () => {
+    // `name`, `message`, `stack` and `cause` are own but not enumerable on an
+    // `Error`, so the boundary never sends them, whether or not the class
+    // has a method.
+    class CodeError extends Error {
+      code = 1
+    }
+    class FormattedError extends Error {
+      code = 1
+      format(): string {
+        return this.message
+      }
+    }
+    type Sent = Wire<
+      KnownErrorsOf<{
+        'code-error': {
+          status: 400
+          schema: StandardSchemaV1<CodeError>
+        }
+        'formatted-error': {
+          status: 400
+          schema: StandardSchemaV1<FormattedError>
+        }
+      }>
+    >
+
+    expectTypeOf<Extract<Sent, { _tag: 'code-error' }>>().toEqualTypeOf<{
+      _tag: 'code-error'
+      code: number
+    }>()
+    expectTypeOf<Extract<Sent, { _tag: 'formatted-error' }>>().toEqualTypeOf<{
+      _tag: 'formatted-error'
+      code: number
+    }>()
+  })
+
+  it('keeps a `name` and a `message` beside a method on a plain record', () => {
+    // An object of fields is not an `Error`, however much it looks like one:
+    // both keys are its own enumerable data, and only the method stays home.
+    type Sent = Wire<
+      KnownErrorsOf<{
+        'order-formatted': {
+          status: 400
+          schema: StandardSchemaV1<{
+            name: string
+            message: string
+            format: () => string
+          }>
+        }
+      }>
+    >
+
+    expectTypeOf<Sent>().toEqualTypeOf<{
+      _tag: 'order-formatted'
+      name: string
+      message: string
+    }>()
+  })
+
+  it('carries a transforming schema’s input, which fail takes and the boundary sends', () => {
+    // The schema parses `id` to a number, but nothing runs it on the way
+    // out: what is thrown, and so what arrives, is the input.
+    const _transforming = z.object({ id: z.string().transform(Number) })
+    type Sent = Wire<
+      KnownErrorsOf<{
+        'order-parsed': { status: 400; schema: typeof _transforming }
+      }>
+    >
+
+    expectTypeOf<Sent>().toEqualTypeOf<{ _tag: 'order-parsed'; id: string }>()
   })
 
   it('reads the tag alone from an untyped schema, rather than collapsing to any', () => {

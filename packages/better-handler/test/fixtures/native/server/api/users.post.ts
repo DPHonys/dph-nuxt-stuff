@@ -10,7 +10,10 @@ export default defineBetterEventHandler(
         { name: string; age: string },
         { name: string; age: number }
       >(),
-      query: [schema<{ team: string }>(), schema<{ page?: number }>()],
+      query: [
+        schema<{ team: string }>(),
+        schema<{ page?: string | number }, { page?: number }>(),
+      ],
     },
     errors: { forbidden: { status: 403 } },
   },

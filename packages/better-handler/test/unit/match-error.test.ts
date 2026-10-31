@@ -166,6 +166,69 @@ describe('matchError on a fetched NuxtError', () => {
     })
   })
 
+  it('reads the response’s status through an error wrapping ofetch’s', async () => {
+    const thrown = await createFetch({
+      fetch: async () => new Response('down', { status: 503 }),
+    })('http://test.local/api/test').catch((cause: Error) => cause)
+    const error = createError({ statusCode: 500, cause: thrown })
+    const { arms, fallback } = spies()
+
+    matchError(error, arms, fallback)
+
+    expect(arms['request-failed']).toHaveBeenCalledExactlyOnceWith({
+      _tag: 'request-failed',
+      status: 503,
+      cause: error,
+    })
+  })
+
+  it.each([
+    ['a timeout', new DOMException('The operation timed out.', 'TimeoutError')],
+    [
+      'an Error named AbortError',
+      Object.assign(new Error('aborted'), { name: 'AbortError' }),
+    ],
+  ])(
+    'gives the request-failed arm no status for %s wrapped as a 500',
+    (_, cause) => {
+      const error = createError({ statusCode: 500, cause })
+      const { arms, fallback } = spies()
+
+      matchError(error, arms, fallback)
+
+      expect(arms['request-failed']).toHaveBeenCalledExactlyOnceWith({
+        _tag: 'request-failed',
+        status: undefined,
+        cause: error,
+      })
+    }
+  )
+
+  it.each([
+    ['a plain Error cause', new Error('connection reset')],
+    [
+      'a cause with a status of its own',
+      Object.assign(new Error('deadlock'), { status: 503 }),
+    ],
+    ['a record cause', { code: 'ER_LOCK_DEADLOCK', statusCode: 503 }],
+  ])(
+    'gives the request-failed arm an error’s own status beside %s',
+    (_, cause) => {
+      // A cause a caller wrapped - the database error a route raised with -
+      // says nothing about a response.
+      const error = createError({ statusCode: 409, cause })
+      const { arms, fallback } = spies()
+
+      matchError(error, arms, fallback)
+
+      expect(arms['request-failed']).toHaveBeenCalledExactlyOnceWith({
+        _tag: 'request-failed',
+        status: 409,
+        cause: error,
+      })
+    }
+  )
+
   it('does not read a Tagged error at the depth a route raised it', () => {
     // That is the server recognizer's depth; on a client it is not a body.
     const { arms, fallback } = spies()
