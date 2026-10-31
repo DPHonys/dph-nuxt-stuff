@@ -218,7 +218,7 @@ async function validatedValueFor<Slot extends SourceSchemas>(
 
   // Projected before the door sees them: raw issues never leave this file.
   if (issues.length > 0)
-    onInvalid(step.source, projectIssues(step.source, issues))
+    onInvalid(step.source, projectIssues(step.source, issues, raw))
 
   if (unreportedAt !== undefined) {
     throw developerFault(
