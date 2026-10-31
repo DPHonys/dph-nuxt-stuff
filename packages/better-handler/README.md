@@ -169,7 +169,7 @@ export default defineBetterEventHandler(
 )
 ```
 
-The handler must return the schema's output type, and the route answers `200` whatever status the handler or a middleware set before.
+The handler must return the schema's input type, the value the development check validates and the wire carries: a schema that transforms `string` into `Date` takes the `string`. The route answers `200` whatever status the handler or a middleware set before.
 
 **The map form** maps a status to a schema, or to `null` for a status with no body, and the handler answers through the Respond helper:
 
@@ -197,7 +197,7 @@ export default defineBetterEventHandler(
 - **A `200` with no body stays `200`.** A map's `200: null`, or a bare form whose schema admits `null` and whose handler returns `null`, answers `200` with no body and no `content-type`, not h3's `204`.
 - **A map key is a status in plain decimal, from `100` to `599`**, and each value a Standard Schema or `null`; anything else is refused at declaration.
 - **Nothing runs the output schema in production.** The handed-over value is sent as it is. A development server asserts it against the schema and discards the result, so both send the same bytes; see [Development checks](#development-checks).
-- **The client receives the schemas' output types as JSON carries them** (a `Date` arrives as a `string`): the bare schema's type, or the union of the map's bodies, `null` for a bodiless status. A route without `output` is typed by what its handler returns, as any Nitro handler is.
+- **The client receives the schemas' input types as JSON carries them** (a `Date` input still arrives as a `string`): the bare schema's input type, or the union of the map's bodies, `null` for a bodiless status. What the handler hands over is what goes out, so a transform's output is never sent or typed. A route without `output` is typed by what its handler returns, as any Nitro handler is.
 
 ### `errors`
 
@@ -221,7 +221,7 @@ export default defineBetterEventHandler(
 - **A tag is any non-empty string literal**, written as a string key; a numeric key is refused. The package's own tags are kebab-case; yours need not be.
 - **`validation-failed` and `request-failed` are reserved** for the package's built-in variants. Declaring either is a compile error and a declaration-time throw, on every route.
 - **`status` is an integer from `400` to `599`.** Two tags may share a status.
-- **`schema`, when given, is a Standard Schema describing the fields beside `_tag`.** Its output must be an object of fields. If the output carries a `_tag` literal, it must equal the key. A field holding a `bigint` or a `symbol`, at any depth, is refused, since the fields go out as JSON. A tag declared without a schema is typed as the tag alone, and `fail` gives it no fields.
+- **`schema`, when given, is a Standard Schema describing the fields beside `_tag`.** Its input must be an object of fields. If the input carries a `_tag` literal, it must equal the key. A field holding a `bigint` or a `symbol`, at any depth, is refused, since the fields go out as JSON. A tag declared without a schema is typed as the tag alone, and `fail` gives it no fields.
 - **An entry takes `status` and `schema` and nothing else.** Any other key is refused.
 - **A route with `errors` gets the Fail helper**; one without has none.
 
@@ -246,7 +246,7 @@ export const commonErrors = {
 
 A Known error is a failure a route declares. It goes out with its declared status and the Tagged error, `{ _tag, ...fields }`, as the body's `data`. There are two ways to raise one.
 
-**The Fail helper.** `fail(tag, fields)` pairs a declared tag with the fields its schema describes, at compile time, exactly as `respond` pairs a status with its body. A tag declared without a schema takes no fields: `fail('order-locked')`. It returns an `Error` carrying `_tag` and the fields, so there is a stack trace; the handler `throw`s it.
+**The Fail helper.** `fail(tag, fields)` pairs a declared tag with the fields its schema describes, at compile time, exactly as `respond` pairs a status with its body. The fields are the schema's input, which is what the wire carries and the development check validates: for a schema that transforms `{ id: string }` into `{ id: number }`, `fail` takes `{ id: string }`, and so does the client's variant. A tag declared without a schema takes no fields: `fail('order-locked')`. It returns an `Error` carrying `_tag` and the fields, so there is a stack trace; the handler `throw`s it.
 
 ```ts
 if (!order) throw fail('order-not-found', { id: route.id })
@@ -386,7 +386,7 @@ async function invoiceTotal(): Promise<number | undefined> {
 
 `.try` resolves to `{ data, error: undefined }` or `{ data: undefined, error }`; checking `error` narrows `data`. `error` is exhaustive on `_tag`:
 
-- **each Known error the route declares for that method**, `{ _tag, ...fields }`, the fields being the schema's output as JSON carries it;
+- **each Known error the route declares for that method**, `{ _tag, ...fields }`, the fields being the schema's input as JSON carries it, the same input `fail` takes;
 - **`validation-failed`**, `{ _tag: 'validation-failed', issues }`, on a route that declares `input`;
 - **`request-failed`**, `{ _tag: 'request-failed', status: number | undefined, cause: NuxtError }`, for every other failure: a network error, an abort, a status nobody declared, a body that carries no Tagged error. `status` is the response's, `undefined` when no response arrived; `cause` is the failure as a `NuxtError`.
 
@@ -551,7 +551,7 @@ ErrorDeclarationError<"request-failed is reserved for the built-in variant - ren
 ErrorDeclarationError<"an error tag must be a non-empty string">
 ErrorDeclarationError<"an error tag must be one string literal">
 ErrorDeclarationError<"an error tag must be a string key - quote a numeric one">
-ErrorDeclarationError<"the schema's output has _tag order-missing, which must equal the tag order-not-found">
+ErrorDeclarationError<"the schema's input has _tag order-missing, which must equal the tag order-not-found">
 ErrorDeclarationError<"the schema must describe an object of fields beside _tag">
 ErrorDeclarationError<"payload is not an error entry key - an entry takes status and schema">
 ErrorDeclarationError<"the status must be an integer from 400 to 599, not 302">

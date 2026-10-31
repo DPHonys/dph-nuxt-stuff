@@ -14,7 +14,7 @@ The first design declared errors with a `defineError(tag, { status, payload })` 
 
 - **A map is the declaration and the lookup at once.** The tag is the key, so a route's union is the map's keys, and nothing derives a factory name from a tag.
 - **Reuse and narrowing are the language's own.** Reuse is object spread and narrowing is `Pick`, so there is no group type, no selection method and no conflict guard: two declarations of one tag are an ordinary later-key-wins merge. `defineError` survives only as sugar that checks one entry where it is written and returns a one-key map to spread.
-- **The schema is the fields.** An entry's optional `schema` describes the fields beside `_tag`; there is no separate payload concept. A schema that also carries a `_tag` literal must agree with the key, which is what lets an Effect error class's own schema be the declaration.
+- **The schema is the fields.** An entry's optional `schema` describes the fields beside `_tag`; there is no separate payload concept. A schema that also carries a `_tag` literal must agree with the key, which is what lets an Effect error class's own schema be the declaration. The fields are the schema's input, for `fail`, the guards and the client alike: the wire carries the fields as they were thrown and the development check validates that thrown value, so a transforming schema's output is never raised, sent or typed.
 - **Statuses are free.** A status is any integer from 400 to 599, and two tags may share one: the tag, not the status, says which failure it is.
 
 ## Why `_tag`

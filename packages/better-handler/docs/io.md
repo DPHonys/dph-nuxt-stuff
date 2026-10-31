@@ -37,7 +37,7 @@ The first design sent the issues twice, at `data.issues` and inside the marker, 
 
 ## Why `output` is an assertion
 
-`output` declares what a route answers: one schema for a plain `200`, or a map from status to schema with `null` for a bodiless status, answered through `respond(status, value)`. The client is typed from the schemas' output types, as JSON carries them.
+`output` declares what a route answers: one schema for a plain `200`, or a map from status to schema with `null` for a bodiless status, answered through `respond(status, value)`. The handler hands over, and the client is typed from, the schemas' input types, as JSON carries them: the development check validates the handed-over value and production sends it as it is, so the input is the only type both the check and the wire agree on. A transform's output is never sent.
 
 Production runs nothing on the response; a development server validates the handed-over value and discards the result. A schema that would strip or coerce on the way out therefore does neither, and the development server sends the bytes production sends. Declare a schema that describes the value, not one that repairs it. See [the error model](./errors.md#why-the-checks-are-development-only) for why every check is development-only.
 
