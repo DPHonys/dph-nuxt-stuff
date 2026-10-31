@@ -89,6 +89,25 @@ describe('a thrown value whose _tag the route declares', () => {
     expect(thrown.statusMessage).toBeUndefined()
   })
 
+  it('keeps the thrown value as its cause, so an error hook sees the raising line', async () => {
+    let failed: Error | undefined
+    const route = defineBetterEventHandler(
+      { errors: orderErrors },
+      (_event, { fail }) => {
+        failed = fail('order-not-found', { id: 7 })
+        throw failed
+      }
+    )
+
+    const { response, thrown } = await answer(route)
+
+    expect(response.status).toBe(404)
+    expect(thrown.cause).toBe(failed)
+    expect(failed?.stack).toContain('define-better-event-handler.test.ts')
+    // h3 never sends a cause: the body is the same as without one.
+    expect(await dataOf(response)).toEqual({ _tag: 'order-not-found', id: 7 })
+  })
+
   it('carries the tag alone for an error declared without a schema', async () => {
     const route = defineBetterEventHandler(
       { errors: orderErrors },

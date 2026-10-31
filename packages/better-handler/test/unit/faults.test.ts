@@ -82,6 +82,21 @@ describe('the h3 construction seam', () => {
       unhandled: false,
     })
   })
+
+  it('keeps a cause for an error hook, and never sends it', async () => {
+    const cause = new Error('raised here')
+    let seen: H3Error | undefined
+    const handler = makeEventHandler(() => {
+      throw httpError({ status: 409, message: 'order-locked', cause })
+    })
+
+    const response = await request(handler, '/api/test', {
+      onError: (error) => void (seen = error),
+    })
+
+    expect(seen?.cause).toBe(cause)
+    expect(await response.json()).toEqual({ statusCode: 409, stack: [] })
+  })
 })
 
 describe('a declaration fault', () => {

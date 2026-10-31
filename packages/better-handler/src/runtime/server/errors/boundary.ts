@@ -135,9 +135,9 @@ function refuseUndeclaredTag(
 /**
  * Answer what a route's body threw, by throwing in its place: the Known error
  * a declared tag names, built through the h3 seam with the declared status,
- * the tag as its `message` and the Tagged error as its `data`; or the thrown
- * value itself, untouched. Status always comes from the declaration, never
- * from the thrown value.
+ * the tag as its `message`, the Tagged error as its `data` and the thrown
+ * value as its `cause`; or the thrown value itself, untouched. Status always
+ * comes from the declaration, never from the thrown value.
  */
 export async function answerThrown<Thrown>(
   event: H3Event,
@@ -163,5 +163,12 @@ export async function answerThrown<Thrown>(
 
   if (devChecksEnabled()) await checkFields(event, entry, fields, tagged)
 
-  throw httpError({ status: entry.status, message: tag, data: tagged })
+  // The thrown value rides along as the cause, so an error hook or a
+  // reporter sees the stack of the line that raised it, not this one's.
+  throw httpError({
+    status: entry.status,
+    message: tag,
+    data: tagged,
+    cause: thrown,
+  })
 }
