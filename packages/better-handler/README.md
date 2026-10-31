@@ -4,7 +4,7 @@ Declare a Nitro handler's request schemas, response schema and expected failures
 
 <!-- TODO: Replace this placeholder with the package's usage documentation before publishing. -->
 
-The package is under construction and private: it installs, takes its one option, and does nothing else yet.
+The package is under construction and private: it installs, takes its one option, and auto-imports `defineError` on the server. Nothing else is wired up yet.
 
 ## Compatibility
 

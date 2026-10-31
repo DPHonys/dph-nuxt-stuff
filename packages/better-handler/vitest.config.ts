@@ -15,11 +15,15 @@ export default defineConfig({
       {
         test: {
           name: 'types',
-          // Compiler assertions only: `expectTypeOf` under `tsc`, never run.
-          include: [],
+          // Two kinds of compiler assertion: `expectTypeOf` under `tsc` in
+          // the `*.spec-d.ts` files, never run, and the `*.test.ts` files that
+          // compile a fixture through the harness and read its diagnostics.
+          include: ['test/types/**/*.test.ts'],
+          // Each harness file compiles a real TypeScript program, which a
+          // loaded CI runner stretches well past vitest's 5s default.
+          testTimeout: 60_000,
           typecheck: {
             enabled: true,
-            only: true,
             include: ['test/types/**/*.spec-d.ts'],
             tsconfig: './tsconfig.json',
           },

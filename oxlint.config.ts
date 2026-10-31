@@ -59,6 +59,16 @@ export default defineConfig({
   },
   overrides: [
     {
+      // better-handler's shape tests, the one module that turns a value nothing
+      // has typed into a narrowed one. The spec keeps zod out of the runtime,
+      // so these are `typeof` checks; each sits inside a type predicate, which
+      // is the boundary the rule asks for.
+      files: ['packages/better-handler/src/runtime/shared/guards.ts'],
+      rules: {
+        'anti-slop/no-runtime-typeof': ['error', { allowInTypeGuards: true }],
+      },
+    },
+    {
       files: ['**/*.vue'],
       rules: {
         'import/first': 'off',
