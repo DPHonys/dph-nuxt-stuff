@@ -39,9 +39,23 @@ describe('a developer fault', () => {
       statusCode: 500,
       message: '[better-handler] a mistake.',
       data: undefined,
-      fatal: false,
-      unhandled: false,
     })
+  })
+
+  it('is an unhandled server error, so Nitro logs it and a production client gets a generic 500', async () => {
+    // A bug, not a failure the route declares: `unhandled` is what Nitro's
+    // error handlers read to log the error with its stack, and to send a
+    // production client `Server Error` instead of the message.
+    let seen: H3Error | undefined
+    const handler = makeEventHandler(() => {
+      throw developerFault('a mistake.')
+    })
+
+    await request(handler, '/api/test', {
+      onError: (error) => void (seen = error),
+    })
+
+    expect(seen).toMatchObject({ unhandled: true, fatal: false })
   })
 })
 

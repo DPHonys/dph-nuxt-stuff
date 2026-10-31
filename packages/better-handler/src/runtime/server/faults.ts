@@ -15,9 +15,17 @@ const PREFIX = '[better-handler]'
  * A mistake found while a request is served: a plain `500` carrying the
  * sentence, built through the h3 seam. It has no `data`, so it never carries
  * a `_tag` and `recognizeKnownError` never answers for a bug.
+ *
+ * Unhandled, as any server bug is: Nitro logs it with its stack in
+ * development and production alike, a development client reads the sentence,
+ * and a production client gets Nitro's generic `500` without it.
  */
 export function developerFault(message: string): H3Error {
-  return httpError({ status: 500, message: `${PREFIX} ${message}` })
+  return httpError({
+    status: 500,
+    message: `${PREFIX} ${message}`,
+    unhandled: true,
+  })
 }
 
 /**

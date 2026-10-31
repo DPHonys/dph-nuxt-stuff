@@ -38,22 +38,32 @@ export interface HttpErrorInput<Data> {
   readonly message: string
   /** The error's `data`, sent as the body's `data`; absent when omitted. */
   readonly data?: Data
+  /**
+   * Whether the error is a server bug rather than an answer: Nitro logs an
+   * unhandled error with its stack, and a production server sends its client
+   * a generic `500` without the `message` or `data`. Defaults to `false`.
+   */
+  readonly unhandled?: boolean
 }
 
 /**
  * Every HTTP error the package constructs: a Known error, whose `message` is
  * its tag and whose `data` is the tagged object, and a developer fault, which
- * has no `data`.
+ * has no `data` and is `unhandled`.
  *
  * `statusMessage` is never set: h3 copies it into a server-to-server fetch's
- * error untouched, so nothing of ours may ride the reason phrase. `fatal` and
- * `unhandled` are left at h3's `false`, so a production server still sends
- * `message` and `data`, and Nuxt never escalates the error to its error page.
+ * error untouched, so nothing of ours may ride the reason phrase. `fatal` is
+ * left at h3's `false`, and so is `unhandled` unless asked for, so a
+ * production server still sends a Known error's `message` and `data`.
  */
 export function httpError<Data>(input: HttpErrorInput<Data>): H3Error<Data> {
-  return createError<Data>(
-    input.data === undefined
-      ? { statusCode: input.status, message: input.message }
-      : { statusCode: input.status, message: input.message, data: input.data }
-  )
+  const fields: Partial<H3Error<Data>> = {
+    statusCode: input.status,
+    message: input.message,
+  }
+
+  if (input.data !== undefined) fields.data = input.data
+  if (input.unhandled === true) fields.unhandled = true
+
+  return createError<Data>(fields)
 }
