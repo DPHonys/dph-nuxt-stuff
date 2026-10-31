@@ -128,10 +128,12 @@ before publishing missing package versions through npm trusted publishing.
   land as a `Vitest` check with the junit summary.
   One more job, `floor` (**Nuxt 4.0 floor**), tests the bottom of the Nuxt
   range `@dphonys/better-handler` claims: it installs `nuxt`, `@nuxt/kit` and
-  `@nuxt/schema` 4.0.x and must pass. It runs `pnpm typecheck` and
-  `pnpm test` against them with `@dphonys/scaffolder` filtered out: the
-  Scaffolder's acceptance test requires a generated package to resolve at
-  least the Nuxt that package claims, which the floor's overrides break on
+  `@nuxt/schema` 4.0.x and must pass. It runs `pnpm typecheck`, which
+  typechecks everything, and the tests of every package under `packages/`
+  (`turbo run test --filter='./packages/*'`) against them. The `scaffolder`,
+  `release/*` and `tools/*` suites test repository tooling, not a Nuxt range,
+  and the Scaffolder's acceptance test requires a generated package to resolve
+  at least the Nuxt that package claims, which the floor's overrides break on
   purpose.
 
   The job passes `.github/compat/floor.json` to the setup action as
