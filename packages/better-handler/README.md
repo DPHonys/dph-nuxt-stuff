@@ -532,7 +532,7 @@ Every Nuxt 4 (`>=4.0.0 <5.0.0`).
 
 Every feature works identically from Nuxt 4.0.0 up, with one additive layer on 4.6 and later: Nuxt's own `$fetch` and `useFetch` type `body` and `query` on this package's routes when the app turns `experimental.routeTypedFetch` on. Nothing else depends on the Nuxt version. Nuxt 5 support is planned as an adapter, not yet built.
 
-CI holds that range at both edges. The default jobs install the committed lockfile, which pins the latest 4.x. On every push to `main` and every pull request, the `Nuxt 4.0 floor` job also runs this package's typecheck and tests with `nuxt`, `@nuxt/kit` and `@nuxt/schema` 4.0.x installed in their place, without changing the committed lockfile, and must pass.
+CI holds that range at both edges. The default jobs install the committed lockfile, which pins the latest 4.x. On every push to `main` and every pull request into `main`, the `Nuxt 4.0 floor` job also runs this package's typecheck and tests with `nuxt`, `@nuxt/kit` and `@nuxt/schema` 4.0.x installed in their place, without changing the committed lockfile, and must pass.
 
 - **The generated type map** augments `@dphonys/better-handler/types` from `.nuxt/types/better-handler.d.ts`. Nothing is hoisted and no tsconfig is edited: the package's `exports` resolves the specifier from every generated tsconfig.
 - **The route ceiling.** The family's types read responses through Nitro's route types (`InternalApi`), on which a call site hits `TS2589` somewhere between 176 and 201 routes, as vanilla `$fetch` does on that engine. The ceiling is accepted; it lifts with the Nuxt 5 adapter, which reads Nuxt's generated route engine.

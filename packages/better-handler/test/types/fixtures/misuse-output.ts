@@ -11,6 +11,14 @@ import { defineBetterEventHandler } from '../../../src/runtime/server'
 const existing = z.object({ id: z.string() })
 const created = z.object({ id: z.string(), createdAt: z.string() })
 
+/** A receipt whose `at` is a string on the wire and a `Date` once parsed. */
+const receipt = z.object({
+  id: z.string(),
+  at: z.string().transform((at) => new Date(at)),
+})
+
+declare const isNew: boolean
+
 // --- the Respond helper's pairings ------------------------------------------
 
 export const undeclaredStatus = defineBetterEventHandler(
@@ -31,6 +39,21 @@ export const valueOnBodilessStatus = defineBetterEventHandler(
 export const missingValue = defineBetterEventHandler(
   { output: { 200: existing, 204: null } },
   (_event, { respond }) => respond(200)
+)
+
+export const missingNullBody = defineBetterEventHandler(
+  { output: { 200: existing, 201: z.null() } },
+  (_event, { respond }) => respond(201)
+)
+
+export const unionStatus = defineBetterEventHandler(
+  { output: { 200: existing, 201: created } },
+  (_event, { respond }) => respond(isNew ? 201 : 200, { id: '1' })
+)
+
+export const unionBodilessStatus = defineBetterEventHandler(
+  { output: { 204: null, 205: null } },
+  (_event, { respond }) => respond(isNew ? 204 : 205)
 )
 
 // --- a plain return where the map asks for the helper -----------------------
@@ -62,6 +85,23 @@ export const respondWithoutOutput = defineBetterEventHandler(
 export const wrongBareReturn = defineBetterEventHandler(
   { output: existing },
   () => ({ id: 1 })
+)
+
+export const transformedBareReturn = defineBetterEventHandler(
+  { output: receipt },
+  () => ({ id: '1', at: new Date() })
+)
+
+// --- a status the map cannot declare ----------------------------------------
+
+export const failureStatus = defineBetterEventHandler(
+  { output: { 200: existing, 404: null } },
+  (_event, { respond }) => respond(200, { id: '1' })
+)
+
+export const serverErrorStatus = defineBetterEventHandler(
+  { output: { 500: existing } },
+  (_event, { respond }) => respond(500, { id: '1' })
 )
 
 // --- a declaration that declares nothing ------------------------------------

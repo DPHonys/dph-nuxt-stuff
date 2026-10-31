@@ -100,7 +100,7 @@ describe('per handler: the slot through Nuxt against our map', () => {
     >()
     expectTypeOf<NH<UsersPost, 'query'>>().toEqualTypeOf<{
       team: string
-      page?: number
+      page?: string | number
     }>()
   })
 

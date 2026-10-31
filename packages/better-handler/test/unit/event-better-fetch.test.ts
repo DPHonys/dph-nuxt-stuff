@@ -1,6 +1,7 @@
 import type { JsonValue } from '@dphonys/test-utils/json'
 import {
   createApp,
+  createEvent,
   createRouter,
   eventHandler,
   fetchWithEvent,
@@ -10,9 +11,11 @@ import {
   toWebHandler,
 } from 'h3'
 import type { H3Event } from 'h3'
+import { IncomingMessage, ServerResponse } from 'node:http'
+import { Socket } from 'node:net'
 import { createFetch } from 'ofetch'
 import type { $Fetch } from 'ofetch'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineBetterEventHandler } from '../../src/runtime/server'
 import {
@@ -24,16 +27,22 @@ import type {
   EventFetchSlots,
   RawEventFetch,
 } from '../../src/runtime/server/event-better-fetch'
+import { eventPrototype } from '../../src/runtime/shared/h3'
 
 // `event.$betterFetch` without a Nuxt boot: a real h3 app whose relaying
 // handler gives its event the `$fetch` Nitro gives every event - h3's
-// `fetchWithEvent` over the global `$fetch` - and installs the wrapper as the
-// `request` hook does. Every header below is one the callee received after
+// `fetchWithEvent` over the global `$fetch` - and reads the wrapper off h3's
+// event prototype, where the Nitro plugin installs it before any request.
+// Every header below is one the callee received after
 // h3's merge, which spreads the caller's headers over the incoming request's:
 // asserting on the value handed to `event.$fetch` would read a `Headers`
 // instance, which spreads to nothing, as a pass.
 
 const ORIGIN = 'http://test.local'
+
+beforeAll(() => {
+  installEventBetterFetch(eventPrototype())
+})
 
 /** How a call settled: what it threw, or what it resolved to. */
 type Settled<T> =
@@ -108,7 +117,7 @@ async function relayed<T>(
       '/relay',
       eventHandler((event) => {
         // What Nitro's request handling assigns before the `request` hook,
-        // assigned through the installer's own view of the event.
+        // assigned through the getter's own view of the event.
         const slots: EventFetchSlots = event
 
         slots.$fetch = (request: string | Request, init?: RequestInit) =>
@@ -116,7 +125,6 @@ async function relayed<T>(
             fetch: (input: RequestInfo | URL, opts?: VanillaInit) =>
               vanilla(input instanceof URL ? input.href : input, opts),
           })
-        installEventBetterFetch(event)
 
         return run(event)
       })
@@ -245,15 +253,79 @@ describe('the instance', () => {
 
     expect(Object.keys(better)).toEqual(['try'])
   })
+})
 
-  it('is installed on the event, reading event.$fetch on every call', async () => {
-    const slots: EventFetchSlots = {}
+/** An event through the getter's view of `$fetch`, and as h3 types the rest. */
+type MadeEvent = Omit<EventFetchSlots, '$betterFetch'> &
+  Pick<H3Event, '$betterFetch'>
 
-    installEventBetterFetch(slots)
+/**
+ * An event made as Nitro makes a cached handler's: by h3's `createEvent`,
+ * past every hook, its `$fetch` assigned by hand.
+ */
+function madeEvent(): MadeEvent {
+  const request = new IncomingMessage(new Socket())
 
-    slots.$fetch = echoPath
+  return createEvent(request, new ServerResponse(request))
+}
 
-    expect(await slots.$betterFetch?.('/api/later')).toBe('/api/later')
+describe('the getter on h3’s event prototype', () => {
+  it('reaches an event made after it was installed, by whoever made it', async () => {
+    const event = madeEvent()
+
+    event.$fetch = echoPath
+
+    expect(await event.$betterFetch('/api/cached')).toBe('/api/cached')
+  })
+
+  it('builds one instance per event, on the first read, and keeps it', () => {
+    const event = madeEvent()
+
+    expect(event.$betterFetch).toBe(event.$betterFetch)
+    expect(madeEvent().$betterFetch).not.toBe(event.$betterFetch)
+  })
+
+  it('reads the event’s own $fetch on every call, not when it is read', async () => {
+    const event = madeEvent()
+    const better = event.$betterFetch
+
+    event.$fetch = echoPath
+
+    expect(await better('/api/later')).toBe('/api/later')
+  })
+
+  it('keeps the version-skew error for an event with no $fetch', async () => {
+    const result = await settled(() => madeEvent().$betterFetch('/api/x'))
+
+    expect(result).toEqual({
+      threw: true,
+      value: expect.any(EventFetchUnavailableError),
+    })
+  })
+
+  it('takes an assignment, as the plain member it is typed as', () => {
+    const event = madeEvent()
+    const own = createEventBetterFetch(() => echoPath)
+
+    event.$betterFetch = own
+
+    expect(event.$betterFetch).toBe(own)
+    expect(madeEvent().$betterFetch).not.toBe(own)
+  })
+
+  it('installs once: a second install keeps the first getter', () => {
+    const prototype = {}
+
+    installEventBetterFetch(prototype)
+
+    const first = Object.getOwnPropertyDescriptor(prototype, '$betterFetch')
+
+    installEventBetterFetch(prototype)
+
+    expect(Object.getOwnPropertyDescriptor(prototype, '$betterFetch')).toEqual(
+      first
+    )
+    expect(first?.get).toBeTypeOf('function')
   })
 })
 

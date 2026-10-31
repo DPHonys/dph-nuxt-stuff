@@ -772,7 +772,7 @@ describe('any Standard Schema', () => {
     // reason: read as a success it invents a value, read as a failure it
     // sends a validation failure with nothing in it.
     const handler = defineBetterEventHandler(
-      { input: { query: schemaReturning<{ page: number }>({ issues: [] }) } },
+      { input: { query: schemaReturning<{ page: string }>({ issues: [] }) } },
       (_event, { query }) => ({ received: query })
     )
 
@@ -852,6 +852,98 @@ describe('the projected issues', () => {
         path: ['user', 0, 'Symbol(secret)'],
       },
       { source: 'query', message: 'A pathless issue', path: [] },
+    ])
+  })
+
+  it('carry no raw request value inside a message, valibot’s default included', async () => {
+    // valibot's default message ends `but received "<the value>"`: here the
+    // credential a client sent, bound for the 400 body and every error hook.
+    const handler = defineBetterEventHandler(
+      {
+        input: {
+          headers: v.object({
+            authorization: v.pipe(v.string(), v.regex(/^Bearer [a-z]+$/)),
+          }),
+        },
+      },
+      () => 'the Handler never runs'
+    )
+
+    const init = { headers: { Authorization: 'Bearer S3cr3t!' } }
+    const response = await request(handler, '/api/test', { init })
+    const body = await response.text()
+
+    expect(body).not.toContain('S3cr3t')
+    await expect(
+      validationFailedBodyOf(new Response(body))
+    ).resolves.toMatchObject({
+      data: {
+        issues: [
+          {
+            source: 'headers',
+            message:
+              'Invalid format: Expected /^Bearer [a-z]+$/ but received <redacted>',
+            path: ['authorization'],
+          },
+        ],
+      },
+    })
+
+    // What an error hook or a logger reading `data.issues` sees.
+    const { thrown } = await requestReporting(handler, '/api/test', { init })
+
+    expect(JSON.stringify(thrown.data)).not.toContain('S3cr3t')
+  })
+
+  it('carry no raw value an issue without `input` names, read at its path', async () => {
+    // A hand-written schema whose message interpolates what it was given,
+    // with no vendor `input` to say which value that was.
+    const handler = defineBetterEventHandler(
+      {
+        input: {
+          query: schemaReturning({
+            issues: [
+              {
+                message: 'token=hunter2 is not a token; got "token=hunter2"',
+                path: ['token'],
+              },
+            ],
+          }),
+        },
+      },
+      () => 'the Handler never runs'
+    )
+
+    const response = await request(handler, '/api/test?token=token%3Dhunter2')
+
+    expect((await validationFailedBodyOf(response)).data.issues).toEqual([
+      {
+        source: 'query',
+        message: '<redacted> is not a token; got <redacted>',
+        path: ['token'],
+      },
+    ])
+  })
+
+  it('keep the rest of the message, words that merely contain the value included', async () => {
+    // `x` sits inside `Expected`: only the value itself is replaced.
+    const handler = defineBetterEventHandler(
+      {
+        input: {
+          query: v.object({ page: v.pipe(v.string(), v.regex(/^\d+$/)) }),
+        },
+      },
+      () => 'the Handler never runs'
+    )
+
+    const response = await request(handler, '/api/test?page=x')
+
+    expect((await validationFailedBodyOf(response)).data.issues).toEqual([
+      {
+        source: 'query',
+        message: 'Invalid format: Expected /^\\d+$/ but received <redacted>',
+        path: ['page'],
+      },
     ])
   })
 

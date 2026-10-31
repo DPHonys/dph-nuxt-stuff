@@ -39,9 +39,23 @@ describe('a developer fault', () => {
       statusCode: 500,
       message: '[better-handler] a mistake.',
       data: undefined,
-      fatal: false,
-      unhandled: false,
     })
+  })
+
+  it('is an unhandled server error, so Nitro logs it and a production client gets a generic 500', async () => {
+    // A bug, not a failure the route declares: `unhandled` is what Nitro's
+    // error handlers read to log the error with its stack, and to send a
+    // production client `Server Error` instead of the message.
+    let seen: H3Error | undefined
+    const handler = makeEventHandler(() => {
+      throw developerFault('a mistake.')
+    })
+
+    await request(handler, '/api/test', {
+      onError: (error) => void (seen = error),
+    })
+
+    expect(seen).toMatchObject({ unhandled: true, fatal: false })
   })
 })
 
@@ -82,6 +96,21 @@ describe('the h3 construction seam', () => {
       unhandled: false,
     })
   })
+
+  it('keeps a cause for an error hook, and never sends it', async () => {
+    const cause = new Error('raised here')
+    let seen: H3Error | undefined
+    const handler = makeEventHandler(() => {
+      throw httpError({ status: 409, message: 'order-locked', cause })
+    })
+
+    const response = await request(handler, '/api/test', {
+      onError: (error) => void (seen = error),
+    })
+
+    expect(seen?.cause).toBe(cause)
+    expect(await response.json()).toEqual({ statusCode: 409, stack: [] })
+  })
 })
 
 describe('a declaration fault', () => {
@@ -106,7 +135,9 @@ describe('describeValue', () => {
     [() => 1, 'a function'],
     [Order, 'a function'],
     [42, 'the primitive 42'],
-    ['text', 'the primitive text'],
+    ['text', 'the string "text"'],
+    ['400', 'the string "400"'],
+    [400, 'the primitive 400'],
     [true, 'the primitive true'],
     [new Order(), 'an instance of Order'],
     [new Date(0), 'an instance of Date'],
