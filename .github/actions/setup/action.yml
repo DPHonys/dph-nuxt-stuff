@@ -16,16 +16,23 @@ runs:
   using: composite
   steps:
     - uses: pnpm/action-setup@v4
+    # The pnpm store cache is keyed on the committed lockfile. An install
+    # against compatibility settings resolves a different tree, so it neither
+    # restores nor saves that cache; an empty `cache` turns caching off.
     - uses: actions/setup-node@v4
       with:
         node-version-file: .nvmrc
-        cache: pnpm
+        cache: ${{ inputs.compat-settings == '' && 'pnpm' || '' }}
+    # The Turborepo cache gets its own key namespace per install kind, so a
+    # compatibility install neither restores nor saves the default jobs'
+    # entries. Neither prefix is a prefix of the other, so neither restore
+    # key can match an entry from the other namespace.
     - uses: actions/cache@v4
       with:
         path: .turbo
-        key: turbo-${{ runner.os }}-${{ github.sha }}
+        key: turbo-${{ inputs.compat-settings == '' && 'default' || 'compat' }}-${{ runner.os }}-${{ github.sha }}
         restore-keys: |
-          turbo-${{ runner.os }}-
+          turbo-${{ inputs.compat-settings == '' && 'default' || 'compat' }}-${{ runner.os }}-
     - if: ${{ inputs.compat-settings == '' }}
       run: pnpm install --frozen-lockfile
       shell: bash
@@ -44,7 +51,14 @@ runs:
       shell: bash
       env:
         SETTINGS: ${{ inputs.compat-settings }}
+      # A failing `jq` inside the loop's `$(...)` does not stop the step, so
+      # without this check a missing or malformed file would install the
+      # committed tree and pass.
       run: |
+        if ! jq -e 'type == "object"' "$SETTINGS" >/dev/null; then
+          echo "::error file=${SETTINGS}::${SETTINGS} must exist and hold a JSON object."
+          exit 1
+        fi
         for key in $(jq -r 'keys[]' "$SETTINGS"); do
           if grep -q "^${key}:" pnpm-workspace.yaml; then
             echo "::error file=${SETTINGS}::pnpm-workspace.yaml already sets \`${key}\`; merge it into ${SETTINGS} instead."

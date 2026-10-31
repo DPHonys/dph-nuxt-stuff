@@ -20,6 +20,12 @@ const diagnostics = compileFixture(FIXTURE_TSCONFIG, FIXTURE)
 /** TS2322 - a value that does not fit the type it was written against. */
 const NOT_ASSIGNABLE = 2322
 
+/**
+ * TS2375 - TS2322 under `exactOptionalPropertyTypes`, which the fixtures'
+ * strictest config turns on: a lone schema refused at its source.
+ */
+const NOT_ASSIGNABLE_EXACT = 2375
+
 /** TS2339 - a property the type does not have. */
 const NO_SUCH_PROPERTY = 2339
 
@@ -36,6 +42,14 @@ const SENTENCES = {
     'schemas composed on one source must produce disjoint output keys - merge them in your schema library instead',
   primitive:
     'every schema composed on one source must produce an object output - not a primitive, an array or a function',
+  laterIndexSignature:
+    'only the first schema composed on one source may produce an index signature - put the passthrough, loose or record schema first, so the named outputs after it win the merge',
+  queryString:
+    'every query key must take a string as input, which is all a URL carries - read anything else through a coercing schema such as z.coerce.number()',
+  routeString:
+    'every route param must take a string as input, which is all a URL carries - read anything else through a coercing schema such as z.coerce.number()',
+  headerString:
+    'every header must take a string as input, which is all a request header carries - read anything else through a coercing schema such as z.coerce.number()',
   declareSomething: 'declare input, errors, output, or any combination',
 } as const
 
@@ -51,7 +65,7 @@ function at(needle: string): Diagnostic | undefined {
 
 describe('the input diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
-    expect(diagnostics).toHaveLength(9)
+    expect(diagnostics).toHaveLength(16)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -94,6 +108,24 @@ describe('a composed slot', () => {
     )
   })
 
+  it.each([
+    ['a zod passthrough', 'z.looseObject({ sort: z.string() })],'],
+    ['a valibot loose object', 'v.looseObject({ sort: v.string() })],'],
+    [
+      'a record between a named-key clash',
+      'z.record(z.string(), z.unknown()), paging],',
+    ],
+  ])('is refused when %s comes after the first element', (_, needle) => {
+    // A later passthrough re-emits the raw source over its siblings' named
+    // outputs in the later-wins merge: a coerced `page` back to its string.
+    const diagnostic = at(needle)
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(diagnostic?.message).toContain(
+      `InputDeclarationError<"${SENTENCES.laterIndexSignature}">`
+    )
+  })
+
   it('is refused when an element produces no object', () => {
     const diagnostic = at('body: [pagination, z.string()],')
 
@@ -102,6 +134,45 @@ describe('a composed slot', () => {
       `InputDeclarationError<"${SENTENCES.primitive}">`
     )
   })
+})
+
+describe('a source a URL or a header carries', () => {
+  it.each([
+    [
+      'a number query key',
+      'query: z.object({ page: z.number() }),',
+      NOT_ASSIGNABLE_EXACT,
+      'queryString',
+    ],
+    [
+      'a boolean route param',
+      'route: z.object({ draft:',
+      NOT_ASSIGNABLE_EXACT,
+      'routeString',
+    ],
+    [
+      'an object header',
+      "headers: z.object({ 'x-filter':",
+      NOT_ASSIGNABLE_EXACT,
+      'headerString',
+    ],
+    [
+      'a composed element’s number array',
+      'query: [sorting, z.object({ size:',
+      NOT_ASSIGNABLE,
+      'queryString',
+    ],
+  ] as const)(
+    'refuses %s at the source, pointing at a coercing schema',
+    (_, needle, code, sentence) => {
+      const diagnostic = at(needle)
+
+      expect(diagnostic?.code).toBe(code)
+      expect(diagnostic?.message).toContain(
+        `InputDeclarationError<"${SENTENCES[sentence]}">`
+      )
+    }
+  )
 })
 
 describe('a declaration that declares nothing', () => {

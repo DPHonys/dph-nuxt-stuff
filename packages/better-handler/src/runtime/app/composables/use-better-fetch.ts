@@ -54,13 +54,33 @@ function resolveHeadersInit(
   )
 }
 
+/** The request as vanilla types it: plain, through a ref or through a getter. */
+type RequestOption = Parameters<typeof useFetch>[0]
+
+// A `Request`'s own headers, or none for a path or a URL. Read by instance:
+// the request type read off vanilla's signature here admits no `Request`,
+// while its runtime, and `UseBetterFetch`, take one.
+function headersOfRequest<Resolved>(resolved: Resolved): Headers | undefined {
+  return resolved instanceof Request ? resolved.headers : undefined
+}
+
 // The family's flattened merge, read inside a `computed`, so vanilla's deep
-// watch on `headers` keeps tracking the caller's refs. A caller's own
-// `accept` wins.
-function withAcceptJson(headers: HeadersOption): ComputedRef<HeadersInit> {
-  return computed(() =>
-    flatHeadersAcceptingJson(resolveHeadersInit(toValue(headers)))
-  )
+// watch on `headers` keeps tracking the caller's refs. Seeded as ofetch seeds
+// its own, `input.headers ?? request.headers`: vanilla hands ofetch no
+// `headers` when the call passed none, so a `Request`'s own are sent then,
+// and a `headers` option replaces them. A caller's own `accept` wins, on the
+// option or on the `Request`.
+function withAcceptJson(
+  request: RequestOption,
+  headers: HeadersOption
+): ComputedRef<HeadersInit> {
+  return computed(() => {
+    const own = resolveHeadersInit(toValue(headers))
+
+    if (own !== undefined) return flatHeadersAcceptingJson(own)
+
+    return flatHeadersAcceptingJson(headersOfRequest(toValue(request)))
+  })
 }
 
 /**
@@ -77,7 +97,7 @@ export function wrapVanillaFetch<Result>(
 
     return vanilla(
       request,
-      { ...opts, headers: withAcceptJson(opts?.headers) },
+      { ...opts, headers: withAcceptJson(request, opts?.headers) },
       autoKey
     )
   }
