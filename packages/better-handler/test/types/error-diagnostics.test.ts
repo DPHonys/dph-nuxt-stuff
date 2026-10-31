@@ -63,7 +63,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(18)
+    expect(diagnostics).toHaveLength(21)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -185,6 +185,17 @@ describe('fail pairs a declared tag with its fields', () => {
     expect(at("fail('order-locked', { id: 7 })")).toMatchObject({
       code: WRONG_ARGUMENT_COUNT,
       message: 'Expected 1 arguments, but got 2.',
+    })
+  })
+
+  it.each([
+    ["failUntyped('untyped')", 'an untyped schema, whose output is any'],
+    ["failOptional('optional')", 'an entry typing its schema optional'],
+    ["failAnnotated('annotated')", 'an entry annotated as ErrorEntry'],
+  ])('requires the fields of %s, as the runtime does for %s', (needle) => {
+    expect(at(needle)).toMatchObject({
+      code: WRONG_ARGUMENT_COUNT,
+      message: 'Expected 2 arguments, but got 1.',
     })
   })
 

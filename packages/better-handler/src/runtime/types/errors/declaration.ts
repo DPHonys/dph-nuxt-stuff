@@ -51,11 +51,20 @@ export interface ErrorDeclarationError<Msg extends string> {
   'error-declaration-error': Msg
 }
 
-/** What an entry's schema produces, or `never` for an entry without one. */
+/**
+ * What an entry's schema produces, or `never` for an entry without one. A
+ * schema typed optional, as `ErrorEntry` types it, is read as the schema it
+ * may be: the runtime goes by the value, and an entry that holds one demands
+ * its fields.
+ */
 export type EntryOutput<Entry> = Entry extends {
-  readonly schema: infer Schema extends StandardSchemaV1
+  readonly schema?: infer Schema
 }
-  ? StandardSchemaV1.InferOutput<Schema>
+  ? Exclude<Schema, undefined> extends infer Defined extends StandardSchemaV1
+    ? [Defined] extends [never]
+      ? never
+      : StandardSchemaV1.InferOutput<Defined>
+    : never
   : never
 
 // The `_tag` literals a schema's output carries, over every member of a union

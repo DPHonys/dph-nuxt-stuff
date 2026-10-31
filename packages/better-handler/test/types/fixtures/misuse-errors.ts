@@ -5,9 +5,14 @@
  * let each diagnostic through so the suite can read it.
  */
 
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { z } from 'zod'
 import { defineError } from '../../../src/runtime/server'
-import type { ErrorDeclarations, Fail } from '../../../src/runtime/types'
+import type {
+  ErrorDeclarations,
+  ErrorEntry,
+  Fail,
+} from '../../../src/runtime/types'
 import type { ErrorDeclarationsGuard } from '../../../src/runtime/types/errors/declaration'
 
 // A route's `errors` option, as the handler wrapper takes it: the map
@@ -80,6 +85,34 @@ export const reservedThroughFail = fail('validation-failed')
 export const missingFields = fail('order-not-found')
 export const wrongField = fail('order-not-found', { id: 'seven' })
 export const fieldsWithoutSchema = fail('order-locked', { id: 7 })
+
+// An untyped schema's output is `any`, and the runtime still demands its
+// fields object.
+declare const untypedSchema: StandardSchemaV1<any, any>
+const failUntyped = route({ untyped: { status: 400, schema: untypedSchema } })
+
+export const untypedWithoutFields = failUntyped('untyped')
+
+// A schema typed optional is still a schema when the entry holds one.
+const orderRef = z.object({ id: z.number() })
+
+interface OptionalSchemaEntry {
+  readonly status: 400
+  readonly schema?: typeof orderRef
+}
+
+const optionalEntry: OptionalSchemaEntry = { status: 400, schema: orderRef }
+const failOptional = route({ optional: optionalEntry })
+
+export const optionalWithoutFields = failOptional('optional')
+
+const annotatedEntry: ErrorEntry = {
+  status: 400,
+  schema: z.object({ id: z.number() }),
+}
+const failAnnotated = route({ annotated: annotatedEntry })
+
+export const annotatedWithoutFields = failAnnotated('annotated')
 
 // --- narrowing is Pick ------------------------------------------------------
 

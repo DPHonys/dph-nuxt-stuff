@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
 import { defineError } from '../../src/runtime/server'
@@ -52,6 +53,14 @@ const either = {
 declare const failEither: Fail<typeof either>
 
 declare const failPicked: Fail<Pick<typeof declared, 'order-locked'>>
+
+declare const failUntyped: Fail<{
+  untyped: { readonly status: 400; readonly schema: StandardSchemaV1<any, any> }
+}>
+
+declare const failOptional: Fail<{
+  optional: { readonly status: 400; readonly schema?: typeof orderRef }
+}>
 
 describe('defineError', () => {
   it('returns a one-key map of the tag to its entry', () => {
@@ -153,6 +162,25 @@ describe('the Fail helper', () => {
     expectTypeOf(failEither<'order-held'>)
       .parameter(1)
       .toEqualTypeOf<{ by: 'user'; userId: string } | { by: 'system' }>()
+  })
+})
+
+describe('the Fail helper on a loosely typed schema', () => {
+  it('takes a fields value for an untyped schema, whose output is any', () => {
+    // `any` is the answer an untyped schema gives; the slot is still there,
+    // as the runtime still demands a fields object.
+    expectTypeOf(failUntyped<'untyped'>).parameters.toEqualTypeOf<
+      [tag: 'untyped', value: any]
+    >()
+    expectTypeOf(
+      failUntyped('untyped', { x: 1 })._tag
+    ).toEqualTypeOf<'untyped'>()
+  })
+
+  it('reads the fields off a schema typed optional', () => {
+    expectTypeOf(failOptional<'optional'>).parameters.toEqualTypeOf<
+      [tag: 'optional', value: { id: number }]
+    >()
   })
 })
 
