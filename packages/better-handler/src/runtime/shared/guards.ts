@@ -31,6 +31,19 @@ export function isRecordLike(value: unknown): value is object {
 }
 
 /**
+ * Whether `value` is a plain object: one an object literal, `JSON.parse` or
+ * `Object.create(null)` made, never a class instance. What a wire value is,
+ * so the test a value read off `data` must pass.
+ */
+export function isPlainObject(value: unknown): value is object {
+  if (!isRecordLike(value)) return false
+
+  const prototype: unknown = Object.getPrototypeOf(value)
+
+  return prototype === Object.prototype || prototype === null
+}
+
+/**
  * Whether `value` implements Standard Schema v1: an object or a callable
  * carrying a `~standard` object whose `version` is `1` and whose `validate`
  * is a function. Nothing else is consulted, so any conforming library passes.

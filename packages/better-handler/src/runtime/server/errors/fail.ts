@@ -1,5 +1,6 @@
 import { isRecordLike, isString } from '../../shared/guards'
 import { describeValue, developerFault } from '../faults'
+import { describeDeclaredTags } from './declaration'
 import type { ResolvedErrors } from './declaration'
 
 /**
@@ -58,14 +59,6 @@ Object.defineProperty(FailedError.prototype, 'name', {
  */
 export type RuntimeFail = (tag: string, ...fields: unknown[]) => Error
 
-function describeTags(errors: ResolvedErrors): string {
-  const tags = Object.keys(errors)
-
-  return tags.length === 0
-    ? 'none'
-    : tags.map((tag) => JSON.stringify(tag)).join(', ')
-}
-
 /**
  * The Fail helper for one route's checked declarations. The compile-time
  * pairing is the guard; what is checked here is only what a caller the types
@@ -80,7 +73,7 @@ export function createFail(errors: ResolvedErrors): RuntimeFail {
     // hand back an error whose `_tag` is the number.
     if (!isString(tag)) {
       throw developerFault(
-        `fail takes an error tag, a string, and was handed ${describeValue(tag)}. The route declares ${describeTags(errors)}.`
+        `fail takes an error tag, a string, and was handed ${describeValue(tag)}. The route declares ${describeDeclaredTags(errors)}.`
       )
     }
 
@@ -90,7 +83,7 @@ export function createFail(errors: ResolvedErrors): RuntimeFail {
 
     if (entry === undefined) {
       throw developerFault(
-        `fail(${JSON.stringify(tag)}) names no error this route declares. The route declares ${describeTags(errors)}.`
+        `fail(${JSON.stringify(tag)}) names no error this route declares. The route declares ${describeDeclaredTags(errors)}.`
       )
     }
 

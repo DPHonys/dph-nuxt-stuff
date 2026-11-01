@@ -37,11 +37,21 @@ const SENTENCES = {
   emptyTag: 'an error tag must be a non-empty string',
   oneLiteral: 'an error tag must be one string literal',
   tagMismatch:
-    "the schema's output has _tag order-missing, which must equal the tag order-not-found",
+    "the schema's input has _tag order-missing, which must equal the tag order-not-found",
+  tagMismatchInput:
+    "the schema's input has _tag order-missing, which must equal the tag order-relabelled",
   objectFields: 'the schema must describe an object of fields beside _tag',
   strayKey:
     'payload is not an error entry key - an entry takes status and schema',
   numericKey: 'an error tag must be a string key - quote a numeric one',
+  bigintField:
+    'the field total cannot go out as JSON - it holds a bigint or a symbol',
+  indexedBigint:
+    'the field values cannot go out as JSON - it holds a bigint or a symbol',
+  numericBigint:
+    'the field 0 cannot go out as JSON - it holds a bigint or a symbol',
+  nestedSymbol:
+    'the field lines cannot go out as JSON - it holds a bigint or a symbol',
 } as const
 
 /** The one diagnostic reported on the fixture line containing `needle`. */
@@ -63,7 +73,7 @@ describe('the error declaration diagnostics', () => {
   it('are the same run every time, and nothing more than this run', () => {
     // The count is pinned as well as each sentence, so a diagnostic that
     // appears, moves or vanishes fails here rather than passing quietly.
-    expect(diagnostics).toHaveLength(35)
+    expect(diagnostics).toHaveLength(41)
     expect(compileFixture(FIXTURE_TSCONFIG, FIXTURE)).toEqual(diagnostics)
   })
 
@@ -99,17 +109,47 @@ describe('defineError refuses an entry its tag cannot carry', () => {
     expect(guarding(diagnostic, SENTENCES.tagMismatch)).toBe(true)
   })
 
-  it('refuses a schema whose output is not an object of fields', () => {
+  it('reads the _tag literal off the schema input, which is what is thrown', () => {
+    const diagnostic = at("defineError('order-relabelled'")
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.tagMismatchInput)).toBe(true)
+  })
+
+  it('refuses a schema whose input is not an object of fields', () => {
     const diagnostic = at("defineError('scalar-fields'")
 
     expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
     expect(guarding(diagnostic, SENTENCES.objectFields)).toBe(true)
   })
 
+  it('refuses a field JSON cannot carry, at the tag', () => {
+    // The fields go out inside `data` through JSON, which has no form for a
+    // bigint: serialising one would throw while the error body is written.
+    const diagnostic = at("defineError('order-big'")
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.bigintField)).toBe(true)
+  })
+
+  it('refuses a bigint under a numeric index signature, at the tag', () => {
+    const diagnostic = at("defineError('order-indexed'")
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.indexedBigint)).toBe(true)
+  })
+
+  it('refuses a bigint field under a numeric key, at the tag', () => {
+    const diagnostic = at("defineError('order-numbered'")
+
+    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.numericBigint)).toBe(true)
+  })
+
   it.each([
     ['an array', "defineError('mixed-array'"],
     ['a function', "defineError('mixed-callable'"],
-  ])('refuses a union output with %s among its members', (_, needle) => {
+  ])('refuses a union input with %s among its members', (_, needle) => {
     const diagnostic = at(needle)
 
     expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
@@ -125,7 +165,7 @@ describe('defineError refuses an entry its tag cannot carry', () => {
   })
 })
 
-describe("a route's errors map is refused at the key", () => {
+describe("a route's errors are refused at the key", () => {
   it('refuses a reserved tag', () => {
     const diagnostic = at("'validation-failed': { status: 400 }")
 
@@ -149,14 +189,21 @@ describe("a route's errors map is refused at the key", () => {
     expect(guarding(diagnostic, SENTENCES.strayKey)).toBe(true)
   })
 
-  it('refuses a pattern key, which is no one tag', () => {
-    const diagnostic = at('route(patterned)')
+  it('refuses a field holding what JSON cannot carry, however deep', () => {
+    const diagnostic = at("'order-nested': {")
 
-    expect(diagnostic?.code).toBe(ARGUMENT_NOT_ASSIGNABLE)
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
+    expect(guarding(diagnostic, SENTENCES.nestedSymbol)).toBe(true)
+  })
+
+  it('refuses a pattern key, which is no one tag', () => {
+    const diagnostic = at('{ errors: patterned }')
+
+    expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
     expect(guarding(diagnostic, SENTENCES.oneLiteral)).toBe(true)
   })
 
-  it('refuses a union output with an array member', () => {
+  it('refuses a union input with an array member', () => {
     const diagnostic = at("'mixed-array': {")
 
     expect(diagnostic?.code).toBe(NOT_ASSIGNABLE)
@@ -199,10 +246,17 @@ describe('fail pairs a declared tag with its fields', () => {
     })
   })
 
-  it('checks the fields against the schema output', () => {
+  it('checks the fields against the schema input', () => {
     expect(at("fail('order-not-found', { id: 'seven' })")).toMatchObject({
       code: NOT_ASSIGNABLE,
       message: "Type 'string' is not assignable to type 'number'.",
+    })
+  })
+
+  it('refuses the output of a transforming schema, which is not what is sent', () => {
+    expect(at("fail('order-dated', { id: 7 })")).toMatchObject({
+      code: NOT_ASSIGNABLE,
+      message: "Type 'number' is not assignable to type 'string'.",
     })
   })
 
@@ -214,9 +268,9 @@ describe('fail pairs a declared tag with its fields', () => {
   })
 
   it.each([
-    ["failUntyped('untyped')", 'an untyped schema, whose output is any'],
-    ["failOptional('optional')", 'an entry typing its schema optional'],
-    ["failAnnotated('annotated')", 'an entry annotated as ErrorEntry'],
+    ["throw fail('untyped')", 'an untyped schema, whose input is any'],
+    ["throw fail('optional')", 'an entry typing its schema optional'],
+    ["throw fail('annotated')", 'an entry annotated as ErrorEntry'],
   ])('requires the fields of %s, as the runtime does for %s', (needle) => {
     expect(at(needle)).toMatchObject({
       code: WRONG_ARGUMENT_COUNT,
@@ -226,22 +280,22 @@ describe('fail pairs a declared tag with its fields', () => {
 
   it.each([
     [
-      "failOpaque('opaque', 7)",
+      "fail('opaque', 7)",
       'a primitive',
       "Argument of type 'number' is not assignable to parameter of type 'Record<string, unknown>'.",
     ],
     [
-      "failOpaque('opaque', [7])",
+      "fail('opaque', [7])",
       'an array',
       "Argument of type 'number[]' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type 'number[]'.",
     ],
     [
-      "failOpaque('opaque', () => 7)",
+      "fail('opaque', () => 7)",
       'a function',
       "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
     ],
   ])(
-    '%s refuses %s for a schema whose output is unknown, as the runtime does',
+    '%s refuses %s for a schema whose input is unknown, as the runtime does',
     (needle, _, message) => {
       expect(at(needle)).toMatchObject({
         code: ARGUMENT_NOT_ASSIGNABLE,
@@ -250,8 +304,8 @@ describe('fail pairs a declared tag with its fields', () => {
     }
   )
 
-  it('takes a record of fields for a schema whose output is unknown', () => {
-    const line = lineContaining(FIXTURE, "failOpaque('opaque', { id: 7 })")
+  it('takes a record of fields for a schema whose input is unknown', () => {
+    const line = lineContaining(FIXTURE, "fail('opaque', { id: 7 })")
 
     expect(
       diagnostics.filter((diagnostic) => diagnostic.line === line)
@@ -260,32 +314,32 @@ describe('fail pairs a declared tag with its fields', () => {
 
   it.each([
     [
-      "failKeyless('tag-only', 7)",
+      "fail('tag-only', 7)",
       'a primitive',
       "Argument of type 'number' is not assignable to parameter of type 'Record<string, unknown>'.",
     ],
     [
-      "failKeyless('tag-only', [7])",
+      "fail('tag-only', [7])",
       'an array',
       "Argument of type 'number[]' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type 'number[]'.",
     ],
     [
-      "failKeyless('tag-only', () => 7)",
+      "fail('tag-only', () => 7)",
       'a function',
       "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
     ],
     [
-      "failKeyless('object-output', 7)",
+      "fail('object-input', 7)",
       'a primitive',
       "Argument of type 'number' is not assignable to parameter of type 'Record<string, unknown>'.",
     ],
     [
-      "failKeyless('object-output', [7])",
+      "fail('object-input', [7])",
       'an array',
       "Argument of type 'number[]' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type 'number[]'.",
     ],
     [
-      "failKeyless('object-output', () => 7)",
+      "fail('object-input', () => 7)",
       'a function',
       "Argument of type '() => number' is not assignable to parameter of type 'Record<string, unknown>'.\n  Index signature for type 'string' is missing in type '() => number'.",
     ],
@@ -299,19 +353,19 @@ describe('fail pairs a declared tag with its fields', () => {
     }
   )
 
-  it.each([
-    "failKeyless('tag-only', {})",
-    "failKeyless('object-output', { id: 7 })",
-  ])('%s takes a record for a schema naming no fields', (needle) => {
-    const line = lineContaining(FIXTURE, needle)
+  it.each(["fail('tag-only', {})", "fail('object-input', { id: 7 })"])(
+    '%s takes a record for a schema naming no fields',
+    (needle) => {
+      const line = lineContaining(FIXTURE, needle)
 
-    expect(
-      diagnostics.filter((diagnostic) => diagnostic.line === line)
-    ).toEqual([])
-  })
+      expect(
+        diagnostics.filter((diagnostic) => diagnostic.line === line)
+      ).toEqual([])
+    }
+  )
 
   it('refuses a tag a Pick narrowed away, at the tag', () => {
-    expect(at("failNarrowed('forbidden'")).toMatchObject({
+    expect(at("throw fail('forbidden'")).toMatchObject({
       code: ARGUMENT_NOT_ASSIGNABLE,
       message: `Argument of type '"forbidden"' is not assignable to parameter of type '"unauthorized"'.`,
     })

@@ -39,6 +39,11 @@ export interface HttpErrorInput<Data> {
   /** The error's `data`, sent as the body's `data`; absent when omitted. */
   readonly data?: Data
   /**
+   * What the error stands in for, kept as its `cause` for the logs and an
+   * error hook; h3 never sends a cause.
+   */
+  readonly cause?: unknown
+  /**
    * Whether the error is a server bug rather than an answer: Nitro logs an
    * unhandled error with its stack, and a production server sends its client
    * a generic `500` without the `message` or `data`. Defaults to `false`.
@@ -63,6 +68,7 @@ export function httpError<Data>(input: HttpErrorInput<Data>): H3Error<Data> {
   }
 
   if (input.data !== undefined) fields.data = input.data
+  if (input.cause !== undefined) fields.cause = input.cause
   if (input.unhandled === true) fields.unhandled = true
 
   return createError<Data>(fields)

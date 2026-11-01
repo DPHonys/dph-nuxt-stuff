@@ -5,7 +5,12 @@
  */
 
 import type { H3Error } from 'h3'
-import { isFunction, isRecordLike, isString } from '../shared/guards'
+import {
+  isFunction,
+  isPlainObject,
+  isRecordLike,
+  isString,
+} from '../shared/guards'
 import { httpError } from '../shared/h3'
 
 /** The module's `meta.name`, leading every sentence the package raises. */
@@ -51,9 +56,8 @@ export function describeValue<Value>(value: Value): string {
   if (isString(value)) return `the string ${JSON.stringify(value)}`
   if (Object(value) !== value) return `the primitive ${String(value)}`
 
-  const prototype: unknown = Object.getPrototypeOf(value)
-
-  if (prototype !== Object.prototype && prototype !== null) {
+  if (!isPlainObject(value)) {
+    const prototype: unknown = Object.getPrototypeOf(value)
     const name =
       isRecordLike(prototype) &&
       'constructor' in prototype &&

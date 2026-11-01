@@ -52,26 +52,28 @@ export interface ErrorDeclarationError<Msg extends string> {
 }
 
 /**
- * What an entry's schema produces, or `never` for an entry without one. A
- * schema typed optional, as `ErrorEntry` types it, is read as the schema it
- * may be: the runtime goes by the value, and an entry that holds one demands
- * its fields.
+ * What an entry's schema accepts, or `never` for an entry without one. The
+ * input, not the output: the fields go out as they were thrown, and the
+ * development check validates that thrown value, so a transforming schema's
+ * output is never what is raised or sent. A schema typed optional, as
+ * `ErrorEntry` types it, is read as the schema it may be: the runtime goes by
+ * the value, and an entry that holds one demands its fields.
  */
-export type EntryOutput<Entry> = Entry extends {
+export type EntryInput<Entry> = Entry extends {
   readonly schema?: infer Schema
 }
   ? Exclude<Schema, undefined> extends infer Defined extends StandardSchemaV1
     ? [Defined] extends [never]
       ? never
-      : StandardSchemaV1.InferOutput<Defined>
+      : StandardSchemaV1.InferInput<Defined>
     : never
   : never
 
-// The `_tag` literals a schema's output carries, over every member of a union
-// output; `never` when no member has the key.
-type TagLiteralsOf<Output> = Output extends unknown
-  ? '_tag' extends keyof Output
-    ? Exclude<Output['_tag'], undefined>
+// The `_tag` literals a schema's input carries, over every member of a union
+// input; `never` when no member has the key.
+type TagLiteralsOf<Input> = Input extends unknown
+  ? '_tag' extends keyof Input
+    ? Exclude<Input['_tag'], undefined>
     : never
   : never
 
@@ -93,52 +95,120 @@ type TagRule<Tag extends string> = string extends Tag
           ? `${Tag} is reserved for the built-in variant - rename the declared error`
           : never
 
-// The members of a schema's output that are no object of fields: an array or
+// The members of a schema's input that are no object of fields: an array or
 // a function, each an object to the compiler. One such member of a union
-// output is enough to refuse it, as the runtime refuses that member's value.
-type NotFieldsMembers<Output> = Extract<
-  Output,
+// input is enough to refuse it, as the runtime refuses that member's value.
+type NotFieldsMembers<Input> = Extract<
+  Input,
   readonly unknown[] | ((...args: never[]) => void)
 >
 
 /**
  * The sentence an entry's schema breaks against its tag, or `never`. The
- * schema describes the fields beside `_tag`, so its output is an object, and
- * so is every member of a union output; when that output carries a `_tag`
+ * schema describes the fields beside `_tag`, so its input is an object, and
+ * so is every member of a union input; when that input carries a `_tag`
  * literal too, it is the tag itself.
  */
 // `any` and `unknown` are what an untyped schema answers; nothing can be
 // said about its fields, so nothing is refused.
-type SchemaRule<Tag extends string, Output> =
-  IsAny<Output> extends true
+type SchemaRule<Tag extends string, Input> =
+  IsAny<Input> extends true
     ? never
-    : unknown extends Output
+    : unknown extends Input
       ? never
-      : [Output] extends [never]
+      : [Input] extends [never]
         ? never
-        : [Output] extends [object]
-          ? [NotFieldsMembers<Output>] extends [never]
-            ? TagLiteralsOf<Output> extends infer Literal
+        : [Input] extends [object]
+          ? [NotFieldsMembers<Input>] extends [never]
+            ? TagLiteralsOf<Input> extends infer Literal
               ? [Literal] extends [never]
                 ? never
                 : string extends Literal
                   ? never
                   : [Literal] extends [Tag]
                     ? never
-                    : `the schema's output has _tag ${Literal & string}, which must equal the tag ${Tag}`
+                    : `the schema's input has _tag ${Literal & string}, which must equal the tag ${Tag}`
               : never
             : 'the schema must describe an object of fields beside _tag'
           : 'the schema must describe an object of fields beside _tag'
 
+// What JSON has no form for. Functions are not here: JSON leaves a
+// function-valued field out, the boundary never collects one, and a class
+// instance's methods - a `toJSON` among them - are not fields at all, so
+// refusing them would refuse every schema typed by a class.
+type NoJsonForm = bigint | symbol
+
+// Whether a value inside `data` holds anything JSON has no form for, followed
+// into objects, arrays and a nested value's own `toJSON`, which JSON calls.
+// Bounded, and `true` only for a member it can name: an `unknown` or `any`
+// field says nothing, so it is never refused.
+// Every key but a symbol is followed: JSON and the boundary skip symbol keys,
+// but a numeric key or index signature is a key JSON writes.
+type HoldsNoJsonForm<Value, Depth extends unknown[] = []> =
+  IsAny<Value> extends true
+    ? false
+    : unknown extends Value
+      ? false
+      : Depth['length'] extends 8
+        ? false
+        : Value extends NoJsonForm
+          ? true
+          : Value extends (...args: never[]) => void
+            ? false
+            : Value extends { toJSON: (...args: never[]) => infer Json }
+              ? HoldsNoJsonForm<Json, [...Depth, unknown]>
+              : Value extends readonly (infer Item)[]
+                ? HoldsNoJsonForm<Item, [...Depth, unknown]>
+                : Value extends object
+                  ? true extends {
+                      [Key in Exclude<keyof Value, symbol>]-?: HoldsNoJsonForm<
+                        Value[Key],
+                        [...Depth, unknown]
+                      >
+                    }[Exclude<keyof Value, symbol>]
+                    ? true
+                    : false
+                  : false
+
+// The fields of a schema's input that cannot go out as JSON, over every
+// member of a union input. The thrown value itself is never serialised whole -
+// the boundary copies its own fields - so its own `toJSON` is not followed.
+type UnsendableFields<Input> = Input extends unknown
+  ? {
+      [Key in Exclude<keyof Input, symbol>]-?: Key extends '_tag'
+        ? never
+        : true extends HoldsNoJsonForm<Input[Key]>
+          ? Key
+          : never
+    }[Exclude<keyof Input, symbol>]
+  : never
+
+/**
+ * The sentence an entry's fields break, or `never`: each goes out inside
+ * `data` through JSON, so a field JSON cannot carry is refused.
+ */
+type FieldsRule<Input> =
+  IsAny<Input> extends true
+    ? never
+    : unknown extends Input
+      ? never
+      : UnsendableFields<Input> extends infer Field extends string | number
+        ? [Field] extends [never]
+          ? never
+          : `the field ${Field} cannot go out as JSON - it holds a bigint or a symbol`
+        : never
+
 /**
  * Every sentence a tag and its entry break, checked at the tag: the tag
- * rules first, then the schema's against it. `unknown`, the identity of `&`,
- * when the declaration holds.
+ * rules first, then the schema's against it, then its fields'. `unknown`,
+ * the identity of `&`, when the declaration holds.
  */
 export type TagGuard<Tag extends string, Entry> = [TagRule<Tag>] extends [never]
-  ? [SchemaRule<Tag, EntryOutput<Entry>>] extends [never]
-    ? unknown
-    : ErrorDeclarationError<SchemaRule<Tag, EntryOutput<Entry>>>
+  ? [SchemaRule<Tag, EntryInput<Entry>>] extends [never]
+    ? [FieldsRule<EntryInput<Entry>>] extends [never]
+      ? unknown
+      : ErrorDeclarationError<FieldsRule<EntryInput<Entry>>>
+    : ErrorDeclarationError<SchemaRule<Tag, EntryInput<Entry>>>
   : ErrorDeclarationError<TagRule<Tag>>
 
 /**

@@ -32,12 +32,13 @@ export default defineNuxtModule<ModuleOptions>({
 
     // By name from the `/server` entry, never a directory scan, which would
     // widen an app's ambient surface whenever a runtime file is added.
-    addServerImports([
-      {
-        name: 'defineError',
-        from: resolver.resolve('./runtime/server/index'),
-      },
-    ])
+    const serverEntry = resolver.resolve('./runtime/server/index')
+
+    addServerImports(
+      ['defineBetterEventHandler', 'defineError', 'recognizeKnownError'].map(
+        (name) => ({ name, from: serverEntry })
+      )
+    )
 
     // Registered only to turn the checks off: the option carries no value
     // into the bundle, so the plugin's presence is the whole of the setting.
