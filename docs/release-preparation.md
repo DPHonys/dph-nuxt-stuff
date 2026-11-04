@@ -88,3 +88,25 @@ exact-version Nuxt consumer proof for routine releases. Routine releases use
 Release intent, a reviewed Release commit, the manual **Publish** workflow,
 pull-request previews, the Canonical publication gate, `publint`, and npm's
 publish result.
+
+## Retire a published package
+
+Deleting a Publishable package's directory from `packages/` does not touch
+npm: its published versions stay installable and show no sign of retirement.
+After that change reaches `main`, a maintainer deprecates the package and
+confirms the message, using an npm account with account 2FA enabled:
+
+```sh
+npm login --registry=https://registry.npmjs.org
+npm deprecate @dphonys/nuxt-typed-handler "Superseded by @dphonys/better-handler"
+npm view @dphonys/nuxt-typed-handler deprecated
+```
+
+Respond to npm's interactive 2FA challenge when requested. Name the package
+without a version so the message covers every published version range;
+`npm view` must print it back. Deprecation is registry metadata, not
+publication: do not unpublish, and do not add a workflow step or token for it.
+
+A version that never published needs nothing, such as one whose only record
+was a Release intent or `.changeset/ledger.yaml` entry deleted with the
+package.
